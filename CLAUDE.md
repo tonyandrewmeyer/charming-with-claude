@@ -2,8 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Note that to run `charmcraft` on macOS, you will need to run `uvx charmcraft`.
-
 ## Juju, Pebble, and Charms
 
 We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://juju.is/docs
