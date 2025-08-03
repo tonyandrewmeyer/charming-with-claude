@@ -77,7 +77,7 @@ Always keep the `README.md` and `CONTRIBUTING.md` files updated as changes are m
 
 ## Using the charm with Juju
 
-When the charm is ready to test, run `charmcraft pack` to create the `.charm` file. Always run `charmcraft lint` after packing, to verify that there are no problems with the charm.
+When the charm is ready to test, run `charmcraft pack` to create the `.charm` file. Always run `charmcraft analyse` after packing, to verify that there are no problems with the charm.
 
 You can interact with the charm using the Juju CLI. All of the commands are well documented: https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/
 
