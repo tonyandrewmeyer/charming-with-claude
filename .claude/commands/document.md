@@ -87,56 +87,14 @@ Analyzes git history to create structured changelog in the project root:
 - Remove deprecated `/v1/auth` endpoint
 ```
 
-#### 3. API Documentation (`/docs` Directory)
+#### 3. User Documentation (`/docs` Directory)
 
-Converts technical specs to human-readable docs in the `/docs` folder:
+User documentation uses the [Diátaxis approach](https://diataxis.fr). This means that we provide four forms of documentation:
 
-**OpenAPI/Swagger:**
-
-- Generates markdown from `openapi.yaml` or `swagger.json`
-- Includes endpoint descriptions, parameters, and examples
-- Creates authentication and error handling sections
-
-**gRPC/Protocol Buffers:**
-
-- Parses `.proto` files to create service documentation
-- Documents message types and field descriptions
-- Generates client code examples
-
-**GraphQL:**
-
-- Analyzes schema files to document queries, mutations, and types
-- Creates interactive examples and usage patterns
-
-#### 4. Configuration Documentation (`/docs` Directory)
-
-Documents environment variables and config options in the `/docs` folder:
-
-**Environment Variables:**
-
-```markdown
-## Configuration
-
-| Variable       | Description                  | Default | Required |
-| -------------- | ---------------------------- | ------- | -------- |
-| `DATABASE_URL` | PostgreSQL connection string | -       | Yes      |
-| `JWT_SECRET`   | Secret key for JWT tokens    | -       | Yes      |
-| `LOG_LEVEL`    | Logging level                | `info`  | No       |
-```
-
-**Config File Examples:**
-
-```yaml
-# config.example.yaml
-database:
-  host: localhost
-  port: 5432
-  name: myapp_development
-
-server:
-  port: 8080
-  host: 0.0.0.0
-```
+* Tutorials: we should have one tutorial that carefully walks a user through installing, deploying, and using the charm. The tutorial helps the reader learn about the charm.
+* How-to Guides: for each major feature of the charm, we should have a how-to guide. The how-go guides help readers achieve goals, like "how can I use the charm with a different database".
+* Explanation: copy design guides, architecture plans, and so forth here. The reader gains understanding of the charm by reading this material. There should always be at least one document, called "Security", that outlines any use of cryptographic technology, any hardening that can be done, any security risks in using the charm, and any security best practices with regards to the charm.
+* Reference: The actions, config, and any other user surface area should be covered in the reference documentation. This is information that the reader uses when they are looking for specific answers.
 
 ### Documentation Maintenance
 
@@ -147,9 +105,9 @@ server:
 
 **Quality Checks:**
 
-- Validates markdown syntax and links
+- Validates Markdown syntax and links
 - Checks for broken references to code or files
-- Ensures all public APIs are documented
+- Ensures all actions and config are documented
 
 ## Examples
 
@@ -169,23 +127,6 @@ server:
 
 ```
 /document --changelog-only
-```
-
-## File Structure Created
-
-```
-project-root/
-├── README.md                    # Main project documentation
-├── CHANGELOG.md                 # Release history and changes
-└── docs/                        # Detailed documentation
-    ├── api.md                   # API reference documentation
-    ├── configuration.md         # Environment variables and config
-    ├── installation.md          # Detailed installation guide
-    ├── usage.md                 # Usage examples and tutorials
-    └── templates/               # Custom documentation templates
-        ├── README.template.md
-        ├── CHANGELOG.template.md
-        └── API.template.md
 ```
 
 ## Integration Features
