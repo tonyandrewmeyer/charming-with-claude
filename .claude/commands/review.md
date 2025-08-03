@@ -1,3 +1,5 @@
+# Provide a high level review of the project
+
 # Inspired by https://github.com/wcygan/dotfiles
 
 Provide a high-level review of the given $ARGUMENT or current context. Keep analysis concise and actionable.

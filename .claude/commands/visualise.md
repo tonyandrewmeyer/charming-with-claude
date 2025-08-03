@@ -1,3 +1,5 @@
+# General diagrams
+
 # Inspired by https://github.com/wcygan/dotfiles
 
 Analyses code and architecture to generate explanatory diagrams.

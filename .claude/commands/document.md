@@ -1,3 +1,5 @@
+# Document the project
+
 # Inspired by https://github.com/wcygan/dotfiles
 
 Generates high-quality, user-facing documentation automatically.

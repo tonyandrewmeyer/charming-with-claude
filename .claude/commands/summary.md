@@ -1,3 +1,5 @@
+# Summarise the current chat
+
 # Inspired by https://github.com/wcygan/dotfiles
 
 You are summarising everything we have discussed in this chat up to this message.

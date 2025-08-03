@@ -1,3 +1,5 @@
+# Clean up technical debt
+
 # Inspired by https://github.com/wcygan/dotfiles
 
 Clean up technical debt in $ARGUMENTS.
