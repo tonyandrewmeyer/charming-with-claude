@@ -57,7 +57,7 @@ Continuing:
 4. In `src/` there is a workload Python module. This should contain methods that provide interaction with the workload - for machine charms, this will be installing, updating, and removing packages with `apt` or `snap`, and communication with the workload via `subprocess` or an HTTP API. For Kubernetes charms, services are managed via Pebble and interaction with the workload is typically via an HTTP API, but might also involve running processes in the workfload containers with Pebble's `exec`.
 5. The first thing to get working is installation (for machine charms) and getting the workload running, often by providing a configuration file.
 
-Always keep the `README.md` and `CONTRIBUTING.md` files updated as changes are made. The `uv.lock` file should be committed to git and regularly updated.
+Always keep the `README.md` and `CONTRIBUTING.md` files updated as changes are made. The `uv.lock` file should be committed to git and regularly updated. You should have a `.gitignore` file that includes `.claude/settings.local.json`.
 
 ### Extra setup
 
