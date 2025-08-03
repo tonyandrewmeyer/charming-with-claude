@@ -92,7 +92,7 @@ For example, to deploy the charm: `juju deploy ./{charm-name}.charm`, to scale u
 * Always use "import x" rather than "from x import y", *except* for `typing` imports. For example, always `import pathlib` and `pathlib.Path()` rather than `from pathlib import Path` and `Path()`. Other code style guidelines can be found at: https://github.com/canonical/operator/blob/main/STYLE.md
 * Outside of the `src/charm.py` file, only use classes when there is a clear benefit. Remember that a module provides most of the benefits of a class, unless multiple instances are required.
 * Imports go at the top of modules, never inside of classes or methods.
-* Always use British English for comments and documentation, not American English.
+* Always use British English for comments and documentation, not American English. If possible, rephrase to avoid using words that are spelt differently in American English.
 
 If you need to run `apt` or `snap` or manage `system`, then you should the charm libs from [operator-libs-linux](https://github.com/canonical/operator-libs-linux/tree/main/lib/charms/operator_libs_linux). Add the dependency to `charmcraft.yaml` like:
 
