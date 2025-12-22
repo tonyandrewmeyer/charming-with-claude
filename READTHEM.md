@@ -17,7 +17,7 @@
 * [You Should Write An Agent](https://fly.io/blog/everyone-write-an-agent/) - on the fly.io blog but not at all specific to their services
 * [Built With Borrowed Hands](https://cra.mr/built-with-borrowed-hands/) - building Sentry's MCP server
 * [Safe YOLO mode for Claude](https://www.anthropic.com/engineering/claude-code-best-practices#d-safe-yolo-mode) - the Docker Dev Containers example in particular
-* [LLMs as Parts of Systems](https://brooker.co.za/blog/2025/08/12/llms-as-components.html) - from one of the Kiro engineers
+* [LLMs as Parts of Systems](https://brooker.co.za/blog/2025/08/12/llms-as-components.html) - from one of the [Kiro](https://kiro.dev/) engineers
 * [The fate of “small” open source](https://nolanlawson.com/2025/11/16/the-fate-of-small-open-source/) - the author argues that there is educational value in the zillion tiny library issue, which AI may solve
 * [Just Talk To It - the no-bs Way of Agentic Engineering](https://steipete.me/posts/just-talk-to-it) - Will date quickly, but a good summary of the world in October 2025
 * [A pragmatic guide to LLM evals for devs](https://newsletter.pragmaticengineer.com/p/evals)
