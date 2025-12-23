@@ -70,7 +70,7 @@ Analyzes git history to create structured changelog in the project root:
 ```markdown
 # Changelog
 
-## [1.2.0] - 2024-06-06
+## [1.2.0] - 2025-06-06
 
 ### Features
 
