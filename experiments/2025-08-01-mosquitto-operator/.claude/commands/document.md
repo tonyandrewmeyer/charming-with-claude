@@ -92,7 +92,7 @@ Analyzes git history to create structured changelog in the project root:
 User documentation uses the [Diátaxis approach](https://diataxis.fr). This means that we provide four forms of documentation:
 
 * Tutorials: we should have one tutorial that carefully walks a user through installing, deploying, and using the charm. The tutorial helps the reader learn about the charm.
-* How-to Guides: for each major feature of the charm, we should have a how-to guide. The how-go guides help readers achieve goals, like "how can I use the charm with a different database".
+* How-to Guides: for each major feature of the charm, we should have a how-to guide. The how-to guides help readers achieve goals, like "how can I use the charm with a different database".
 * Explanation: copy design guides, architecture plans, and so forth here. The reader gains understanding of the charm by reading this material. There should always be at least one document, called "Security", that outlines any use of cryptographic technology, any hardening that can be done, any security risks in using the charm, and any security best practices with regards to the charm.
 * Reference: The actions, config, and any other user surface area should be covered in the reference documentation. This is information that the reader uses when they are looking for specific answers.
 
