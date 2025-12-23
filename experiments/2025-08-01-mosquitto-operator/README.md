@@ -1,0 +1,106 @@
+I have plenty of concerns about the current genAI boom / bubble -- my favourite presentation that I've given over the last couple of years was all about the negatives of (generative / LLM) AI and why organisations should think carefully ("ultrathink" ;)) before incorporating it.
+
+It's clear that there are financial issues, and there are lots of unanswered questions about sustainability and the environment, and both legal and moral questions about training data. I very strongly feel that the world will be a lesser place if we move to consuming creative content (movies, music, books, and all the rest) that's produced without significant human input. However, it does seem like that there is some value in using these tools to code.
+
+You should definitely read [Ed Zitron](https://www.wheresyoured.at/), but read [Simon](https://simonwillison.net/) and [Armin](https://lucumr.pocoo.org/) and [Thomas Ptacek](https://fly.io/blog/youre-all-nuts/) and others as well. Given that I'm employed as a software engineer, I don't think that I can simply be [tired of talking about AI](https://paddy.carvers.com/posts/2025/07/ai/), even though sometimes I really am. Use it or not, love it or not, bubble or not, I have a responsibility to know what's going on.
+
+I'm curious how useful "agentic" tools, like Claude Code, are when creating charms. I'm sure that they are not anywhere near being able to create charms of the complexity and quality that our charming teams regularly produce. I'm also fairly sure that for simple charms that are providing workloads using common web frameworks that the Platform Engineering team are already providing what's needed with the [12-factor project](https://canonical-charmcraft.readthedocs-hosted.com/3.5.2/tutorial/#factor-app-extensions).
+
+I wondered how capable these tools are at producing at least an initial charm for a fairly simple workload that isn't a web app. A 'success' in my experimentation wouldn't be to produce something that's ready to be used in production or publicly listed on Charmhub, but be substantially closer to that than a basic `charmcraft init`, that doesn't require rewriting a large number of files. Good for a prototype or proof-of-concept or a starting point for building a quality charm.
+
+(This is roughly what is being called [vibe coding](https://maggieappleton.com/2025-08-vibe-legacy-code), although there are [differing definitions still](https://simonwillison.net/2025/Mar/19/vibe-coding/). Vibe code is [legacy code](https://blog.val.town/vibe-code), and [immediately technical debt](https://leaddev.com/software-quality/how-ai-generated-code-accelerates-technical-debt)).
+
+As charming is increasingly adopted outside of Canonical, I'm sure that there is going to be a lot of genAI produced code involved, and I'd like to understand how we (Charm Tech in particular) can make that a better experience for these new charmers, getting them to a reasonable start without needing to know a lot of code, and bringing them into the charming world, where they'll be able to build their skills to eventually produce charms of much higher quality.
+
+I'm hopeful that if we make charming easier for AI agents then we'll also be making it easier for humans, too, since one of the interesting aspects of this round of AI is that it's built on top of all the writing that we did for humans. In the same way, I think it's interesting to see where AI agents fail or struggle when writing charms, because these might be places that new charmers also fail.
+
+My hope is also that the open-source nature of Juju and charming means that it's well suited to a world where genAI has trained on publicly accessible data, and so should 'know' a lot more than APIs and tools that are hidden away. Developing charms as open-source also avoids some of the issues around confidential or proprietary code being send off to the AI servers - I'm less inclined to repeat this experience with an entirely local model as a result.
+
+## Initial experiments
+
+### Setup
+
+I created a `CLAUDE.md` file, and `.claude/settings.json`, and a few commands in `.claude/commands`. These were partially based on previous experience, partly on a small amount of research, and partly just the general longer explanation I'd give to someone writing a charm for the first time. My goal was to have a starting point, which can be improved iteratively. I deliberately did not include any mention of delta or holistic charming, or a reconcile approach (although I did provide access to the Ops documentation, where those are mentioned) - I'm curious whether genAI ends up heading the same way as charmers do.
+
+I chose [Mosquitto](https://mosquitto.org/) as a simple (but not trivial) workload to charm. My expectation is that this would be a machine charm, which I think is probably simpler to start with than a Kubernetes one (no need to build a Rock, no need to handle the Pebble events that happen at unpredictable times), although as development continues there are challenges that are easier to solve with a K8s charm (like having health checks). It should be easy enough to test a MQTT broker charm without needing a lot of additional apps.
+
+I've put [my starting files in git](https://github.com/tonyandrewmeyer/charming-with-claude) if you'd like to see the current state (or suggest improvements). I copied these to an otherwise-empty directory as the starting point for Claude (so the version at the time is also in the mosquitto-operator repository).
+
+### Attempt 1 (quite flawed)
+
+You can see the [first attempt in the claude-attempt-1 branch](https://github.com/tonyandrewmeyer/mosquitto-operator/tree/claude-attempt-1). This also includes the [transcript with Claude](https://github.com/tonyandrewmeyer/mosquitto-operator/blob/claude-attempt-1/2025-08-02-lets-build-a-charm-for-mosquitto-httpsmosquit.txt).
+
+I didn't set up Claude for success here: I was using macOS, and it's much better to use Ubuntu. I've used `uvx charmcraft` on that system before, but for some reason it wasn't working for Claude (I didn't look into why) so there was a bit of fluffing about trying to fix that, and then Claude gave up and started from scratch. I also didn't make Juju available at all, so it wasn't possible to run the integration tests.
+
+I also made a few mistakes (like calling `charmcraft analyse` `charmcraft lint`) in the instructions, including invalid JSON for `settings.json` (a trailing comma: I hate that JSON doesn't handle that), which Claude called out but I missed (also for the next attempt).
+
+The good:
+
+* It's incredibly fast (whether or not fast junk is good is a separate question).
+* `charmcraft.yaml` is pretty reasonable, particularly considering that `charmcraft init` wasn't available. It's not perfect ("assumes: juju" needs a version, for example, and the "parts" section isn't what it should be), but not terrible.
+* The Scenario unit tests aren't too bad, except that Claude couldn't figure out how to assert after running an action. The workload unit tests also seem ok, although I didn't look at them in a lot of detail. For Scenario, I suspect that there's more training data for Scenario v6 and older than Scenario 7, so the API changes aren't 'known' to Claude. The agent doesn't seem very good at reading API documentation, even though I've provided all the links that should be needed.
+* The `src/mosquitto.py` module is reasonable. It uses `apt` and `systemd` using `subprocess` rather than the `operator-libs-linux` charm lib, but I hadn't provided any information about charm libs, so that's understandable (if I was writing my first charm, I wouldn't assume that there was a lib for those either).
+* The `src/charm.py` module is quite good, I think, particularly considering that there was no template provided by `charmcraft init`.
+* The "research" seemed reasonable. *However*, I have no idea whether this was actually using the data found on the Mosquitto website or whether Claude already knows a heap about Mosquitto from the base training set.
+* There's a `provides` relation that would let another charm integrate with this one and get details for using Mosquitto over a `mqtt` interface. This is simplistic, but integrating is the greatest strength of Juju, so it's nice to see something along these lines. It's missing the `optional` field that I told it to always include, though.
+
+The bad:
+* There was no running any of the formatting or linting or tests before writing code, as instructed.
+* The integration tests are terrible. Claude started writing pytest-operator/python-libjuju tests even though I'd said to not do that, and when I interrupted to say that Jubilant should be used instead it ended up being a weird async imagined version of Jubilant.
+* There's a bunch of code style that I really dislike, even though I specifically advise against it in `CLAUDE.md` (because I see genAI producing it all the time). Imports scattered all over the place, huge chunks of code in try/except blocks, catching `Exception`, excessive comments, and so on.
+* Even though I'd provided guidance in `CLAUDE.md`, I had to prompt a couple of extra times to get Claude to create all the initial files and then start work on the tests.
+* I emphasised in the initial instructions that the integration tests should be written first, then the code, and then the unit tests. I feel like this is a good approach for the agent, so that the charmer can verify the intended behaviour before it's written, and then the agent has a way to check that the behaviour is what was required. However, this was completely ignored (and then Claude 'lied' twice saying that it had followed this approach).
+* There's some `requires` relations, but they aren't implemented. For TLS, there's the common agent pattern where it adds a "TODO" comment and returns something hard-coded.
+
+Other interesting points:
+
+* One of my instructions in `CLAUDE.md` was that there should be a code of conduct file. It seems like Claude is blocked from doing this -- maybe the one that I use as a base is specifically blocked, but it seems like it's just blocked in general. This is pretty odd, but also easily worked around.
+* The `src/charm.py` has a bunch of older style approaches, like `*args` in `__init__`, `self.framework.observe` rather than just `framework.observe`, and so on. I assume this is a result of older training data, and it's an interesting question how to work around this - we don't want to be stuck in our ways just because genAI tends to produce more of the same.
+
+Overall, not completely awful, but I think I would rather start from scratch than start from this, and it doesn't actually work, so couldn't be used as a proof-of-concept or prototype without more work.
+
+### Attempt 2 (more interesting)
+
+You can see the [second attempt in the claude-attempt-2 branch](https://github.com/tonyandrewmeyer/mosquitto-operator/tree/claude-attempt-2). This also includes the [transcript with Claude](https://github.com/tonyandrewmeyer/mosquitto-operator/blob/claude-attempt-2/2025-08-04-lets-develop-a-charm-for-mosquitto-httpsmosqu.txt) (continued in [part 2](https://github.com/tonyandrewmeyer/mosquitto-operator/blob/claude-attempt-2/2025-08-04-this-session-is-being-continued-from-a-previous-co-1.txt) and [part3](https://github.com/tonyandrewmeyer/mosquitto-operator/blob/claude-attempt-2/2025-08-04-this-session-is-being-continued-from-a-previous-co-2.txt)). Claude was better at committing as it progressed in this attempt, and I interacted a little more, so you can also review the separate commits to see how things progressed. I also committed the `settings.local.json` file, which you normally should not, so you can see what I approved (if I hadn't messed up `settings.json` this would have been smaller).
+
+I provided a better setup here: I created a fresh Multipass VM using the (soon to be discontinued :() `charm-dev` blueprint, native mounted the empty (other than the starting Claude files) repository directory in there, and ran Claude inside it. This meant that `charmcraft`, `juju` and other charming tools were all available. The Multipass environment meant that I was willing to let Claude run almost any command since I could just throw away the VM at the end.
+
+(I hit the usage limit early on, but that wouldn't have been because of these two attempts - Claude had been doing some other (non-charming) things for me elsewhere at the same time. I continued for a bit later in the day after it reset. The second time I hit the limit was predominately this experimentation - I have a [Pro](https://www.anthropic.com/pricing) account and was using the default model, Sonnet 4.)
+
+The good:
+* The scaffolding provided by `charmcraft init` seemed to help a lot, as expected.
+* It's a reasonable start at documentation. No-one tell Daniele that I did this ;) (Obviously, you'd want to have a human go through and improve this). However, there are links to how-to and explanation and reference files that simply don't exist, and some of the (theoretical) documentation is probably (hard to tell without being able to read it!) too focused on the workload rather than the charm.
+* The logo is nice enough. For anything I was serious about, I would commission a human artist, but since this is an experiment with agents, it seems fair to let it generate one.
+* The README is quite good, although far too long. It's interesting that it assumed the repo was in the `canonical` organisation, even though that information is available with `git remote`.
+* Adding tracing worked reasonably well, except that it added far too many spans that just duplicate Ops ones, even though I gave advice against that. There are also way too many events, many of which are just "span started" and "span finished".
+
+The bad:
+* The charm wasn't able to be successfully deployed. (Originally: I did get it working by the end.)
+* The integration tests look like reasonable Jubilant code at first glance, but when you look closer, it's more like it's an imagining of what Jubilant might be based on some understanding of (dated) Juju CLI commands. I don't think there was any use of the Jubilant docs, and, because Jubilant is new, there would probably be no examples in the Claude training data.
+* Even though I had added instructions on how to use `operator-libs-linux` into `CLAUDE.md` the `src/mosquitto.py` module still uses plain `subprocess` calls. (I helped a bit with this when those subprocess calls were causing issues later on.)
+* There's no use of `storage` like in the first attempt (until I prompted for improvement).
+* There are no relations like in the first attempt (until I prompted for improvement).
+* In the unit tests, there's the common AI agent pattern of "don't really test, just write a not about properly testing later" for all the actions. This is probably better than made-up test code like with the first attempt, but still not great. This also shows up how coverage is not a great metric (but is one that Claude really 'likes'): you can get all the coverage by running the action and yet not asserting anything about what it did.
+* genAI has an annoying tendency to talk itself up (and also be overly complementary of the user). It's like it was trained on material that was going to a presentation for executives that don't know very much about code but recognise buzzwords... - this shows up in the "architecture" and "infrastructure" notes that were added, as well as the changelog.
+* Several diagrams aren't valid Mermaid so don't render, and a lot of them seem way too complicated to actually be useful.
+
+Interesting notes:
+* Even Claude finds `charmcraft pack` far too slow (it gave up waiting). Subsequent runs are generally faster, so this might solve itself if you do an initial pack for Claude, but maybe there's a way to tell it to wait longer.
+* The integration tests are also too slow for Claude to properly use them (part of this is probably packing).
+* The code of conduct creation failed in the same way at the previous attempt.
+* A pattern I saw here, which I've seen before with Claude, is that if something doesn't work (like linting finds issues with a file) then it'll just throw that away and try a completely different approach rather than just fixing the problems.
+
+I feel like the scaffolding that `charmcraft init` provides is extremely important when using an AI agent. Not only does it provide some of the boilerplate (like the tox setup) that should be done in a very specific way, it provides examples of how observing events should be done, how unit and integration tests should be done, and that's quite significant in improving what the agent then produces. For example, I think that when we update the Charmcraft profiles to use Jubilant for tests, an AI agent will do a much better job of writing more of those than it does at the moment having to rip out the existing ones and start from scratch.
+
+Speed is clearly important when using AI agents. It's great that we can use `ruff` and I think we should move as quickly as we can to use `ty` rather than `pyright` or `mypy`. We should continue to improve the speed of running Scenario unit tests, and see what we can do to make the integration tests (and packing!) faster, not only in CI but also on local systems.
+
+## Next
+
+I'd love to hear from anyone else that has done similar experimenting - what worked well, what didn't, what scaffolding did you provide, which agent did you use, what differed from my experience, and so on.
+
+If I have some time next weekend, I'll do a third attempt for Mosquitto, updating the setup based on what I've learnt here. I might provide a tweaked `charmcraft init` that uses Jubilant, uses the `uv` plug-in for the charm, and a few other similar improvements that we know are coming in time. Maybe also the tooling for creating the `charmcraft.yaml` action and config blocks based on Python classes in the code -- it seems like that would be useful, so that the AI agent only needs to know how to write a Python class and can then get exactly correct and matching Charmcraft YAML using a tool. Perhaps also recommending [pytest-jubilant](https://pypi.org/project/pytest-jubilant/) over plain Jubilant.
+
+Speed is the biggest issue at the moment (in terms of not being able to pack and therefore do any real tests), but maybe providing it with instructions on using jhack to avoid the pack and deploy delays will solve that.
+
+I might also try a different charm, to see how much it differs - perhaps one that I'd expect to be a Kubernetes charm. If anyone has any suggestions, I'm happy to hear them!
+
