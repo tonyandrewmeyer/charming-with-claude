@@ -21,7 +21,7 @@ This command transforms complex code, logic, and system architectures into clear
 
 #### 1. Code Flow Visualization
 
-Analyzss function and method logic to create flowcharts:
+Analyses function and method logic to create flowcharts:
 
 * Function analysis (for example, Python code to Mermaid flowcharts)
 * Charm relationships (for example, a relationship diagram showing this charm at the heart and the required and optional requirer/provider integrations that are possible)
