@@ -1,6 +1,6 @@
-# Installing the Charmcraft Skill
+# Installing the Charming Skills
 
-Quick guide to installing and using the charmcraft skill with Claude.
+Quick guide to installing and using the charmcraft or jhack skills with Claude. The examples use the `charmcraft` skill - simply replace that with `jhack` for the jhack skill.
 
 ## For Claude Code
 
@@ -291,3 +291,4 @@ For issues with:
 - **Claude Code**: Check [Claude Code docs](https://code.claude.com/docs)
 - **Claude API**: Check [Claude API docs](https://docs.anthropic.com/claude/docs)
 - **Charmcraft itself**: See [Charmcraft docs](https://documentation.ubuntu.com/charmcraft/)
+- **jhack itself**: see [jhack docs](https://github.com/canonical/jhack)
