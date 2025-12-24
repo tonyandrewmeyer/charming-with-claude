@@ -19,14 +19,14 @@ This skill provides comprehensive guidance for working with charmcraft, the tool
 
 ### For Claude Code
 
-1. Copy the `charmcraft-skill` directory to your Claude skills location:
+1. Copy the `charmcraft` directory to your Claude skills location:
 
 ```bash
 # Personal skills (available globally)
-cp -r charmcraft-skill ~/.claude/skills/
+cp -r charmcraft ~/.claude/skills/
 
 # Project-specific skills (available in one project)
-cp -r charmcraft-skill /path/to/project/.claude/skills/
+cp -r charmcraft /path/to/project/.claude/skills/
 ```
 
 2. Restart Claude Code or it will detect the skill automatically.
@@ -37,8 +37,8 @@ Create a zip file and upload via the Skills API:
 
 ```bash
 # Create zip file
-cd charmcraft-skill
-zip -r ../charmcraft-skill.zip .
+cd charmcraft
+zip -r ../charmcraft.zip .
 
 # Upload using the Claude API
 # POST /v1/skills with the zip file
@@ -48,8 +48,8 @@ zip -r ../charmcraft-skill.zip .
 
 1. Create a zip file:
 ```bash
-cd charmcraft-skill
-zip -r ../charmcraft-skill.zip .
+cd charmcraft
+zip -r ../charmcraft.zip .
 ```
 
 2. Go to Settings > Features in Claude.ai

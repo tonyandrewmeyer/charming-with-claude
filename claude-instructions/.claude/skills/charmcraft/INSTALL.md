@@ -11,10 +11,10 @@ Install globally for all your projects:
 ```bash
 # Copy to personal skills directory
 mkdir -p ~/.claude/skills
-cp -r charmcraft-skill ~/.claude/skills/
+cp -r charmcraft ~/.claude/skills/
 
 # Verify installation
-ls -la ~/.claude/skills/charmcraft-skill/
+ls -la ~/.claude/skills/charmcraft/
 ```
 
 The skill will now be available in all Claude Code sessions.
@@ -31,10 +31,10 @@ cd /path/to/your/project
 mkdir -p .claude/skills
 
 # Copy skill
-cp -r /path/to/charmcraft-skill .claude/skills/
+cp -r /path/to/charmcraft .claude/skills/
 
 # Verify installation
-ls -la .claude/skills/charmcraft-skill/
+ls -la .claude/skills/charmcraft/
 ```
 
 The skill will only be available when working in this project directory.
@@ -46,7 +46,7 @@ If you're actively developing the skill:
 ```bash
 # Create symlink instead of copying
 mkdir -p ~/.claude/skills
-ln -s /path/to/charmcraft-skill ~/.claude/skills/charmcraft
+ln -s /path/to/charmcraft ~/.claude/skills/charmcraft
 
 # Changes to the skill will be immediately available
 ```
@@ -56,8 +56,8 @@ ln -s /path/to/charmcraft-skill ~/.claude/skills/charmcraft
 ### Step 1: Create Skill Archive
 
 ```bash
-cd charmcraft-skill
-zip -r ../charmcraft-skill.zip .
+cd charmcraft
+zip -r ../charmcraft.zip .
 ```
 
 ### Step 2: Upload via API
@@ -68,7 +68,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2025-10-02" \
   -H "anthropic-beta: skills-2025-10-02" \
-  -F "file=@../charmcraft-skill.zip" \
+  -F "file=@../charmcraft.zip" \
   -F "name=charmcraft"
 
 # Or using the Anthropic Python SDK
@@ -76,7 +76,7 @@ from anthropic import Anthropic
 
 client = Anthropic(api_key="your-api-key")
 
-with open("charmcraft-skill.zip", "rb") as f:
+with open("charmcraft.zip", "rb") as f:
     skill = client.skills.create(
         file=f,
         name="charmcraft"
@@ -112,8 +112,8 @@ message = client.messages.create(
 ### Step 1: Create ZIP File
 
 ```bash
-cd charmcraft-skill
-zip -r ../charmcraft-skill.zip .
+cd charmcraft
+zip -r ../charmcraft.zip .
 ```
 
 ### Step 2: Upload to Claude.ai
@@ -124,7 +124,7 @@ zip -r ../charmcraft-skill.zip .
 4. Navigate to "Features" section
 5. Find "Skills" section
 6. Click "Upload Skill"
-7. Select `charmcraft-skill.zip`
+7. Select `charmcraft.zip`
 8. Wait for upload to complete
 
 ### Step 3: Verify
@@ -168,10 +168,10 @@ Expected: Claude provides charmcraft.yaml example with database relation
 **Claude Code:**
 ```bash
 # Check skill directory exists
-ls -la ~/.claude/skills/charmcraft-skill/SKILL.md
+ls -la ~/.claude/skills/charmcraft/SKILL.md
 
 # Check permissions
-chmod -R u+r ~/.claude/skills/charmcraft-skill/
+chmod -R u+r ~/.claude/skills/charmcraft/
 
 # Restart Claude Code
 ```
@@ -206,11 +206,11 @@ If it's not triggering, try being more explicit:
 Ensure ZIP doesn't include parent directory:
 ```bash
 # Wrong (includes parent directory)
-zip -r charmcraft-skill.zip charmcraft-skill/
+zip -r charmcraft.zip charmcraft/
 
 # Correct (contents only)
-cd charmcraft-skill
-zip -r ../charmcraft-skill.zip .
+cd charmcraft
+zip -r ../charmcraft.zip .
 ```
 
 ## Updating the Skill
@@ -220,10 +220,10 @@ zip -r ../charmcraft-skill.zip .
 Simply replace the files:
 ```bash
 # Personal skills
-cp -r charmcraft-skill ~/.claude/skills/
+cp -r charmcraft ~/.claude/skills/
 
 # Or use rsync to update
-rsync -av --delete charmcraft-skill/ ~/.claude/skills/charmcraft-skill/
+rsync -av --delete charmcraft/ ~/.claude/skills/charmcraft/
 ```
 
 ### Claude API
@@ -247,7 +247,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2025-10-02" \
   -H "anthropic-beta: skills-2025-10-02" \
-  -F "file=@charmcraft-skill.zip" \
+  -F "file=@charmcraft.zip" \
   -F "name=charmcraft"
 ```
 
@@ -261,7 +261,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
 
 ### Claude Code
 ```bash
-rm -rf ~/.claude/skills/charmcraft-skill
+rm -rf ~/.claude/skills/charmcraft
 ```
 
 ### Claude API
