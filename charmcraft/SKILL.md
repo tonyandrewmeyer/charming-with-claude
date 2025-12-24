@@ -1,6 +1,9 @@
 ---
 name: charmcraft
 description: Expert assistant for developing Juju charms using charmcraft. Use when initializing charm projects, building charms, managing charm libraries, publishing to Charmhub, running tests, or working with charmcraft.yaml configuration. Keywords include charmcraft, Juju, charm development, Charmhub publishing, charm libraries, pack, build, upload, release, init, extensions.
+license: Apache-2.0
+compatibility: Requires charmcraft 4.0+ installed locally. Network access needed for Charmhub operations.
+allowed-tools: Bash(charmcraft:*) Read
 ---
 
 # Charmcraft Development Assistant
