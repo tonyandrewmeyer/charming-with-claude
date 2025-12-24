@@ -176,7 +176,7 @@ jhack script myapp/0 myscript.py
 jhack eval myapp/0 "self.unit.status"
 ```
 
-**`script`** and `eval`** let you run arbitrary Python code in the context of a live charm, with access to the charm instance.
+**`script`** and **`eval`** let you run arbitrary Python code in the context of a live charm, with access to the charm instance.
 
 ### Destructive Operations
 
