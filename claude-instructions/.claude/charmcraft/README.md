@@ -4,7 +4,7 @@ An expert Claude skill for developing Juju charms using charmcraft.
 
 ## Overview
 
-This skill provides comprehensive guidance for working with charmcraft, the tool for building, testing, and publishing Juju charms. It covers everything from project initialization to publishing on Charmhub.
+This skill provides comprehensive guidance for working with charmcraft, the tool for building, testing, and publishing Juju charms. It covers everything from project initialisation to publishing on Charmhub.
 
 ## What This Skill Provides
 
@@ -68,7 +68,7 @@ Claude will automatically use this skill when you:
 - Ask about charm testing or building
 
 Example triggers:
-- "How do I initialize a new Kubernetes charm?"
+- "How do I initialise a new Kubernetes charm?"
 - "Help me publish my charm to Charmhub"
 - "What should go in charmcraft.yaml?"
 - "How do I fetch charm libraries?"
@@ -77,7 +77,7 @@ Example triggers:
 ## Skill Structure
 
 ```
-charmcraft-skill/
+charmcraft/
 ├── SKILL.md                              # Main skill instructions
 ├── README.md                             # This file
 ├── references/
@@ -89,7 +89,7 @@ charmcraft-skill/
 
 ## Usage Examples
 
-### Initialize a New Charm
+### Initialise a New Charm
 
 **User**: "Create a new Kubernetes charm for a web application"
 
@@ -98,7 +98,7 @@ charmcraft-skill/
 charmcraft init --profile=kubernetes --name=my-webapp
 ```
 
-Then provides guidance on customizing charmcraft.yaml and implementing the charm.
+Then provides guidance on customising charmcraft.yaml and implementing the charm.
 
 ### Build and Publish Workflow
 
@@ -170,9 +170,9 @@ This skill enforces:
 - ✅ Use conventional commits
 - ✅ Comprehensive testing (unit + integration)
 
-## Customization
+## Customisation
 
-You can customize this skill by:
+You can customise this skill by:
 
 1. **Adding project-specific patterns**: Edit SKILL.md to include your team's conventions
 2. **Adding more references**: Create additional .md files in `references/`
@@ -181,8 +181,8 @@ You can customize this skill by:
 
 ## Compatibility
 
-- **charmcraft**: Works with charmcraft 2.0+
-- **Juju**: Covers Juju 3.x patterns
+- **charmcraft**: Works with charmcraft 2.0+, charmcraft 4+ recommended
+- **Juju**: Covers Juju 3.6 and 4.x patterns
 - **Ops framework**: Current ops library patterns
 - **Python**: Python 3.10+ (aligns with charm requirements)
 
@@ -216,6 +216,6 @@ Apache 2.0
 ## Support
 
 - **Charmcraft docs**: https://documentation.ubuntu.com/charmcraft/
-- **Juju docs**: https://juju.is/docs
+- **Juju docs**: https://documentation.ubuntu.com/juju/latest/
 - **Ops docs**: https://documentation.ubuntu.com/ops/
 - **Discourse**: https://discourse.charmhub.io/

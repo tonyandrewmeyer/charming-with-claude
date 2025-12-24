@@ -217,7 +217,7 @@ Pack for specific base: `charmcraft pack --bases-index=0`
 requires:
   database:
     interface: postgresql_client
-    optional: true  # ALWAYS include!
+    optional: true  # ALWAYS include the `optional` field, rather than relying on the default. Use `optional: false` if the charm works without the relation
 
 charm-libs:
   - lib: data_platform_libs.data_interfaces
@@ -242,7 +242,7 @@ class MyCharm(CharmBase):
 
 **Build fails:**
 - Check `charmcraft.yaml` syntax
-- Verify required files exist (`src/charm.py`, `requirements.txt`)
+- Verify required files exist (`src/charm.py`, `uv.lock`)
 - Run `charmcraft -v pack` for verbose output
 
 **Upload fails:**
@@ -292,7 +292,7 @@ juju debug-log
 ## Resources
 
 - **Charmcraft docs**: https://documentation.ubuntu.com/charmcraft/stable/
-- **Juju docs**: https://juju.is/docs
+- **Juju docs**: https://documentation.ubuntu.com/juju/latest/
 - **Ops framework**: https://documentation.ubuntu.com/ops/latest/
 - **Charmhub**: https://charmhub.io/
 

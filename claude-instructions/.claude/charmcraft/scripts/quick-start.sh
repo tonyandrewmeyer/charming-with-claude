@@ -26,7 +26,7 @@ info() {
 
 # Check if charmcraft is installed
 if ! command -v charmcraft &> /dev/null; then
-    error "charmcraft not found. Install with: sudo snap install charmcraft"
+    error "charmcraft not found. Install with: sudo snap install charmcraft --classic"
 fi
 
 # Parse arguments
@@ -45,7 +45,7 @@ Options:
     -n, --name NAME          Charm name (required)
     -p, --profile PROFILE    Charm profile (default: kubernetes)
     -a, --author AUTHOR      Author name (default: from git config)
-    --no-git                 Don't initialize git repository
+    --no-git                 Don't initialise git repository
     -h, --help               Show this help message
 
 Profiles:
@@ -111,10 +111,10 @@ info "Author: $AUTHOR"
 mkdir -p "$NAME"
 cd "$NAME" || error "Failed to cd into $NAME"
 
-# Initialize charm
-info "Initializing charm with charmcraft..."
+# Initialise charm
+info "Initialising charm with charmcraft..."
 charmcraft init --profile="$PROFILE" --name="$NAME" --author="$AUTHOR" --force
-success "Charm initialized"
+success "Charm initialised"
 
 # Create additional recommended files
 info "Creating additional files..."
@@ -291,9 +291,9 @@ Thumbs.db
 EOF
 success "Updated .gitignore"
 
-# Initialize git repository
+# Initialise git repository
 if [ "$INIT_GIT" = true ]; then
-    info "Initializing git repository..."
+    info "Initialising git repository..."
     git init
     git add .
     git commit -m "chore: initial charm scaffold
@@ -301,7 +301,7 @@ if [ "$INIT_GIT" = true ]; then
 Generated using charmcraft init with ${PROFILE} profile.
 
 🤖 Generated with Claude Code"
-    success "Git repository initialized"
+    success "Git repository initialised"
 fi
 
 # Create pre-commit config
@@ -329,11 +329,11 @@ success "Created .pre-commit-config.yaml"
 
 # Summary
 echo ""
-success "Charm project initialized successfully!"
+success "Charm project initialised successfully!"
 echo ""
 info "Next steps:"
 echo "  1. cd $NAME"
-echo "  2. Review and customize charmcraft.yaml"
+echo "  2. Review and customise charmcraft.yaml"
 echo "  3. Edit src/charm.py to implement your charm logic"
 echo "  4. Update README.md with charm-specific documentation"
 echo "  5. Run 'tox -e lint' to check code quality"
@@ -347,4 +347,4 @@ echo ""
 info "Documentation:"
 echo "  Charmcraft: https://documentation.ubuntu.com/charmcraft/"
 echo "  Ops: https://documentation.ubuntu.com/ops/"
-echo "  Juju: https://juju.is/docs"
+echo "  Juju: https://documentation.ubuntu.com/juju/latest/"
