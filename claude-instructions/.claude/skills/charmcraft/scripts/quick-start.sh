@@ -102,11 +102,6 @@ if [[ ! "$NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
     error "Invalid charm name. Use only alphanumeric characters, hyphens, and underscores"
 fi
 
-# Prevent path traversal by checking for special sequences
-if [[ "$NAME" == *".."* ]] || [[ "$NAME" == *"/"* ]]; then
-    error "Invalid charm name. Cannot contain '..' or '/' characters"
-fi
-
 # Get author from git config if not provided
 if [ -z "$AUTHOR" ]; then
     AUTHOR=$(git config user.name 2>/dev/null || echo "")
