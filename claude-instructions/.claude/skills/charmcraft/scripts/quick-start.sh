@@ -98,8 +98,9 @@ fi
 
 # Validate NAME to prevent path traversal attacks
 # Allow only alphanumeric characters, hyphens, and underscores
-if [[ ! "$NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-    error "Invalid charm name. Use only alphanumeric characters, hyphens, and underscores"
+# Name must start with alphanumeric character to avoid confusion with command flags
+if [[ ! "$NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+    error "Invalid charm name. Must start with alphanumeric character and contain only alphanumeric characters, hyphens, and underscores"
 fi
 
 # Get author from git config if not provided
