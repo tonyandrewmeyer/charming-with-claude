@@ -85,7 +85,8 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            error "Unknown option: $1\nUse --help for usage information"
+            error "Unknown option: $1
+Use --help for usage information"
             ;;
     esac
 done
@@ -93,6 +94,17 @@ done
 # Validate required arguments
 if [ -z "$NAME" ]; then
     error "Charm name is required. Use -n or --name"
+fi
+
+# Validate NAME to prevent path traversal attacks
+# Allow only alphanumeric characters, hyphens, and underscores
+if [[ ! "$NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    error "Invalid charm name. Use only alphanumeric characters, hyphens, and underscores"
+fi
+
+# Prevent path traversal by checking for special sequences
+if [[ "$NAME" == *".."* ]] || [[ "$NAME" == *"/"* ]]; then
+    error "Invalid charm name. Cannot contain '..' or '/' characters"
 fi
 
 # Get author from git config if not provided
