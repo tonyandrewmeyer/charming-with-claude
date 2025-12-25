@@ -7,7 +7,7 @@ Complete reference for the `charmcraft.yaml` configuration file.
 ```yaml
 # Required fields
 name: string              # Charm name (lowercase, hyphens, no spaces)
-type: charm | bundle      # Usually "charm"
+type: charm | bundle      # Always "charm"
 
 # Recommended fields
 title: string             # Human-readable title
@@ -30,8 +30,10 @@ bases:
 # Build configuration (required)
 parts:
   charm:
-    plugin: charm
+    plugin: uv
     source: .
+    build-snaps:
+      - astral-uv
 
 # Optional but recommended
 extensions: []           # List of extensions to use
@@ -58,7 +60,7 @@ actions:               # Available actions
         type: string
         description: "Parameter description"
     required: [param1]
-
+    additionalProperties: false
 assumes:              # Juju features required
   - juju >= 3.1
 
@@ -83,7 +85,7 @@ provides:             # Provided relations
 requires:             # Required relations
   database:
     interface: postgresql
-    optional: true    # Always include this!
+    optional: true    # Always include this field!
 
 resources:            # External resources
   my-image:
@@ -107,8 +109,7 @@ storage:              # Storage requirements
 
 ### type
 - Required
-- Usually `charm`
-- Use `bundle` for charm bundles
+- Always `charm`
 
 ### title
 - Recommended
@@ -156,7 +157,7 @@ bases:
 ### parts
 - Required
 - Defines how to build the charm
-- Most charms use the `charm` plugin
+- Most charms use the `uv` plugin
 - Can include additional parts for bundled resources
 
 Common patterns:
@@ -164,14 +165,18 @@ Common patterns:
 # Standard charm
 parts:
   charm:
-    plugin: charm
+    plugin: uv
     source: .
+    build-snaps:
+      - astral-uv
 
 # Charm with bundled binary
 parts:
   charm:
-    plugin: charm
+    plugin: uv
     source: .
+    build-snaps:
+      - astral-uv
 
   my-tool:
     plugin: go
@@ -192,7 +197,7 @@ extensions:
 ```
 
 ### charm-libs
-- Optional but recommended
+- Only use when the charm library is not available from PyPI
 - Define library dependencies
 - Fetched with `charmcraft fetch-libs`
 - Version can be major only ("0") or major.minor ("0.57")
@@ -213,7 +218,7 @@ charm-libs:
 - Defines configuration options for the charm
 - Users set via `juju config`
 
-Types: `string`, `int`, `float`, `boolean`
+Types: `string`, `int`, `float`, `boolean`, `secret`
 
 Example:
 ```yaml
@@ -248,7 +253,7 @@ actions:
         type: string
         description: "Backup destination path"
     required: [destination]
-
+    additionalProperties: false
   restore:
     description: "Restore from backup"
     params:
@@ -256,12 +261,13 @@ actions:
         type: string
         description: "Backup source path"
     required: [source]
+    additionalProperties: false
 ```
 
 ### provides, requires, peers
 - Optional
 - Define relation endpoints
-- ALWAYS include `optional: true` for requires relations
+- ALWAYS include `optional: true` or `optional: false` for relations, *never* rely on the default
 
 Interfaces examples:
 - `http`: Web interface
@@ -280,7 +286,7 @@ provides:
 requires:
   database:
     interface: postgresql
-    optional: true  # ALWAYS include!
+    optional: true
 
   ingress:
     interface: ingress
@@ -392,7 +398,7 @@ links:
   documentation: https://discourse.charmhub.io/t/my-charm-docs/12345
   issues: https://github.com/canonical/my-charm/issues
   source: https://github.com/canonical/my-charm
-  website: https://myapp.io
+  website: https://myapp.example.com
 ```
 
 ## Complete Example
@@ -419,9 +425,10 @@ bases:
 
 parts:
   charm:
-    plugin: charm
+    plugin: uv
     source: .
-
+    build-snaps:
+      - astral-uv
 charm-libs:
   - lib: data_platform_libs.v0.data_interfaces
     version: "0"
@@ -478,6 +485,7 @@ storage:
 actions:
   get-primary:
     description: "Get the primary database unit"
+    additionalProperties: false
 
   create-backup:
     description: "Create a database backup"
@@ -486,7 +494,7 @@ actions:
         type: string
         description: "S3 path for backup"
     required: [s3-path]
-
+    additionalProperties: false
 links:
   documentation: https://discourse.charmhub.io/t/postgresql-k8s-docs/9308
   issues: https://github.com/canonical/postgresql-k8s-operator/issues
@@ -528,13 +536,14 @@ To migrate:
 
 ## Best Practices
 
-1. **Always include `optional: true`** for `requires` relations
+1. **Always include `optional: true` or `optional: false`** for `requires` relations
 2. **Use semantic naming** for relations (database, not db)
 3. **Provide good descriptions** for all config/actions
 4. **Include links** to documentation and source
-5. **Use charm-libs** for common integrations
+5. **Use charm-libs** for common integrations, but prefer versions from PyPI
 6. **Keep description comprehensive** - it's your Charmhub page
 7. **Test multiple bases** if supporting them
 8. **Version lock libraries** when stable (use major.minor not just major)
 9. **Document breaking changes** in charm description
 10. **Use assumes** to prevent deployment on incompatible Juju
+11. Always include `additionalProperties: false` in action definitions
