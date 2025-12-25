@@ -15,7 +15,7 @@ Expert guidance for using jhack utilities to streamline Juju charm development, 
 Jhack is a collection of developer utilities that make charm development faster and easier by:
 - Providing shortcuts for common operations
 - Enabling rapid code iteration without redeployment
-- Visualizing charm state and relations
+- Visualising charm state and relations
 - Capturing and replaying real events
 - Simplifying debugging workflows
 
@@ -76,7 +76,7 @@ jhack tail -d myapp/0
 jhack tail --filter=config-changed
 ```
 
-**`tail`** provides a color-coded, hierarchical view of charm events as they fire, showing:
+**`tail`** provides a colour-coded, hierarchical view of charm events as they fire, showing:
 - Event names
 - Handler execution
 - Nested events (e.g., relation-changed triggering config-changed)
@@ -130,7 +130,7 @@ jhack scenario snapshot myapp/0 > state.json
 jhack scenario state-apply myapp/0 state.json
 ```
 
-**Integration with ops-scenario:** Use `snapshot` to capture real charm state, then use it in unit tests with the scenario testing framework.
+**Integration with ops-scenario:** Use `snapshot` to capture real charm state, then use it in unit tests with the Ops state-transition (unit) testing framework.
 
 ### Charm Manipulation
 
@@ -308,13 +308,15 @@ jhack utils fire myapp/0 config-changed
 # $ jhack scenario snapshot myapp/0 > tests/state.json
 
 # Use in tests
-from scenario import State
 import json
 
+from ops import testing
+
 with open('tests/state.json') as f:
-    state = State.from_dict(json.load(f))
+    state = testing.State.from_dict(json.load(f))
 
 # Test with real production state
+ctx = testing.Context(MyCharm)
 ctx.run(event, state)
 ```
 
@@ -399,8 +401,8 @@ jhack --log-to-file=jhack.log <command>
 ## Resources
 
 - **Jhack GitHub**: https://github.com/canonical/jhack
-- **Juju docs**: https://juju.is/docs
-- **Ops-scenario**: https://github.com/canonical/ops-scenario
+- **Juju docs**: https://documentation.ubuntu.com/juju/3.6/
+- **Ops-scenario**: https://documentation.ubuntu.com/ops/latest/reference/ops-testing/
 - **Ops framework**: https://documentation.ubuntu.com/ops/
 
 ## Additional References
