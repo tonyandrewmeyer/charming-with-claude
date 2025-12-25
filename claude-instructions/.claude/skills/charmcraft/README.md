@@ -15,47 +15,6 @@ This skill provides comprehensive guidance for working with charmcraft, the tool
 - **Integration with Ops framework**: Proper charm development patterns
 - **Quality assurance**: Testing and analysis workflows
 
-## Installation
-
-### For Claude Code
-
-1. Copy the `charmcraft` directory to your Claude skills location:
-
-```bash
-# Personal skills (available globally)
-cp -r charmcraft ~/.claude/skills/
-
-# Project-specific skills (available in one project)
-cp -r charmcraft /path/to/project/.claude/skills/
-```
-
-2. Restart Claude Code or it will detect the skill automatically.
-
-### For Claude API
-
-Create a zip file and upload via the Skills API:
-
-```bash
-# Create zip file
-cd charmcraft
-zip -r ../charmcraft.zip .
-
-# Upload using the Claude API
-# POST /v1/skills with the zip file
-```
-
-### For Claude.ai
-
-1. Create a zip file:
-```bash
-cd charmcraft
-zip -r ../charmcraft.zip .
-```
-
-2. Go to Settings > Features in Claude.ai
-3. Upload the zip file
-4. The skill will be available in your conversations
-
 ## When This Skill Activates
 
 Claude will automatically use this skill when you:

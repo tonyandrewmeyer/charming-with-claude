@@ -15,47 +15,6 @@ This skill provides comprehensive guidance for using jhack, a collection of deve
 - **Complete command reference**: All jhack commands documented
 - **Troubleshooting guide**: Solutions for common issues
 
-## Installation
-
-### For Claude Code
-
-1. Copy the `jhack` directory to your Claude skills location:
-
-```bash
-# Personal skills (available globally)
-cp -r jhack ~/.claude/skills/
-
-# Project-specific skills (available in one project)
-cp -r jhack /path/to/project/.claude/skills/
-```
-
-2. The skill will be detected automatically.
-
-### For Claude API
-
-Create a zip file and upload via the Skills API:
-
-```bash
-# Create zip file
-cd jhack
-zip -r ../jhack-skill.zip .
-
-# Upload using the Claude API
-# POST /v1/skills with the zip file
-```
-
-### For Claude.ai
-
-1. Create a zip file:
-```bash
-cd jhack
-zip -r ../jhack-skill.zip .
-```
-
-2. Go to Settings > Features in Claude.ai
-3. Upload the zip file
-4. The skill will be available in your conversations
-
 ## When This Skill Activates
 
 Claude will automatically use this skill when you:
