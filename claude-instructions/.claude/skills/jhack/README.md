@@ -172,7 +172,6 @@ This skill works well with:
 
 - **Charmcraft skill**: For charm building and publishing
 - **Juju**: Native juju commands for deployment
-- **Ops-scenario**: Testing framework integration
 - **Tox**: Local quality checks before testing
 
 ## Best Practices Enforced
@@ -187,7 +186,7 @@ This skill works well with:
 
 ## Requirements
 
-- **jhack**: Installed locally (snap or pip)
+- **jhack**: Installed locally (snap or uv)
 - **juju**: Active Juju controller and model
 - **SSH access**: To deployed units
 - **Network**: For model operations
@@ -228,6 +227,6 @@ Apache 2.0
 ## Support
 
 - **Jhack GitHub**: https://github.com/canonical/jhack
-- **Juju docs**: https://juju.is/docs
+- **Juju docs**: https://documentation.ubuntu.com/juju/3.6/
 - **Ops framework**: https://documentation.ubuntu.com/ops/
 - **Discourse**: https://discourse.charmhub.io/

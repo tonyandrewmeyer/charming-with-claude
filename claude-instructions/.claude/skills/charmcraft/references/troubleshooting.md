@@ -10,7 +10,7 @@ Common issues and solutions when working with charmcraft.
 
 **Solution**:
 ```bash
-# Initialize a new charm first
+# Initialise a new charm first
 charmcraft init
 
 # Or navigate to an existing charm directory
@@ -73,11 +73,12 @@ bases:
 
 **Solutions**:
 ```bash
-# Check requirements.txt or pyproject.toml syntax
-cat requirements.txt
+# Check uv.lock or pyproject.toml syntax
+cat pyproject.toml
+uv lock
 
 # Test dependencies locally
-pip install -r requirements.txt
+uv sync
 
 # Common issues:
 # 1. Package not available for architecture
@@ -100,7 +101,7 @@ pip install -r requirements.txt
 
 **Solutions**:
 ```bash
-# Use destructive mode on Linux (faster, no container)
+# Use destructive mode on Linux (faster, no container) - **ALWAYS CHECK BEFORE RUNNING THIS COMMAND**
 charmcraft pack --destructive-mode
 
 # Or use LXD instead of Multipass (faster on Linux)
@@ -120,15 +121,15 @@ charmcraft pack --use-lxd
 charmcraft clean
 
 # For Multipass (default on macOS/Windows)
-multipass delete --all --purge
+multipass delete <vm name> --purge  # **ALWAYS CHECK FIRST**
 multipass list
 
 # For LXD
 lxc list
-lxc delete <container-name> --force
+lxc delete <container-name> --force  # **ALWAYS CHECK FIRST**
 
 # Free up local disk space
-rm -f *.charm  # Remove old charm files
+rm -f *.charm  # Remove old charm files -- **ALWAYS CHECK FIRST**
 ```
 
 ## Testing Issues
@@ -278,7 +279,7 @@ charmcraft promote my-charm --from=edge --to=beta
 charmcraft promote my-charm --from=beta --to=candidate
 
 # 4. Test on candidate, then promote to stable
-charmcraft promote my-charm --from=candidate --to=stable
+charmcraft promote my-charm --from=candidate --to=stable  # **ALWAYS CHECK FIRST**
 ```
 
 ## Library Issues
@@ -472,9 +473,6 @@ juju ssh --container my-container my-charm/0 -- \
 # Use LXD instead of Multipass on Linux
 charmcraft pack --use-lxd
 
-# Use destructive mode (Linux only, no container)
-charmcraft pack --destructive-mode
-
 # Cache dependencies (don't run clean)
 # Just run pack multiple times
 
@@ -496,9 +494,9 @@ unzip -l my-charm.charm | less
 # venv/
 # .pytest_cache/
 
-# Use .charmignore for charm-specific exclusions
-echo "tests/" >> .charmignore
-echo "docs/" >> .charmignore
+# Use .jujuignore for charm-specific exclusions
+echo "tests/" >> .jujuignore
+echo "docs/" >> .jujuignore
 
 # Check resulting size
 ls -lh *.charm
@@ -521,27 +519,6 @@ juju refresh my-charm --path=./my-charm_ubuntu-22.04-amd64.charm
 
 # For Kubernetes charms, might need to wait for rollout
 juju status --watch 1s
-```
-
-### "tox environment issues"
-
-**Solutions**:
-```bash
-# Recreate tox environments
-tox -e unit --recreate
-
-# Clear tox cache
-rm -rf .tox/
-
-# Update tox dependencies
-pip install --upgrade tox
-
-# Check Python version
-python3 --version
-
-# Ensure correct Python version in tox.ini:
-# [testenv]
-# basepython = python3.10
 ```
 
 ## Getting Help
@@ -592,4 +569,4 @@ Include:
 5. charmcraft.yaml (if relevant)
 6. Verbose output (`-v` flag)
 
-Report at: https://github.com/canonical/charmcraft/issues
+Report at: https://github.com/canonical/charmcraft/issues -- **ALWAYS ASK FIRST**

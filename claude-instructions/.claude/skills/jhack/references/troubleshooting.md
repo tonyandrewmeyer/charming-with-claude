@@ -16,9 +16,6 @@ which jhack
 # Install via snap
 sudo snap install jhack
 
-# Install via pip
-pip install jhack
-
 # Verify installation
 jhack version
 ```
@@ -659,7 +656,7 @@ When reporting jhack bugs:
 5. Steps to reproduce
 6. Expected vs actual behavior
 
-Report at: https://github.com/canonical/jhack/issues
+Report at: https://github.com/canonical/jhack/issues -- **ALWAYS ASK FIRST**
 
 ## Safety Reminders
 
@@ -668,4 +665,4 @@ Report at: https://github.com/canonical/jhack/issues
 3. **Verify patterns**: Check `nuke` patterns with dry-run
 4. **Backup state**: Capture snapshots before major changes
 5. **Monitor chaos tests**: Watch for unexpected failures
-6. **Check before this-is-fine**: Understand why units errored first
+6. **Check before running `jhack utils this-is-fine`**: Understand why units errored first
