@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with files in this repository.
 
+## Critical: UK English Spelling
+
+**All documentation in this repository MUST use UK English spelling conventions.**
+
+When writing or editing any documentation, always use UK English spelling:
+- Use "favour" not "favor"
+- Use "colour" not "color"
+- Use "organise" not "organize"
+- Use "analyse" not "analyze"
+- Use "behaviour" not "behavior"
+- Use "licence" (noun) and "license" (verb), not "license" for both
+- Use "centre" not "center"
+- Use "-ise" endings not "-ize" (e.g., "optimise" not "optimize")
+- Use "-ogue" not "-og" (e.g., "catalogue" not "catalog")
+
+This is a critical requirement for all text and markdown files in this repository.
+
 ## Repository Purpose
 
 This is a meta-repository for experimenting with and improving Claude Code's ability to develop Juju charms. It contains:
