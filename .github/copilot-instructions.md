@@ -13,8 +13,10 @@ charming-with-claude/
 ├── .github/
 │   └── copilot-instructions.md    # This file
 ├── claude-instructions/            # Reusable Claude Code configuration
+│   ├── .claude/commands/          # Custom commands for charm development
 │   ├── CLAUDE.md                  # Template guidance for charm projects
-│   └── .claude/commands/          # Custom commands for charm development
+│   ├── INSTALL-SKILLS.md          # Instructions for installing Claude skills
+│   └── README.md                  # Claude instructions documentation
 ├── experiments/                   # Individual charm development experiments
 │   └── YYYY-MM-DD-charm-name/     # Format: date + charm name
 ├── CLAUDE.md                      # Claude Code guidance for this repo
