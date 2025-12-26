@@ -92,6 +92,6 @@ When you discover improvements to how Claude develops charms:
 
 ## Licence
 
-This repository is licensed under the [Creative Commons Attribution 4.0 International License](LICENSE) (CC BY 4.0).
+This repository is licensed under the [Creative Commons Attribution 4.0 International Licence](LICENSE) (CC BY 4.0).
 
 You are free to use, share, and adapt the content with appropriate attribution.
