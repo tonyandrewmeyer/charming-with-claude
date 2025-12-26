@@ -90,6 +90,8 @@ When you discover improvements to how Claude develops charms:
 
 [Juju](https://juju.is/) is an open-source orchestration engine for software operators. Charms are operator code packages that contain all the logic for deploying, integrating, scaling, and maintaining applications on any cloud or infrastructure.
 
-## License
+## Licence
 
-This repository is experimental and educational. See individual experiments for their specific licensing.
+This repository is licensed under the [Creative Commons Attribution 4.0 International Licence](LICENSE) (CC BY 4.0).
+
+You are free to use, share, and adapt the content with appropriate attribution.
