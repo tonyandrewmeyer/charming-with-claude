@@ -221,7 +221,10 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
             rfc822_date = dt.strftime("%a, %d %b %Y %H:%M:%S %z")
             rss_lines.append(f'      <pubDate>{rfc822_date}</pubDate>')
         except ValueError:
-            pass
+            # Fallback: use the original date string if it cannot be parsed
+            rss_lines.append(
+                f'      <pubDate>{escape_xml(str(item_data["pubDate"]))}</pubDate>'
+            )
         
         rss_lines.append(f'      <guid isPermaLink="false">{escape_xml(item_data["guid"])}</guid>')
         rss_lines.append('    </item>')
