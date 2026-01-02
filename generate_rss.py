@@ -7,6 +7,13 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+# Repository configuration
+REPO_OWNER = "tonyandrewmeyer"
+REPO_NAME = "charming-with-claude"
+REPO_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}"
+FEED_URL = f"https://{REPO_OWNER}.github.io/{REPO_NAME}/feed.rss"
+FALLBACK_EMAIL = f"noreply@github.com"
+
 
 def get_git_info(path: str) -> tuple[str, str, str] | None:
     """Get the git commit info (author name, email, date) for a path.
@@ -32,7 +39,7 @@ def get_git_info(path: str) -> tuple[str, str, str] | None:
             author, email, date = result.stdout.strip().split("|")
             return author, email, date
         return None
-    except (subprocess.CalledProcessError, ValueError):
+    except subprocess.CalledProcessError:
         return None
 
 
@@ -76,7 +83,7 @@ def get_readthem_updates() -> list[dict]:
                     check=True,
                 )
                 
-                github_url = f"https://github.com/tonyandrewmeyer/charming-with-claude/commit/{commit_hash}"
+                github_url = f"{REPO_URL}/commit/{commit_hash}"
                 
                 updates.append({
                     "commit_hash": commit_hash,
@@ -129,7 +136,7 @@ def get_experiments() -> list[dict]:
         else:
             # Fallback to the date from the folder name
             author = "Unknown"
-            email = "unknown@example.com"
+            email = FALLBACK_EMAIL
             commit_date = f"{date_str}T00:00:00+00:00"
         
         experiments.append({
@@ -154,7 +161,7 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
     for exp in experiments:
         all_items.append({
             "title": f"New Experiment: {exp['name'].replace('-', ' ').title()}",
-            "link": f"https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/{exp['folder']}",
+            "link": f"{REPO_URL}/tree/main/experiments/{exp['folder']}",
             "description": f"New experiment: {exp['name'].replace('-', ' ')}",
             "content": exp["content"],
             "author": exp["author"],
@@ -165,11 +172,16 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
     
     # Add READTHEM updates
     for update in readthem_updates:
+        # Truncate very large diffs
+        diff_content = update["diff"]
+        if len(diff_content) > 5000:
+            diff_content = diff_content[:5000] + "\n\n... (diff truncated, see full commit on GitHub)"
+        
         all_items.append({
             "title": f"Reading List Update: {update['subject']}",
             "link": update["github_url"],
             "description": update["subject"],
-            "content": f"<pre>{escape_xml(update['diff'])}</pre>",
+            "content": f"<pre>{escape_xml(diff_content)}</pre>",
             "author": update["author"],
             "email": update["email"],
             "pubDate": update["date"],
@@ -185,9 +197,9 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
         '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">',
         '  <channel>',
         '    <title>Charming with Claude - Updates</title>',
-        '    <link>https://github.com/tonyandrewmeyer/charming-with-claude</link>',
+        f'    <link>{REPO_URL}</link>',
         '    <description>Updates from the Charming with Claude repository: new experiments and reading list additions</description>',
-        '    <atom:link href="https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss" rel="self" type="application/rss+xml"/>',
+        f'    <atom:link href="{FEED_URL}" rel="self" type="application/rss+xml"/>',
     ]
     
     # Add items
