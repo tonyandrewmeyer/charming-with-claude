@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """Generate RSS feed for experiments and READTHEM.md updates."""
+# /// script
+# dependencies = [
+#   "markdown>=3.7",
+# ]
+# ///
 
 import os
 import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
+import markdown
 
 # Repository configuration
 REPO_OWNER = "tonyandrewmeyer"
@@ -156,6 +163,30 @@ def get_experiments() -> list[dict]:
     return experiments
 
 
+def markdown_to_html(md_content: str) -> str:
+    """Convert markdown content to HTML.
+    
+    Enables the following extensions for better rendering:
+    - fenced_code: Support for code blocks with triple backticks
+    - tables: Support for markdown tables
+    - sane_lists: Improved list parsing that matches common markdown expectations
+    
+    Args:
+        md_content: Markdown content to convert
+        
+    Returns:
+        HTML string
+    """
+    md = markdown.Markdown(
+        extensions=[
+            'fenced_code',
+            'tables',
+            'sane_lists',
+        ]
+    )
+    return md.convert(md_content)
+
+
 def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
     """Generate RSS 2.0 feed XML."""
     # Combine all items and sort by date (most recent first)
@@ -163,11 +194,14 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
     
     # Add experiments
     for exp in experiments:
+        # Convert markdown content to HTML
+        html_content = markdown_to_html(exp["content"])
+        
         all_items.append({
             "title": f"New Experiment: {exp['name'].replace('-', ' ').title()}",
             "link": f"{REPO_URL}/tree/main/experiments/{exp['folder']}",
             "description": f"New experiment: {exp['name'].replace('-', ' ')}",
-            "content": exp["content"],
+            "content": html_content,
             "author": exp["author"],
             "email": exp["email"],
             "pubDate": exp["commit_date"],
