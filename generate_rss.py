@@ -164,7 +164,20 @@ def get_experiments() -> list[dict]:
 
 
 def markdown_to_html(md_content: str) -> str:
-    """Convert markdown content to HTML."""
+    """Convert markdown content to HTML.
+    
+    Enables the following extensions for better rendering:
+    - fenced_code: Support for code blocks with triple backticks
+    - tables: Support for markdown tables  
+    - nl2br: Convert newlines to <br> tags for better paragraph handling
+    - sane_lists: Improved list parsing that matches common markdown expectations
+    
+    Args:
+        md_content: Markdown content to convert
+        
+    Returns:
+        HTML string
+    """
     md = markdown.Markdown(
         extensions=[
             'fenced_code',
