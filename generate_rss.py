@@ -35,10 +35,14 @@ def get_git_info(path: str) -> tuple[str, str, str] | None:
             text=True,
             check=True,
         )
-        if result.stdout.strip():
-            author, email, date = result.stdout.strip().split("|")
-            return author, email, date
-        return None
+        output = result.stdout.strip()
+        if not output:
+            return None
+        parts = output.split("|")
+        if len(parts) != 3:
+            return None
+        author, email, date = parts
+        return author, email, date
     except subprocess.CalledProcessError:
         return None
 
