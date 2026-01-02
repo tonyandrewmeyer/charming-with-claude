@@ -2,6 +2,14 @@
 
 An experimental repository for exploring and improving Claude Code's ability to develop [Juju charms](https://juju.is/).
 
+## RSS Feed
+
+📡 Subscribe to updates via RSS: [https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss](https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss)
+
+The RSS feed includes:
+- New experiments added to the repository
+- Updates to the [READTHEM.md](READTHEM.md) reading list
+
 ## Purpose
 
 This repository serves as a testing ground to:
