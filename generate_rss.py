@@ -168,7 +168,7 @@ def markdown_to_html(md_content: str) -> str:
     
     Enables the following extensions for better rendering:
     - fenced_code: Support for code blocks with triple backticks
-    - tables: Support for markdown tables  
+    - tables: Support for markdown tables
     - nl2br: Convert newlines to <br> tags for better paragraph handling
     - sane_lists: Improved list parsing that matches common markdown expectations
     
