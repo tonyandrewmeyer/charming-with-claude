@@ -212,7 +212,7 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
         rss_lines.append(f'      <title>{escape_xml(item_data["title"])}</title>')
         rss_lines.append(f'      <link>{escape_xml(item_data["link"])}</link>')
         rss_lines.append(f'      <description>{escape_xml(item_data["description"])}</description>')
-        rss_lines.append(f'      <content:encoded><![CDATA[{item_data["content"]}]]></content:encoded>')
+        rss_lines.append(f'      <content:encoded><![CDATA[{escape_cdata(item_data["content"])}]]></content:encoded>')
         rss_lines.append(f'      <dc:creator>{escape_xml(item_data["author"])}</dc:creator>')
         
         # Convert date to RFC 822 format
@@ -243,6 +243,11 @@ def escape_xml(text: str) -> str:
             .replace(">", "&gt;")
             .replace('"', "&quot;")
             .replace("'", "&apos;"))
+
+
+def escape_cdata(text: str) -> str:
+    """Escape CDATA content by replacing ]]> with ]]]]><![CDATA[>."""
+    return text.replace("]]>", "]]]]><![CDATA[>")
 
 
 def main():
