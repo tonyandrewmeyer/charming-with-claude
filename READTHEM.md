@@ -21,3 +21,4 @@
 * [The fate of “small” open source](https://nolanlawson.com/2025/11/16/the-fate-of-small-open-source/) - the author argues that there is educational value in the zillion tiny library issue, which AI may solve
 * [Just Talk To It - the no-bs Way of Agentic Engineering](https://steipete.me/posts/just-talk-to-it) - Will date quickly, but a good summary of the world in October 2025
 * [A pragmatic guide to LLM evals for devs](https://newsletter.pragmaticengineer.com/p/evals)
+* [Picking the right sandbox](https://www.luiscardoso.dev/blog/sandboxes-for-ai)
