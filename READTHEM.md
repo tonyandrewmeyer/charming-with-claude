@@ -19,6 +19,7 @@
 * [Safe YOLO mode for Claude](https://www.anthropic.com/engineering/claude-code-best-practices#d-safe-yolo-mode) - the Docker Dev Containers example in particular
 * [LLMs as Parts of Systems](https://brooker.co.za/blog/2025/08/12/llms-as-components.html) - from one of the [Kiro](https://kiro.dev/) engineers
 * [The fate of “small” open source](https://nolanlawson.com/2025/11/16/the-fate-of-small-open-source/) - the author argues that there is educational value in the zillion tiny library issue, which AI may solve
-* [Just Talk To It - the no-bs Way of Agentic Engineering](https://steipete.me/posts/just-talk-to-it) - Will date quickly, but a good summary of the world in October 2025
+* [Just Talk To It - the no-bs Way of Agentic Engineering](https://steipete.me/posts/just-talk-to-it) - will date quickly, but a good summary of the world in October 2025
 * [A pragmatic guide to LLM evals for devs](https://newsletter.pragmaticengineer.com/p/evals)
-* [Picking the right sandbox](https://www.luiscardoso.dev/blog/sandboxes-for-ai)
+* [Picking the right sandbox](https://www.luiscardoso.dev/blog/sandboxes-for-ai) - very detailed overview of (local) sandbox choices for use with AI (but really any untrusted code)
+* [Don't fall into the anti-AI hype](https://antirez.com/news/158) - positive and reflective
