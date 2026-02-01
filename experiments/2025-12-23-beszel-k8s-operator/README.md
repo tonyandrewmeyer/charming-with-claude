@@ -116,7 +116,7 @@ These were immediately Scenario tests, but Scenario 6 from the look of it. I thi
 
 ## Spread
 
-At this point, we're a bit a third of the way down page eight of the first transcript. I then asked Claude to use [spread](https://github.com/canonical/spread) for the integration tests, since this is what Charms should do now, and since there is better scaffolding in Charmcraft now (which I installed for Claude at this point). This stage seemed to take forever... (there are 7 more pages of transcript, so it's about half of the effort).
+At this point, we're a bit over a third of the way down page eight of the first transcript. I then asked Claude to use [spread](https://github.com/canonical/spread) for the integration tests, since this is what Charms should do now, and since there is better scaffolding in Charmcraft now (which I installed for Claude at this point). This stage seemed to take forever... (there are 7 more pages of transcript, so it's about half of the effort).
 
 Partly this is because I couldn't guide Claude the right way, and partly this is because this is new, and partly this is because our documentation is terrible (mostly: missing). It will be interesting to use Claude to try out the new documentation later this cycle.
 
