@@ -47,7 +47,7 @@ A pre-commit configuration should be added that has the standard pre-commit chec
 To develop a charm:
 
 1. Research the workload. Does it suit a machine charm or a Kubernetes charm? What configuration should the charm set with suitable defaults, and what should it make available to Juju users? What actions make sense for the charm? What other charms should the charm work with (ingress, databases, and so on). Make sure you have read the Juju, Pebble, and Ops documentation mentioned above.
-2. Run `charmcraft init --profile=machine` or `charmcraft init --profile=kubernetes`. This will scaffold the local directory with the files needed for the charm.
+2. Run `charmcraft init --profile=machine --force` or `charmcraft init --profile=kubernetes --force`. This will scaffold the local directory with the files needed for the charm.
 
 At this point, you should ultrathink about a plan for the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
 
@@ -62,7 +62,6 @@ Always keep the `README.md` and `CONTRIBUTING.md` files updated as changes are m
 ### Extra setup
 
 * Create a `SECURITY.md` file that explains how to report security issues using the GitHub reporting facility.
-* Create a `CODE_OF_CONDUCT.md` file based on https://www.contributor-covenant.org/version/1/4/code-of-conduct/
 * Create a `TUTORIAL.md` file that provides a basic tutorial for deploying and using the charm.
 
 ### Managing changes
