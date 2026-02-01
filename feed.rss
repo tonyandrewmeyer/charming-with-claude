@@ -6,6 +6,97 @@
     <description>Updates from the Charming with Claude repository: new experiments and reading list additions</description>
     <atom:link href="https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss" rel="self" type="application/rss+xml"/>
     <item>
+      <title>New Experiment: Beszel K8S Operator</title>
+      <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2025-12-23-beszel-k8s-operator</link>
+      <description>New experiment: beszel k8s operator</description>
+      <content:encoded><![CDATA[<h1>beszel-k8s-operator</h1>
+<p>In this experiment, I had Claude Code build a charm for <a href="https://www.beszel.dev">beszel</a>, a simple monitoring utility.</p>
+<h2>Goals</h2>
+<ul>
+<li>Determine how much Claude has progressed since the earlier <a href="../2025-08-01-mosquitto-operator/">mosquitto experiment</a>.</li>
+<li>Develop a Kubernetes charm, rather than a machine one.</li>
+<li>Run Claude in YOLO mode (<code>--dangerously-skip-permissions</code>) inside of a <a href="https://canonical.com/multipass">Multipass</a> virtual machine. It seems like this is the best way to run Claude Code for anything other than trivial work.</li>
+<li>To see how much could be accomplished with minimal input - basically give an initial, very basic, instruction to build the charm (I literally gave it only <code>Build a charm for beszel. https://www.beszel.dev/</code>) and see how far Claude could get without help.</li>
+</ul>
+<h2>Setup</h2>
+<p>Inside of the VM, I installed Claude Code itself, and also <a href="https://github.com/canonical/concierge">Concierge</a>, and ran <code>sudo concierge prepare -p dev</code> so that Claude was starting with a completely bootstrapped Juju (with both K8s and machine controllers).</p>
+<p>The <a href="./CLAUDE.md">CLAUDE.md</a> file had a few updates from the one used with the <code>mosquitto</code> experiment.</p>
+<pre><code class="language-diff">5,6d4
+&lt; Note that to run `charmcraft` on macOS, you will need to run `uvx charmcraft`.
+&lt; 
+9c7
+&lt; We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://juju.is/docs
+---
+&gt; We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://documentation.ubuntu.com/juju/latest/
+28c26
+&lt; * State transition tests, which we refer to as unit tests. These use [ops.testing](https://documentation.ubuntu.com/ops/latest/reference/ops-testing.html). Each test prepares by creating an `testing.Context` object and a `testing.State` object that describes the Juju state when the event is run, then acts by using `ctx.run` to run an event, then asserts on the output state, which is returned by `ctx.run`.
+---
+&gt; * State transition tests, which we refer to as unit tests. These use [ops.testing](https://documentation.ubuntu.com/ops/latest/reference/ops-testing.html)'s `Context` and `State`, **not Harness**. Each test prepares by creating an `testing.Context` object and a `testing.State` object that describes the Juju state when the event is run, then acts by using `ctx.run` to run an event, then asserts on the output state, which is returned by `ctx.run`.
+38c36
+&lt; Integration tests can be run with `tox -e integration`, but also with `charmcraft test`.
+---
+&gt; Integration tests can be run with `tox -e integration`.
+54c52
+&lt; At this point, you should ultrathink about a plan for the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
+---
+&gt; At this point, you should ultrathink about a plan for the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later. Update this file (CLAUDE.md) to include specifics about the charm being developed, rather than a generic set of instructions for building a charm.
+96a95,96
+&gt; * Comments are for explaining *why* a decision was made, not *what* the code is doing. If a reader cannot understand *what* the code is doing, it probably needs to be simplified.
+&gt; * Don't use `type: ignore` unless there is no other reasonable option.
+</code></pre>
+<p>Key Changes</p>
+<ul>
+<li>Tooling &amp; Commands: Removed the specific instruction to run charmcraft via uvx on macOS and removed charmcraft test as a suggested way to run integration tests, leaving tox -e integration as the primary method. (Because I moved off macOS to Ubuntu).</li>
+<li>Documentation Links: Updated the Juju documentation URL from the legacy juju.is domain to the new documentation.ubuntu.com path.</li>
+<li>Testing Guidance: Explicitly clarified that unit tests should use ops.testing's Context and State patterns rather than the older Harness method.</li>
+<li>Process Updates: Added a requirement to update the CLAUDE.md file with project-specific details during the planning phase, rather than keeping it as a template of generic instructions.</li>
+<li>Coding Standards: Introduced two new "Best Practice" rules:</li>
+<li>Comments should explain why, not what (favouring self-documenting code).</li>
+<li>The use of # type: ignore is discouraged unless absolutely necessary.</li>
+</ul>
+<p>I also added a few subagents, based on the <a href="https://github.blog/ai-and-ml/github-copilot/how-to-write-a-great-agents-md-lessons-from-over-2500-repositories/">GitHub recommendations</a>, and two skills, one <a href="https://github.com/mitsuhiko/agent-stuff/tree/main/skills/tmux">Armin's tmux skill</a> and a custom Juju skill.</p>
+<p>There was also an initial <code>settings.json</code>, but this mostly has some initial permissions approval, and since I was running with permission-checking off, this probably did little to help, if anything. It did have setup for auto-formatting Python code, but something was wrong and that continually failed, which confused Claude, and it couldn't fix it itself.</p>
+<h2>Results</h2>
+<p>The <a href="https://tonyandrewmeyer.github.io/beszel-k8s-operator/">full transcript</a> is available, made pretty by <a href="https://simonwillison.net/2025/Dec/25/claude-code-transcripts/">Simon Willison's claude-code-transcripts tool</a>. It includes links to the commits that Claude did as it worked. The final result is available in the <a href="https://github.com/tonyandrewmeyer/beszel-k8s-operator">beszel-k8s-operator repository</a>.</p>
+<h2>Lessons</h2>
+<h3>Plan mode</h3>
+<p>Plan mode existed in Claude Code in the last experiment, but has been significantly upgraded since then. The first steps Claude took were the "research your workload" and "design the charm" ones, and did this in plan mode. I was then presented with options for the development, which I mostly accepted as-is. I did point out that there was a local <code>juju</code> and that Claude was in a sandbox.</p>
+<h3><code>charmcraft init</code></h3>
+<p>Claude correctly used Charmcraft to get an initial charm state, and I feel this did a good job of getting this going well. It did need to 'figure out' that <code>--force</code> was needed, since the agent instruction files were already present. That should probably be in the instructions.</p>
+<h3>Starting with integration tests</h3>
+<p>Claude paid attention to the instructions to start with integration tests. These weren't terrible: they use <a href="https://documentation.ubuntu.com/jubilant/">Jubilant</a> and get parts correct (most noticeably running actions and ssh commands are wrong).</p>
+<h3>Code of Conduct</h3>
+<p>Claude still seems to get stuck trying to create a code of conduct file, so I again interrupted things here and told it to skip that step. This likely needs to either become part of the Charmcraft profile, or get removed as an instruction from CLAUDE.md. Interestingly, the transcript shows it can download the template, it just can't create the file itself with that content.</p>
+<h3>Trust</h3>
+<p>Charms requiring <code>--trust</code> is so common that Claude did it here, without even needing it. It would be great to try to reduce that.</p>
+<h3><code>tox-uv</code> is the default but unintuitive</h3>
+<p>Charmcraft installs <code>tox.ini</code> in a way that requires installing <a href="https://tox.wiki/en/4.32.0/">tox</a> with <a href="https://pypi.org/project/tox-uv/">tox-uv</a>. This is not obvious, and Claude missed it and this meant it didn't run the commands as often as it should, or benefit from the tooling being set up (I eventually did the install myself). This is also a challenge when setting up the CI.</p>
+<p>We should improve this somehow, without waiting for <code>uv</code> to add a task runner system.</p>
+<h3>Juju skill ignored</h3>
+<p>There were several interactions with Juju, as expected, including adding a model. The skill was ignored, as far as I can tell. I do not know why this is, but need to figure it out before investing any more time into skills.</p>
+<h3>CI is configured but not tested</h3>
+<p>I had to help considerably with this. I wonder if I told Claude the repository address (it could get it from <code>git remote</code> but that wasn't in place at the very start) if it would do better, or maybe some instructions about how to check this (with <a href="https://cli.github.com">gh</a>, probably, or maybe <a href="https://nedbatchelder.com/blog/202303/watchgha.html">Ned Batchelder's watchgha</a>) would encourage Claude to verify that it was correct.</p>
+<p>It also installed Charmcraft to pack the charm, but didn't install or bootstrap Juju, and I helped explain what to do. I wonder if having this set up initially didn't help, because there was an assumption the CI environment would be similar to the dev one.</p>
+<h3>Claude is better with slow tasks</h3>
+<p>In the previous experiment, Claude struggled with tasks (like packing and integration tests) that were very slow (over 10 minutes). Since then, Claude has gained the ability to work with background tasks and handle long-running work much more smoothly, and I didn't see any issues with that this time.</p>
+<h3>Integrations</h3>
+<p>Claude did a reasonable job of integrations (for identity, for S3, for ingress). I feel like some documentation pointing to <a href="https://documentation.ubuntu.com/charmlibs">charmlibs</a> including how to use libraries, what libraries are available, and so on, might work better than the web searches that land on Charmhub.</p>
+<h3>Minimal containers</h3>
+<p>The (upstream) Beszel container uses a <a href="https://hub.docker.com/_/scratch">scratch image</a>, so there's no shell in the workload container (and also no tools like <code>curl</code>, which Claude tried to use). A <a href="https://documentation.ubuntu.com/rockcraft/latest/explanation/chisel/#explanation-chisel">chiselled Rock</a> would have similar issues.</p>
+<p>It might be worth giving Claude instructions or even a skill to deal with this. Perhaps even with <a href="https://github.com/tonyandrewmeyer/cascade">Cascade</a>!</p>
+<h3>Unit tests</h3>
+<p>These were immediately Scenario tests, but Scenario 6 from the look of it. I think the "use scenario via ops.testing" decision was a terrible one for agents, although it should resolve itself over time. The agent struggled pulling usage documentation and examples, so more of that would be good (we have plenty already, so just helping it know what to fetch).</p>
+<h2>Spread</h2>
+<p>At this point, we're a bit over a third of the way down page eight of the first transcript. I then asked Claude to use <a href="https://github.com/canonical/spread">spread</a> for the integration tests, since this is what Charms should do now, and since there is better scaffolding in Charmcraft now (which I installed for Claude at this point). This stage seemed to take forever... (there are 7 more pages of transcript, so it's about half of the effort).</p>
+<p>Partly this is because I couldn't guide Claude the right way, and partly this is because this is new, and partly this is because our documentation is terrible (mostly: missing). It will be interesting to use Claude to try out the new documentation later this cycle.</p>
+<h2>Final notes</h2>
+<p>It's taken me a month to write this up properly (I did a bit earlier, but to finish). I need to figure out how to do that more promptly and concisely and efficiently.</p>
+<p>I felt this went vastly better than the last experiment, right up until spread. Some of the issues were also my fault (the bad tool config). I'm looking forward to trying more out, and also seeing if I can get skills working usefully.</p>]]></content:encoded>
+      <dc:creator>Tony Meyer</dc:creator>
+      <pubDate>Sun, 01 Feb 2026 19:42:40 +1300</pubDate>
+      <guid isPermaLink="false">experiment-2025-12-23-beszel-k8s-operator</guid>
+    </item>
+    <item>
       <title>Reading List Update: docs: add a link to &quot;Don&apos;t fall into the anti-AI hype&quot;</title>
       <link>https://github.com/tonyandrewmeyer/charming-with-claude/commit/79b6c637b5aaf9e024407c8c45fa4dd8b6cbb8e7</link>
       <description>docs: add a link to &quot;Don&apos;t fall into the anti-AI hype&quot;</description>
