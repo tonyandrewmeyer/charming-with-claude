@@ -2,13 +2,15 @@
 
 In this experiment, I had Claude Code build a Kubernetes charm for [SunGather](https://sungather.net), a data collection tool for Sungrow solar inverters. The application collects operational data via ModBus connections and exports it to MQTT, InfluxDB, PVOutput.org, and a built-in web interface.
 
+(I have a Sungrow inverter and would like better access to the data than the app provides).
+
 ## Goals
 
 * Continue iterating on the charm development process from the [beszel experiment](../2025-12-23-beszel-k8s-operator/).
-* Develop a Kubernetes charm for a real workload I use at home.
-* Test the new **skills** that were created for charmcraft, jhack, and concierge.
-* Build a working OCI image (Rock) to solve broken upstream container issues.
-* Implement comprehensive integration testing infrastructure.
+* Test the new **skills** that were created for `charmcraft`, `jhack`, and `concierge`.
+* Continue to improve integration testing, but not particularly with spread in this case.
+
+This was not an original goal, but along the way I also added a goal of building a Rock (from necessity, but it's another interesting, charming adjacent, task).
 
 ## Setup
 
@@ -35,7 +37,7 @@ The skills were installed in `.claude/skills/` within the experiment directory. 
 
 ### CLAUDE.md Updates
 
-The `CLAUDE.md` file was largely unchanged from the beszel experiment, maintaining the same guidance about:
+The `CLAUDE.md` file was largely unchanged from the `beszel` experiment, maintaining the same guidance about:
 - Using `ops.testing` (not Harness) for unit tests
 - Using Jubilant (not pytest-operator) for integration tests
 - Following the "testing sandwich" pattern
@@ -67,8 +69,9 @@ sungather-k8s-operator/
 - **50 commits** over multiple sessions
 - **25 configuration options** covering inverter, MQTT, InfluxDB, PVOutput, and webserver settings
 - **3 actions**: `run-once`, `test-connection`, `get-inverter-info`
-- **24 passing tests** (13 unit + 11 integration)
 - **Traefik ingress integration** for web UI access
+
+The actions come directly from what the workload offers, but better charm design for the actual desired purpose would have had different ones.
 
 ### The Charm Plan
 
@@ -86,7 +89,7 @@ This level of upfront planning, guided by the CLAUDE.md instructions to "ultrath
 
 ### The Broken OCI Image Problem
 
-The default upstream image (`bohdans/sungather:latest`) was broken - missing the `SungrowClient` Python module. This is a realistic scenario that charm developers face regularly.
+The default upstream image (`bohdans/sungather:latest`) was broken - missing the `SungrowClient` Python module. I didn't know about this in advance - I had run the utility as a Python script, but not attempted to use the image.
 
 Claude's solution was to build a custom Rock:
 
@@ -100,7 +103,7 @@ The rock uses `uv` for dependency installation (~23ms) and includes all 20 requi
 
 ### Mock Server for Integration Testing
 
-A standout achievement was the mock Sungrow inverter server for integration testing:
+Although I was able to test the charm against my actual inverter, that's obviously not available in CI. An additional challenge was to create a mock Sungrow inverter server for integration testing:
 
 ```
 tests/integration/mock_sungrow/
@@ -126,7 +129,7 @@ The CI pipeline required **7 iterative fixes**:
 6. Charmcraft LXD issues → Applied `--destructive-mode`
 7. Integration test environment → Same Ubuntu version fix
 
-Each failure required Claude to analyse logs, understand the root cause, and propose fixes. This iterative debugging loop worked well, though it consumed significant context.
+Each failure required Claude to analyse logs, understand the root cause, and propose fixes. This iterative debugging loop worked well, though it consumed significant context. Ideally, better instructions, templates, or skills would avoid needing this much work.
 
 ### Jubilant Integration Tests
 
@@ -161,7 +164,7 @@ The solution involved switching from a virtualenv to system Python and adding ex
 | **Plan mode** | Comprehensive planning before implementation |
 | **Testing sandwich** | Integration tests first, then implementation, then unit tests |
 | **Rock building** | Successfully resolved broken upstream image |
-| **Mock server** | Production-quality test infrastructure |
+| **Mock server** | Test infrastructure |
 | **CI debugging** | Systematic approach to fixing pipeline issues |
 | **Documentation** | README, TUTORIAL, CONTRIBUTING, SECURITY all created |
 
@@ -170,7 +173,6 @@ The solution involved switching from a virtualenv to system Python and adding ex
 | Area | Observation |
 |------|-------------|
 | **Skills usage** | <!-- TODO: Add observations about whether skills were actively used --> |
-| **Empty transcripts** | Several transcript files appear empty - unclear why |
 | **CI iteration time** | Each fix required a full CI run to verify |
 | **Registry complexity** | Getting rocks into K8s clusters remains fiddly |
 
@@ -194,7 +196,7 @@ graph LR
         s1[K8s charm]
         s2[Mock server tests]
         s3[Rock building]
-        s4[Skills introduced]
+        s4[Additional skills introduced]
     end
 
     mosquitto --> beszel --> sungather
@@ -212,12 +214,4 @@ The progression shows:
 * [MOCK_SERVER_SUMMARY.md](https://github.com/tonyandrewmeyer/sungather-k8s-operator/blob/main/MOCK_SERVER_SUMMARY.md) - Test infrastructure documentation
 * [rock/rockcraft.yaml](https://github.com/tonyandrewmeyer/sungather-k8s-operator/tree/main/rock) - Custom OCI image definition
 
-## Next Steps
-
-<!-- TODO: Add thoughts on future directions for charm development experiments -->
-
-1. **Verify skills activation**: Review transcripts more carefully to understand if/when skills were triggered
-2. **Test with real hardware**: Deploy against an actual Sungrow inverter
-3. **Publish to Charmhub**: Take the charm to production-ready state
-4. **Improve rock CI**: Streamline the build-and-push workflow
-5. **Document skill effectiveness**: Create metrics for evaluating skill usefulness
+## Final Thoughts
