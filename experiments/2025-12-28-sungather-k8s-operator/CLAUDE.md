@@ -54,7 +54,7 @@ At this point, you should ultrathink about a plan for the charm. Use the researc
 Continuing:
 
 3. In `src/charm.py` there should be a configuration dataclass and an action dataclass for each action. There will be an existing class that is a `CharmBase` subclass, and this is where you should configure all the event observation.
-4. In `src/` there is a workload Python module. This should contain methods that provide interaction with the workload - for machine charms, this will be installing, updating, and removing packages with `apt` or `snap`, and communication with the workload via `subprocess` or an HTTP API. For Kubernetes charms, services are managed via Pebble and interaction with the workload is typically via an HTTP API, but might also involve running processes in the workfload containers with Pebble's `exec`.
+4. In `src/` there is a workload Python module. This should contain methods that provide interaction with the workload - for machine charms, this will be installing, updating, and removing packages with `apt` or `snap`, and communication with the workload via `subprocess` or an HTTP API. For Kubernetes charms, services are managed via Pebble and interaction with the workload is typically via an HTTP API, but might also involve running processes in the workload containers with Pebble's `exec`.
 5. The first thing to get working is installation (for machine charms) and getting the workload running, often by providing a configuration file.
 
 Always keep the `README.md` and `CONTRIBUTING.md` files updated as changes are made. The `uv.lock` file should be committed to git and regularly updated. You should have a `.gitignore` file that includes `.claude/settings.local.json`.
