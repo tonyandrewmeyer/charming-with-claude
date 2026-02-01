@@ -1,6 +1,6 @@
 # Charming with Claude
 
-An experimental repository for exploring and improving Claude Code's ability to develop [Juju charms](https://juju.is/).
+An experimental repository for exploring and improving Claude Code's ability to develop [Juju charms](https://canonical.com/juju/).
 
 ## Purpose
 
@@ -8,41 +8,40 @@ This repository serves as a testing ground to:
 
 - **Experiment** with Claude Code's capabilities for charm development
 - **Learn** where Claude struggles and what guidance helps it succeed
-- **Document** findings to inform both instruction improvements and Juju/charmcraft tooling enhancements
+- **Document** findings to inform both instruction improvements and tooling enhancements
 - **Iterate** on reusable Claude Code configurations for charm projects
 
-The goal is not to produce production-ready charms, but to evaluate and enhance how effectively Claude Code can develop charms with proper guidance.
+The goal is not to produce production-ready charms, but to evaluate and enhance how effectively Claude Code can develop charms with proper (and minimal) guidance.
 
 ## Repository Structure
 
 ```
 charming-with-claude/
-├── claude-instructions/    # Reusable Claude Code configuration
-│   ├── CLAUDE.md          # Template guidance for charm projects
-│   └── .claude/commands/  # Custom commands for charm development
-├── experiments/           # Individual charm development experiments
+├── claude-instructions/       # Reusable Claude Code configuration
+│   ├── CLAUDE.md              # Template guidance for charm projects
+│   ├── README.md              # Guidance for using the Claude configuration
+│   ├── INSTALL-SKILLS.md      # Instructions for using Claude skills from this repo
+│   └── .claude/commands/      # Custom commands for charm development
+│   └── .claude/skills/        # Custom skills for charm development
+│   └── .claude/settings.json  # Starting settings for charm development
+├── experiments/               # Individual charm development experiments
 │   └── 2025-08-01-mosquitto-operator/
-├── READTHEM.md           # Curated reading list on AI/LLM development
-└── CLAUDE.md             # Claude Code guidance for this repository
+│   └── 2025-12-23-Beszel-k8s-operator/
+├── READTHEM.md                # Curated reading list on AI/LLM development
+└── CLAUDE.md                  # Claude Code guidance for this repository
 ```
-
-### claude-instructions/
-
-Contains reusable Claude Code configuration that can be copied into charm projects:
-
-- **CLAUDE.md**: Comprehensive charm development instructions template
-- **.claude/commands/**: Custom commands for common tasks (documentation, review, visualization, cleanup, summaries)
 
 ### experiments/
 
 Each subdirectory is a self-contained charm development experiment. Experiments follow the format `YYYY-MM-DD-charm-name` and include:
 
-- Their own copy of claude-instructions files
+- Their own copy of claude-instructions files (as they were at the start of development)
 - README.md documenting goals and outcomes
 - Links to experiment results
 
 **Current experiments:**
 - [2025-08-01-mosquitto-operator](experiments/2025-08-01-mosquitto-operator/)
+- [2025-12-23-beszel-k8s-operator](experiments/2025-12-23-beszel-k8s-operator/)
 
 ### READTHEM.md
 
@@ -88,7 +87,7 @@ When you discover improvements to how Claude develops charms:
 
 ## About Juju Charms
 
-[Juju](https://juju.is/) is an open-source orchestration engine for software operators. Charms are operator code packages that contain all the logic for deploying, integrating, scaling, and maintaining applications on any cloud or infrastructure.
+[Juju](https://canonical.com/juju/) is an open-source orchestration engine for software operators. Charms are operator code packages that contain all the logic for deploying, integrating, scaling, and maintaining applications on any cloud or infrastructure.
 
 ## Licence
 
