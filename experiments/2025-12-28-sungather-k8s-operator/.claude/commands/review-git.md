@@ -34,7 +34,7 @@ Steps:
    - Check that tests cover edge cases
    - Verify tests are meaningful, not just coverage padding
    - Look for missing integration tests
-   - Confirm tests follow Deno.test conventions
+   - Confirm tests follow the project's chosen test framework conventions (for example, pytest for Python charms)
 
 5. Performance Review:
    - Identify O(n²) or worse algorithms
