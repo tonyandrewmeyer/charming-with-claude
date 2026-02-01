@@ -2,15 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Custom Skills
-
-Before working on tasks, check for relevant skills in `.claude/skills/`. Available skills:
-- `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
-- `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
-- `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
-
-Read the appropriate SKILL.md before starting any related work.
-
 ## Juju, Pebble, and Charms
 
 We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://juju.is/docs
@@ -26,7 +17,7 @@ Charms are built using Ops. Ops provides the charm with a way to communicate wit
 
 ## Quality Checks
 
-Charm code is always formatted, linted, and staticly type checked before commiting. Format the code using `tox -e format` and run the linting and type checking using `tox -e lint`. Under the hood, these use `ruff format`, `ruff check` and `pyright`.
+Charm code is always formatted, linted, and statically type checked before committing. Format the code using `tox -e format` and run the linting and type checking using `tox -e lint`. Under the hood, these use `ruff format`, `ruff check` and `pyright`.
 
 Charms always have a comprehensive set of automated tests. These tests are often run locally but also always run in a CI workflow for every PR and merge to main.
 
@@ -56,7 +47,7 @@ A pre-commit configuration should be added that has the standard pre-commit chec
 To develop a charm:
 
 1. Research the workload. Does it suit a machine charm or a Kubernetes charm? What configuration should the charm set with suitable defaults, and what should it make available to Juju users? What actions make sense for the charm? What other charms should the charm work with (ingress, databases, and so on). Make sure you have read the Juju, Pebble, and Ops documentation mentioned above.
-2. Run `charmcraft init --profile=machine --force` or `charmcraft init --profile=kubernetes --force`. This will scaffold the local directory with the files needed for the charm.
+2. Run `charmcraft init --profile=machine` or `charmcraft init --profile=kubernetes`. This will scaffold the local directory with the files needed for the charm.
 
 At this point, you should ultrathink about a plan for the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
 
@@ -71,6 +62,7 @@ Always keep the `README.md` and `CONTRIBUTING.md` files updated as changes are m
 ### Extra setup
 
 * Create a `SECURITY.md` file that explains how to report security issues using the GitHub reporting facility.
+* Create a `CODE_OF_CONDUCT.md` file based on https://www.contributor-covenant.org/version/1/4/code-of-conduct/
 * Create a `TUTORIAL.md` file that provides a basic tutorial for deploying and using the charm.
 
 ### Managing changes
