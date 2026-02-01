@@ -33,7 +33,7 @@ Each skill includes:
 
 The skills were installed in `.claude/skills/` within the experiment directory. See [INSTALL-SKILLS.md](https://github.com/tonyandrewmeyer/sungather-k8s-operator/blob/main/INSTALL-SKILLS.md) in the repository for installation instructions.
 
-<!-- TODO: Add observations about whether the skills were actively triggered/used by Claude during development. Did Claude reference them? Did they improve the quality of charmcraft/jhack commands? -->
+Once again, the skills seem to have been ignored. I've done a little more research and maybe I have to tell Claude about the, explicitly, even though they are located where the tool should expect them.
 
 ### CLAUDE.md Updates
 
@@ -115,7 +115,7 @@ tests/integration/mock_sungrow/
 
 This enables testing without physical hardware - realistic data, both protocols supported, pytest fixture integration. The mock server was verified working locally, though the full integration tests require pushing the rock to an accessible registry.
 
-<!-- TODO: Describe the experience of requesting and iterating on the mock server implementation -->
+This worked quite well - I had to tighten the focus to match the physical setup I have, which is what I care about most, but this was overall a painless and very fast addition. I haven't really verified it outside of the tests, so it's possible it's also quite flawed, of course!
 
 ### CI/CD Required Significant Debugging
 
@@ -215,3 +215,9 @@ The progression shows:
 * [rock/rockcraft.yaml](https://github.com/tonyandrewmeyer/sungather-k8s-operator/tree/main/rock) - Custom OCI image definition
 
 ## Final Thoughts
+
+I need to either figure out how to get skills to be used, or give up on them. The testing side is also still taking way too long. Creating a rock was a nice addition - it might be nice to start with that as a goal next time. Getting the rock into a registry was more complex than it should have been, and something I would have expected the tool to already be familiar with.
+
+It would be interesting to start with `uv` installed and `uv tool install tox --with=tox-uv` but without `concierge` to see how well Claude handles that.
+
+It's also be interesting to build the same charm with two tools (Claude and something else), ideally using the same model, to see if there's much variation in the output.
