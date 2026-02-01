@@ -654,7 +654,7 @@ When reporting jhack bugs:
 3. Environment: `jhack jenv`
 4. Full error output with `--loglevel=DEBUG`
 5. Steps to reproduce
-6. Expected vs actual behavior
+6. Expected vs actual behaviour
 
 Report at: https://github.com/canonical/jhack/issues -- **ALWAYS ASK FIRST**
 
