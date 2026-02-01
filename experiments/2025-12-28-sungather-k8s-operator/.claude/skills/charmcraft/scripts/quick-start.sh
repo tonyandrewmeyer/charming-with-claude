@@ -168,7 +168,7 @@ Examples of behavior that contributes to creating a positive environment include
 
 ## Enforcement
 
-Project maintainers are responsible for clarifying the standards of acceptable behavior and are expected to take appropriate and fair corrective action in response to any instances of unacceptable behavior.
+Project maintainers are responsible for clarifying the standards of acceptable behavior and are expected to take appropriate and fair corrective action in response to any instances of unacceptable behaviour.
 
 ## Attribution
 
