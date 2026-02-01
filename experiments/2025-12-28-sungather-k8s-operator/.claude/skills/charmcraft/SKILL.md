@@ -171,7 +171,7 @@ Main charm implementation:
 ## Best Practices
 
 ### Development Workflow
-1. **Write integration tests first** - define expected behavior
+1. **Write integration tests first** - define expected behaviour
 2. **Implement incrementally** - get basic functionality working
 3. **Run quality checks** - `tox -e lint` and `tox -e format` frequently
 4. **Analyse before upload** - `charmcraft analyse` on every build

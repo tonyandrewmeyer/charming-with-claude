@@ -67,34 +67,34 @@ digraph Dependencies {
 
 ## Examples
 
-### Visualize a function:
+### Visualise a function:
 
 ```
-/visualize ./src/charm.py:MyCharm._on_install
+/visualise ./src/charm.py:MyCharm._on_install
 ```
 
 ### Visualise integrations:
 
 ```
-/visualize charmcraft.yaml --type=erd
+/visualise charmcraft.yaml --type=erd
 ```
 
 ### Generate system architecture:
 
 ```
-/visualize . --type architecture
+/visualise . --type architecture
 ```
 
 ### Create API sequence diagram:
 
 ```
-/visualize ./src/charm.py --type sequence
+/visualise ./src/charm.py --type sequence
 ```
 
 ### Output to specific file:
 
 ```
-/visualize ./src/charm.py --output docs/diagrams/auth-flow.md
+/visualise ./src/charm.py --output docs/diagrams/auth-flow.md
 ```
 
 ## Advanced Features
