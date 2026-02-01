@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Custom Skills
+
+Before working on tasks, check for relevant skills in `.claude/skills/`. Available skills:
+- `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
+- `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
+- `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+
+Read the appropriate SKILL.md before starting any related work.
+
 ## Juju, Pebble, and Charms
 
 We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://juju.is/docs
