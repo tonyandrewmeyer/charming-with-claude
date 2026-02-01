@@ -30,8 +30,6 @@ charmcraft list-extensions
 charmcraft expand-extensions
 ```
 
-If the directory is not empty (for example, there's a plan, `CLAUDE.md`, or a `.git` folder), you need to add `--force`.
-
 **After init:**
 1. Customize `charmcraft.yaml` (metadata, bases, relations, config)
 2. Edit `README.md` (becomes Charmhub documentation)
@@ -173,7 +171,7 @@ Main charm implementation:
 ## Best Practices
 
 ### Development Workflow
-1. **Write integration tests first** - define expected behavior
+1. **Write integration tests first** - define expected behaviour
 2. **Implement incrementally** - get basic functionality working
 3. **Run quality checks** - `tox -e lint` and `tox -e format` frequently
 4. **Analyse before upload** - `charmcraft analyse` on every build
