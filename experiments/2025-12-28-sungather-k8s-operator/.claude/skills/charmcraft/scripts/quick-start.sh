@@ -1,6 +1,6 @@
 #!/bin/bash
 # Charmcraft Quick Start Helper
-# This script helps initialize and set up a new charm project with best practices
+# This script helps initialise and set up a new charm project with best practices
 
 set -e
 
