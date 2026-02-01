@@ -149,7 +149,7 @@ jhack charm lobotomy myapp/0 --undo  # Disable
 jhack utils elect myapp/1  # Make unit 1 the leader
 ```
 
-**`lobotomy`** is useful for freezing a charm's behavior during debugging - it prevents the charm from processing any events.
+**`lobotomy`** is useful for freezing a charm's behaviour during debugging - it prevents the charm from processing any events.
 
 ### Pebble Commands (K8s Charms)
 
