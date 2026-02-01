@@ -47,7 +47,7 @@ Key Changes
  * Testing Guidance: Explicitly clarified that unit tests should use ops.testing's Context and State patterns rather than the older Harness method.
  * Process Updates: Added a requirement to update the CLAUDE.md file with project-specific details during the planning phase, rather than keeping it as a template of generic instructions.
  * Coding Standards: Introduced two new "Best Practice" rules:
- * Comments should explain why, not what (favoring self-documenting code).
+ * Comments should explain why, not what (favouring self-documenting code).
  * The use of # type: ignore is discouraged unless absolutely necessary.
 
 I also added a few subagents, based on the [GitHub recommendations](https://github.blog/ai-and-ml/github-copilot/how-to-write-a-great-agents-md-lessons-from-over-2500-repositories/), and two skills, one [Armin's tmux skill](https://github.com/mitsuhiko/agent-stuff/tree/main/skills/tmux) and a custom Juju skill.
