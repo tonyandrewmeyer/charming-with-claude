@@ -30,7 +30,7 @@ charmcraft list-extensions
 charmcraft expand-extensions
 ```
 
-If the directory is not empty (for example, there's a plan or `CLAUDE.md`, or `.git` folder, you need to add `--force`.
+If the directory is not empty (for example, there's a plan, `CLAUDE.md`, or a `.git` folder), you need to add `--force`.
 
 **After init:**
 1. Customize `charmcraft.yaml` (metadata, bases, relations, config)
