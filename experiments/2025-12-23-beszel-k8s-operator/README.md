@@ -108,7 +108,7 @@ Claude did a reasonable job of integrations (for identity, for S3, for ingress).
 
 The (upstream) Beszel container uses a [scratch image](https://hub.docker.com/_/scratch), so there's no shell in the workload container (and also no tools like `curl`, which Claude tried to use). A [chiselled Rock](https://documentation.ubuntu.com/rockcraft/latest/explanation/chisel/#explanation-chisel) would have similar issues.
 
-It might be worth giving Claude instructions or even a skill to deal with this. Perhaps even with [Cascade](https://github.com/tonyandrewmeyer/cascade]!
+It might be worth giving Claude instructions or even a skill to deal with this. Perhaps even with [Cascade](https://github.com/tonyandrewmeyer/cascade)!
 
 ### Unit tests
 
