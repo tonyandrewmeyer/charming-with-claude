@@ -33,7 +33,7 @@ Each skill includes:
 
 The skills were installed in `.claude/skills/` within the experiment directory. See [INSTALL-SKILLS.md](https://github.com/tonyandrewmeyer/sungather-k8s-operator/blob/main/INSTALL-SKILLS.md) in the repository for installation instructions.
 
-Once again, the skills seem to have been ignored. I've done a little more research and maybe I have to tell Claude about the, explicitly, even though they are located where the tool should expect them.
+Once again, the skills seem to have been ignored. I've done a little more research and maybe I have to tell Claude about them explicitly, even though they are located where the tool should expect them.
 
 ### CLAUDE.md Updates
 
