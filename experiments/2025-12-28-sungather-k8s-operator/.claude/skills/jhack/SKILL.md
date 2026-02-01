@@ -237,7 +237,7 @@ jhack chaos flicker myapp  # Rapid scaling up/down
 
 1. Check current leader: `juju status`
 2. Force different unit to lead: `jhack utils elect myapp/1`
-3. Test leader-specific behavior
+3. Test leader-specific behaviour
 4. Watch events: `jhack tail myapp`
 
 ## Command Quick Reference
