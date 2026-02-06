@@ -23,3 +23,5 @@
 * [A pragmatic guide to LLM evals for devs](https://newsletter.pragmaticengineer.com/p/evals)
 * [Picking the right sandbox](https://www.luiscardoso.dev/blog/sandboxes-for-ai) - very detailed overview of (local) sandbox choices for use with AI (but really any untrusted code)
 * [Don't fall into the anti-AI hype](https://antirez.com/news/158) - positive and reflective
+* [How to Code Claude Code in 200 Lines of Code](https://www.mihaileric.com/The-Emperor-Has-No-Clothes/) - an exaggeration of course, but it shows how coding agents are fairly simple at heart
+ 
