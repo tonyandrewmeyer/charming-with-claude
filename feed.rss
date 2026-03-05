@@ -6,6 +6,205 @@
     <description>Updates from the Charming with Claude repository: new experiments and reading list additions</description>
     <atom:link href="https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss" rel="self" type="application/rss+xml"/>
     <item>
+      <title>New Experiment: Harness To Scenario Migration</title>
+      <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration</link>
+      <description>New experiment: harness to scenario migration</description>
+      <content:encoded><![CDATA[<h1>Harness to Scenario Migration</h1>
+<p>In this experiment, I used AI to migrate the unit tests for the <a href="https://github.com/canonical/prometheus-k8s-operator">prometheus-k8s</a> charm from the deprecated <code>ops.testing.Harness</code> to state-transition tests (Scenario, via <code>ops.testing</code>). Unlike the previous experiments, this wasn't about building a new charm -- it was about a common maintenance task that many charm teams face, and one that I think is particularly well suited to AI assistance. I'd been meaning to try this for a while, and was prompted (sorry!) by the appearance of a dedicated skill in the <a href="https://github.com/canonical/copilot-collections">copilot-collections</a> repository (currently still a PR).</p>
+<p>I ran the same migration twice: once with a bare prompt and no special instructions, and once with a detailed skill (taken entirely from the copilot-collections PR) that provides a structured workflow, reference materials, and reusable recipes. My theory, based on what I've seen likely with skills,  was that recent models are capable enough to do a good job without elaborate scaffolding, and that the skill would provide diminishing returns.</p>
+<h2>Goals</h2>
+<ul>
+<li>Compare the quality of AI-assisted Harness-to-Scenario migration with and without a detailed skill.</li>
+<li>Determine whether investing in creating skills for this kind of task is worthwhile.</li>
+<li>Evaluate how well current models understand the Scenario testing API. (This is particularly interesting because they've done poorly in the past, and having both Harness and Scenario in the <code>ops.testing</code> namespace, and the relative new-ness of Scenario in "ops[testing]" form, has caused models difficulty).</li>
+</ul>
+<h2>Setup</h2>
+<p>I would normally use Claude Code for experiments, but since the copilot-collections skill is designed specifically for Copilot (even though it ought to work equally well with Claude Code), both runs used GitHub Copilot Coding Agent on the same repository (<a href="https://github.com/canonical/prometheus-k8s-operator">prometheus-k8s-operator</a>), targeting the same file: <code>tests/unit/test_charm.py</code>.</p>
+<h3>Run 1: Bare Prompt (PR <a href="https://github.com/tonyandrewmeyer/prometheus-k8s-operator/pull/1">#1</a>)</h3>
+<p>The prompt was simply:</p>
+<blockquote>
+<p>Please convert the tests/unit/test_charm tests from Harness to Scenario (ops[testing], State transition tests)</p>
+</blockquote>
+<p>(I realised after viewing the results that I was a bit lax with the instruction, which is, I think, why I had an additional file changed. I fixed that for the other prompt).</p>
+<h3>Run 2: With Skill (PR <a href="https://github.com/tonyandrewmeyer/prometheus-k8s-operator/pull/2">#2</a>)</h3>
+<p>The prompt was:</p>
+<blockquote>
+<p>Migrate the tests in tests/unit/test_charm.py from Harness to State Transition. There is a skill available for this.</p>
+</blockquote>
+<p>The skill used is from <a href="https://github.com/canonical/copilot-collections/pull/29">this copilot-collections PR</a>. A copy of the skill files is in the <a href="./skill/">skill/</a> directory of this experiment.</p>
+<h2>Results</h2>
+<h3>Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Bare Prompt (PR #1)</th>
+<th>With Skill (PR #2)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Files changed</td>
+<td>2</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Lines added</td>
+<td>686</td>
+<td>525</td>
+</tr>
+<tr>
+<td>Lines deleted</td>
+<td>774</td>
+<td>686</td>
+</tr>
+<tr>
+<td>Net change</td>
+<td>-88</td>
+<td>-161</td>
+</tr>
+<tr>
+<td>Test classes migrated</td>
+<td>5</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Import style</td>
+<td><code>from ops.testing import ...</code></td>
+<td><code>from scenario import ...</code></td>
+</tr>
+<tr>
+<td>Container setup</td>
+<td>Inline with layers</td>
+<td>Minimal <code>_container()</code> factory</td>
+</tr>
+<tr>
+<td>Plan access</td>
+<td>Custom <code>_get_plan()</code> helper</td>
+<td><code>container.plan</code> property</td>
+</tr>
+<tr>
+<td>Parametrisation</td>
+<td>Loops inside tests</td>
+<td><code>pytest.mark.parametrize</code></td>
+</tr>
+<tr>
+<td>Status assertions</td>
+<td><code>state_out.unit_status.name == "active"</code></td>
+<td><code>isinstance(state_out.unit_status, ActiveStatus)</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Detailed Analysis</h3>
+<h4>Import Style</h4>
+<p>The bare prompt version imports from <code>ops.testing</code>:</p>
+<pre><code class="language-python">from ops.testing import Container, Exec, Relation, State
+</code></pre>
+<p>The skill version imports from <code>scenario</code>:</p>
+<pre><code class="language-python">from scenario import ActiveStatus, BlockedStatus, Container, Exec, MaintenanceStatus, Relation, State
+</code></pre>
+<p>The <code>ops.testing</code> import is the correct modern approach. Importing from <code>scenario</code> directly works but is the older style. This is a clear win for the bare prompt -- however, I'm fairly sure this could easily be solved with a small adjustment to the skill.</p>
+<h4>Container Construction</h4>
+<p>The bare prompt creates containers with explicit layers and service statuses:</p>
+<pre><code class="language-python">def _prometheus_container():
+    return Container(
+        &quot;prometheus&quot;,
+        can_connect=True,
+        layers={&quot;prometheus&quot;: pebble.Layer({&quot;services&quot;: {&quot;prometheus&quot;: {}}})},
+        service_statuses={&quot;prometheus&quot;: pebble.ServiceStatus.INACTIVE},
+        execs={Exec([&quot;update-ca-certificates&quot;, &quot;--fresh&quot;], return_code=0, stdout=&quot;&quot;)},
+    )
+</code></pre>
+<p>The skill version creates a minimal container:</p>
+<pre><code class="language-python">def _container():
+    return Container(
+        &quot;prometheus&quot;,
+        can_connect=True,
+        execs={Exec([&quot;update-ca-certificates&quot;, &quot;--fresh&quot;], return_code=0, stdout=&quot;&quot;)},
+    )
+</code></pre>
+<p>The skill version is leaner. Whether it's "better" depends on the charm -- if <code>collect-status</code> inspects the Pebble plan (as it often does), the bare prompt version's pre-populated layers might be necessary for tests to pass. Both sets of tests pass, but the bare prompt's approach is more defensive and closer to what the original Harness <code>setUp</code> was doing.</p>
+<h4>Plan Access</h4>
+<p>This is one of the more interesting differences. The bare prompt created a custom <code>_get_plan()</code> helper that manually merges layers:</p>
+<pre><code class="language-python">def _get_plan(state_out, context):
+    container = state_out.get_container(&quot;prometheus&quot;)
+    plan = pebble.Plan()
+    for layer in container.layers.values():
+        # ... manual merge logic
+</code></pre>
+<p>The skill version just uses <code>container.plan</code>:</p>
+<pre><code class="language-python">plan = state_out.get_container(&quot;prometheus&quot;).plan
+</code></pre>
+<p>The <code>.plan</code> property is the correct Scenario API for accessing the merged plan. The bare prompt version essentially reimplements what Scenario already provides, which is both unnecessary and fragile. This is a clear win for the skill version, and a good example of how models still struggle to 'know' the Scenario API.</p>
+<h4>Test Organisation and Parametrisation</h4>
+<p>The bare prompt keeps the same test structure as the original -- loops inside test methods:</p>
+<pre><code class="language-python">def test_valid_metrics_retention_times_can_be_set(self, context, prometheus_container):
+    acceptable_units = [&quot;y&quot;, &quot;w&quot;, &quot;d&quot;, &quot;h&quot;, &quot;m&quot;, &quot;s&quot;]
+    for unit in acceptable_units:
+        ...
+</code></pre>
+<p>The skill version uses <code>pytest.mark.parametrize</code>:</p>
+<pre><code class="language-python">@pytest.mark.parametrize(&quot;unit&quot;, [&quot;y&quot;, &quot;w&quot;, &quot;d&quot;, &quot;h&quot;, &quot;m&quot;, &quot;s&quot;])
+def test_valid_metrics_retention_times_can_be_set(self, context, unit):
+    ...
+</code></pre>
+<p>Parametrisation is clearly better here: each parameter combination gets its own test case, so a failure pinpoints exactly which unit caused the problem. This is a win for the skill version, although it feels a bit outside of the "migrate from Harness to Scenario" task.</p>
+<h4>Status Assertions</h4>
+<p>The bare prompt uses string comparison:</p>
+<pre><code class="language-python">assert state_out.unit_status.name == &quot;active&quot;
+</code></pre>
+<p>The skill version uses <code>isinstance</code> with the status types:</p>
+<pre><code class="language-python">assert isinstance(state_out.unit_status, ActiveStatus)
+</code></pre>
+<p>Both work, but <code>isinstance</code> is more idiomatic for Scenario tests and gives better error messages on failure. The skill version also imports the status types from <code>scenario</code> (as noted previously), but the pattern is correct. Mild win for the skill version.</p>
+<h4>Scope and Side Effects</h4>
+<p>The bare prompt also migrated <code>test_charm_status.py</code> (a second file that wasn't explicitly requested), producing a net 2-file change. I believe this was likely because my prompt said <code>test_charm tests</code> rather than <code>test_charm.py</code>. The skill version stayed focused on the single file (but I had 'fixed' the prompt).</p>
+<p>Both versions correctly:
+- Removed the <code>ops.testing.SIMULATE_CAN_CONNECT = True</code> global
+- Removed the <code>@prom_multipatch</code>, <code>@k8s_resource_multipatch</code>, and <code>@patch("lightkube...")</code> decorators
+- Replaced <code>unittest.TestCase</code> classes with plain pytest classes
+- Added an <code>autouse</code> fixture for the PVC capacity mock
+- Converted <code>self.assertEqual</code> / <code>self.assertIsInstance</code> to <code>assert</code> statements</p>
+<h4>Handling Multi-Step Tests</h4>
+<p>Both versions handle tests that need state chaining (e.g., <code>test_configuration_reload</code> which needs a running Pebble plan before changing config). The bare prompt uses a helper method:</p>
+<pre><code class="language-python">def _get_running_state(self, context, prometheus_container):
+    state = State(leader=True, containers=[prometheus_container])
+    return context.run(context.on.pebble_ready(prometheus_container), state)
+</code></pre>
+<p>The skill version uses <code>dataclasses.replace</code>:</p>
+<pre><code class="language-python">state1 = State(containers=[container])
+state_mid = context.run(context.on.config_changed(), state1)
+state2 = dataclasses.replace(state_mid, config={&quot;evaluation_interval&quot;: &quot;1234m&quot;})
+</code></pre>
+<p>Both approaches are valid. The skill version is more explicit about what it's doing but more verbose. The bare prompt's helper method creates reuse but hides the event choice. In Scenario, <code>dataclasses.replace</code> is the standard way to evolve state between runs, so the skill version is slightly more idiomatic.</p>
+<h4>The Pebble Plan "No Restart" Test</h4>
+<p>This test (<code>test_no_restart_nor_reload_when_nothing_changes</code>) is particularly tricky to migrate because the original Harness version patches the internal Pebble client methods to raise if called. The skill version handles this thoughtfully:</p>
+<pre><code class="language-python">with patch(&quot;prometheus_client.Prometheus.reload_configuration&quot;) as reload_mock, \
+     patch.object(PrometheusCharm, &quot;_generate_prometheus_config&quot;, return_value=False), \
+     patch.object(PrometheusCharm, &quot;_set_alerts&quot;, return_value=False):
+    state_out = context.run(context.on.config_changed(), state_mid)
+</code></pre>
+<p>The bare prompt version doesn't include a clear equivalent for this test. The skill version's approach of patching the charm's own methods to report "no change" is a reasonable adaptation, with a comment explaining why.</p>
+<h3>Fixture Pattern</h3>
+<p>The bare prompt version uses <code>conftest.py</code>-style fixtures via method parameters (<code>context</code>, <code>prometheus_container</code>), suggesting it created or expected fixtures elsewhere. The skill version creates containers inline or via a module-level factory function, making each test more self-contained.</p>
+<h2>Conclusion</h2>
+<p>Neither approach produced a perfect migration, but both produced something substantially useful -- a charmer would be starting from a much better position than doing the migration from scratch.</p>
+<p>The skill version is modestly better overall. Its advantages are in the details: proper use of <code>container.plan</code>, <code>pytest.mark.parametrize</code>, more idiomatic status assertions, and more thoughtful handling of the tricky "no restart" test. The bare prompt version's biggest mistake was reimplementing plan merging, which suggests the model didn't know about the <code>.plan</code> property -- exactly the kind of API detail a skill can surface.</p>
+<p>However, the bare prompt version got the import style right (<code>ops.testing</code> rather than <code>scenario</code>), which is arguably more important for long-term maintainability. It also produced a more defensive container setup that would be more robust against <code>collect-status</code> issues.</p>
+<p>The key question is whether the skill was worth the effort to create. For a one-off migration of a single charm, almost certainly not. The bare prompt got close enough. But for a team migrating dozens of charms, the skill's structured approach (inventory, checklist, recipes) and its ability to surface API details like <code>.plan</code> would compound in value. However, I strongly suspect that over time these advantages will continue to fade, as Scenario is more established and the models continue to improve.</p>
+<p>My original theory -- that recent models would do the job well without elaborate instructions -- is partially confirmed. The bare prompt did a creditable job. But the skill version was noticeably better in ways that matter for code review and long-term maintenance. The investment in a skill pays off more with scale and repetition than with a single use.</p>
+<h2>Files of Interest</h2>
+<ul>
+<li><a href="https://github.com/tonyandrewmeyer/prometheus-k8s-operator/pull/1">PR #1</a> -- Bare prompt migration</li>
+<li><a href="https://github.com/tonyandrewmeyer/prometheus-k8s-operator/pull/2">PR #2</a> -- Migration using the skill</li>
+<li><a href="./skill/">skill/</a> -- Copy of the skill files used in PR #2</li>
+<li><a href="https://github.com/canonical/copilot-collections/pull/29">Skill PR</a> -- The original skill in copilot-collections</li>
+</ul>]]></content:encoded>
+      <dc:creator>Tony Meyer</dc:creator>
+      <pubDate>Fri, 06 Mar 2026 11:36:31 +1300</pubDate>
+      <guid isPermaLink="false">experiment-2026-03-05-harness-to-scenario-migration</guid>
+    </item>
+    <item>
       <title>Reading List Update: docs: add links to other Canonical experiments</title>
       <link>https://github.com/tonyandrewmeyer/charming-with-claude/commit/8c811fcc00c6a3290286916a44e701d012b33545</link>
       <description>docs: add links to other Canonical experiments</description>
