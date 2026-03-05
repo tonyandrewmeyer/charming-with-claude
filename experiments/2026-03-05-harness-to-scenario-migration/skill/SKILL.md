@@ -74,7 +74,7 @@ Create a written task list **before** editing files and keep it updated:
 ## Reusable Resources
 
 - `scripts/find_harness_tests.py`: Recursively scans the provided paths for `testing.Harness`/`Scenario` references. Usage:
-- `python3 .github/skills/migrate-harness-tests-to-state-transition-test/scripts/find_harness_tests.py tests/unit tests/integration` # remember to install the skill locally first
+- `python3 .github/skills/migrate-harness-tests-to-state-transition-test/scripts/find_harness_tests.py tests/unit tests/integration`
 - `references/migration-checklist.md`: Step-by-step plan that maps every Harness helper to its state-transition counterpart and reminds you to satisfy collect-status requirements.
 - `references/state-transition-recipes.md`: Ready-to-paste snippets for actions, relation-changed, Pebble-ready, update-status, and failure cases.
 - Canonical guide: [How to migrate unit tests from Harness](https://documentation.ubuntu.com/ops/latest/howto/legacy/migrate-unit-tests-from-harness/) (authoritative reference for nuanced behaviours).
