@@ -178,6 +178,10 @@ The following migrations were produced by Copilot using the recommended approach
 4. [loki-k8s-operator](https://github.com/canonical/loki-k8s-operator) — Observability, 18 files, score: 21/25
 5. [hockeypuck-k8s-operator](https://github.com/canonical/hockeypuck-k8s-operator) — Security (multi-model), 4 files, score: 21/25
 
+## Related Experiments
+
+The [harness-to-scenario migration experiment](../2026-03-05-harness-to-scenario-migration/) explores the same core question — how much does an AI model need to be guided to perform a mechanical test migration? — but for unit tests rather than integration tests. It compares a bare prompt against a detailed skill for migrating from the deprecated `ops.testing.Harness` to state-transition tests (`ops.testing` / Scenario), and is a much smaller study (2 runs on a single charm). The conclusions broadly align: a bare prompt does a creditable job, and a well-crafted skill offers modest but meaningful improvements.
+
 ## TL;DR but somehow got this far down, how does this help you?
 
 See [guidance.md](guidance.md) for a practical, step-by-step guide to using Copilot for your own migration.
