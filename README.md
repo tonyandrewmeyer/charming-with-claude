@@ -35,6 +35,7 @@ charming-with-claude/
 ├── experiments/               # Individual charm development experiments
 │   └── 2025-08-01-mosquitto-operator/
 │   └── 2025-12-23-beszel-k8s-operator/
+│   └── 2026-02-17-jubilant-migration-experiment/
 ├── READTHEM.md                # Curated reading list on AI/LLM development
 └── CLAUDE.md                  # Claude Code guidance for this repository
 ```
@@ -50,6 +51,7 @@ Each subdirectory is a self-contained charm development experiment. Experiments 
 **Current experiments:**
 - [2025-08-01-mosquitto-operator](experiments/2025-08-01-mosquitto-operator/)
 - [2025-12-23-beszel-k8s-operator](experiments/2025-12-23-beszel-k8s-operator/)
+- [2026-02-17-jubilant-migration-experiment](experiments/2026-02-17-jubilant-migration-experiment/) — Can Copilot migrate your integration tests from pytest-operator to jubilant?
 
 ### READTHEM.md
 
