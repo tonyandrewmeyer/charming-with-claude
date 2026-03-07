@@ -25,7 +25,7 @@ A complete migration of your integration tests, typically including:
 Using the recommended approach below, our experiments showed:
 - **100% of migrations scored 21/25 or higher** (merge-ready with light review)
 - **Average score: 24/25**
-- **Time: 3–17 minutes** depending on charm complexity (your mileage may vary based on local resources, even though the bulk of the work in 'in the cloud')
+- **Time: 3–17 minutes** depending on charm complexity (your mileage may vary based on local resources, even though the bulk of the work is in the cloud)
 - **2 out of 7 scored a perfect 25/25**
 
 ## The Recommended Approach
