@@ -1,9 +1,9 @@
 # 🤖 Copilot CLI Session
 
 > **Session ID:** `fdab7f7b-0354-435c-8576-821e4668485f`
-> **Started:** 3/7/2026, 12:24:12 PM
+> **Started:** 7 Mar 2026, 12:24:12 PM
 > **Duration:** 7m 37s
-> **Exported:** 3/7/2026, 12:31:50 PM
+> **Exported:** 7 Mar 2026, 12:31:50 PM
 
 <sub>⏱️ 4s</sub>
 
