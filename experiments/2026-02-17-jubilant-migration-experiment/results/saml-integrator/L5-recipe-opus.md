@@ -1,9 +1,7 @@
 # 🤖 Copilot CLI Session
 
 > **Session ID:** `e8d77f62-4a16-46bd-93cb-0f7d87c48a30`
-> **Started:** 7 Mar 2026, 12:36:51 PM
 > **Duration:** 4m 29s
-> **Exported:** 7 Mar 2026, 12:41:20 PM
 
 <sub>⏱️ 4s</sub>
 
@@ -1861,7 +1859,7 @@ static: commands[0]> bandit -c /tmp/saml-integrator-L5-opus/pyproject.toml -r /t
 [main]	INFO	cli exclude tests: None
 [main]	INFO	using config: /tmp/saml-integrator-L5-opus/pyproject.toml
 [main]	INFO	running on Python 3.12.3
-Run started:2026-03-06 23:40:51.148916+00:00
+Run started
 
 Test results:
 	No issues identified.

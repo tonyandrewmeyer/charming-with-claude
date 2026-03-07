@@ -1,9 +1,7 @@
 # 🤖 Copilot CLI Session
 
 > **Session ID:** `bb593aef-8acb-4b31-87d6-bbb812f6a1c4`
-> **Started:** 7 Mar 2026, 12:32:05 PM
 > **Duration:** 3m 28s
-> **Exported:** 7 Mar 2026, 12:35:33 PM
 
 <sub>⏱️ 4s</sub>
 
@@ -105,7 +103,7 @@ Throughout this migration, you MUST stop and wait for user input at these points
 1. Create `.agent/state/` directory if it doesn't exist
 2. Check if state file exists
 3. If exists: read it, show user current progress, ask "Continue from where you left off, or start fresh?"
-4. If not exists: analyse tests and create state file with full plan
+4. If not exists: analyze tests and create state file with full plan
 
 ### During Work
 
