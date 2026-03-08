@@ -32,3 +32,6 @@
 * [How to Code Claude Code in 200 Lines of Code](https://www.mihaileric.com/The-Emperor-Has-No-Clothes/) - an exaggeration of course, but it shows how coding agents are fairly simple at heart
 * [
 Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set of guidelines for using LLMs: responsibility, rigour, empathy, teamwork, urgency, "use must always be consistent with our deeply-held sense of responsibility: our responsibility to our product, our responsibility to our customers — and our responsibility to one another".
+* [Trusting your own judgement on 'AI' is a huge risk](https://www.baldurbjarnason.com/2025/trusting-your-own-judgement-on-ai/) - skeptical, interesting thoughts based on psycology, argues for scientific approaches.
+* [AI fatigue is real amd no-one is talking about it](https://siddhantkhare.com/writing/ai-fatigue-is-real) - a bit negative, but about what's happening, not skeptical about quality. Lots of good advice.
+* [Socialize the plan](https://laughingmeme.org/2026/03/05/socialize-the-plan.html) - thoughts on code review and how AI impacts the value.
