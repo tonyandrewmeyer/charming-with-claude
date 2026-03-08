@@ -35,7 +35,7 @@
 <p>The migration is largely mechanical but touches many files and requires understanding both the old and new APIs. This makes it an ideal candidate for AI-assisted migration.</p>
 <p>Like many technical debt projects, it is difficult to find the time to get this work done, so if AI can assist, that would be particularly useful. There is some time pressure, because Jubilant supports both Juju 3 and Juju 4 (and even Juju 2.9 via <code>jubilant-backports</code>), whereas <code>python-libjuju</code> does not (and will never, in the current form) support Juju 4. We want charms to verify that they work on Juju 4, so having integration tests that work across both versions is critical for achieving that.</p>
 <h2>Goals</h2>
-<p>This experiment has two equally important goals:</p>
+<p>This experiment has two primary goals:</p>
 <ol>
 <li><strong>Scientific evaluation</strong>: Determine how much assistance Copilot needs to produce high-quality migrations, using a controlled comparison of different prompt strategies.</li>
 <li><strong>Practical guidance</strong>: Produce actionable recommendations for charmers who want to use Copilot to speed up their own migrations.</li>
@@ -102,7 +102,7 @@
 <thead>
 <tr>
 <th>Charm</th>
-<th>Team/Domain</th>
+<th>Domain</th>
 <th>Complexity</th>
 <th>Integration Test Files</th>
 </tr>
@@ -121,7 +121,7 @@
 <thead>
 <tr>
 <th>Charm</th>
-<th>Team/Domain</th>
+<th>Domain</th>
 <th>Complexity</th>
 <th>Levels Tested</th>
 </tr>
@@ -140,7 +140,7 @@
 <thead>
 <tr>
 <th>Charm</th>
-<th>Team/Domain</th>
+<th>Domain</th>
 <th>Complexity</th>
 <th style="text-align: center;">Files Changed</th>
 </tr>
@@ -202,6 +202,11 @@
 <td>wordpress-k8s-operator</td>
 <td><a href="https://github.com/canonical/wordpress-k8s-operator">Repository</a></td>
 <td>Fully migrated to jubilant</td>
+</tr>
+<tr>
+<td>kyuubi-k8s-operator</td>
+<td><a href="https://github.com/canonical/kyuubi-k8s-operator/pull/76">PR #76</a></td>
+<td></td>
 </tr>
 </tbody>
 </table>
@@ -313,7 +318,7 @@
 </ol>
 <p>See <a href="guidance.md">guidance.md</a> for a complete step-by-step guide.</p>
 <h2>Example Migrations</h2>
-<p>To put this into practice, Copilot was instructed to pick 5 charms to migrate using the recommended approach (Level 3 + Sonnet 4.6), selecting a diverse set across teams. Although the tests are somewhat diverse in style and complexity, most of the charms are actually from the same team (IS) — sorry about that. The resulting migrations have been submitted as real PRs upstream by <a href="https://github.com/tonyandrewmeyer">tonyandrewmeyer</a>:</p>
+<p>To put this into practice, Copilot was instructed to pick 5 charms to migrate using the recommended approach (Level 3 + Sonnet 4.6), selecting a diverse set across teams. Although the tests are somewhat diverse in style and complexity, most of the charms are actually from the same team — sorry about that. The resulting migrations have been submitted as PRs upstream (currently draft):</p>
 <table>
 <thead>
 <tr>
@@ -340,7 +345,7 @@
 <td style="text-align: center;">22/25</td>
 <td style="text-align: center;">1</td>
 <td style="text-align: center;">6</td>
-<td style="text-align: center;">Pass (1 arm64 timing flake)</td>
+<td style="text-align: center;">Pass (except a couple of arm tests that I think are unrelated)</td>
 </tr>
 <tr>
 <td><a href="https://github.com/canonical/indico-operator">indico</a></td>
@@ -348,7 +353,7 @@
 <td style="text-align: center;">21/25</td>
 <td style="text-align: center;">1</td>
 <td style="text-align: center;">8</td>
-<td style="text-align: center;">Pass (env failures only)</td>
+<td style="text-align: center;">Pass (env failures only, from what I can tell)</td>
 </tr>
 <tr>
 <td><a href="https://github.com/canonical/loki-k8s-operator">loki-k8s</a></td>
@@ -356,7 +361,7 @@
 <td style="text-align: center;">21/25</td>
 <td style="text-align: center;">1</td>
 <td style="text-align: center;">5</td>
-<td style="text-align: center;">Pass (env failures only)</td>
+<td style="text-align: center;">Pass (env failures I think, but am least sure)</td>
 </tr>
 <tr>
 <td><a href="https://github.com/canonical/hockeypuck-k8s-operator">hockeypuck-k8s</a></td>
@@ -369,7 +374,7 @@
 </tbody>
 </table>
 <p>In each PR, <strong>the first commit is the direct output of the AI migration process</strong>. All subsequent commits are fixes needed to get the tests passing — but AI was able to make those fixes too, with a bit of help, once the CI infrastructure was hooked up so that the model could actually see the test failures and act on them. Having a way to <code>charmcraft test</code> and run integration tests locally would mean this feedback loop could happen earlier, without needing to push to CI first.</p>
-<p>All PRs were manually reviewed by tonyandrewmeyer (a Jubilant co-author and Charm Tech team member) before being submitted upstream. They look reasonable from that perspective, but they do need review from someone familiar with the specific charm and its tests.</p>
+<p>I manually reviewed each PR before submitting upstream, but this is from someone that knows Jubilant pretty well but doesn't really know the charm or its tests. They look reasonable from that perspective, but they do need review from someone familiar with the specific charm and its tests.</p>
 <h3>Common fixes needed after the initial AI migration</h3>
 <p>Looking across the fix commits, clear patterns emerge:</p>
 <ol>
@@ -389,7 +394,7 @@
 <p><strong>Wait/status subtleties</strong>: <code>jubilant.all_active</code> checks <em>all</em> apps in the model, which can fail if a related app is in "waiting" status. Several PRs needed to scope waits to specific apps (content-cache, nginx-ingress).</p>
 </li>
 <li>
-<p><strong>Tooling compatibility</strong>: <code>charmcraft pack -p</code> was removed in charmcraft 3.x, and <code>pytest_jubilant.pack()</code> uses it internally, requiring workarounds (loki).</p>
+<p><strong>Tooling compatibility</strong>: confusion around <code>charmcraft pack -p</code>, which <code>pytest_jubilant.pack()</code> uses internally (loki).</p>
 </li>
 <li>
 <p><strong>CI configuration</strong>: Jubilant uses <code>juju integrate</code> (Juju 3+), so CI workflows defaulting to Juju 2.9 needed channel updates. Juju 3.6 also requires strictly confined microk8s (indico).</p>
@@ -404,7 +409,7 @@
 <h2>TL;DR but somehow got this far down, how does this help you?</h2>
 <p>See <a href="guidance.md">guidance.md</a> for a practical, step-by-step guide to using Copilot for your own migration.</p>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
-      <pubDate>Sun, 08 Mar 2026 14:00:12 +1300</pubDate>
+      <pubDate>Sun, 08 Mar 2026 18:20:38 +1300</pubDate>
       <guid isPermaLink="false">experiment-2026-02-17-jubilant-migration-experiment</guid>
     </item>
     <item>
