@@ -30,7 +30,7 @@ Like many technical debt projects, it is difficult to find the time to get this 
 
 ## Goals
 
-This experiment has two equally important goals:
+This experiment has two primary goals:
 
 1. **Scientific evaluation**: Determine how much assistance Copilot needs to produce high-quality migrations, using a controlled comparison of different prompt strategies.
 2. **Practical guidance**: Produce actionable recommendations for charmers who want to use Copilot to speed up their own migrations.
@@ -70,20 +70,20 @@ Each run was evaluated against the [evaluation rubric](evaluation-rubric.md) sco
 
 ### Full Matrix (all 6 levels, both models)
 
-| Charm | Team/Domain | Complexity | Integration Test Files |
-|-------|-------------|------------|----------------------|
+| Charm | Domain | Complexity | Integration Test Files |
+|-------|--------|------------|----------------------|
 | [saml-integrator-operator](https://github.com/canonical/saml-integrator-operator) | Identity | Simple (2 tests) | conftest.py, test_charm.py |
 
 ### Confirmation Runs (selected levels, Sonnet)
 
-| Charm | Team/Domain | Complexity | Levels Tested |
-|-------|-------------|------------|---------------|
+| Charm | Domain | Complexity | Levels Tested |
+|-------|--------|------------|---------------|
 | [s3-integrator](https://github.com/canonical/s3-integrator) | Data/Storage | Medium (5 tests + helpers) | L1, L3, L5, L6 |
 
 ### Broader Sample (L3 + Sonnet 4.6)
 
-| Charm | Team/Domain | Complexity | Files Changed |
-|-------|-------------|------------|:-------------:|
+| Charm | Domain | Complexity | Files Changed |
+|-------|--------|------------|:-------------:|
 | [nginx-ingress-integrator-operator](https://github.com/canonical/nginx-ingress-integrator-operator) | Networking | Medium | 5 |
 | [content-cache-k8s-operator](https://github.com/canonical/content-cache-k8s-operator) | Web Infrastructure | Simple-Medium | 4 |
 | [indico-operator](https://github.com/canonical/indico-operator) | Web App / PaaS | Complex | 7 |
@@ -97,6 +97,7 @@ Each run was evaluated against the [evaluation rubric](evaluation-rubric.md) sco
 | paas-charm (Django) | [PR #222](https://github.com/canonical/paas-charm/pull/222) | AI-assisted migration, reviewed and merged |
 | paas-charm (FastAPI) | [PR #226](https://github.com/canonical/paas-charm/pull/226) | AI-assisted migration, reviewed and merged |
 | wordpress-k8s-operator | [Repository](https://github.com/canonical/wordpress-k8s-operator) | Fully migrated to jubilant |
+| kyuubi-k8s-operator | [PR #76](https://github.com/canonical/kyuubi-k8s-operator/pull/76) |
 
 Note that all of these were done by others, not me.
 
@@ -170,19 +171,19 @@ See [guidance.md](guidance.md) for a complete step-by-step guide.
 
 ## Example Migrations
 
-To put this into practice, Copilot was instructed to pick 5 charms to migrate using the recommended approach (Level 3 + Sonnet 4.6), selecting a diverse set across teams. Although the tests are somewhat diverse in style and complexity, most of the charms are actually from the same team (IS) — sorry about that. The resulting migrations have been submitted as real PRs upstream by [tonyandrewmeyer](https://github.com/tonyandrewmeyer):
+To put this into practice, Copilot was instructed to pick 5 charms to migrate using the recommended approach (Level 3 + Sonnet 4.6), selecting a diverse set across teams. Although the tests are somewhat diverse in style and complexity, most of the charms are actually from the same team — sorry about that. The resulting migrations have been submitted as PRs upstream (currently draft):
 
 | Charm | PR | Score | AI Commit | Fix Commits | CI |
 |-------|:--:|:-----:|:---------:|:-----------:|:--:|
 | [content-cache-k8s](https://github.com/canonical/content-cache-k8s-operator) | [#167](https://github.com/canonical/content-cache-k8s-operator/pull/167) | 25/25 | 1 | 3 | All green |
-| [nginx-ingress-integrator](https://github.com/canonical/nginx-ingress-integrator-operator) | [#324](https://github.com/canonical/nginx-ingress-integrator-operator/pull/324) | 22/25 | 1 | 6 | Pass (1 arm64 timing flake) |
-| [indico](https://github.com/canonical/indico-operator) | [#723](https://github.com/canonical/indico-operator/pull/723) | 21/25 | 1 | 8 | Pass (env failures only) |
-| [loki-k8s](https://github.com/canonical/loki-k8s-operator) | [#572](https://github.com/canonical/loki-k8s-operator/pull/572) | 21/25 | 1 | 5 | Pass (env failures only) |
+| [nginx-ingress-integrator](https://github.com/canonical/nginx-ingress-integrator-operator) | [#324](https://github.com/canonical/nginx-ingress-integrator-operator/pull/324) | 22/25 | 1 | 6 | Pass (except a couple of arm tests that I think are unrelated) |
+| [indico](https://github.com/canonical/indico-operator) | [#723](https://github.com/canonical/indico-operator/pull/723) | 21/25 | 1 | 8 | Pass (env failures only, from what I can tell) |
+| [loki-k8s](https://github.com/canonical/loki-k8s-operator) | [#572](https://github.com/canonical/loki-k8s-operator/pull/572) | 21/25 | 1 | 5 | Pass (env failures I think, but am least sure) |
 | [hockeypuck-k8s](https://github.com/canonical/hockeypuck-k8s-operator) | [#201](https://github.com/canonical/hockeypuck-k8s-operator/pull/201) | 21/25 | 1 | 4 | All green |
 
 In each PR, **the first commit is the direct output of the AI migration process**. All subsequent commits are fixes needed to get the tests passing — but AI was able to make those fixes too, with a bit of help, once the CI infrastructure was hooked up so that the model could actually see the test failures and act on them. Having a way to `charmcraft test` and run integration tests locally would mean this feedback loop could happen earlier, without needing to push to CI first.
 
-All PRs were manually reviewed by tonyandrewmeyer (a Jubilant co-author and Charm Tech team member) before being submitted upstream. They look reasonable from that perspective, but they do need review from someone familiar with the specific charm and its tests.
+I manually reviewed each PR before submitting upstream, but this is from someone that knows Jubilant pretty well but doesn't really know the charm or its tests. They look reasonable from that perspective, but they do need review from someone familiar with the specific charm and its tests.
 
 ### Common fixes needed after the initial AI migration
 
@@ -198,7 +199,7 @@ Looking across the fix commits, clear patterns emerge:
 
 5. **Wait/status subtleties**: `jubilant.all_active` checks *all* apps in the model, which can fail if a related app is in "waiting" status. Several PRs needed to scope waits to specific apps (content-cache, nginx-ingress).
 
-6. **Tooling compatibility**: `charmcraft pack -p` was removed in charmcraft 3.x, and `pytest_jubilant.pack()` uses it internally, requiring workarounds (loki).
+6. **Tooling compatibility**: confusion around `charmcraft pack -p`, which `pytest_jubilant.pack()` uses internally (loki).
 
 7. **CI configuration**: Jubilant uses `juju integrate` (Juju 3+), so CI workflows defaulting to Juju 2.9 needed channel updates. Juju 3.6 also requires strictly confined microk8s (indico).
 
