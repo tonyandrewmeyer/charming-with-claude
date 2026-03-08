@@ -6,6 +6,408 @@
     <description>Updates from the Charming with Claude repository: new experiments and reading list additions</description>
     <atom:link href="https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss" rel="self" type="application/rss+xml"/>
     <item>
+      <title>New Experiment: Jubilant Migration Experiment</title>
+      <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-02-17-jubilant-migration-experiment</link>
+      <description>New experiment: jubilant migration experiment</description>
+      <content:encoded><![CDATA[<h1>Jubilant Migration Experiment: Can Copilot Migrate Your Integration Tests?</h1>
+<p>An experiment to evaluate how effectively GitHub Copilot (using Claude models) can migrate Juju charm integration tests from pytest-operator/python-libjuju to <a href="https://documentation.ubuntu.com/jubilant">Jubilant</a> and <a href="https://pypi.org/project/pytest-jubilant/">pytest-jubilant</a>.</p>
+<h2>Contents</h2>
+<ul>
+<li><a href="README.md">README.md</a> — This file: overview, goals, and summary of findings</li>
+<li><a href="methodology.md">methodology.md</a> — Detailed experimental methodology</li>
+<li><a href="results.md">results.md</a> — Full results with data tables and analysis</li>
+<li><a href="evaluation-rubric.md">evaluation-rubric.md</a> — Scoring criteria used to evaluate migrations</li>
+<li><a href="guidance.md">guidance.md</a> — Practical guide for charmers using Copilot to migrate</li>
+<li><a href="prompts/">prompts/</a> — The 6 prompt templates tested at each assistance level</li>
+<li><a href="results/">results/</a> — Raw Copilot session transcripts and diffs for each run</li>
+<li><a href="gold-standards/">gold-standards/</a> — Reference migrations used for comparison</li>
+<li><a href="discourse-post.md">discourse-post.md</a> — Draft Discourse post announcing findings</li>
+</ul>
+<h2>Background</h2>
+<p>Canonical's charm ecosystem is migrating integration tests from <a href="https://github.com/charmed-kubernetes/pytest-operator">pytest-operator</a> (which wraps <a href="https://github.com/juju/python-libjuju">python-libjuju</a>) to <a href="https://github.com/canonical/jubilant">Jubilant</a>, a simpler, synchronous library that wraps the Juju CLI directly. This migration involves:</p>
+<ul>
+<li>Removing <code>async</code>/<code>await</code> patterns throughout test code</li>
+<li>Replacing <code>OpsTest</code> fixtures with <code>Juju</code> instances</li>
+<li>Updating deployment, waiting, integration, and action APIs</li>
+<li>Switching from <code>ops_test.build_charm()</code> to <code>pytest_jubilant.pack()</code></li>
+<li>Updating dependencies in <code>pyproject.toml</code> or <code>tox.ini</code></li>
+</ul>
+<p>The migration is largely mechanical but touches many files and requires understanding both the old and new APIs. This makes it an ideal candidate for AI-assisted migration.</p>
+<p>Like many technical debt projects, it is difficult to find the time to get this work done, so if AI can assist, that would be particularly useful. There is some time pressure, because Jubilant supports both Juju 3 and Juju 4 (and even Juju 2.9 via <code>jubilant-backports</code>), whereas <code>python-libjuju</code> does not (and will never, in the current form) support Juju 4. We want charms to verify that they work on Juju 4, so having integration tests that work across both versions is critical for achieving that.</p>
+<h2>Goals</h2>
+<p>This experiment has two equally important goals:</p>
+<ol>
+<li><strong>Scientific evaluation</strong>: Determine how much assistance Copilot needs to produce high-quality migrations, using a controlled comparison of different prompt strategies.</li>
+<li><strong>Practical guidance</strong>: Produce actionable recommendations for charmers who want to use Copilot to speed up their own migrations.</li>
+</ol>
+<p>For charmers, (2) is the most important. (1) plays into it, but is also continuing the investigations of previous experience into how much assistance is required, especially with the models released in late 2025 and afterwards.</p>
+<h3>Research Questions</h3>
+<ol>
+<li>Can Copilot migrate integration tests from <code>pytest-operator</code> to <code>jubilant</code> with minimal human review? Note that the goal is not <em>no</em> human review - humans should always be reviewing the code that goes into the charm, including tests. However, we want 2-3 skilled charmers familiar with the charm to be able to spend a normal amount of time reviewing the charms, removing the extensive manual conversion work.</li>
+<li>How much context/guidance does the model need? Is a bare prompt enough, or does it need detailed recipes, documentation pointers, or working examples?</li>
+<li>Does model choice matter? (Claude Opus 4.6 vs Claude Sonnet 4.6 -- I'm a bit biased towards the Claude models from previous success, but I would also guess that some of this research would apply to other model choice)</li>
+<li>How close does the AI output come to human-authored "gold standard" migrations?</li>
+<li>What patterns does Copilot handle well, and where does it consistently struggle?</li>
+</ol>
+<h2>Methodology Summary</h2>
+<p>See <a href="methodology.md">methodology.md</a> for full details.</p>
+<p>I tested <strong>6 levels of assistance</strong>, from a bare one-line prompt to a detailed recipe combined with a working example:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Description</th>
+<th>Context Provided</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Bare prompt</td>
+<td>One-line migration instruction</td>
+</tr>
+<tr>
+<td>2</td>
+<td>+ Docs pointer</td>
+<td>Points to Jubilant documentation</td>
+</tr>
+<tr>
+<td>3</td>
+<td>+ Source inspection</td>
+<td>Instructs model to install and read Jubilant source</td>
+</tr>
+<tr>
+<td>4</td>
+<td>+ Example charm</td>
+<td>Points to a fully-migrated charm as reference</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Detailed recipe</td>
+<td>Full migration recipe with API mappings and steps</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Recipe + example</td>
+<td>Recipe plus reference to migrated charm</td>
+</tr>
+</tbody>
+</table>
+<p>I ran all 6 levels on <code>saml-integrator-operator</code> using both Claude Sonnet 4.6 and Claude Opus 4.6 (12 runs), additional targeted runs on <code>s3-integrator</code> (5 runs), then the best approach on 5 additional charms from diverse teams (5 runs) — 22 experiments in total.</p>
+<p>(It's worth noting that one of the reasons for the number of runs was that some of them used a lot of memory and OOM'd out a couple of times, so I dropped a couple of less promising ones. The VM doing the work only had 8GB of memory.)</p>
+<p>Each run was evaluated against the <a href="evaluation-rubric.md">evaluation rubric</a> scoring correctness, completeness, code quality, minimal diff, and human review needed.</p>
+<h2>Charms Tested</h2>
+<h3>Full Matrix (all 6 levels, both models)</h3>
+<table>
+<thead>
+<tr>
+<th>Charm</th>
+<th>Team/Domain</th>
+<th>Complexity</th>
+<th>Integration Test Files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/canonical/saml-integrator-operator">saml-integrator-operator</a></td>
+<td>Identity</td>
+<td>Simple (2 tests)</td>
+<td>conftest.py, test_charm.py</td>
+</tr>
+</tbody>
+</table>
+<h3>Confirmation Runs (selected levels, Sonnet)</h3>
+<table>
+<thead>
+<tr>
+<th>Charm</th>
+<th>Team/Domain</th>
+<th>Complexity</th>
+<th>Levels Tested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/canonical/s3-integrator">s3-integrator</a></td>
+<td>Data/Storage</td>
+<td>Medium (5 tests + helpers)</td>
+<td>L1, L3, L5, L6</td>
+</tr>
+</tbody>
+</table>
+<h3>Broader Sample (L3 + Sonnet 4.6)</h3>
+<table>
+<thead>
+<tr>
+<th>Charm</th>
+<th>Team/Domain</th>
+<th>Complexity</th>
+<th style="text-align: center;">Files Changed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/canonical/nginx-ingress-integrator-operator">nginx-ingress-integrator-operator</a></td>
+<td>Networking</td>
+<td>Medium</td>
+<td style="text-align: center;">5</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/content-cache-k8s-operator">content-cache-k8s-operator</a></td>
+<td>Web Infrastructure</td>
+<td>Simple-Medium</td>
+<td style="text-align: center;">4</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/indico-operator">indico-operator</a></td>
+<td>Web App / PaaS</td>
+<td>Complex</td>
+<td style="text-align: center;">7</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/loki-k8s-operator">loki-k8s-operator</a></td>
+<td>Observability</td>
+<td>Large</td>
+<td style="text-align: center;">18</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/hockeypuck-k8s-operator">hockeypuck-k8s-operator</a></td>
+<td>Security</td>
+<td>Complex (multi-model)</td>
+<td style="text-align: center;">4</td>
+</tr>
+</tbody>
+</table>
+<h3>Gold Standard References</h3>
+<table>
+<thead>
+<tr>
+<th>Charm</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>paas-charm (Django)</td>
+<td><a href="https://github.com/canonical/paas-charm/pull/222">PR #222</a></td>
+<td>AI-assisted migration, reviewed and merged</td>
+</tr>
+<tr>
+<td>paas-charm (FastAPI)</td>
+<td><a href="https://github.com/canonical/paas-charm/pull/226">PR #226</a></td>
+<td>AI-assisted migration, reviewed and merged</td>
+</tr>
+<tr>
+<td>wordpress-k8s-operator</td>
+<td><a href="https://github.com/canonical/wordpress-k8s-operator">Repository</a></td>
+<td>Fully migrated to jubilant</td>
+</tr>
+</tbody>
+</table>
+<p>Note that all of these were done by others, not me.</p>
+<h2>Results Summary</h2>
+<p>See <a href="results.md">results.md</a> for the full data.</p>
+<h3>TL;DR numbers</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Best approach</td>
+<td><strong>Level 3 (source inspection) + Claude Sonnet 4.6</strong></td>
+</tr>
+<tr>
+<td>Average score with best approach</td>
+<td><strong>24.0 / 25</strong> (across 7 charms)</td>
+</tr>
+<tr>
+<td>Perfect scores (25/25)</td>
+<td>2 out of 7 L3+Sonnet runs</td>
+</tr>
+<tr>
+<td>Runs scoring 21+ ("merge-ready")</td>
+<td><strong>100%</strong> of L3+Sonnet runs</td>
+</tr>
+<tr>
+<td>Worst approach</td>
+<td>Level 5 (recipe) + Claude Opus 4.6: <strong>12 / 25</strong></td>
+</tr>
+<tr>
+<td>Time range</td>
+<td>3–17 minutes depending on charm complexity</td>
+</tr>
+</tbody>
+</table>
+<h3>Score comparison (saml-integrator, all levels)</h3>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th style="text-align: center;">Sonnet 4.6</th>
+<th style="text-align: center;">Opus 4.6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1: Bare prompt</td>
+<td style="text-align: center;"><strong>24</strong></td>
+<td style="text-align: center;">20</td>
+</tr>
+<tr>
+<td>L2: + Docs pointer</td>
+<td style="text-align: center;">17</td>
+<td style="text-align: center;">17</td>
+</tr>
+<tr>
+<td>L3: + Source inspection</td>
+<td style="text-align: center;"><strong>25</strong></td>
+<td style="text-align: center;">18</td>
+</tr>
+<tr>
+<td>L4: + Example charm</td>
+<td style="text-align: center;"><strong>24</strong></td>
+<td style="text-align: center;">18</td>
+</tr>
+<tr>
+<td>L5: Detailed recipe</td>
+<td style="text-align: center;">18</td>
+<td style="text-align: center;">12</td>
+</tr>
+<tr>
+<td>L6: Recipe + example</td>
+<td style="text-align: center;">22</td>
+<td style="text-align: center;">14</td>
+</tr>
+</tbody>
+</table>
+<h2>Key Findings</h2>
+<h3>1. Sonnet consistently outperforms Opus for this task</h3>
+<p>Across all 12 paired comparisons, Sonnet scored higher than or equal to Opus. The average gap was <strong>+5.2 points</strong> (out of 25). Opus tends to over-engineer: adding unnecessary logging, environment variable handling, redundant assertions, and structural refactoring that goes beyond the migration scope. For a well-defined mechanical migration, Sonnet's simpler, more direct approach wins.</p>
+<h3>2. Reading the source code is the best form of guidance</h3>
+<p>Level 3 (install <code>jubilant</code> + read the source) produced the best results because (I assume) the model gets absolute truth API information and doesn't need to extract it out of (nice for humans) HTML docs. I believe this reduces risk of hallucination, increases the likelihood of correct parameter names, and provides awareness of all available fixtures and methods. This scored a perfect 25/25 on the simple charm and 21-25 on all others.</p>
+<p>My guess was that this would be best, based on what I've observed models do when building charms: with no guidance at all there is a lot of 'fumbling' around, but extensive help isn't required after the late 2025 model releases. I've seen agents inspecting packages (typically out of the venv) frequently, so based this approach on that, with an explicit push.</p>
+<h3>3. More guidance doesn't always help</h3>
+<p>Perhaps counter-intuitively to some, the detailed recipe (Level 5) scored <em>lower</em> than the bare prompt (Level 1). The recipe introduced problems:
+- <strong>Hallucinated parameters</strong>: The recipe's examples included slightly wrong API details that the model copied faithfully (perhaps this was unfair of me and I should have fixed this when I noticed and re-ran these ones)
+- <strong>Interactive design conflict</strong>: Recipe checkpoints saying "STOP and wait" caused Opus to exit immediately in non-interactive mode
+- <strong>Unnecessary artefacts</strong>: State tracking files that shouldn't be committed</p>
+<h3>4. A bare prompt works surprisingly well</h3>
+<p>Level 1 scored 24/25 with Sonnet — the model proactively searched for Jubilant documentation and produced a clean migration with no prompting beyond "migrate these tests". This suggests the Jubilant API is already well-represented in the model's training data.</p>
+<h3>5. Pointing to docs can be counterproductive</h3>
+<p>Level 2 (docs pointer) scored the lowest of all Sonnet runs (17/25). This does seem a bit odd given (4) above! Reading the Jubilant documentation led models to implement low-level patterns (manual <code>temp_model()</code> fixtures) instead of using <code>pytest-jubilant</code>'s higher-level abstractions (James's work this cycle may solve this). Pithy, but: The docs describe what's possible; the source code shows what's idiomatic.</p>
+<h3>6. The approach scales to complex charms</h3>
+<p>Level 3 + Sonnet successfully migrated charms ranging from two tests (<code>saml-integrator</code>) to 18 files with 1,450 lines removed (<code>loki-k8s</code>). It correctly handled multi-model testing, container SSH, complex fixture chains, and action migrations. Time scaled roughly linearly with complexity.</p>
+<h2>Recommendations</h2>
+<ol>
+<li><strong>Use Claude Sonnet 4.6</strong> (or later) as the model — over Opus (or if wanting a non-Anthropic model, research which is best)</li>
+<li><strong>Use the Level 3 prompt</strong> (source inspection) for best results</li>
+<li><strong>Run linting and formatting</strong> after the migration — Copilot usually does this itself, but verify</li>
+<li><strong>Review the conftest.py carefully</strong> — this is where most issues appear (custom vs built-in fixtures)</li>
+<li><strong>Check for hallucinated parameters</strong> — especially <code>successes=</code> in <code>juju.wait()</code> calls</li>
+<li><strong>Don't use the detailed recipe in non-interactive mode</strong> — it was designed for supervised use</li>
+</ol>
+<p>See <a href="guidance.md">guidance.md</a> for a complete step-by-step guide.</p>
+<h2>Example Migrations</h2>
+<p>To put this into practice, Copilot was instructed to pick 5 charms to migrate using the recommended approach (Level 3 + Sonnet 4.6), selecting a diverse set across teams. Although the tests are somewhat diverse in style and complexity, most of the charms are actually from the same team (IS) — sorry about that. The resulting migrations have been submitted as real PRs upstream by <a href="https://github.com/tonyandrewmeyer">tonyandrewmeyer</a>:</p>
+<table>
+<thead>
+<tr>
+<th>Charm</th>
+<th style="text-align: center;">PR</th>
+<th style="text-align: center;">Score</th>
+<th style="text-align: center;">AI Commit</th>
+<th style="text-align: center;">Fix Commits</th>
+<th style="text-align: center;">CI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/canonical/content-cache-k8s-operator">content-cache-k8s</a></td>
+<td style="text-align: center;"><a href="https://github.com/canonical/content-cache-k8s-operator/pull/167">#167</a></td>
+<td style="text-align: center;">25/25</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">All green</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/nginx-ingress-integrator-operator">nginx-ingress-integrator</a></td>
+<td style="text-align: center;"><a href="https://github.com/canonical/nginx-ingress-integrator-operator/pull/324">#324</a></td>
+<td style="text-align: center;">22/25</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">Pass (1 arm64 timing flake)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/indico-operator">indico</a></td>
+<td style="text-align: center;"><a href="https://github.com/canonical/indico-operator/pull/723">#723</a></td>
+<td style="text-align: center;">21/25</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">Pass (env failures only)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/loki-k8s-operator">loki-k8s</a></td>
+<td style="text-align: center;"><a href="https://github.com/canonical/loki-k8s-operator/pull/572">#572</a></td>
+<td style="text-align: center;">21/25</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">Pass (env failures only)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/hockeypuck-k8s-operator">hockeypuck-k8s</a></td>
+<td style="text-align: center;"><a href="https://github.com/canonical/hockeypuck-k8s-operator/pull/201">#201</a></td>
+<td style="text-align: center;">21/25</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">All green</td>
+</tr>
+</tbody>
+</table>
+<p>In each PR, <strong>the first commit is the direct output of the AI migration process</strong>. All subsequent commits are fixes needed to get the tests passing — but AI was able to make those fixes too, with a bit of help, once the CI infrastructure was hooked up so that the model could actually see the test failures and act on them. Having a way to <code>charmcraft test</code> and run integration tests locally would mean this feedback loop could happen earlier, without needing to push to CI first.</p>
+<p>All PRs were manually reviewed by tonyandrewmeyer (a Jubilant co-author and Charm Tech team member) before being submitted upstream. They look reasonable from that perspective, but they do need review from someone familiar with the specific charm and its tests.</p>
+<h3>Common fixes needed after the initial AI migration</h3>
+<p>Looking across the fix commits, clear patterns emerge:</p>
+<ol>
+<li>
+<p><strong>Linting and formatting</strong> (ruff, black, flake8): Almost every PR needed at least one formatting fix. The initial migration gets the code right but doesn't always match the project's exact formatter configuration.</p>
+</li>
+<li>
+<p><strong>Lock file regeneration</strong>: The AI updated <code>pyproject.toml</code> dependencies but didn't always regenerate <code>uv.lock</code> (nginx-ingress, loki).</p>
+</li>
+<li>
+<p><strong>Type errors</strong>: <code>jubilant.Juju.model</code> is <code>str | None</code>, and the AI sometimes passed it where <code>str</code> was expected (nginx-ingress, loki).</p>
+</li>
+<li>
+<p><strong>Duplicate option registration</strong>: <code>pytest-jubilant</code> already registers <code>--charm-file</code>, so adding it again in <code>conftest.py</code> causes a <code>ValueError</code> (indico).</p>
+</li>
+<li>
+<p><strong>Wait/status subtleties</strong>: <code>jubilant.all_active</code> checks <em>all</em> apps in the model, which can fail if a related app is in "waiting" status. Several PRs needed to scope waits to specific apps (content-cache, nginx-ingress).</p>
+</li>
+<li>
+<p><strong>Tooling compatibility</strong>: <code>charmcraft pack -p</code> was removed in charmcraft 3.x, and <code>pytest_jubilant.pack()</code> uses it internally, requiring workarounds (loki).</p>
+</li>
+<li>
+<p><strong>CI configuration</strong>: Jubilant uses <code>juju integrate</code> (Juju 3+), so CI workflows defaulting to Juju 2.9 needed channel updates. Juju 3.6 also requires strictly confined microk8s (indico).</p>
+</li>
+<li>
+<p><strong>API details</strong>: Jubilant's <code>juju.run()</code> raises <code>TaskError</code> on failure rather than returning a failed result, requiring <code>pytest.raises</code> (indico). Local charm paths need <code>resolve()</code> to avoid ambiguity with charmhub names (hockeypuck).</p>
+</li>
+</ol>
+<p>These are all things the AI was able to fix once it could see the CI output. The pattern was consistent: the initial migration is structurally correct but needs a round or two of polish to handle project-specific linting rules, dependency tooling, and CI environment details that aren't visible from the source code alone.</p>
+<h2>Related Experiments</h2>
+<p>The <a href="../2026-03-05-harness-to-scenario-migration/">harness-to-scenario migration experiment</a> explores the same core question — how much does an AI model need to be guided to perform a mechanical test migration? — but for unit tests rather than integration tests. It compares a bare prompt against a detailed skill for migrating from the deprecated <code>ops.testing.Harness</code> to state-transition tests (<code>ops.testing</code> / Scenario), and is a much smaller study (2 runs on a single charm). The conclusions broadly align: a bare prompt does a creditable job, and a well-crafted skill offers modest but meaningful improvements.</p>
+<h2>TL;DR but somehow got this far down, how does this help you?</h2>
+<p>See <a href="guidance.md">guidance.md</a> for a practical, step-by-step guide to using Copilot for your own migration.</p>]]></content:encoded>
+      <dc:creator>Tony Meyer</dc:creator>
+      <pubDate>Sun, 08 Mar 2026 14:00:12 +1300</pubDate>
+      <guid isPermaLink="false">experiment-2026-02-17-jubilant-migration-experiment</guid>
+    </item>
+    <item>
       <title>New Experiment: Harness To Scenario Migration</title>
       <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration</link>
       <description>New experiment: harness to scenario migration</description>
