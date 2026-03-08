@@ -35,3 +35,4 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [Trusting your own judgement on 'AI' is a huge risk](https://www.baldurbjarnason.com/2025/trusting-your-own-judgement-on-ai/) - skeptical, interesting thoughts based on psycology, argues for scientific approaches.
 * [AI fatigue is real amd no-one is talking about it](https://siddhantkhare.com/writing/ai-fatigue-is-real) - a bit negative, but about what's happening, not skeptical about quality. Lots of good advice.
 * [Socialize the plan](https://laughingmeme.org/2026/03/05/socialize-the-plan.html) - thoughts on code review and how AI impacts the value.
+* [microgpt](http://karpathy.github.io/2026/02/12/microgpt/) - a single file of 200 lines of pure Python with no dependencies that trains and inferences a GPT (for generating names).
