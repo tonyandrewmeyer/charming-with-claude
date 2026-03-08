@@ -1,0 +1,547 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index f6a303e..ddd82e4 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -31,8 +31,8 @@ parameterized = "^0.9.0"
+ 
+ [tool.poetry.group.integration.dependencies]
+ pytest = "^8.4.2"
+-pytest-operator = "^0.43.2"
+-juju = "^3.5.2.0"
++jubilant = "*"
++pytest-jubilant = "*"
+ 
+ # Testing tools configuration
+ [tool.coverage.run]
+diff --git a/tests/integration/conftest.py b/tests/integration/conftest.py
+new file mode 100644
+index 0000000..3f11206
+--- /dev/null
++++ b/tests/integration/conftest.py
+@@ -0,0 +1,18 @@
++# Copyright 2022 Canonical Ltd.
++# See LICENSE file for licensing details.
++from pathlib import Path
++
++import pytest
++import pytest_jubilant
++
++
++@pytest.fixture(scope="module")
++def s3_charm() -> Path:
++    """Pack and return the s3-integrator charm."""
++    return pytest_jubilant.pack("./")
++
++
++@pytest.fixture(scope="module")
++def app_charm() -> Path:
++    """Pack and return the application charm used for integration testing."""
++    return pytest_jubilant.pack("./tests/integration/application-charm/")
+diff --git a/tests/integration/helpers.py b/tests/integration/helpers.py
+index 56e1684..8a0eef6 100644
+--- a/tests/integration/helpers.py
++++ b/tests/integration/helpers.py
+@@ -5,159 +5,118 @@
+ import logging
+ from typing import Dict, Optional
+ 
++import jubilant
+ import yaml
+-from juju.unit import Unit
+-from pytest_operator.plugin import OpsTest
+ 
+ logger = logging.getLogger(__name__)
+ 
+ 
+-async def fetch_action_get_credentials(unit: Unit) -> Dict:
++def fetch_action_get_credentials(juju: jubilant.Juju, unit: str) -> Dict:
+     """Helper to run an action to fetch credentials.
+ 
+     Args:
+-        unit: The juju unit on which to run the get-s3-credentials action for credentials
+-        action: the
++        juju: The Juju instance.
++        unit: The unit name (e.g. "s3-integrator/0") on which to run the action.
++
+     Returns:
+-        A dictionary with the server config username and password
++        A dictionary with the action results.
+     """
+-    action = await unit.run_action(action_name="get-s3-credentials")
+-    result = await action.wait()
+-    return result.results
++    task = juju.run(unit, "get-s3-credentials")
++    return task.results
+ 
+ 
+-async def fetch_action_get_connection_info(unit: Unit) -> Dict:
++def fetch_action_get_connection_info(juju: jubilant.Juju, unit: str) -> Dict:
+     """Helper to run an action to fetch connection info.
+ 
+     Args:
+-        unit: The juju unit on which to run the get_connection_info action for credentials
+-    Returns:
+-        A dictionary with the server config username and password
+-    """
+-    action = await unit.run_action(action_name="get-s3-connection-info")
+-    result = await action.wait()
+-    return result.results
+-
+-
+-async def fetch_action_sync_s3_credentials(unit: Unit, access_key: str, secret_key: str) -> Dict:
+-    """Helper to run an action to sync credentials.
++        juju: The Juju instance.
++        unit: The unit name (e.g. "s3-integrator/0") on which to run the action.
+ 
+-    Args:
+-        unit: The juju unit on which to run the get-password action for credentials
+-        access_key: the access_key to access the s3 compatible endpoint
+-        secret_key: the secret key to access the s3 compatible endpoint
+     Returns:
+-        A dictionary with the server config username and password
++        A dictionary with the action results.
+     """
+-    parameters = {"access-key": access_key, "secret-key": secret_key}
+-    action = await unit.run_action(action_name="sync-s3-credentials", **parameters)
+-    result = await action.wait()
+-
+-    return result.results
++    task = juju.run(unit, "get-s3-connection-info")
++    return task.results
+ 
+ 
+-def is_relation_joined(ops_test: OpsTest, endpoint_one: str, endpoint_two: str) -> bool:
+-    """Check if a relation is joined.
++def fetch_action_sync_s3_credentials(
++    juju: jubilant.Juju, unit: str, access_key: str, secret_key: str
++) -> Dict:
++    """Helper to run an action to sync credentials.
+ 
+     Args:
+-        ops_test: The ops test object passed into every test case
+-        endpoint_one: The first endpoint of the relation
+-        endpoint_two: The second endpoint of the relation
+-    """
+-    for rel in ops_test.model.relations:
+-        endpoints = [endpoint.name for endpoint in rel.endpoints]
+-        if endpoint_one in endpoints and endpoint_two in endpoints:
+-            return True
+-    return False
+-
+-
+-def is_relation_broken(ops_test: OpsTest, endpoint_one: str, endpoint_two: str) -> bool:
+-    """Check if a relation is broken.
++        juju: The Juju instance.
++        unit: The unit name (e.g. "s3-integrator/0") on which to run the action.
++        access_key: the access_key to access the s3 compatible endpoint.
++        secret_key: the secret key to access the s3 compatible endpoint.
+ 
+-    Args:
+-        ops_test: The ops test object passed into every test case
+-        endpoint_one: The first endpoint of the relation
+-        endpoint_two: The second endpoint of the relation
++    Returns:
++        A dictionary with the action results.
+     """
+-    for rel in ops_test.model.relations:
+-        endpoints = [endpoint.name for endpoint in rel.endpoints]
+-        if endpoint_one not in endpoints and endpoint_two not in endpoints:
+-            return True
+-    return False
++    task = juju.run(unit, "sync-s3-credentials", {"access-key": access_key, "secret-key": secret_key})
++    return task.results
+ 
+ 
+-async def run_command_on_unit(unit: Unit, command: str) -> Optional[str]:
++def run_command_on_unit(juju: jubilant.Juju, unit: str, command: str) -> Optional[str]:
+     """Run a command in one Juju unit.
+ 
+     Args:
+-        unit: the Juju unit instance.
++        juju: The Juju instance.
++        unit: The unit name (e.g. "myapp/0").
+         command: the command to run.
+ 
+     Returns:
+-        command execution output or none if the command produces no output.
++        command execution output or None if the command produces no output.
+     """
+-    # workaround for https://github.com/juju/python-libjuju/issues/707
+-    action = await unit.run(command)
+-    result = await action.wait()
+-    code = str(result.results.get("Code") or result.results.get("return-code"))
+-    stdout = result.results.get("Stdout") or result.results.get("stdout")
+-    stderr = result.results.get("Stderr") or result.results.get("stderr")
+-    assert code == "0", f"{command} failed ({code}): {stderr or stdout}"
+-    return stdout
+-
+-
+-async def get_relation_data(
+-    ops_test: OpsTest,
++    task = juju.exec(command, unit=unit)
++    return task.results.get("stdout") or None
++
++
++def get_relation_data(
++    juju: jubilant.Juju,
+     application_name: str,
+     relation_name: str,
+ ) -> list:
+     """Returns a list that contains the relation-data.
+ 
+     Args:
+-        ops_test: The ops test framework instance
+-        application_name: The name of the application
+-        relation_name: name of the relation to get connection data from
++        juju: The Juju instance.
++        application_name: The name of the application.
++        relation_name: name of the relation to get connection data from.
++
+     Returns:
+         a list that contains the relation-data
+     """
+-    # get available unit id for the desired application
+-    units_ids = [
+-        app_unit.name.split("/")[1]
+-        for app_unit in ops_test.model.applications[application_name].units
+-    ]
+-    assert len(units_ids) > 0
+-    unit_name = f"{application_name}/{units_ids[0]}"
+-    raw_data = (await ops_test.juju("show-unit", unit_name))[1]
++    unit_name = f"{application_name}/0"
++    raw_data = juju.cli("show-unit", unit_name)
+     if not raw_data:
+         raise ValueError(f"no unit info could be grabbed for {unit_name}")
+     data = yaml.safe_load(raw_data)
+-    # Filter the data based on the relation name.
+     relation_data = [v for v in data[unit_name]["relation-info"] if v["endpoint"] == relation_name]
+     if len(relation_data) == 0:
+         raise ValueError(
+             f"no relation data could be grabbed on relation with endpoint {relation_name}"
+         )
+-
+     return relation_data
+ 
+ 
+-async def get_application_data(
+-    ops_test: OpsTest,
++def get_application_data(
++    juju: jubilant.Juju,
+     application_name: str,
+     relation_name: str,
+ ) -> Dict:
+     """Returns the application data bag of a given application and relation.
+ 
+     Args:
+-        ops_test: The ops test framework instance
+-        application_name: The name of the application
+-        relation_name: name of the relation to get connection data from
++        juju: The Juju instance.
++        application_name: The name of the application.
++        relation_name: name of the relation to get connection data from.
++
+     Returns:
+         a dictionary that contains the application-data
+     """
+-    relation_data = await get_relation_data(ops_test, application_name, relation_name)
+-    application_data = relation_data[0]["application-data"]
+-    return application_data
++    relation_data = get_relation_data(juju, application_name, relation_name)
++    return relation_data[0]["application-data"]
+ 
+ 
+ def get_certificate_from_file(filename: str) -> str:
+diff --git a/tests/integration/test_s3_charm.py b/tests/integration/test_s3_charm.py
+index a587214..591a8aa 100644
+--- a/tests/integration/test_s3_charm.py
++++ b/tests/integration/test_s3_charm.py
+@@ -1,25 +1,21 @@
+ #!/usr/bin/env python3
+ # Copyright 2022 Canonical Ltd.
+ # See LICENSE file for licensing details.
+-import asyncio
+ import base64
+ import json
+ import logging
+ from pathlib import Path
+ 
++import jubilant
+ import pytest
+ import yaml
+-from pytest_operator.plugin import OpsTest
+ 
+-from . import architecture
+ from .helpers import (
+     fetch_action_get_connection_info,
+     fetch_action_sync_s3_credentials,
+     get_application_data,
+     get_certificate_from_file,
+     get_relation_data,
+-    is_relation_broken,
+-    is_relation_joined,
+ )
+ 
+ logger = logging.getLogger(__name__)
+@@ -40,95 +36,70 @@ SECOND_RELATION = "second-s3-credentials"
+ @pytest.mark.group(1)
+ @pytest.mark.abort_on_fail
+ @pytest.mark.skip_if_deployed
+-async def test_build_and_deploy(ops_test: OpsTest):
+-    """Build the charm and deploy 1 units for provider and requirer charm."""
+-    # Build and deploy charm from local source folder
+-    s3_charm = f"./s3-integrator_ubuntu@22.04-{architecture.architecture}.charm"
+-    app_charm = f"./tests/integration/application-charm/application_ubuntu@22.04-{architecture.architecture}.charm"
+-
+-    await asyncio.gather(
+-        ops_test.model.deploy(s3_charm, application_name=S3_APP_NAME, num_units=1),
+-        ops_test.model.deploy(app_charm, application_name=APPLICATION_APP_NAME, num_units=1),
++def test_build_and_deploy(juju: jubilant.Juju, s3_charm: Path, app_charm: Path):
++    """Build the charm and deploy 1 unit for provider and requirer charm."""
++    juju.deploy(s3_charm, app=S3_APP_NAME, num_units=1)
++    juju.deploy(app_charm, app=APPLICATION_APP_NAME, num_units=1)
++
++    juju.wait(
++        lambda status: (
++            jubilant.all_blocked(status, S3_APP_NAME)
++            and jubilant.all_waiting(status, APPLICATION_APP_NAME)
++        ),
++        timeout=1000,
+     )
+-    # Reduce the update_status frequency until the cluster is deployed
+-    async with ops_test.fast_forward():
+-        await ops_test.model.block_until(
+-            lambda: len(ops_test.model.applications[S3_APP_NAME].units) == 1
+-        )
+-
+-        await ops_test.model.block_until(
+-            lambda: len(ops_test.model.applications[APPLICATION_APP_NAME].units) == 1
+-        )
+-        await asyncio.gather(
+-            ops_test.model.wait_for_idle(
+-                apps=[S3_APP_NAME],
+-                status="blocked",
+-                timeout=1000,
+-            ),
+-            ops_test.model.wait_for_idle(
+-                apps=[APPLICATION_APP_NAME],
+-                status="waiting",
+-                raise_on_blocked=True,
+-                timeout=1000,
+-            ),
+-        )
+-
+-    assert len(ops_test.model.applications[S3_APP_NAME].units) == 1
+-
+-    for unit in ops_test.model.applications[S3_APP_NAME].units:
+-        assert unit.workload_status == "blocked"
+-
+-    assert len(ops_test.model.applications[APPLICATION_APP_NAME].units) == 1
++
++    status = juju.status()
++    assert len(status.apps[S3_APP_NAME].units) == 1
++    for unit in status.apps[S3_APP_NAME].units.values():
++        assert unit.workload_status.current == "blocked"
++
++    assert len(status.apps[APPLICATION_APP_NAME].units) == 1
+ 
+ 
+ @pytest.mark.group(1)
+ @pytest.mark.abort_on_fail
+-async def test_sync_credential_action(ops_test: OpsTest):
++def test_sync_credential_action(juju: jubilant.Juju):
+     """Tests the correct output of actions."""
+-    s3_integrator_unit = ops_test.model.applications[S3_APP_NAME].units[0]
+-    action = await s3_integrator_unit.run_action(action_name="get-s3-credentials")
+-    result = await action.wait()
+-    assert result.status == "failed"
++    s3_unit = f"{S3_APP_NAME}/0"
++
++    with pytest.raises(jubilant.TaskError):
++        juju.run(s3_unit, "get-s3-credentials")
+ 
+     access_key = "test-access-key"
+     secret_key = "test-secret-key"
+ 
+-    action_result = await fetch_action_sync_s3_credentials(
+-        s3_integrator_unit, access_key=access_key, secret_key=secret_key
++    action_result = fetch_action_sync_s3_credentials(
++        juju, s3_unit, access_key=access_key, secret_key=secret_key
+     )
+ 
+-    # test the correct status of the charm
+-    async with ops_test.fast_forward():
+-        await ops_test.model.wait_for_idle(apps=[S3_APP_NAME], status="active")
++    juju.wait(lambda status: jubilant.all_active(status, S3_APP_NAME))
+ 
+     assert action_result["ok"] == "Credentials successfully updated."
+ 
+-    connection_info = await fetch_action_get_connection_info(s3_integrator_unit)
++    connection_info = fetch_action_get_connection_info(juju, s3_unit)
+     assert connection_info["access-key"] == "************"
+     assert connection_info["secret-key"] == "************"
+ 
+-    # checks for another update of of the credentials
++    # check another update of credentials
+     updated_secret_key = "new-test-secret-key"
+-    action_result = await fetch_action_sync_s3_credentials(
+-        s3_integrator_unit, access_key=access_key, secret_key=updated_secret_key
++    action_result = fetch_action_sync_s3_credentials(
++        juju, s3_unit, access_key=access_key, secret_key=updated_secret_key
+     )
+ 
+-    async with ops_test.fast_forward():
+-        await ops_test.model.wait_for_idle(apps=[S3_APP_NAME], status="active")
++    juju.wait(lambda status: jubilant.all_active(status, S3_APP_NAME))
+ 
+-    # check that secret key has been updated
+     assert action_result["ok"] == "Credentials successfully updated."
+ 
+-    connection_info = await fetch_action_get_connection_info(s3_integrator_unit)
++    connection_info = fetch_action_get_connection_info(juju, s3_unit)
+     assert connection_info["access-key"] == "************"
+     assert connection_info["secret-key"] == "************"
+ 
+ 
+ @pytest.mark.group(1)
+ @pytest.mark.abort_on_fail
+-async def test_config_options(ops_test: OpsTest):
++def test_config_options(juju: jubilant.Juju):
+     """Tests the correct handling of configuration parameters."""
+-    # test tls-ca-chain
+     ca_chain = get_certificate_from_file("tests/ca_chain.pem")
+     ca_chain_bytes = base64.b64encode(ca_chain.encode("utf-8"))
+     configuration_parameters = {
+@@ -141,16 +112,11 @@ async def test_config_options(ops_test: OpsTest):
+         "endpoint": "s3.amazonaws.com",
+         "experimental-delete-older-than-days": "7",
+     }
+-    # apply new configuration options
+-    await ops_test.model.applications[S3_APP_NAME].set_config(configuration_parameters)
+-    # wait for active status
+-    await ops_test.model.wait_for_idle(apps=[S3_APP_NAME], status="active")
+-    # test the returns
+-    s3_integrator_unit = ops_test.model.applications[S3_APP_NAME].units[0]
+-    action = await s3_integrator_unit.run_action(action_name="get-s3-connection-info")
+-    action_result = await action.wait()
+-    configured_options = action_result.results
+-    # test the correctness of the configuration fields
++    juju.config(S3_APP_NAME, configuration_parameters)
++    juju.wait(lambda status: jubilant.all_active(status, S3_APP_NAME))
++
++    task = juju.run(f"{S3_APP_NAME}/0", "get-s3-connection-info")
++    configured_options = task.results
+     assert configured_options["storage-class"] == "cinder"
+     assert configured_options["s3-api-version"] == "1.0"
+     assert configured_options["delete-older-than-days"] == "7"
+@@ -163,24 +129,15 @@ async def test_config_options(ops_test: OpsTest):
+ 
+ @pytest.mark.group(1)
+ @pytest.mark.abort_on_fail
+-async def test_relation_creation(ops_test: OpsTest):
++def test_relation_creation(juju: jubilant.Juju):
+     """Relate charms and wait for the expected changes in status."""
+-    await ops_test.model.add_relation(S3_APP_NAME, f"{APPLICATION_APP_NAME}:{FIRST_RELATION}")
+-
+-    async with ops_test.fast_forward():
+-        await ops_test.model.block_until(
+-            lambda: is_relation_joined(ops_test, FIRST_RELATION, FIRST_RELATION) is True
+-        )
++    juju.integrate(S3_APP_NAME, f"{APPLICATION_APP_NAME}:{FIRST_RELATION}")
++    juju.wait(lambda status: jubilant.all_active(status, *APPS))
+ 
+-        await ops_test.model.wait_for_idle(apps=APPS, status="active")
+-    await ops_test.model.wait_for_idle(apps=APPS, status="active")
+-    # test the content of the relation data bag
++    relation_data = get_relation_data(juju, APPLICATION_APP_NAME, FIRST_RELATION)
++    application_data = get_application_data(juju, APPLICATION_APP_NAME, FIRST_RELATION)
+ 
+-    relation_data = await get_relation_data(ops_test, APPLICATION_APP_NAME, FIRST_RELATION)
+-    application_data = await get_application_data(ops_test, APPLICATION_APP_NAME, FIRST_RELATION)
+-    # check if the different parameters correspond to expected ones.
+     relation_id = relation_data[0]["relation-id"]
+-    # check correctness for some fields
+     assert "access-key" in application_data
+     assert "secret-key" in application_data
+     assert "bucket" in application_data
+@@ -195,31 +152,22 @@ async def test_relation_creation(ops_test: OpsTest):
+     assert application_data["region"] == "us-east-2"
+     assert application_data["path"] == "/test/path_1/"
+ 
+-    # update bucket name and check if the change is propagated in the relation databag
++    # update bucket name and check propagation
+     new_bucket_name = "new-bucket-name"
+-    params = {"bucket": new_bucket_name}
+-    await ops_test.model.applications[S3_APP_NAME].set_config(params)
+-    # wait for active status
+-    await ops_test.model.wait_for_idle(apps=[S3_APP_NAME], status="active")
+-    application_data = await get_application_data(ops_test, APPLICATION_APP_NAME, FIRST_RELATION)
+-    # check bucket name
++    juju.config(S3_APP_NAME, {"bucket": new_bucket_name})
++    juju.wait(lambda status: jubilant.all_active(status, S3_APP_NAME))
++
++    application_data = get_application_data(juju, APPLICATION_APP_NAME, FIRST_RELATION)
+     assert application_data["bucket"] == new_bucket_name
+ 
+-    # check that bucket name set in the requirer application is correct
+-    await ops_test.model.add_relation(S3_APP_NAME, f"{APPLICATION_APP_NAME}:{SECOND_RELATION}")
+-    # wait for relation joined
+-    async with ops_test.fast_forward():
+-        await ops_test.model.block_until(
+-            lambda: is_relation_joined(ops_test, SECOND_RELATION, SECOND_RELATION) is True
+-        )
+-        await ops_test.model.wait_for_idle(apps=APPS, status="active")
+-
+-    # read data of the second relation
+-    application_data = await get_application_data(ops_test, APPLICATION_APP_NAME, SECOND_RELATION)
++    # add second relation and verify
++    juju.integrate(S3_APP_NAME, f"{APPLICATION_APP_NAME}:{SECOND_RELATION}")
++    juju.wait(lambda status: jubilant.all_active(status, *APPS))
++
++    application_data = get_application_data(juju, APPLICATION_APP_NAME, SECOND_RELATION)
+     assert "access-key" in application_data
+     assert "secret-key" in application_data
+     assert "bucket" in application_data
+-    # check correctness of connection parameters in the relation databag
+     assert application_data["bucket"] == new_bucket_name
+     assert application_data["access-key"] == "test-access-key"
+     assert application_data["secret-key"] == "new-test-secret-key"
+@@ -233,28 +181,15 @@ async def test_relation_creation(ops_test: OpsTest):
+ 
+ 
+ @pytest.mark.group(1)
+-async def test_relation_broken(ops_test: OpsTest):
+-    """Remove relation and wait for the expected changes in status."""
+-    # Remove relations
+-    await ops_test.model.applications[S3_APP_NAME].remove_relation(
+-        f"{APPLICATION_APP_NAME}:{FIRST_RELATION}", S3_APP_NAME
+-    )
+-    await ops_test.model.block_until(
+-        lambda: is_relation_broken(ops_test, FIRST_RELATION, FIRST_RELATION) is True
+-    )
+-    await ops_test.model.applications[S3_APP_NAME].remove_relation(
+-        f"{APPLICATION_APP_NAME}:{SECOND_RELATION}", S3_APP_NAME
+-    )
+-    await ops_test.model.block_until(
+-        lambda: is_relation_broken(ops_test, SECOND_RELATION, SECOND_RELATION) is True
++def test_relation_broken(juju: jubilant.Juju):
++    """Remove relations and wait for the expected changes in status."""
++    juju.remove_relation(f"{APPLICATION_APP_NAME}:{FIRST_RELATION}", S3_APP_NAME)
++    juju.remove_relation(f"{APPLICATION_APP_NAME}:{SECOND_RELATION}", S3_APP_NAME)
++
++    juju.wait(
++        lambda status: (
++            jubilant.all_active(status, S3_APP_NAME)
++            and jubilant.all_waiting(status, APPLICATION_APP_NAME)
++        ),
++        error=jubilant.any_error,
+     )
+-    # test correct application status
+-    async with ops_test.fast_forward():
+-        await asyncio.gather(
+-            ops_test.model.wait_for_idle(
+-                apps=[S3_APP_NAME], status="active", raise_on_blocked=True
+-            ),
+-            ops_test.model.wait_for_idle(
+-                apps=[APPLICATION_APP_NAME], status="waiting", raise_on_blocked=True
+-            ),
+-        )
