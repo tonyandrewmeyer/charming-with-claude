@@ -119,23 +119,26 @@ Choose ~5 charms for evaluation, balancing:
 | **Tracing** | At least one charm should use or be a candidate for ops-tracing |
 | **Maintenance status** | Active enough that the upgrade would be welcome, but not so active that it's already up to date |
 
-### Candidate Charms (to be refined)
+### Selected Target Charms
 
-*These are starting suggestions; the final list should be confirmed after the change catalogue is complete, so we can ensure each charm has meaningful upgrades to apply.*
+| Charm | Ops Version | Domain | Tests (Unit/Integ) | Tracing | Complexity |
+|-------|-------------|--------|-------------------|---------|------------|
+| [discourse-k8s-operator](https://github.com/canonical/discourse-k8s-operator) | `==2.23.2` (hard-pinned) | Web Apps (IS DevOps) | 2/8 | No (candidate to add) | Medium (29 config, 9 relations, 3 actions) |
+| [alertmanager-k8s-operator](https://github.com/canonical/alertmanager-k8s-operator) | `2.21.1` (locked) | Observability | 13/12 | Yes (charm_tracing lib, candidate to migrate to ops-tracing) | High (7 config, 14 relations, 1 action) |
+| [loki-k8s-operator](https://github.com/canonical/loki-k8s-operator) | `2.21.1` (locked) | Observability / Logging | 13/19 | Yes (charm_tracing lib, candidate to migrate) | High (6 config, 12 relations) |
+| [indico-operator](https://github.com/canonical/indico-operator) | `>=2.0.0,<3.0.0` (blocks 3.x) | Events Platform | 3/7 | No (candidate to add) | Medium (8 config, 11 relations, 3 actions) |
+| [traefik-k8s-operator](https://github.com/canonical/traefik-k8s-operator) | `>=2.10.0` (loose, verify lock) | Networking / Ingress | 31/17 | Yes (charm + workload tracing) | High (13 relations, 2 actions) |
 
-| Charm | Rationale |
-|-------|-----------|
-| TBD | Needs to be determined after Phase 1 |
-| TBD | |
-| TBD | |
-| TBD | |
-| TBD | |
+**Backup**: if traefik-k8s already resolves to ops 3.x in its lock file, substitute [wordpress-k8s-operator](https://github.com/canonical/wordpress-k8s-operator) (`ops==3.5.1`, IS DevOps, 4/12 tests, no tracing).
 
-Selection criteria to apply:
-* Scan `requirements.txt` / `pyproject.toml` for pinned ops version
-* Check when the charm last updated its ops dependency
-* Confirm there are at least 2-3 applicable changes from the catalogue
-* Prefer charms from different teams/domains for diversity
+Selection rationale:
+* **All on ops 2.x** with significant upgrade room to 3.6.0
+* **None use new ops features** (load_config, load_params, relation.save/load), maximising the upgrade surface
+* **Domain diversity**: web apps, observability (×2), events, networking
+* **Tracing mix**: 2 without (candidates to add), 3 with existing library-based tracing (candidates to migrate)
+* **Complexity mix**: 2 medium, 3 high
+* **All published** on Charmhub and in the canonical/operator published charms CI
+* **All actively maintained** with commits within the last 1-3 months
 
 ## Phase 5: Evaluation
 
@@ -243,9 +246,42 @@ This experiment differs from the [Jubilant migration](../2026-02-17-jubilant-mig
 | **Prompt comparison** | Levels of guidance (bare → recipe) | Skill vs. prompt vs. prompt+exemplar |
 | **Feature discovery** | Task is given | Agent may need to identify applicable changes |
 
+## Emerging Findings
+
+### Poor feature adoption limits exemplar-based approaches
+
+Phase 2 (exemplar search) revealed that many ops features introduced in the past year have very low adoption across the charm ecosystem:
+
+| Feature | Version | Exemplar charms found |
+|---------|---------|-----------------------|
+| `load_config()` | 2.23.0 | ~5 (all Pydantic, mostly newer charms) |
+| `load_params()` | 2.23.0 | ~2 production charms + official examples |
+| `Relation.save()`/`.load()` | 2.23.0 | ~5 (all Pydantic, mostly in charm libraries) |
+| `layer_from_rockcraft()` | 2.23.0 | **0** (only in ops' own tests/docs) |
+| `SCENARIO_BARE_CHARM_ERRORS` | 3.5.0 | **0** (only in ops' own tests) |
+| `JujuContext.from_environ()` | 3.3.0 | 1 (blackbox-exporter-operator) |
+| `Context(app_name=, unit_id=)` | 3.1.0 | ~5 (most adopted of the testing features) |
+
+This has two implications for the experiment:
+
+1. **Condition 3 (simple prompt + exemplar) may be untestable** for some features, because there are no good exemplars to point the agent at.
+2. **The "generic release-notes prompt" (Condition 4) is testing a realistic scenario** -- in practice, most charms *haven't* adopted these features, so any upgrade process would be starting from scratch.
+
+### Recommendation: exemplar PRs as part of the release process
+
+If we (Charm Tech) want AI-assisted upgrades to work well, we should significantly improve the ecosystem by **opening exemplar PRs with each ops release** -- one per significant feature, against a well-known charm (e.g. one of the published charms used in CI). These PRs would serve as:
+
+- **Gold standard references** for AI agents (and humans) to learn the intended usage pattern
+- **Adoption catalysts** -- a merged PR is a real-world example that shows up in GitHub search
+- **Validation** that the feature works in practice, not just in the ops test suite
+- **Documentation supplements** -- a diff showing before/after in a real charm is often clearer than API docs
+
+Even 2-3 exemplar PRs per release would dramatically improve the quality of both AI-assisted and human-driven feature adoption. Without them, the "prompt + exemplar" approach degrades to "prompt + official docs", which is a weaker signal.
+
+(We've really had this goal already for some time, and we do it -- but infrequently. Perhaps it should really be part of the definition of done for most or all features, or at least all features that are done through roadmap planning?)
+
 ## Notes
 
-* The experiment folder date (2026-01-25) reflects when the idea was conceived, not when execution began.
 * All runs use GitHub Copilot to align with Canonical's current tooling focus.
-* Skills should be designed to be upstreamed to [copilot-collections](https://github.com/canonical/copilot-collections) if they prove useful.
+* Skills could be designed to be upstreamed to [copilot-collections](https://github.com/canonical/copilot-collections) if they prove useful. Alternatively, perhaps the `charmcraft` profiles should have some instructions and skills (there's an existing ticket suggesting that), or perhaps Charm Tech should have a storage location itself?
 * The "simple prompt" condition is intentionally minimal -- the question is whether the model's existing knowledge plus a feature name is sufficient, not whether a carefully crafted prompt can match a skill.
