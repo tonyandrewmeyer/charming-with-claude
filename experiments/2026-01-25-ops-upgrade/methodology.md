@@ -6,7 +6,7 @@ This document details the experimental protocol for the ops upgrade experiment.
 
 ## Independent Variables
 
-### 1. Guidance Level (3 conditions)
+### 1. Guidance Level (4 conditions)
 
 | Condition | Description |
 |-----------|-------------|
@@ -163,7 +163,7 @@ Not every change needs to be tested against every charm. Prioritise:
 
 * At least 2 charms per change (to avoid charm-specific quirks dominating)
 * At least 3 changes per charm (to test the "single upgrade skill" approach)
-* All 3 conditions for each charm×change pair tested
+* All 4 conditions for each charm×change pair tested
 
 ## Limitations
 

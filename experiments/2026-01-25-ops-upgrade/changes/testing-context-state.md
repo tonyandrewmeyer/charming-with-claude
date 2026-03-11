@@ -7,7 +7,7 @@ ops 2.23.0
 Feature
 
 ## Summary
-`testing.Context` gains a method to create a `testing.State` from the current context, making it easier to set up realistic test states by introspecting the charm's metadata.
+`testing.State` gains a class method `from_context()` that creates a `State` pre-populated from the charm's metadata, making it easier to set up realistic test states without manually mirroring `charmcraft.yaml`.
 
 ## Before
 ```python
@@ -33,9 +33,16 @@ import ops
 from ops import testing
 
 ctx = testing.Context(MyCharm)
-# Generate a state pre-populated from charm metadata
-state = ctx.get_default_state()
-# Then customise as needed
+# Generate a State pre-populated from charm metadata:
+# relations (with endpoint and interface set, no data), containers
+# (can_connect=True), storage, and StoredState.
+# Config is set to its default values from charmcraft.yaml.
+state = testing.State.from_context(ctx)
+# Then customise as needed — pass overrides directly:
+state = testing.State.from_context(ctx, leader=True)
+# Or replace specific components after construction:
+db_relation = testing.Relation("database", local_app_data={"key": "value"})
+state = testing.State.from_context(ctx, relations={db_relation})
 state_out = ctx.run(ctx.on.start(), state)
 ```
 
@@ -53,4 +60,5 @@ Look for test files that manually construct `testing.State` objects with contain
 
 ## Pitfalls
 - The generated state is a starting point — tests still need to customise it for their specific scenario (e.g. setting relation data, container file contents).
-- The exact method name and API should be verified against the current ops documentation, as this feature was new in 2.23.0 and may have evolved.
+- Passing a `Relation` override to `from_context()` replaces the auto-generated relation for that endpoint entirely; make sure to include all the fields you need.
+- Relations in the generated state simulate `integrate` having already run; if your test is for the `relation-created` event, start from a bare `State()` instead.
