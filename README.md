@@ -48,11 +48,6 @@ Each subdirectory is a self-contained charm development experiment. Experiments 
 - README.md documenting goals and outcomes
 - Links to experiment results
 
-**Current experiments:**
-- [2025-08-01-mosquitto-operator](experiments/2025-08-01-mosquitto-operator/)
-- [2025-12-23-beszel-k8s-operator](experiments/2025-12-23-beszel-k8s-operator/)
-- [2026-02-17-jubilant-migration-experiment](experiments/2026-02-17-jubilant-migration-experiment/) — Can Copilot migrate your integration tests from pytest-operator to jubilant?
-
 ### READTHEM.md
 
 A curated [reading list](READTHEM.md) of articles and blogs about AI/LLM development, coding practices, and the evolving landscape of AI-assisted development.
