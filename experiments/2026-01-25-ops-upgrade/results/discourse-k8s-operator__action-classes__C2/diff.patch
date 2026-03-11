@@ -1,0 +1,92 @@
+diff --git a/src/charm.py b/src/charm.py
+index fb2ae96..b40f905 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -5,6 +5,7 @@
+ """Charm for Discourse on kubernetes."""
+ 
+ import base64
++import dataclasses
+ import hashlib
+ import logging
+ import os.path
+@@ -66,6 +67,29 @@ class MissingRedisRelationDataError(Exception):
+     """Custom exception to be raised in case of malformed/missing redis relation data."""
+ 
+ 
++@dataclasses.dataclass
++class PromoteUserParams:
++    """Parameters for the promote-user action."""
++
++    email: str
++
++
++@dataclasses.dataclass
++class CreateUserParams:
++    """Parameters for the create-user action."""
++
++    email: str
++    admin: bool = False
++    active: bool = True
++
++
++@dataclasses.dataclass
++class AnonymizeUserParams:
++    """Parameters for the anonymize-user action."""
++
++    username: str
++
++
+ class DiscourseCharm(CharmBase):
+     """Charm for Discourse on kubernetes."""
+ 
+@@ -786,7 +810,8 @@ class DiscourseCharm(CharmBase):
+             event.fail("Unable to connect to container, container is not ready")
+             return
+ 
+-        email = event.params["email"]
++        params = event.load_params(PromoteUserParams, errors="fail")
++        email = params.email
+ 
+         if not self._user_exists(email):
+             event.fail(f"User with email {email} does not exist")
+@@ -824,7 +849,8 @@ class DiscourseCharm(CharmBase):
+             event.fail("Unable to connect to container, container is not ready")
+             return
+ 
+-        email = event.params["email"]
++        params = event.load_params(CreateUserParams, errors="fail")
++        email = params.email
+         password = self._generate_password(16)
+ 
+         if self._user_exists(email):
+@@ -832,7 +858,7 @@ class DiscourseCharm(CharmBase):
+             return
+ 
+         # Admin flag is optional, if it is true, the user will be created as an admin
+-        admin_flag = "Y" if event.params.get("admin") else "N"
++        admin_flag = "Y" if params.admin else "N"
+ 
+         process = container.exec(
+             [
+@@ -854,8 +880,8 @@ class DiscourseCharm(CharmBase):
+             return
+ 
+         if (
+-            not event.params.get("admin")
+-            and event.params.get("active")
++            not params.admin
++            and params.active
+             and not self._activate_user(email)
+         ):
+             event.fail(f"Could not find user {email} to activate")
+@@ -898,7 +924,8 @@ class DiscourseCharm(CharmBase):
+         Args:
+             event: Event triggering the anonymize_user action.
+         """
+-        username = event.params["username"]
++        params = event.load_params(AnonymizeUserParams, errors="fail")
++        username = params.username
+         container = self.unit.get_container(CONTAINER_NAME)
+         if not container.can_connect():
+             event.fail("Unable to connect to container, container is not ready")

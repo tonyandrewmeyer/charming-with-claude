@@ -1,0 +1,185 @@
+● List directory src
+  └ 6 files found
+
+● github-mcp-server-get_file_contents: src/config.py
+  └ successfully downloaded text file (SHA: fdc494ffd00c97767902feeedfd62df615c7e...
+
+● Read src/charm.py
+  └ 670 lines read
+
+● Read charmcraft.yaml
+  └ 222 lines read
+
+Now let me look at how conserver-charm uses `load_config()` in their charm.py:
+
+● github-mcp-server-get_file_contents: src/charm.py
+  └ successfully downloaded text file (SHA: aebe22463d11e710268a0aa0679114bc6acef...
+
+● Check ops and pydantic versions
+  $ grep -E "ops|pydantic"
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3/pyproject.toml
+  └ 4 lines...
+
+● Grep "self\.config\[|model\.config\.get|web_external_url"
+(/tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3/src/charm.py)
+  └ 5 lines found
+
+Now I'll create the config module and update the charm:
+
+● Create src/config.py (+18)
+
+Now update `charm.py` to import and use `AlertmanagerConfig`:
+
+● Edit src/charm.py (+1)
+
+● Edit src/charm.py (+1)
+
+Now update the three places that access config values:
+
+● Edit src/charm.py (+2 -2)
+
+● Edit src/charm.py (+2 -2)
+
+Now let me check if `cast` is still needed elsewhere or can be removed:
+
+● Grep "cast"
+(/tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3/src/charm.py)
+  └ 2 lines found
+
+Let me run the tests to verify nothing is broken:
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && python -m pytest
+   tests/unit/ -x -q 2>&1 | head -80
+  └ 2 lines...
+
+● Run unit tests with python3
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && python3 -m
+  pytest tests/unit/ -x -q 2>&1 | tail -30
+  └ 5 lines...
+
+● Run unit tests via uv
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run python -m
+   pytest tests/unit/ -x -q 2>&1 | tail -30
+  └ 10 lines...
+
+● Run unit tests via tox
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run --with
+  ops tox -e unit 2>&1 | tail -40
+  └ 41 lines...
+
+● Check ops version
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run python3
+  -c "import ops; print(ops.__version__)"
+  └ 3 lines...
+
+● Read pyproject.toml
+  └ 91 lines read
+
+● Edit pyproject.toml (+1 -1)
+
+● Update ops in lock file
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv lock
+  --upgrade-package ops 2>&1 | tail -5
+  └ 5 lines...
+
+● Sync dependencies
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv sync 2>&1 |
+  tail -5
+  └ 6 lines...
+
+● Verify ops version updated
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run python3
+  -c "import ops; print(ops.__version__)"
+  └ 3 lines...
+
+● Run unit tests again
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run tox -e
+  unit 2>&1 | tail -20
+  └ 1 line...
+
+● read_bash
+  └ /home/ubuntu/.cache/uv/builds-v0/.tmpm9DiBK/lib/python3.12/site-packages/ops/...
+
+Let me check the failing tests to understand what's happening:
+
+● Run failing test with details
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run tox -e
+  unit -- tests/unit/test_charm.py::TestWithInitialHooks::test_topology_added_if_user_provided_confi
+  g_without_group_by -s 2>&1 | tail -30
+  └ 31 lines...
+
+● Find the 'not a real config' test code
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && grep -n "not a
+  real config" tests/unit/test_charm.py
+  └ 3 lines...
+
+● Read tests/unit/test_charm.py lines 75-120
+  └ 46 lines read
+
+The issue is that `self.typed_config` set in `__init__` becomes stale in harness tests when config changes. I need to make it a property instead:
+
+● Edit src/charm.py (-1)
+
+Now add a `typed_config` property. I'll add it near the other properties after `_resource_reqs_from_config`:
+
+● Edit src/charm.py (+4)
+
+Wait, I need to add the property separately. Let me fix this properly:
+
+● Read src/charm.py lines 284-340
+  └ 57 lines read
+
+I see there's a duplication issue. Let me fix it:
+
+● Edit src/charm.py (+5 -4)
+
+● Run unit tests again
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && uv run tox -e
+  unit 2>&1 | tail -20
+  └ 21 lines...
+
+All 57 tests pass. Let me verify the final state of the changes:
+
+● Show changed files
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && git --no-pager
+  diff --stat
+  └ 5 lines...
+
+● Show diff of code changes
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C3 && git --no-pager
+  diff pyproject.toml src/charm.py
+  └ 61 lines...
+
+All tests pass. Here's a summary of the changes made:
+
+1. **`src/config.py`** (new file): Defines `AlertmanagerConfig(BaseModel)` with all five charm config options as typed Pydantic fields (`config_file`, `templates_file`, `web_external_url` as `str`, and `cpu`, `memory` as `Optional[str]`).
+
+2. **`src/charm.py`**: 
+   - Imports `AlertmanagerConfig` from the new module
+   - Adds a `typed_config` property that calls `self.load_config(AlertmanagerConfig, errors="blocked")` (as a property rather than an `__init__` assignment, so it's always current in harness tests)
+   - Replaces `self.model.config.get("cpu")` / `self.model.config.get("memory")` with `self.typed_config.cpu` / `self.typed_config.memory`
+   - Replaces `self.config["config_file"]` and `cast(str, self.config["templates_file"])` with `self.typed_config.config_file` and `self.typed_config.templates_file`
+
+3. **`pyproject.toml`** / **`uv.lock`**: Bumped the `ops` dependency to `>=2.23.0` (which introduced `load_config()`) and updated the lock file accordingly.
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+
+Execution failed: Error: Failed to get response from the AI model; retried 5 times (total retry wait time: 5.99327948352514 seconds) Last error: Unknown error
+
+Total usage est:        1 Premium request
+API time spent:         3m 36.435s
+Total session time:     8m 28.075s
+Total code changes:     +34 -10
+Breakdown by AI model:
+ claude-sonnet-4.6       1.4m in, 10.9k out, 1.4m cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/alertmanager-k8s-operator__config-classes__C3/transcript.md

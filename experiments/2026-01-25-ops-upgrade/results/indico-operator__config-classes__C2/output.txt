@@ -1,0 +1,441 @@
+● List directory .
+  └ 38 files found
+
+● View config.yaml
+  $ cat /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/config.yaml
+  └ 37 lines...
+
+● List src directory
+  $ ls /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/
+  └ 3 lines...
+
+● View main charm file
+  $ cat /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py
+  └ 11 lines...
+
+● Read src/charm.py
+  └ 1 line read
+
+● Find all config usages
+  $ grep -n "self\.config"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py | head -60
+  └ 22 lines...
+
+● Find config usages in other files
+  $ grep -n "self\.config"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/state.py
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/database_observer.py
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/s3_observer.py
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/smtp_observer.py ...
+  └ 3 lines...
+
+● Read src/state.py
+  └ 239 lines read
+
+● web_search: ops 2.23.0 charm config dataclass Pydantic CharmBase load_config Python
+  └ {"type":"text","text":{"value":"With Ops 2.23.0 for Juju charms, you can defi...
+
+● Read src/charm.py lines 1-100
+  └ 100 lines read
+
+● web_fetch: https://documentation.ubuntu.com/ops/latest/howto/manage-configuration/
+  └ Contents of https://documentation.ubuntu.com/ops/latest/howto/manage-configur...
+
+● Read src/charm.py lines 100-250
+  └ 151 lines read
+
+● Read src/charm.py lines 540-650
+  └ 110 lines read
+
+● Read src/charm.py lines 770-850
+  └ 81 lines read
+
+● Check ops version requirement
+  $ grep -i "ops" /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/requirements.txt
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/pyproject.toml 2>/dev/null | head
+  -20
+  └ 2 lines...
+
+● Check if load_config already used
+  $ grep -n "load_config\|typed_config\|CharmConfig"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py
+  └ 3 lines...
+
+● Check charmcraft.yaml for ops
+  $ grep -n "ops" /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/charmcraft.yaml |
+  head -20
+  └ 1 line...
+
+● Check installed ops version
+  $ pip show ops 2>/dev/null | grep Version
+  └ 2 lines...
+
+● Check load_config API
+  $ python3 -c "import ops; help(ops.CharmBase.load_config)" 2>&1 | head -40
+  └ 41 lines...
+
+Now I have a clear picture. Let me look at the tests and the full charm to understand what changes are needed.
+
+● Read src/charm.py lines 250-320
+  └ 71 lines read
+
+● List test directories
+  $ ls /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/
+  └ 2 lines...
+
+● List unit tests
+  $ ls /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit/
+  └ 2 lines...
+
+● Check config usage in tests
+  $ grep -n "config\["
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit/*.py 2>/dev/null | head
+   -20
+  └ 1 line...
+
+● List unit harness tests
+  $ ls /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit_harness/
+  └ 3 lines...
+
+● Check test file size
+  $ wc -l
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit_harness/test_core.py
+  └ 2 lines...
+
+● Check config usage in tests
+  $ grep -n "self\.config\|\"site_url\"\|\"external_plugins\"\|\"customization\"\|\"enable_roombooki
+  ng\"\|\"indico_no_reply\"\|\"indico_public_support\"\|\"indico_support\""
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit_harness/test_core.py |
+  head -30
+  └ 9 lines...
+
+● Read src/charm.py lines 300-420
+  └ 121 lines read
+
+● Find _is_configuration_valid usage
+  $ grep -n "_is_configuration_valid"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py
+  └ 3 lines...
+
+● Read src/charm.py lines 680-720
+  └ 40 lines read
+
+● Check pydantic version
+  $ python3 -c "import pydantic; print(pydantic.VERSION)"
+  └ 2 lines...
+
+● Check pydantic imports in state.py
+  $ grep -n "^from pydantic\|^import pydantic"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/state.py
+  └ 2 lines...
+
+Good - pydantic v1, so I'll use `@validator`. Now let me run the tests to understand the baseline before making changes.
+
+● Install requirements
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && pip install -r
+  requirements.txt -q 2>&1 | tail -5
+  └ 5 lines...
+
+● Run unit tests baseline
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py -x -q 2>&1 | tail -30
+  └ 27 lines...
+
+Now I'll implement the changes. First, add `CharmConfig` to `state.py`, then update `charm.py` to use `load_config`.
+
+● Check Tuple and urlparse usage in charm.py
+  $ grep -n "Tuple\|urlparse"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py | head -10
+  └ 9 lines...
+
+● Check Tuple usage in charm.py
+  $ grep -n "Tuple" /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py
+  └ 4 lines...
+
+Now let me make the changes. Starting with `state.py` to add `CharmConfig`:
+
+● Edit src/state.py (+1)
+
+● Edit src/state.py (+1 -1)
+
+Now add the `CharmConfig` class to `state.py` after the existing error classes and before `ProxyConfig`:
+
+● Edit src/state.py (+42)
+
+Now update `charm.py` to import `CharmConfig` and use `load_config`:
+
+● Edit src/charm.py (+1 -1)
+
+Now add `self.typed_config = self.load_config(CharmConfig, errors='blocked')` in `__init__` right after `super().__init__(*args)`:
+
+● Read src/charm.py lines 65-90
+  └ 26 lines read
+
+● Edit src/charm.py (+1)
+
+Now remove `_is_configuration_valid` and replace all `self.config[...]` with `self.typed_config.<field>`. First, remove the method:
+
+● Edit src/charm.py (-12)
+
+Now replace `self.config[...]` references with `self.typed_config.<field>`:
+
+● Read src/charm.py lines 156-200
+  └ 45 lines read
+
+● Edit src/charm.py (+1 -1)
+
+● Edit src/charm.py (+1 -1)
+
+● Edit src/charm.py (+1 -1)
+
+Now replace config accesses in `_config_pebble` (external_plugins):
+
+● Read src/charm.py lines 218-240
+  └ 23 lines read
+
+● Edit src/charm.py (+2 -2)
+
+Now replace the config accesses in `_get_indico_env_config`:
+
+● Edit src/charm.py (+5 -5)
+
+Replace `self.config["site_url"]` in the SAML section:
+
+● Read src/charm.py lines 595-620
+  └ 26 lines read
+
+● Edit src/charm.py (+1 -1)
+
+Now update the `_on_config_changed` method to remove the `_is_configuration_valid` call:
+
+● Read src/charm.py lines 668-700
+  └ 33 lines read
+
+● Edit src/charm.py (-4)
+
+Now replace the remaining `self.config[...]` accesses in `_download_customization_changes` and `_refresh_external_resources`:
+
+● Read src/charm.py lines 757-830
+  └ 74 lines read
+
+● Edit src/charm.py (+4 -4)
+
+● Edit src/charm.py (+5 -5)
+
+Now remove `Tuple` from the typing imports since `_is_configuration_valid` is gone:
+
+● Edit src/charm.py (+1 -1)
+
+Now verify there are no remaining `self.config[` accesses:
+
+● Check for remaining self.config accesses
+  $ grep -n "self\.config\["
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py
+  └ 1 line...
+
+Good. Now run the tests to see if everything passes:
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py -x -q 2>&1 | tail -30
+  └ 31 lines...
+
+● Check the failing test
+  $ grep -n "test_config_changed\|example.local\|indico.local"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit_harness/test_core.py |
+  head -20
+  └ 15 lines...
+
+● Read tests/unit_harness/test_core.py lines 293-380
+  └ 88 lines read
+
+● Check load_config source
+  $ python3 -c "import ops; import inspect; print(inspect.getsource(ops.CharmBase.load_config))"
+  └ 93 lines...
+
+The issue is the Harness doesn't re-run `__init__` on config changes. I need to refresh `typed_config` in `_on_config_changed`. Let me check where config is consumed in event handlers outside `_on_config_changed`:
+
+● Read src/charm.py lines 668-690
+  └ 23 lines read
+
+● Edit src/charm.py (+1)
+
+● Run tests again
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py -x -q 2>&1 | tail -20
+  └ 21 lines...
+
+● Read tests/unit_harness/test_core.py lines 428-445
+  └ 18 lines read
+
+● Check _Abort class
+  $ python3 -c "from ops._main import _Abort; print(_Abort)"
+  └ 2 lines...
+
+● Run failing test with output
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py::TestCore::test_config_changed_when_config_invalid -x -q -s 2>&1 |
+   tail -20
+  └ 21 lines...
+
+● Get the assertion error details
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py::TestCore::test_config_changed_when_config_invalid -x -q -s 2>&1 |
+   grep "AssertionError\|assert\|BlockedStatus\|Error" | head -10
+  └ 11 lines...
+
+● Check if pydantic ValidationError is a ValueError
+  $ python3 -c "from pydantic import ValidationError; print(issubclass(ValidationError,
+  ValueError))"
+  └ 2 lines...
+
+● Get full error for the failing test
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py::TestCore::test_config_changed_when_config_invalid -x 2>&1 | grep
+  -A 10 "FAILED\|Error\|assert"
+  └ 151 lines...
+
+● Check how Harness handles _Abort
+  $ python3 -c "from ops._private.harness import Harness; import inspect; src =
+  inspect.getsource(Harness._run_action); print(src)" 2>/dev/null | head -30
+  grep -n "_Abort" /home/ubuntu/.local/lib/python3.12/site-packages/ops/_private/harness.py | head
+  -10
+  └ 1 line...
+
+● Check _Abort handling in harness
+  $ grep -n "_Abort\|update_config"
+  /home/ubuntu/.local/lib/python3.12/site-packages/ops/_private/harness.py | head -20
+  └ 9 lines...
+
+● Check update_config implementation
+  $ sed -n '1484,1520p' /home/ubuntu/.local/lib/python3.12/site-packages/ops/_private/harness.py
+  └ 38 lines...
+
+● Check _Abort base classes
+  $ python3 -c "from ops._main import _Abort; print(_Abort.__bases__)"
+  └ 2 lines...
+
+● Test the error message format
+  $ python3 -c "
+  from pydantic import BaseModel, validator
+  from urllib.parse import urlparse
+
+  class C(BaseModel):...
+  └ 15 lines...
+
+The `_Abort` exception from `errors='blocked'` isn't caught by the deprecated Harness. I'll use `errors='raise'` with manual error handling in `_on_config_changed` to keep the original clean message format:
+
+● Edit src/charm.py (+8 -1)
+
+● Run tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py -x -q 2>&1 | tail -20
+  └ 20 lines...
+
+● Get failing test details
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py::TestCore::test_missing_relations -x -q 2>&1 | grep
+  "AssertionError\|assert\|Error" | head -10
+  └ 5 lines...
+
+● Read tests/unit_harness/test_core.py lines 115-145
+  └ 31 lines read
+
+● Test urlparse behavior with 'foo'
+  $ python3 -c "from urllib.parse import urlparse; print(urlparse('foo').hostname)"
+  └ 2 lines...
+
+The old code checked relations BEFORE validating config. I need to restore that order - validate config only after relations and pebble are ready:
+
+● Edit src/charm.py (+5 -5)
+
+● Run tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_core.py -x -q 2>&1 | tail -20
+  └ 21 lines...
+
+All 22 tests pass. Let me also run the full test suite to make sure nothing else is broken:
+
+● Run all unit tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/ tests/unit/ -q 2>&1 | tail -15
+  └ 16 lines...
+
+● Get failing test details
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_actions.py::TestActions::test_refresh_external_resources_when_customizatio
+  n_and_plugins_set -x -q 2>&1 | grep "AssertionError\|Error\|assert" | head -10
+  └ 11 lines...
+
+● Read tests/unit_harness/test_actions.py lines 1-50
+  └ 50 lines read
+
+● Find the test
+  $ grep -n "test_refresh_external_resources_when_customization_and_plugins_set"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/tests/unit_harness/test_actions.py
+  └ 2 lines...
+
+The issue is that `typed_config` is a stale cached attribute in the Harness. I'll make it a `@property` so it always reads the current config:
+
+● Read src/charm.py lines 65-80
+  └ 16 lines read
+
+● Edit src/charm.py (-1)
+
+Now find where the `IndicoOperatorCharm` class definition starts and add the property:
+
+● Read src/charm.py lines 56-70
+  └ 15 lines read
+
+● Edit src/charm.py (+9)
+
+Now update `_on_config_changed` to validate by calling `self.typed_config` in a try/except (no longer assigning to it since it's a property):
+
+● Edit src/charm.py (+1 -1)
+
+● Run all tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2 && python3 -m pytest
+  tests/unit_harness/ tests/unit/ -q 2>&1 | tail -10
+  └ 11 lines...
+
+All 42 tests pass. Let me do a final check to ensure no `self.config[` accesses remain and verify the key changes:
+
+● Verify no remaining raw config accesses
+  $ grep -n "self\.config\["
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py && echo "FOUND" ||
+  echo "NONE FOUND - clean!"
+  └ 2 lines...
+
+● Verify new typed config usage
+  $ grep -n "typed_config\|CharmConfig\|load_config"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/charm.py
+  └ 26 lines...
+
+● Verify CharmConfig in state.py
+  $ grep -n "class CharmConfig\|typed_config\|CharmConfig"
+  /tmp/ops-upgrade-experiment/indico-operator__config-classes__C2/src/state.py | head -10
+  └ 6 lines...
+
+✗ Memory stored: config access pattern
+  └ Charm uses CharmConfig (Pydantic model in state.py) with self.typed_config prope…
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+
+Execution failed: Error: Failed to get response from the AI model; retried 5 times (total retry wait time: 5.979855583728451 seconds) Last error: Unknown error
+
+Total usage est:        1 Premium request
+API time spent:         10m 15.763s
+Total session time:     11m 43.004s
+Total code changes:     +91 -47
+Breakdown by AI model:
+ claude-sonnet-4.6       4.6m in, 30.3k out, 4.4m cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/indico-operator__config-classes__C2/transcript.md

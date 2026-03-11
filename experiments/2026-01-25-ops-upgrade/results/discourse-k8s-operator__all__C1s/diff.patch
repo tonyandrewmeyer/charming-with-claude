@@ -1,0 +1,417 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 0a1a20f..0e4e202 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -20,7 +20,7 @@ classifiers = [
+ dependencies = [
+   "cosl==1.6.0",
+   "jsonschema==4.23.0",
+-  "ops==2.23.2",
++  "ops>=2.23.0",
+   "pydantic==2.10.6",
+ ]
+ 
+diff --git a/src/charm.py b/src/charm.py
+index fb2ae96..0fceb11 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -5,6 +5,7 @@
+ """Charm for Discourse on kubernetes."""
+ 
+ import base64
++import dataclasses
+ import hashlib
+ import logging
+ import os.path
+@@ -34,6 +35,7 @@ from ops.main import main
+ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+ from ops.pebble import ExecError, ExecProcess, Plan
+ 
++from config import DiscourseConfig
+ from constants import (
+     CONTAINER_APP_USERNAME,
+     CONTAINER_NAME,
+@@ -62,6 +64,29 @@ INVALID_CORS_MESSAGE = (
+ )
+ 
+ 
++@dataclasses.dataclass(frozen=True)
++class PromoteUserParams:
++    """Parameters for the promote-user action."""
++
++    email: str
++
++
++@dataclasses.dataclass(frozen=True)
++class CreateUserParams:
++    """Parameters for the create-user action."""
++
++    email: str
++    admin: bool = False
++    active: bool = True
++
++
++@dataclasses.dataclass(frozen=True)
++class AnonymizeUserParams:
++    """Parameters for the anonymize-user action."""
++
++    username: str
++
++
+ class MissingRedisRelationDataError(Exception):
+     """Custom exception to be raised in case of malformed/missing redis relation data."""
+ 
+@@ -119,6 +144,11 @@ class DiscourseCharm(CharmBase):
+             charm=self, relation="restart", callback=self._on_rolling_restart
+         )
+ 
++    @property
++    def _typed_config(self) -> DiscourseConfig:
++        """Return the current charm configuration as a typed object."""
++        return self.load_config(DiscourseConfig)
++
+     def _on_start(self, _: ops.StartEvent) -> None:
+         """Handle start event.
+ 
+@@ -223,8 +253,8 @@ class DiscourseCharm(CharmBase):
+             The site hostname defined as part of the site_url configuration or a default value.
+         """
+         return (
+-            typing.cast(str, self.config["external_hostname"])
+-            if self.config["external_hostname"]
++            self._typed_config.external_hostname
++            if self._typed_config.external_hostname
+             else self.app.name
+         )
+ 
+@@ -237,7 +267,7 @@ class DiscourseCharm(CharmBase):
+         Returns:
+             Comma-separated CORS origins string.
+         """
+-        user_value = str(self.config.get("cors_origin", "")).strip()
++        user_value = self._typed_config.cors_origin.strip()
+         if user_value == "*":
+             # No need to augment if all origins allowed
+             return "*"
+@@ -246,13 +276,13 @@ class DiscourseCharm(CharmBase):
+         if user_value:
+             origins.update(s for s in (o.strip() for o in user_value.split(",")) if s)
+ 
+-        if self.config.get("augment_cors_origin"):
++        if self._typed_config.augment_cors_origin:
+             ext = self._get_external_hostname()
+             if ext:
+-                scheme = "https" if self.config.get("force_https") else "http"
++                scheme = "https" if self._typed_config.force_https else "http"
+                 origins.add(f"{scheme}://{ext}")
+ 
+-            cdn = str(self.config.get("s3_cdn_url"))
++            cdn = self._typed_config.s3_cdn_url
+             if cdn:
+                 origins.add(cdn)
+ 
+@@ -281,50 +311,50 @@ class DiscourseCharm(CharmBase):
+         errors = []
+ 
+         if (
+-            self.config.get("enable_cors")
+-            and self.config.get("cors_origin") == ""
+-            and not self.config.get("augment_cors_origin")
++            self._typed_config.enable_cors
++            and self._typed_config.cors_origin == ""
++            and not self._typed_config.augment_cors_origin
+         ):
+             errors.append(INVALID_CORS_MESSAGE)
+ 
+-        if self.config["throttle_level"] not in THROTTLE_LEVELS:
++        if self._typed_config.throttle_level not in THROTTLE_LEVELS:
+             errors.append(f"throttle_level must be one of: {' '.join(THROTTLE_LEVELS.keys())}")
+ 
+         if (
+-            self.config["force_saml_login"]
++            self._typed_config.force_saml_login
+             and self.model.get_relation(DEFAULT_RELATION_NAME) is None
+         ):
+             errors.append("force_saml_login cannot be true without a saml relation")
+-        if self.config["max_category_nesting"] not in MAX_CATEGORY_NESTING_LEVELS:
++        if self._typed_config.max_category_nesting not in MAX_CATEGORY_NESTING_LEVELS:
+             errors.append(
+                 "max_category_nesting must be one of: "
+                 f"{', '.join(map(str, MAX_CATEGORY_NESTING_LEVELS))}"
+             )
+         if (
+-            self.config["saml_sync_groups"]
++            self._typed_config.saml_sync_groups
+             and self.model.get_relation(DEFAULT_RELATION_NAME) is None
+         ):
+             errors.append("'saml_sync_groups' cannot be specified without a saml relation")
+ 
+         if (
+             self.model.get_relation(DEFAULT_RELATION_NAME) is not None
+-            and not self.config["force_https"]
++            and not self._typed_config.force_https
+         ):
+             errors.append("A saml relation cannot be specified without 'force_https' being true")
+ 
+         if (
+             self.model.get_relation(OAUTH_RELATION_NAME) is not None
+-            and not self.config["force_https"]
++            and not self._typed_config.force_https
+         ):
+             errors.append(
+                 "An oauth relation cannot be established without 'force_https' being true"
+             )
+ 
+-        if self.config.get("s3_enabled"):
++        if self._typed_config.s3_enabled:
+             errors.extend(
+                 f"'s3_enabled' requires '{s3_config}'"
+                 for s3_config in REQUIRED_S3_SETTINGS
+-                if not self.config[s3_config]
++                if not getattr(self._typed_config, s3_config)
+             )
+ 
+         if errors:
+@@ -358,12 +388,10 @@ class DiscourseCharm(CharmBase):
+         )
+ 
+         saml_config["DISCOURSE_SAML_FULL_SCREEN_LOGIN"] = (
+-            "true" if self.config["force_saml_login"] else "false"
++            "true" if self._typed_config.force_saml_login else "false"
+         )
+         saml_sync_groups = [
+-            x.strip()
+-            for x in typing.cast(str, self.config["saml_sync_groups"]).split(",")
+-            if x.strip()
++            x.strip() for x in self._typed_config.saml_sync_groups.split(",") if x.strip()
+         ]
+         if saml_sync_groups:
+             # Per https://github.com/discourse/discourse-saml setting this to `true`
+@@ -382,22 +410,20 @@ class DiscourseCharm(CharmBase):
+             Dictionary with all the S3 environment settings.
+         """
+         s3_env = {
+-            "DISCOURSE_S3_ACCESS_KEY_ID": self.config["s3_access_key_id"],
+-            "DISCOURSE_S3_BUCKET": self.config["s3_bucket"],
+-            "DISCOURSE_S3_ENDPOINT": self.config.get("s3_endpoint", "s3.amazonaws.com"),
+-            "DISCOURSE_S3_REGION": self.config["s3_region"],
+-            "DISCOURSE_S3_SECRET_ACCESS_KEY": self.config["s3_secret_access_key"],
+-            "DISCOURSE_S3_INSTALL_CORS_RULE": str(
+-                self.config.get("s3_install_cors_rule", True)
+-            ).lower(),
++            "DISCOURSE_S3_ACCESS_KEY_ID": self._typed_config.s3_access_key_id,
++            "DISCOURSE_S3_BUCKET": self._typed_config.s3_bucket,
++            "DISCOURSE_S3_ENDPOINT": self._typed_config.s3_endpoint,
++            "DISCOURSE_S3_REGION": self._typed_config.s3_region,
++            "DISCOURSE_S3_SECRET_ACCESS_KEY": self._typed_config.s3_secret_access_key,
++            "DISCOURSE_S3_INSTALL_CORS_RULE": str(self._typed_config.s3_install_cors_rule).lower(),
+             "DISCOURSE_USE_S3": "true",
+         }
+-        if self.config.get("s3_backup_bucket"):
++        if self._typed_config.s3_backup_bucket:
+             s3_env["DISCOURSE_BACKUP_LOCATION"] = "s3"
+-            s3_env["DISCOURSE_S3_BACKUP_BUCKET"] = self.config["s3_backup_bucket"]
+-        if self.config.get("s3_cdn_url"):
+-            s3_env["DISCOURSE_S3_CDN_URL"] = self.config["s3_cdn_url"]
+-        if self.config.get("s3_enabled"):
++            s3_env["DISCOURSE_S3_BACKUP_BUCKET"] = self._typed_config.s3_backup_bucket
++        if self._typed_config.s3_cdn_url:
++            s3_env["DISCOURSE_S3_CDN_URL"] = self._typed_config.s3_cdn_url
++        if self._typed_config.s3_enabled:
+             # We force assets to be uploaded to S3
+             # This should be considered as a workaround and revisited later
+             s3_env["FORCE_S3_UPLOADS"] = "true"
+@@ -458,37 +484,36 @@ class DiscourseCharm(CharmBase):
+             "DISCOURSE_DB_NAME": database_relation_data["POSTGRES_DB"],
+             "DISCOURSE_DB_PASSWORD": database_relation_data["POSTGRES_PASSWORD"],
+             "DISCOURSE_DB_USERNAME": database_relation_data["POSTGRES_USER"],
+-            "DISCOURSE_DEVELOPER_EMAILS": self.config["developer_emails"],
+-            "DISCOURSE_ENABLE_CORS": str(self.config["enable_cors"]).lower(),
++            "DISCOURSE_DEVELOPER_EMAILS": self._typed_config.developer_emails,
++            "DISCOURSE_ENABLE_CORS": str(self._typed_config.enable_cors).lower(),
+             "DISCOURSE_HOSTNAME": self._get_external_hostname(),
+-            "DISCOURSE_MAX_CATEGORY_NESTING": str(self.config["max_category_nesting"]),
++            "DISCOURSE_MAX_CATEGORY_NESTING": str(self._typed_config.max_category_nesting),
+             "DISCOURSE_REDIS_HOST": redis_relation_data[0],
+             "DISCOURSE_REDIS_PORT": str(redis_relation_data[1]),
+             "DISCOURSE_REFRESH_MAXMIND_DB_DURING_PRECOMPILE_DAYS": "0",
+             "DISCOURSE_SERVE_STATIC_ASSETS": "true",
+-            "DISCOURSE_SMTP_ADDRESS": self.config["smtp_address"],
+-            "DISCOURSE_SMTP_AUTHENTICATION": self.config["smtp_authentication"],
+-            "DISCOURSE_SMTP_DOMAIN": self.config["smtp_domain"],
+-            "DISCOURSE_SMTP_ENABLE_START_TLS": self.config["smtp_enable_start_tls"],
+-            "DISCOURSE_SMTP_FORCE_TLS": self.config["smtp_force_tls"],
+-            "DISCOURSE_SMTP_OPENSSL_VERIFY_MODE": self.config["smtp_openssl_verify_mode"],
+-            "DISCOURSE_SMTP_PASSWORD": self.config["smtp_password"],
+-            "DISCOURSE_SMTP_PORT": str(self.config["smtp_port"]),
+-            "DISCOURSE_SMTP_USER_NAME": self.config["smtp_username"],
++            "DISCOURSE_SMTP_ADDRESS": self._typed_config.smtp_address,
++            "DISCOURSE_SMTP_AUTHENTICATION": self._typed_config.smtp_authentication,
++            "DISCOURSE_SMTP_DOMAIN": self._typed_config.smtp_domain,
++            "DISCOURSE_SMTP_ENABLE_START_TLS": self._typed_config.smtp_enable_start_tls,
++            "DISCOURSE_SMTP_FORCE_TLS": self._typed_config.smtp_force_tls,
++            "DISCOURSE_SMTP_OPENSSL_VERIFY_MODE": self._typed_config.smtp_openssl_verify_mode,
++            "DISCOURSE_SMTP_PASSWORD": self._typed_config.smtp_password,
++            "DISCOURSE_SMTP_PORT": str(self._typed_config.smtp_port),
++            "DISCOURSE_SMTP_USER_NAME": self._typed_config.smtp_username,
+             "RAILS_ENV": "production",
+-            "UNICORN_SIDEKIQ_MAX_RSS": str(self.config["sidekiq_max_memory"]),
++            "UNICORN_SIDEKIQ_MAX_RSS": str(self._typed_config.sidekiq_max_memory),
+         }
+         pod_config.update(self._get_saml_config())
+         # Add OIDC env vars if oauth relation is established
+         pod_config.update(self._oauth.get_oidc_env())
+ 
+-        if self.config.get("s3_enabled"):
++        if self._typed_config.s3_enabled:
+             pod_config.update(self._get_s3_env())
+ 
+         # We only get valid throttle levels here, otherwise it would be caught
+         # by `_is_config_valid()`.
+-        # self.config return an Any type
+-        pod_config.update(THROTTLE_LEVELS.get(self.config["throttle_level"]))  # type: ignore
++        pod_config.update(THROTTLE_LEVELS.get(self._typed_config.throttle_level))  # type: ignore
+ 
+         # Update environment with proxy settings
+         pod_config["HTTP_PROXY"] = pod_config["http_proxy"] = (
+@@ -546,15 +571,15 @@ class DiscourseCharm(CharmBase):
+         Returns:
+             If no services are planned yet (first run) or S3 settings have changed.
+         """
+-        result = self.config.get("s3_enabled") and (
++        result = self._typed_config.s3_enabled and (
+             not current_plan.services
+             or (
+                 s3info
+                 and (
+-                    s3info.enabled != self.config.get("s3_enabled")
+-                    or s3info.region != self.config.get("s3_region")
+-                    or s3info.bucket != self.config.get("s3_bucket")
+-                    or s3info.endpoint != self.config.get("s3_endpoint")
++                    s3info.enabled != self._typed_config.s3_enabled
++                    or s3info.region != self._typed_config.s3_region
++                    or s3info.bucket != self._typed_config.s3_bucket
++                    or s3info.endpoint != self._typed_config.s3_endpoint
+                 )
+             )
+         )
+@@ -786,7 +811,8 @@ class DiscourseCharm(CharmBase):
+             event.fail("Unable to connect to container, container is not ready")
+             return
+ 
+-        email = event.params["email"]
++        params = event.load_params(PromoteUserParams)
++        email = params.email
+ 
+         if not self._user_exists(email):
+             event.fail(f"User with email {email} does not exist")
+@@ -824,7 +850,8 @@ class DiscourseCharm(CharmBase):
+             event.fail("Unable to connect to container, container is not ready")
+             return
+ 
+-        email = event.params["email"]
++        params = event.load_params(CreateUserParams)
++        email = params.email
+         password = self._generate_password(16)
+ 
+         if self._user_exists(email):
+@@ -832,7 +859,7 @@ class DiscourseCharm(CharmBase):
+             return
+ 
+         # Admin flag is optional, if it is true, the user will be created as an admin
+-        admin_flag = "Y" if event.params.get("admin") else "N"
++        admin_flag = "Y" if params.admin else "N"
+ 
+         process = container.exec(
+             [
+@@ -853,11 +880,7 @@ class DiscourseCharm(CharmBase):
+             event.fail(f"Failed to make user with email {email}: {ex.stdout}")  # type: ignore
+             return
+ 
+-        if (
+-            not event.params.get("admin")
+-            and event.params.get("active")
+-            and not self._activate_user(email)
+-        ):
++        if not params.admin and params.active and not self._activate_user(email):
+             event.fail(f"Could not find user {email} to activate")
+             return
+ 
+@@ -879,7 +902,7 @@ class DiscourseCharm(CharmBase):
+     def _config_force_https(self) -> None:
+         """Config Discourse to force_https option based on charm configuration."""
+         container = self.unit.get_container(CONTAINER_NAME)
+-        force_bool = str(self.config["force_https"]).lower()
++        force_bool = str(self._typed_config.force_https).lower()
+         process = container.exec(
+             [
+                 os.path.join(DISCOURSE_PATH, "bin/rails"),
+@@ -898,7 +921,8 @@ class DiscourseCharm(CharmBase):
+         Args:
+             event: Event triggering the anonymize_user action.
+         """
+-        username = event.params["username"]
++        params = event.load_params(AnonymizeUserParams)
++        username = params.username
+         container = self.unit.get_container(CONTAINER_NAME)
+         if not container.can_connect():
+             event.fail("Unable to connect to container, container is not ready")
+diff --git a/src/config.py b/src/config.py
+new file mode 100644
+index 0000000..7303e4f
+--- /dev/null
++++ b/src/config.py
+@@ -0,0 +1,40 @@
++# Copyright 2026 Canonical Ltd.
++# See LICENSE file for licensing details.
++
++"""Configuration for the Discourse charm."""
++
++from pydantic import BaseModel
++
++
++class DiscourseConfig(BaseModel):
++    """Discourse charm configuration."""
++
++    augment_cors_origin: bool = True
++    cors_origin: str = ""
++    developer_emails: str = ""
++    enable_cors: bool = True
++    external_hostname: str = ""
++    force_https: bool = False
++    force_saml_login: bool = False
++    max_category_nesting: int = 2
++    saml_sync_groups: str = ""
++    smtp_address: str = ""
++    smtp_authentication: str = "none"
++    smtp_domain: str = ""
++    smtp_enable_start_tls: str = "true"
++    smtp_force_tls: str = "false"
++    smtp_openssl_verify_mode: str = "none"
++    smtp_password: str = ""
++    smtp_port: int = 587
++    smtp_username: str = ""
++    s3_access_key_id: str = ""
++    s3_backup_bucket: str = ""
++    s3_bucket: str = ""
++    s3_cdn_url: str = ""
++    s3_enabled: bool = False
++    s3_endpoint: str = "https://s3.amazonaws.com"
++    s3_region: str = ""
++    s3_secret_access_key: str = ""
++    s3_install_cors_rule: bool = True
++    throttle_level: str = "none"
++    sidekiq_max_memory: int = 1000
+diff --git a/uv.lock b/uv.lock
+index d435ed0..2921d6e 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -1328,7 +1328,7 @@ unit = [
+ requires-dist = [
+     { name = "cosl", specifier = "==1.6.0" },
+     { name = "jsonschema", specifier = "==4.23.0" },
+-    { name = "ops", specifier = "==2.23.2" },
++    { name = "ops", specifier = ">=2.23.0" },
+     { name = "pydantic", specifier = "==2.10.6" },
+ ]
+ 
