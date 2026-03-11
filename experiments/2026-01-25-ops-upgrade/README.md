@@ -152,7 +152,7 @@ Selection rationale:
 
 ### Experimental Design
 
-For each target charm × each applicable change (or set of changes), run three conditions:
+For each target charm × each applicable change (or set of changes), run four conditions:
 
 #### Condition 1: Dedicated Skill
 
