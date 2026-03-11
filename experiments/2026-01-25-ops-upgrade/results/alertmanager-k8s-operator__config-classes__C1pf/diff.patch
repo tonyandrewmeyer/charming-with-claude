@@ -1,0 +1,420 @@
+diff --git a/.github/copilot-instructions.md b/.github/copilot-instructions.md
+new file mode 100644
+index 0000000..93cdcd1
+--- /dev/null
++++ b/.github/copilot-instructions.md
+@@ -0,0 +1,151 @@
++# Skill: Adopt Config Classes
++
++Replace raw `self.config` dictionary access with typed Python classes using `CharmBase.load_config()`.
++
++## When to Use
++
++Use this when a charm accesses config via `self.config["key"]` or `self.config.get("key")` and would benefit from type safety, validation, and IDE support.
++
++## Prerequisites
++
++- ops >= 2.23.0
++- The charm has config options defined in `charmcraft.yaml` (or `config.yaml`)
++
++## Step 1: Audit Current Config Usage
++
++1. Read the charm's config definition in `charmcraft.yaml` to understand all config options and their types.
++2. Search the charm code for all config access patterns:
++   - `self.config["..."]`
++   - `self.config.get("...")`
++   - `self.config[...]` with variable keys
++3. Note any manual validation (type checks, range checks, enum validation).
++
++## Step 2: Define the Config Class
++
++Create a config class in `src/config.py` (or inline if the charm is small).
++
++### Option A: Dataclass (no extra dependencies)
++
++```python
++import dataclasses
++
++
++@dataclasses.dataclass(frozen=True)
++class MyCharmConfig:
++    log_level: str = "info"
++    port: int = 8080
++    enable_tls: bool = False
++
++    def __post_init__(self):
++        """Validate config values. Raise ValueError for invalid config."""
++        valid_levels = {"info", "debug", "warning", "error", "critical"}
++        if self.log_level.lower() not in valid_levels:
++            raise ValueError(
++                f"Invalid log level: '{self.log_level}'. "
++                f"Valid values are: {', '.join(sorted(valid_levels))}."
++            )
++```
++
++### Option B: Pydantic BaseModel (richer validation, requires pydantic dependency)
++
++```python
++import pydantic
++
++
++class MyCharmConfig(pydantic.BaseModel):
++    log_level: str = "info"
++    port: int = pydantic.Field(default=8080, ge=1, le=65535)
++    enable_tls: bool = False
++
++    @pydantic.field_validator("log_level")
++    @classmethod
++    def validate_log_level(cls, v: str) -> str:
++        valid = {"info", "debug", "warning", "error", "critical"}
++        if v.lower() not in valid:
++            raise ValueError(f"Invalid log level: '{v}'")
++        return v.lower()
++```
++
++### Field Naming Rules
++
++- Juju config names use dashes: `log-level`
++- Python field names use underscores: `log_level`
++- The conversion is automatic — just use underscores in the class.
++- For names that don't follow this pattern, use aliases:
++  ```python
++  # Dataclass:
++  workload_class: str = dataclasses.field(metadata={"alias": "class"})
++  # Pydantic:
++  workload_class: str = pydantic.Field(alias="class")
++  ```
++
++## Step 3: Update the Charm
++
++### Loading config
++
++The standard pattern is to load config in `__init__` with `errors="blocked"`:
++
++```python
++from config import MyCharmConfig
++
++
++class MyCharm(ops.CharmBase):
++    def __init__(self, framework: ops.Framework):
++        super().__init__(framework)
++        self.typed_config = self.load_config(MyCharmConfig, errors="blocked")
++        # ...event observers...
++```
++
++With `errors="blocked"`, if the config is invalid:
++1. The unit status is set to `BlockedStatus("Invalid config: ...")`.
++2. The hook exits cleanly (Juju won't retry).
++3. The charm should handle this in `collect_unit_status` or check the status before proceeding.
++
++### Replacing config access
++
++```python
++# Before:
++log_level = self.config.get("log-level", "info")
++port = int(self.config["port"])
++
++# After:
++log_level = self.typed_config.log_level
++port = self.typed_config.port
++```
++
++### Removing manual validation
++
++Any validation that's now handled by the config class can be removed from the charm code.
++
++## Step 4: Update Tests
++
++If tests set config values via `testing.State(config={...})`, those continue to work — no test changes needed for the state setup. But assertions that check for manual validation behaviour (e.g. checking that the charm sets BlockedStatus on bad config) should verify the new error path.
++
++```python
++def test_invalid_config():
++    ctx = testing.Context(MyCharm)
++    state_out = ctx.run(
++        ctx.on.config_changed(),
++        testing.State(config={"log-level": "invalid"}),
++    )
++    assert isinstance(state_out.unit_status, testing.BlockedStatus)
++```
++
++## Step 5: Verify
++
++1. Run `tox -e lint` — ensure the new module is properly imported.
++2. Run `tox -e unit` — all tests should pass.
++3. Review the diff — it should be focused on config access patterns. No unrelated changes.
++
++## Exemplar Charms
++
++- **[cve-scanner-operator](https://github.com/canonical/cve-scanner-operator)** — Pydantic with rich Field constraints, `errors="blocked"`, separate `src/config.py`.
++- **[conserver-charm](https://github.com/canonical/conserver-charm)** — Clean minimal Pydantic example.
++- **[forgejo-k8s-operator](https://github.com/canonical/forgejo-k8s-operator)** — Dataclass approach with `__post_init__` validation.
++
++## Common Mistakes
++
++- Don't partially convert — if adopting `load_config`, convert *all* `self.config` access.
++- Don't forget to add `pydantic` to dependencies if using Pydantic.
++- Don't add validation that changes behaviour — the goal is to replace raw access with typed access, not to add new restrictions.
++- Don't put the config class in the charm module if it's complex — use a separate `src/config.py`.
+diff --git a/pyproject.toml b/pyproject.toml
+index 140d222..7fc19ad 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -6,7 +6,7 @@ version = "0.0"
+ requires-python = "~=3.8"
+ 
+ dependencies = [
+-  "ops",
++  "ops>=2.23.0",
+   "pyyaml",
+   "lightkube>=0.11",  # observability_libs
+   "lightkube-models",  # observability_libs
+diff --git a/src/charm.py b/src/charm.py
+index ae92826..c54b92a 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -10,7 +10,7 @@ import subprocess
+ from dataclasses import dataclass
+ from pathlib import Path
+ from types import SimpleNamespace
+-from typing import List, Optional, Tuple, cast
++from typing import List, Optional, Tuple
+ from urllib.parse import urlparse
+ 
+ import yaml
+@@ -55,6 +55,7 @@ from alertmanager import (
+     WorkloadManager,
+     WorkloadManagerError,
+ )
++from config import AlertmanagerCharmConfig
+ from config_builder import ConfigBuilder, ConfigError
+ 
+ logger = logging.getLogger(__name__)
+@@ -281,6 +282,11 @@ class AlertmanagerCharm(CharmBase):
+         for p in new_ports_to_open:
+             self.unit.open_port(p.protocol, p.port)
+ 
++    @property
++    def typed_config(self) -> AlertmanagerCharmConfig:
++        """Return the charm config as a typed object."""
++        return self.load_config(AlertmanagerCharmConfig, errors="blocked")
++
+     @property
+     def _catalogue_item(self) -> CatalogueItem:
+         api_endpoints = {"Alerts": "/api/v2/alerts"}
+@@ -322,8 +328,8 @@ class AlertmanagerCharm(CharmBase):
+ 
+     def _resource_reqs_from_config(self) -> ResourceRequirements:
+         limits = {
+-            "cpu": self.model.config.get("cpu"),
+-            "memory": self.model.config.get("memory"),
++            "cpu": self.typed_config.cpu,
++            "memory": self.typed_config.memory,
+         }
+         requests = {"cpu": "0.25", "memory": "200Mi"}
+         return adjust_resource_requirements(limits, requests, adhere_to_requests=True)
+@@ -403,9 +409,9 @@ class AlertmanagerCharm(CharmBase):
+         return None
+ 
+     def _get_local_config(self) -> Optional[Tuple[Optional[dict], Optional[str]]]:
+-        config = self.config["config_file"]
++        config = self.typed_config.config_file
+         if config:
+-            local_config = yaml.safe_load(cast(str, config))
++            local_config = yaml.safe_load(config)
+ 
+             # If `juju config` is executed like this `config_file=am.yaml` instead of
+             # `config_file=@am.yaml` local_config will be the string `am.yaml` instead
+@@ -415,7 +421,7 @@ class AlertmanagerCharm(CharmBase):
+                 logger.error(msg)
+                 raise ConfigUpdateFailure(msg)
+ 
+-            local_templates = cast(str, self.config["templates_file"]) or None
++            local_templates = self.typed_config.templates_file or None
+             return local_config, local_templates
+         return None
+ 
+diff --git a/src/config.py b/src/config.py
+new file mode 100644
+index 0000000..0b7b0c5
+--- /dev/null
++++ b/src/config.py
+@@ -0,0 +1,18 @@
++# Copyright 2021 Canonical Ltd.
++# See LICENSE file for licensing details.
++
++"""Alertmanager charm configuration."""
++
++from typing import Optional
++
++import pydantic
++
++
++class AlertmanagerCharmConfig(pydantic.BaseModel):
++    """Alertmanager charm configuration."""
++
++    config_file: str = ""
++    templates_file: str = ""
++    web_external_url: str = ""
++    cpu: Optional[str] = None
++    memory: Optional[str] = None
+diff --git a/uv.lock b/uv.lock
+index c08f26c..fd900eb 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -1,5 +1,5 @@
+ version = 1
+-revision = 2
++revision = 3
+ requires-python = ">=3.8, <4"
+ resolution-markers = [
+     "python_full_version >= '3.11'",
+@@ -22,7 +22,8 @@ dependencies = [
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+     { name = "opentelemetry-exporter-otlp-proto-http" },
+-    { name = "ops" },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pyyaml" },
+@@ -40,7 +41,8 @@ dev = [
+     { name = "hypothesis", version = "6.113.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "hypothesis", version = "6.131.28", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "juju" },
+-    { name = "ops", extra = ["testing"] },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, extra = ["testing"], marker = "python_full_version < '3.10'" },
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, extra = ["testing"], marker = "python_full_version >= '3.10'" },
+     { name = "pyright" },
+     { name = "pytest" },
+     { name = "pytest-httpserver", version = "1.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+@@ -72,7 +74,7 @@ requires-dist = [
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0" },
+-    { name = "ops" },
++    { name = "ops", specifier = ">=2.23.0" },
+     { name = "ops", extras = ["testing"], marker = "extra == 'dev'" },
+     { name = "pydantic", specifier = ">=2" },
+     { name = "pyright", marker = "extra == 'dev'", specifier = "<1.1.399" },
+@@ -485,7 +487,8 @@ name = "cosl"
+ version = "1.3.1"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "ops" },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pyyaml" },
+@@ -1543,36 +1546,87 @@ wheels = [
+ 
+ [[package]]
+ name = "ops"
+-version = "2.21.1"
++version = "2.23.2"
+ source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version == '3.9.*'",
++    "python_full_version >= '3.8.1' and python_full_version < '3.9'",
++    "python_full_version < '3.8.1'",
++]
+ dependencies = [
+     { name = "importlib-metadata", version = "8.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+-    { name = "importlib-metadata", version = "8.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+-    { name = "opentelemetry-api" },
+-    { name = "pyyaml" },
+-    { name = "websocket-client" },
++    { name = "importlib-metadata", version = "8.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
++    { name = "opentelemetry-api", marker = "python_full_version < '3.10'" },
++    { name = "pyyaml", marker = "python_full_version < '3.10'" },
++    { name = "websocket-client", marker = "python_full_version < '3.10'" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/97/c5/f0098a9b1b72680b3682043227a628a08a7b5b9592fc98ea6efa0d638017/ops-2.21.1.tar.gz", hash = "sha256:4a8190420813ba37e7a0399d656008f99c79015d7f72e138bad7cb1ac403d0b0", size = 496427, upload-time = "2025-05-01T03:03:23.038Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/93/98/84789a5e15ad76e043301bbd70b4d39cffaa717ae6eecb662fd0dd0cc7af/ops-2.23.2.tar.gz", hash = "sha256:a69b0c5bc65ebd91720fc96459e81b969df851f3a6c9c855ee73de7004205987", size = 528074, upload-time = "2026-02-11T03:58:15.565Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/e6/c7/b70271ee12418144d5c596f37745c21da105470d365d834a9fce071f7bc2/ops-2.21.1-py3-none-any.whl", hash = "sha256:6745084c8e73bc485c254f95664bd85ddcf786c91b90782f2830c8333a1440b2", size = 182682, upload-time = "2025-05-01T03:03:20.946Z" },
++    { url = "https://files.pythonhosted.org/packages/e0/00/65da7c96d0f9e13c4de3bdd2e3717259fe723ff4bd4e5dc714164f851032/ops-2.23.2-py3-none-any.whl", hash = "sha256:9cab0c6bc46eeff2e96777128200c3ef872b55641b12f07dc4fd6fe3103954be", size = 188415, upload-time = "2026-02-11T03:58:13.693Z" },
+ ]
+ 
+ [package.optional-dependencies]
+ testing = [
+-    { name = "ops-scenario" },
++    { name = "ops-scenario", version = "7.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++]
++
++[[package]]
++name = "ops"
++version = "3.6.0"
++source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version >= '3.11'",
++    "python_full_version == '3.10.*'",
++]
++dependencies = [
++    { name = "opentelemetry-api", marker = "python_full_version >= '3.10'" },
++    { name = "pyyaml", marker = "python_full_version >= '3.10'" },
++    { name = "websocket-client", marker = "python_full_version >= '3.10'" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/d3/bb/79b7efdb1243cbad11b6568c51ba4fb7358cd2c4d13bfd971a77c0aa7440/ops-3.6.0.tar.gz", hash = "sha256:a1c3361049c66759840a436143b07c74c2a46dcc44cbfd1177a9051f849c7971", size = 579236, upload-time = "2026-02-26T04:19:12.689Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/8c/b6/d7daab4f841566d3cb0402d3463f7c1a00626724d6d7c02d7bf934ae6c86/ops-3.6.0-py3-none-any.whl", hash = "sha256:341c6688684446cc4b42860738898683feb271175bb9c4775ae68c81e4e0976a", size = 211856, upload-time = "2026-02-26T04:19:08.012Z" },
++]
++
++[package.optional-dependencies]
++testing = [
++    { name = "ops-scenario", version = "8.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+ ]
+ 
+ [[package]]
+ name = "ops-scenario"
+-version = "7.21.1"
++version = "7.23.2"
+ source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version == '3.9.*'",
++    "python_full_version >= '3.8.1' and python_full_version < '3.9'",
++    "python_full_version < '3.8.1'",
++]
+ dependencies = [
+-    { name = "ops" },
+-    { name = "pyyaml" },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "pyyaml", marker = "python_full_version < '3.10'" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/ee/e7/1514b9c27b9364ec1d04791b0fb76d1a629c8cc73f90fbf6dd867457c914/ops_scenario-7.23.2.tar.gz", hash = "sha256:327dda8b3c871ccf16246ed4f8c7e093526af42093549976596cede58cbc8488", size = 70017, upload-time = "2026-02-11T03:58:16.553Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/01/15/3b59993cad1b2838c9bb20f6f2ed5297fcf490025b1ffecc27d06be1daba/ops_scenario-7.23.2-py3-none-any.whl", hash = "sha256:024b638e0ea94e8f2e3c642d4f96031b0c7ac4f39117b97107dc9a09503651b4", size = 64328, upload-time = "2026-02-11T03:58:14.916Z" },
++]
++
++[[package]]
++name = "ops-scenario"
++version = "8.6.0"
++source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version >= '3.11'",
++    "python_full_version == '3.10.*'",
++]
++dependencies = [
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
++    { name = "pyyaml", marker = "python_full_version >= '3.10'" },
++    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/2a/95/90312165f3e1d5876872ad64131be9c0f26b5aa09bd73a436a21b0752820/ops_scenario-7.21.1.tar.gz", hash = "sha256:534b407b34212161c3e74cb396b79ca7449932e483053e924146fdf0140876b9", size = 141631, upload-time = "2025-05-01T03:03:30.456Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/63/c8/15d9f91eafa46d1dfa7f580be3274c22399f941724b74e274334de9468bb/ops_scenario-8.6.0.tar.gz", hash = "sha256:5a40a91fd5e9b6c8249933944dfc6e807ad2ddbd36a68c800746b9bb8a0eabfb", size = 71728, upload-time = "2026-02-26T04:19:15.34Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/93/3b/4cc28ea9d77015ecf8fc5c3d362bb274e35ffaa2e6fbd87909a5384afa40/ops_scenario-7.21.1-py3-none-any.whl", hash = "sha256:eeb9def2c31a1db2429cf21bd9b8cbd2ac092cc1fbe5591e850e4aa192c542fa", size = 72451, upload-time = "2025-05-01T03:03:28.488Z" },
++    { url = "https://files.pythonhosted.org/packages/ea/d2/fb3176805339d3aa95b9d6e43478d0e34355c6c46f27723249f46bb8d19d/ops_scenario-8.6.0-py3-none-any.whl", hash = "sha256:469490a042dc45eca24eef7aa1b9214704d97d67503ad8465414ab68dc989d30", size = 64241, upload-time = "2026-02-26T04:19:09.579Z" },
+ ]
+ 
+ [[package]]
+@@ -2153,7 +2207,8 @@ name = "pytest-interface-tester"
+ version = "3.3.1"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "ops-scenario" },
++    { name = "ops-scenario", version = "7.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "ops-scenario", version = "8.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pytest" },

@@ -1,0 +1,206 @@
+diff --git a/requirements.txt b/requirements.txt
+index d0c8a70..d9858a2 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,2 +1,2 @@
+ pydantic==1.10.26
+-ops>=2.0.0,<3.0.0
++ops>=2.23.0,<3.0.0
+diff --git a/src/charm.py b/src/charm.py
+index 1040d7d..8f72e2f 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -11,6 +11,7 @@ import logging
+ import os
+ import secrets
+ import typing
++from dataclasses import dataclass
+ from re import findall
+ from typing import Any, Dict, Iterator, List, Optional, Tuple
+ from urllib.parse import urlparse
+@@ -49,6 +50,21 @@ SAML_GROUPS_PLUGIN_NAME = "saml_groups"
+ UWSGI_TOUCH_RELOAD = "/srv/indico/indico.wsgi"
+ 
+ 
++@dataclass
++class AddAdminParams:
++    """Parameters for the add-admin action."""
++
++    email: str
++    password: str
++
++
++@dataclass
++class AnonymizeUserParams:
++    """Parameters for the anonymize-user action."""
++
++    email: str
++
++
+ class InvalidRedisNameError(Exception):
+     """Represents invalid redis name error."""
+ 
+@@ -901,6 +917,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         Args:
+             event: Event triggered by the add_admin action
+         """
++        params = event.load_params(AddAdminParams)
+         container = self.unit.get_container("indico")
+         indico_env_config = self._get_indico_env_config_str(container)
+ 
+@@ -908,8 +925,8 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             "/usr/bin/indico",
+             "autocreate",
+             "admin",
+-            event.params["email"],
+-            event.params["password"],
++            params.email,
++            params.password,
+         ]
+ 
+         if container.can_connect():
+@@ -921,27 +938,28 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             )
+             try:
+                 output = process.wait_output()
+-                event.set_results({"user": f"{event.params['email']}", "output": output})
++                event.set_results({"user": f"{params.email}", "output": output})
+             except ExecError as ex:
+                 logger.exception("Action add-admin failed: %s", ex.stdout)
+ 
+                 event.fail(
+                     # Parameter validation errors are printed to stdout
+-                    f"Failed to create admin {event.params['email']}: {ex.stdout!r}"
++                    f"Failed to create admin {params.email}: {ex.stdout!r}"
+                 )
+ 
+-    def _execute_anonymize_cmd(self, event: ActionEvent) -> Iterator[str]:
++    def _execute_anonymize_cmd(self, event: ActionEvent, params: AnonymizeUserParams) -> Iterator[str]:
+         """Execute anonymize command for each email.
+ 
+         Args:
+             event (ActionEvent): Event triggered by the anonymize-user action
++            params (AnonymizeUserParams): Parsed parameters for the anonymize-user action
+ 
+         Yields:
+             Iterator[str]: Output of each command execution
+         """
+         container = self.unit.get_container("indico")
+         indico_env_config = self._get_indico_env_config_str(container)
+-        for email in event.params["email"].split(EMAIL_LIST_SEPARATOR):
++        for email in params.email.split(EMAIL_LIST_SEPARATOR):
+             cmd = [
+                 "/usr/bin/indico",
+                 "anonymize",
+@@ -969,7 +987,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+                 yield out[0].replace("\n", "")
+             except ExecError as ex:
+                 logger.exception("Action anonymize-user failed: %s", ex.stdout)
+-                fail_msg = f"Failed to anonymize user {event.params['email']}: {ex.stdout!r}"
++                fail_msg = f"Failed to anonymize user {params.email}: {ex.stdout!r}"
+                 event.fail("Failed to anonymize one or more users, please verify the results.")
+                 yield fail_msg
+ 
+@@ -982,7 +1000,8 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         Args:
+             event: Event triggered by the anonymize-user action
+         """
+-        if len(event.params["email"].split(EMAIL_LIST_SEPARATOR)) > EMAIL_LIST_MAX:
++        params = event.load_params(AnonymizeUserParams)
++        if len(params.email.split(EMAIL_LIST_SEPARATOR)) > EMAIL_LIST_MAX:
+             max_reached_msg = (
+                 "Failed to anonymize user: "
+                 f"List of more than {EMAIL_LIST_MAX} emails are not allowed"
+@@ -990,10 +1009,10 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             logger.error("Action anonymize-user failed: %s", max_reached_msg)
+             event.fail(max_reached_msg)
+             return
+-        output_list = list(self._execute_anonymize_cmd(event))
++        output_list = list(self._execute_anonymize_cmd(event, params))
+         event.set_results(
+             {
+-                "user": f"{event.params['email']}",
++                "user": f"{params.email}",
+                 "output": EMAIL_LIST_SEPARATOR.join(output_list),
+             }
+         )
+diff --git a/tests/unit_harness/test_actions.py b/tests/unit_harness/test_actions.py
+index a17bed5..f4d4f3c 100644
+--- a/tests/unit_harness/test_actions.py
++++ b/tests/unit_harness/test_actions.py
+@@ -13,7 +13,13 @@ from ops.charm import ActionEvent
+ from ops.model import Container
+ from ops.pebble import ExecError
+ 
+-from charm import EMAIL_LIST_MAX, EMAIL_LIST_SEPARATOR, IndicoOperatorCharm
++from charm import (
++    EMAIL_LIST_MAX,
++    EMAIL_LIST_SEPARATOR,
++    AddAdminParams,
++    AnonymizeUserParams,
++    IndicoOperatorCharm,
++)
+ from tests.unit_harness.test_base import TestBase
+ 
+ 
+@@ -93,6 +99,7 @@ class TestActions(TestBase):
+             "email": email,
+             "password": password,
+         }
++        event.load_params.return_value = AddAdminParams(email=email, password=password)
+ 
+         def event_store_failure(failure_message: str) -> None:
+             """Define a failure message for the event.
+@@ -188,6 +195,7 @@ class TestActions(TestBase):
+             "email": email,
+             "password": password,
+         }
++        event.load_params.return_value = AddAdminParams(email=email, password=password)
+ 
+         def event_store_failure(failure_message: str) -> None:
+             """Define a failure message for the event.
+@@ -283,6 +291,7 @@ class TestActions(TestBase):
+         mock_event.params = {
+             "email": email,
+         }
++        mock_event.load_params.return_value = AnonymizeUserParams(email=email)
+         self._anonymize_user(email, mock_event, mock_exec)
+ 
+     def _generate_emails_mock(self, emails: str) -> typing.Iterator[MagicMock]:
+@@ -311,6 +320,7 @@ class TestActions(TestBase):
+         mock_event.params = {
+             "email": emails,
+         }
++        mock_event.load_params.return_value = AnonymizeUserParams(email=emails)
+         mock_exec.side_effect = list(self._generate_emails_mock(emails))
+         self._anonymize_user(emails, mock_event, mock_exec)
+ 
+@@ -328,6 +338,7 @@ class TestActions(TestBase):
+         mock_event.params = {
+             "email": emails,
+         }
++        mock_event.load_params.return_value = AnonymizeUserParams(email=emails)
+         mock_exec.return_value = MagicMock(wait_output=MagicMock(return_value=("", None)))
+ 
+         charm._anonymize_user_action(mock_event)
+@@ -366,6 +377,7 @@ class TestActions(TestBase):
+         mock_event.params = {
+             "email": email,
+         }
++        mock_event.load_params.return_value = AnonymizeUserParams(email=email)
+ 
+         charm._anonymize_user_action(mock_event)
+ 
+diff --git a/tox.ini b/tox.ini
+index 4639e64..109a5b4 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -126,7 +126,7 @@ deps =
+     coverage[toml]
+     pytest
+     pytest-mock
+-    ops[testing]==2.21.1
++    ops[testing]>=2.23.0,<3.0.0
+     -r{toxinidir}/requirements.txt
+ commands =
+     coverage run --source={[vars]src_path} \

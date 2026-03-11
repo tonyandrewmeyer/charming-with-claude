@@ -1,0 +1,242 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 140d222..7fc19ad 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -6,7 +6,7 @@ version = "0.0"
+ requires-python = "~=3.8"
+ 
+ dependencies = [
+-  "ops",
++  "ops>=2.23.0",
+   "pyyaml",
+   "lightkube>=0.11",  # observability_libs
+   "lightkube-models",  # observability_libs
+diff --git a/src/charm.py b/src/charm.py
+index ae92826..401df25 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -4,15 +4,18 @@
+ 
+ """A Juju charm for alertmanager."""
+ 
++import json
+ import logging
+ import socket
+ import subprocess
+ from dataclasses import dataclass
+ from pathlib import Path
+ from types import SimpleNamespace
+-from typing import List, Optional, Tuple, cast
++from typing import Any, List, Optional, Tuple, cast
+ from urllib.parse import urlparse
+ 
++import pydantic
++
+ import yaml
+ from charms.alertmanager_k8s.v0.alertmanager_remote_configuration import (
+     RemoteConfigurationRequirer,
+@@ -60,6 +63,20 @@ from config_builder import ConfigBuilder, ConfigError
+ logger = logging.getLogger(__name__)
+ 
+ 
++class PeerRelationUnitData(pydantic.BaseModel):
++    """Typed data for the replicas peer relation (per-unit databag)."""
++
++    private_address: Optional[str] = None
++
++
++def _decode_relation_str(v: str) -> Any:
++    """Decode a relation data value, falling back to the raw string if not valid JSON."""
++    try:
++        return json.loads(v)
++    except json.JSONDecodeError:
++        return v
++
++
+ @dataclass
+ class TLSConfig:
+     """TLS configuration received by the charm over the `certificates` relation."""
+@@ -507,7 +524,9 @@ class AlertmanagerCharm(CharmBase):
+             # Could have simply used `socket.getfqdn()` here and add the path when reading this
+             # relation data, but this way it is more future-proof in case we change from ingress
+             # per app to ingress per unit.
+-            self.peer_relation.data[self.unit]["private_address"] = self._internal_url
++            self.peer_relation.save(
++                PeerRelationUnitData(private_address=self._internal_url), self.unit
++            )
+ 
+         self.karma_provider.target = self._external_url
+ 
+@@ -616,8 +635,9 @@ class AlertmanagerCharm(CharmBase):
+             addresses.append(self._internal_url)
+         if pr := self.peer_relation:
+             for unit in pr.units:  # pr.units only holds peers (self.unit is not included)
+-                if address := pr.data[unit].get("private_address"):
+-                    addresses.append(address)
++                data = pr.load(PeerRelationUnitData, unit, decoder=_decode_relation_str)
++                if data.private_address:
++                    addresses.append(data.private_address)
+ 
+         # Save only the hostname part of the address
+         # Sort the hostnames in case their order is not guaranteed, to reduce unnecessary updates
+diff --git a/uv.lock b/uv.lock
+index c08f26c..fd900eb 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -1,5 +1,5 @@
+ version = 1
+-revision = 2
++revision = 3
+ requires-python = ">=3.8, <4"
+ resolution-markers = [
+     "python_full_version >= '3.11'",
+@@ -22,7 +22,8 @@ dependencies = [
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+     { name = "opentelemetry-exporter-otlp-proto-http" },
+-    { name = "ops" },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pyyaml" },
+@@ -40,7 +41,8 @@ dev = [
+     { name = "hypothesis", version = "6.113.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "hypothesis", version = "6.131.28", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "juju" },
+-    { name = "ops", extra = ["testing"] },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, extra = ["testing"], marker = "python_full_version < '3.10'" },
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, extra = ["testing"], marker = "python_full_version >= '3.10'" },
+     { name = "pyright" },
+     { name = "pytest" },
+     { name = "pytest-httpserver", version = "1.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+@@ -72,7 +74,7 @@ requires-dist = [
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0" },
+-    { name = "ops" },
++    { name = "ops", specifier = ">=2.23.0" },
+     { name = "ops", extras = ["testing"], marker = "extra == 'dev'" },
+     { name = "pydantic", specifier = ">=2" },
+     { name = "pyright", marker = "extra == 'dev'", specifier = "<1.1.399" },
+@@ -485,7 +487,8 @@ name = "cosl"
+ version = "1.3.1"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "ops" },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pyyaml" },
+@@ -1543,36 +1546,87 @@ wheels = [
+ 
+ [[package]]
+ name = "ops"
+-version = "2.21.1"
++version = "2.23.2"
+ source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version == '3.9.*'",
++    "python_full_version >= '3.8.1' and python_full_version < '3.9'",
++    "python_full_version < '3.8.1'",
++]
+ dependencies = [
+     { name = "importlib-metadata", version = "8.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+-    { name = "importlib-metadata", version = "8.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+-    { name = "opentelemetry-api" },
+-    { name = "pyyaml" },
+-    { name = "websocket-client" },
++    { name = "importlib-metadata", version = "8.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
++    { name = "opentelemetry-api", marker = "python_full_version < '3.10'" },
++    { name = "pyyaml", marker = "python_full_version < '3.10'" },
++    { name = "websocket-client", marker = "python_full_version < '3.10'" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/97/c5/f0098a9b1b72680b3682043227a628a08a7b5b9592fc98ea6efa0d638017/ops-2.21.1.tar.gz", hash = "sha256:4a8190420813ba37e7a0399d656008f99c79015d7f72e138bad7cb1ac403d0b0", size = 496427, upload-time = "2025-05-01T03:03:23.038Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/93/98/84789a5e15ad76e043301bbd70b4d39cffaa717ae6eecb662fd0dd0cc7af/ops-2.23.2.tar.gz", hash = "sha256:a69b0c5bc65ebd91720fc96459e81b969df851f3a6c9c855ee73de7004205987", size = 528074, upload-time = "2026-02-11T03:58:15.565Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/e6/c7/b70271ee12418144d5c596f37745c21da105470d365d834a9fce071f7bc2/ops-2.21.1-py3-none-any.whl", hash = "sha256:6745084c8e73bc485c254f95664bd85ddcf786c91b90782f2830c8333a1440b2", size = 182682, upload-time = "2025-05-01T03:03:20.946Z" },
++    { url = "https://files.pythonhosted.org/packages/e0/00/65da7c96d0f9e13c4de3bdd2e3717259fe723ff4bd4e5dc714164f851032/ops-2.23.2-py3-none-any.whl", hash = "sha256:9cab0c6bc46eeff2e96777128200c3ef872b55641b12f07dc4fd6fe3103954be", size = 188415, upload-time = "2026-02-11T03:58:13.693Z" },
+ ]
+ 
+ [package.optional-dependencies]
+ testing = [
+-    { name = "ops-scenario" },
++    { name = "ops-scenario", version = "7.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++]
++
++[[package]]
++name = "ops"
++version = "3.6.0"
++source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version >= '3.11'",
++    "python_full_version == '3.10.*'",
++]
++dependencies = [
++    { name = "opentelemetry-api", marker = "python_full_version >= '3.10'" },
++    { name = "pyyaml", marker = "python_full_version >= '3.10'" },
++    { name = "websocket-client", marker = "python_full_version >= '3.10'" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/d3/bb/79b7efdb1243cbad11b6568c51ba4fb7358cd2c4d13bfd971a77c0aa7440/ops-3.6.0.tar.gz", hash = "sha256:a1c3361049c66759840a436143b07c74c2a46dcc44cbfd1177a9051f849c7971", size = 579236, upload-time = "2026-02-26T04:19:12.689Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/8c/b6/d7daab4f841566d3cb0402d3463f7c1a00626724d6d7c02d7bf934ae6c86/ops-3.6.0-py3-none-any.whl", hash = "sha256:341c6688684446cc4b42860738898683feb271175bb9c4775ae68c81e4e0976a", size = 211856, upload-time = "2026-02-26T04:19:08.012Z" },
++]
++
++[package.optional-dependencies]
++testing = [
++    { name = "ops-scenario", version = "8.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+ ]
+ 
+ [[package]]
+ name = "ops-scenario"
+-version = "7.21.1"
++version = "7.23.2"
+ source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version == '3.9.*'",
++    "python_full_version >= '3.8.1' and python_full_version < '3.9'",
++    "python_full_version < '3.8.1'",
++]
+ dependencies = [
+-    { name = "ops" },
+-    { name = "pyyaml" },
++    { name = "ops", version = "2.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "pyyaml", marker = "python_full_version < '3.10'" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/ee/e7/1514b9c27b9364ec1d04791b0fb76d1a629c8cc73f90fbf6dd867457c914/ops_scenario-7.23.2.tar.gz", hash = "sha256:327dda8b3c871ccf16246ed4f8c7e093526af42093549976596cede58cbc8488", size = 70017, upload-time = "2026-02-11T03:58:16.553Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/01/15/3b59993cad1b2838c9bb20f6f2ed5297fcf490025b1ffecc27d06be1daba/ops_scenario-7.23.2-py3-none-any.whl", hash = "sha256:024b638e0ea94e8f2e3c642d4f96031b0c7ac4f39117b97107dc9a09503651b4", size = 64328, upload-time = "2026-02-11T03:58:14.916Z" },
++]
++
++[[package]]
++name = "ops-scenario"
++version = "8.6.0"
++source = { registry = "https://pypi.org/simple" }
++resolution-markers = [
++    "python_full_version >= '3.11'",
++    "python_full_version == '3.10.*'",
++]
++dependencies = [
++    { name = "ops", version = "3.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
++    { name = "pyyaml", marker = "python_full_version >= '3.10'" },
++    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/2a/95/90312165f3e1d5876872ad64131be9c0f26b5aa09bd73a436a21b0752820/ops_scenario-7.21.1.tar.gz", hash = "sha256:534b407b34212161c3e74cb396b79ca7449932e483053e924146fdf0140876b9", size = 141631, upload-time = "2025-05-01T03:03:30.456Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/63/c8/15d9f91eafa46d1dfa7f580be3274c22399f941724b74e274334de9468bb/ops_scenario-8.6.0.tar.gz", hash = "sha256:5a40a91fd5e9b6c8249933944dfc6e807ad2ddbd36a68c800746b9bb8a0eabfb", size = 71728, upload-time = "2026-02-26T04:19:15.34Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/93/3b/4cc28ea9d77015ecf8fc5c3d362bb274e35ffaa2e6fbd87909a5384afa40/ops_scenario-7.21.1-py3-none-any.whl", hash = "sha256:eeb9def2c31a1db2429cf21bd9b8cbd2ac092cc1fbe5591e850e4aa192c542fa", size = 72451, upload-time = "2025-05-01T03:03:28.488Z" },
++    { url = "https://files.pythonhosted.org/packages/ea/d2/fb3176805339d3aa95b9d6e43478d0e34355c6c46f27723249f46bb8d19d/ops_scenario-8.6.0-py3-none-any.whl", hash = "sha256:469490a042dc45eca24eef7aa1b9214704d97d67503ad8465414ab68dc989d30", size = 64241, upload-time = "2026-02-26T04:19:09.579Z" },
+ ]
+ 
+ [[package]]
+@@ -2153,7 +2207,8 @@ name = "pytest-interface-tester"
+ version = "3.3.1"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "ops-scenario" },
++    { name = "ops-scenario", version = "7.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
++    { name = "ops-scenario", version = "8.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pytest" },
