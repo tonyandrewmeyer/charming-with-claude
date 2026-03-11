@@ -24,11 +24,21 @@ state_out = ctx.run(ctx.on.start(), testing.State())
 ```python
 import ops
 from ops import testing
+from opentelemetry.sdk.trace import ReadableSpan
 
 ctx = testing.Context(MyCharm)
 state_out = ctx.run(ctx.on.start(), testing.State())
-# Can now inspect trace data from the test run
-# (Exact API to be verified against current documentation)
+
+# ctx.trace_data is a list[ReadableSpan] populated after each run
+spans: list[ReadableSpan] = ctx.trace_data
+span_names = [span.name for span in spans]
+assert "method_name" in span_names
+
+# Verify parent/child relationships using start/end timestamps,
+# or check attributes on individual spans:
+for span in ctx.trace_data:
+    if span.name == "my_span":
+        assert span.attributes["charm.name"] == "my-charm"
 ```
 
 ## Why Upgrade
@@ -48,4 +58,5 @@ Look for charms that use `ops[tracing]` or import from `ops.tracing`. If they ha
 ## Pitfalls
 - Only relevant for charms that use `ops[tracing]`.
 - The trace data exposed in tests is a simplified representation; don't expect it to match the exact wire format of OTLP.
-- Verify the exact API against current ops documentation, as this was introduced in 2.23.0 and may have evolved.
+- `ctx.trace_data` is reset to an empty list at the start of each `ctx.run()` call, so inspect it immediately after the run you care about.
+- Tests should not rely on the order of spans in `ctx.trace_data`. Validate by name, attributes, or parent/child relationships instead.
