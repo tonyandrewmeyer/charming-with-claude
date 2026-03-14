@@ -242,7 +242,7 @@ Each dimension scored 1-5; composite score is weighted average on a 25-point sca
 
 ## Results (Phase 5)
 
-Phase 5 was run using GitHub Copilot CLI (claude-sonnet-4.6) in non-interactive mode. 21 runs across 3 charms, 3 features, and 4 conditions. Full results in [results/results.md](results/results.md) and [results/evaluation.md](results/evaluation.md).
+Phase 5 was run using GitHub Copilot CLI (claude-sonnet-4.6) in non-interactive mode. 21 runs across 3 charms (CHARM_A, CHARM_B, and CHARM_C), 3 features, and 4 conditions. Of the five charms shortlisted in Phase 4, CHARM_D and CHARM_E were excluded from the evaluation because their upgrade paths were blocked by unresolved CI/test issues at the time of running Phase 5. Full results in [results/results.md](results/results.md) and [results/evaluation.md](results/evaluation.md).
 
 ### Headline Numbers
 

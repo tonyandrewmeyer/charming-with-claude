@@ -1,23 +1,23 @@
 # Ops Upgrade: AI-Assisted Charm Modernisation
 
-In this experiment, I explored whether AI can reliably upgrade charms to use newer ops features -- the kind of maintenance work that's important but rarely urgent enough to actually happen (and that we see happen very slowly in charming). Tools like [pyupgrade](https://github.com/asottile/pyupgrade) solve this for Python itself, but ops changes are too semantic for AST transforms. You often need to understand *why* a charm should use a new feature, not just *how* the API changed. That felt like a natural fit for AI.
+In this experiment, I explored whether AI can reliably upgrade charms to use newer ops features -- the kind of maintenance work that's important but rarely urgent enough to actually happen (and that we see happen very slowly in charming). Tools like [pyupgrade](https://github.com/asottile/pyupgrade) and [django-upgrade](https://github.com/adamchainz/django-upgrade) solve this for Python itself, but ops changes are too semantic for AST transforms. You often need to understand *why* a charm should use a new feature, not just *how* the API changed. That felt like a potential fit for AI.
 
-In additon: I also wanted to know whether investing in detailed upgrade skills actually pays off, or whether a simple "hey, there's a new feature, go use it" (or even "there's a new release, go look at the features") prompt is good enough.
+In addition, I also wanted to know whether investing in detailed upgrade skills actually pays off, or whether a simple "hey, there's a new feature, go use it" (or even "there's a new release, go look at the features") prompt is good enough.
 
 (All evaluation runs used GitHub Copilot rather than Claude Code, since that's where Canonical is currently focused. Claude helped with the design and analysis side.)
 
 ## Goals
 
-* **Catalogue** the significant changes in ops, ops-scenario, and ops-tracing over the past year (this seemed somewhat interesting in of itself).
+* **Catalogue** the significant changes in `ops`, `ops-scenario`, and `ops-tracing` over the past year (this seemed somewhat interesting in itself).
 * **Build skills** -- structured guides that walk an AI agent through each upgrade.
 * **Find exemplar charms** already using each feature, to serve as reference material.
 * **Compare four approaches** to AI-assisted upgrading, from detailed skills down to a bare "read the release notes" prompt.
 * **Answer the practical question**: can a generic, zero-effort prompt match a curated skill?
-* **Use a moderately scientific approach**: rather than just try something on a charm or two, build up a proper test methodology.
+* **Use a moderately scientific approach**: rather than just try something on a charm or two as with most of the earlier experiments, build up a proper test methodology.
 
 ## Setup
 
-I catalogued changes across `ops`, `ops[testing]`, and `ops[tracing]`, then built skills in two flavours: one per feature and a single comprehensive "upgrade ops" skill. Phase 5 ran 21 evaluation runs across 3 charms, 3 features, and 4 conditions using Copilot CLI (claude-sonnet-4.6) in non-interactive mode.
+I catalogued changes across `ops`, `ops[testing]`, and `ops[tracing]`, then built skills in two flavours: one per feature and a single comprehensive "upgrade ops" skill. Phase 5 ran 21 evaluation runs across 3 charms (discourse-k8s, alertmanager-k8s, loki-k8s), 3 features, and 4 conditions using Copilot CLI (claude-sonnet-4.6) in non-interactive mode. The remaining two target charms (indico and traefik-k8s) were kept for follow-up and exploratory runs and were not included in the 21 scored Phase 5 evaluations.
 
 ### The Four Conditions
 
@@ -40,7 +40,7 @@ The single comprehensive skill (C1s) was also tested but with fewer runs.
 | [indico](https://github.com/canonical/indico-operator) | >=2.0.0,<3.0.0 | Events Platform | Medium |
 | [traefik-k8s](https://github.com/canonical/traefik-k8s-operator) | >=2.10.0 | Networking | High |
 
-All on ops 2.x with significant upgrade room, none using the newer features, mix of domains and complexity levels.
+All with ops 2.x in their supported range and significant upgrade room, none using the newer features, and a mix of domains and complexity levels.
 
 (I provided the selection rationale and let Claude do the picking, which seemed fairest, although there does seem to be a tendency towards certain charms.)
 
@@ -60,7 +60,7 @@ Full results are in [results/results.md](results/results.md) and [results/evalua
 
 ### What I Found
 
-**Skills prevent the worst mistakes.** The biggest quality gap showed up with relation-data-classes, where the skill's instruction to "only convert charm-owned data" prevented catastrophic scope errors. The per-feature skill averaged 21.25 there versus the simple prompt's 10.25. For simpler, more mechanical features, the simple prompt was competitive.
+**Skills prevent some mistakes.** The biggest quality gap showed up with relation-data-classes, where the skill's instruction to "only convert charm-owned data" prevented scope errors. The per-feature skill averaged 21.25 there versus the simple prompt's 10.25. For simpler, more mechanical features, the simple prompt was competitive.
 
 **Exemplars are a double-edged sword.** The exemplar condition produced both the single best result in the entire experiment (alertmanager relation-data, 23.5/25 -- the agent created a backwards-compatible decoder inspired by the exemplar) *and* poor results when the exemplar had gaps (discourse action-classes, 19.0/25 -- missing `errors="fail"`).
 
