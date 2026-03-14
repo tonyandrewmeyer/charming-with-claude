@@ -10,366 +10,95 @@
       <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-01-25-ops-upgrade</link>
       <description>New experiment: ops upgrade</description>
       <content:encoded><![CDATA[<h1>Ops Upgrade: AI-Assisted Charm Modernisation</h1>
-<h2>Background</h2>
-<p>The <a href="https://github.com/canonical/operator">ops</a> library (and its companions ops-scenario/<code>ops[testing]</code> and ops-tracing/<code>ops[tracing]</code>) continually evolve, with new releases each month, often containing new features while remaining backwards compatible. However, many charms lag behind -- they work, but they don't take advantage of newer capabilities that would make the code cleaner, more correct, or more maintainable.</p>
-<p>Tools like <a href="https://github.com/asottile/pyupgrade">pyupgrade</a> and <a href="https://github.com/adamchainz/django-upgrade">django-upgrade</a> aim to solve this problem for Python and Django respectively, using AST transformations to mechanically update code. For ops, the changes are often too semantic for pure AST rewriting -- understanding <em>why</em> a charm should use a new feature requires context about Juju concepts, charm architecture, and the intent behind the code. This makes it a natural fit for AI assistance. In addition, the complexity of doing this in an AST transform style seems very likely to outweigh the benefits, but (conveniently ignoring the sustainability aspects), AI can likely do this with few resources.</p>
-<p>This experiment builds a skill (or set of skills) that upgrades charms to take advantage of recent ops changes, then evaluates whether a dedicated skill outperforms a simple prompt-based approach.</p>
+<p>In this experiment, I explored whether AI can reliably upgrade charms to use newer ops features -- the kind of maintenance work that's important but rarely urgent enough to actually happen (and that we see happen very slowly in charming). Tools like <a href="https://github.com/asottile/pyupgrade">pyupgrade</a> and <a href="https://github.com/adamchainz/django-upgrade">django-upgrade</a> solve this for Python itself, but ops changes are too semantic for AST transforms. You often need to understand <em>why</em> a charm should use a new feature, not just <em>how</em> the API changed. That felt like a potential fit for AI.</p>
+<p>In addition, I also wanted to know whether investing in detailed upgrade skills actually pays off, or whether a simple "hey, there's a new feature, go use it" (or even "there's a new release, go look at the features") prompt is good enough.</p>
+<p>(All evaluation runs used GitHub Copilot rather than Claude Code, since that's where Canonical is currently focused. Claude helped with the design and analysis side.)</p>
 <h2>Goals</h2>
 <ul>
-<li><strong>Catalogue</strong> the significant changes in ops, ops-scenario, and ops-tracing over the past year or so.</li>
-<li><strong>Build skills</strong> that guide an AI agent through upgrading a charm to use each new feature or adapt to each breaking change.</li>
-<li><strong>Find exemplars</strong> -- charms that already use each feature, to serve as "gold standard" references for what a good adoption looks like.</li>
-<li><strong>Evaluate</strong> the skills against a set of target charms, comparing:
-  1. <strong>Dedicated skill</strong> -- a structured skill with context, examples, and step-by-step guidance.
-  2. <strong>Simple prompt</strong> -- a bare instruction like "ops 3.x added feature Y; learn how to use that and update the charm to make use of it".</li>
-<li><strong>Run on Copilot</strong> -- since Canonical is currently focused on GitHub Copilot, all evaluation runs will use Copilot rather than Claude Code. (Claude helped a bit with collating results, design, and so forth.)</li>
+<li><strong>Catalogue</strong> the significant changes in <code>ops</code>, <code>ops-scenario</code>, and <code>ops-tracing</code> over the past year (this seemed somewhat interesting in itself).</li>
+<li><strong>Build skills</strong> -- structured guides that walk an AI agent through each upgrade.</li>
+<li><strong>Find exemplar charms</strong> already using each feature, to serve as reference material.</li>
+<li><strong>Compare four approaches</strong> to AI-assisted upgrading, from detailed skills down to a bare "read the release notes" prompt.</li>
+<li><strong>Answer the practical question</strong>: can a generic, zero-effort prompt match a curated skill?</li>
+<li><strong>Use a moderately scientific approach</strong>: rather than just try something on a charm or two as with most of the earlier experiments, build up a proper test methodology.</li>
 </ul>
-<h2>Research Questions</h2>
-<ol>
-<li>Does a detailed, feature-specific skill produce meaningfully better upgrades than a simple prompt naming the feature?</li>
-<li>How much does the availability of "gold standard" exemplar charms (referenced in the skill or prompt) improve quality?</li>
-<li>Which categories of ops changes are easiest/hardest for AI to apply correctly?</li>
-<li>Is it better to have one skill per feature or a single "upgrade ops" skill that covers everything?</li>
-<li>Can an AI agent reliably identify <em>which</em> ops upgrades are applicable to a given charm, or does it need to be told?</li>
-<li>Can a generic "read the release notes and upgrade" prompt -- requiring no per-release human effort -- match the quality of a curated skill?</li>
-</ol>
-<h2>Phase 1: Catalogue Ops Changes</h2>
-<p>To be done by Claude Code with review (by me) of the deliverables.</p>
-<h3>Scope</h3>
-<p>Review the changelogs, release notes, and commit history for the past year of:</p>
-<ul>
-<li><strong>ops</strong> (core library) -- <a href="https://github.com/canonical/operator/blob/main/CHANGES.md">changelog</a></li>
-<li><strong>ops[testing]</strong> / ops-scenario -- testing framework changes</li>
-<li><strong>ops[tracing]</strong> / ops-tracing -- tracing integration changes</li>
-</ul>
-<h3>What to Capture</h3>
-<p>For each significant change, document:</p>
+<h2>Setup</h2>
+<p>I catalogued changes across <code>ops</code>, <code>ops[testing]</code>, and <code>ops[tracing]</code>, then built skills in two flavours: one per feature and a single comprehensive "upgrade ops" skill. Phase 5 ran 21 evaluation runs across 3 charms (discourse-k8s, alertmanager-k8s, loki-k8s), 3 features, and 4 conditions using Copilot CLI (claude-sonnet-4.6) in non-interactive mode. The remaining two target charms (indico and traefik-k8s) were kept for follow-up and exploratory runs and were not included in the 21 scored Phase 5 evaluations.</p>
+<h3>The Four Conditions</h3>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Description</th>
+<th>Condition</th>
+<th>What the agent gets</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Change ID</strong></td>
-<td>Short identifier (e.g. <code>ops-collect-unit-status</code>)</td>
+<td><strong>C1pf</strong> (per-feature skill)</td>
+<td>Structured skill with context, examples, step-by-step guidance</td>
 </tr>
 <tr>
-<td><strong>Version</strong></td>
-<td>The ops version that introduced it</td>
+<td><strong>C2</strong> (simple prompt)</td>
+<td>Just the feature name and "learn how to use it"</td>
 </tr>
 <tr>
-<td><strong>Type</strong></td>
-<td>Feature / deprecation / breaking change / improvement</td>
+<td><strong>C3</strong> (exemplar)</td>
+<td>Simple prompt + pointer to a charm already using the feature</td>
 </tr>
 <tr>
-<td><strong>Summary</strong></td>
-<td>One-line description</td>
-</tr>
-<tr>
-<td><strong>Before</strong></td>
-<td>What charm code looks like without this change</td>
-</tr>
-<tr>
-<td><strong>After</strong></td>
-<td>What charm code looks like with this change</td>
-</tr>
-<tr>
-<td><strong>Why</strong></td>
-<td>Why a charmer should adopt this (cleaner code, correctness, performance, etc.)</td>
-</tr>
-<tr>
-<td><strong>Complexity</strong></td>
-<td>How hard it is to apply (trivial / moderate / significant)</td>
-</tr>
-<tr>
-<td><strong>Exemplar charms</strong></td>
-<td>Charms already using this feature (found via GitHub search or known examples)</td>
+<td><strong>C4</strong> (generic release-notes)</td>
+<td>"Read the release notes and upgrade" -- zero per-release effort</td>
 </tr>
 </tbody>
 </table>
-<h3>Deliverable</h3>
-<p>A <code>changes/</code> directory with one markdown file per change, plus a <code>changes/index.md</code> summary table.</p>
-<h2>Phase 2: Find Exemplar Charms</h2>
-<p>For each catalogued change, search for charms that already use the new feature or pattern. Sources:</p>
-<ul>
-<li><strong>GitHub search</strong> across the <code>canonical</code> organisation</li>
-<li><strong>Known well-maintained charms</strong> (e.g. tempo-k8s, traefik-k8s, grafana-k8s, etc.)</li>
-<li><strong>User-provided list</strong> of charms to check</li>
-</ul>
-<p>For each exemplar found, note:</p>
-<ul>
-<li>The charm and the relevant file(s)/commit(s)</li>
-<li>Whether the adoption looks intentional and well-done (vs. accidental or partial)</li>
-<li>Any patterns worth highlighting in the skill</li>
-</ul>
-<p>These exemplars serve two purposes:
-1. <strong>Validation</strong> -- confirming our "before/after" understanding is correct
-2. <strong>Reference material</strong> -- the skill can point the agent to real-world examples</p>
-<p>Again, to be done by Claude Code with validation by me.</p>
-<h2>Phase 3: Build Skills</h2>
-<p>As above, drafted by Claude Code, reviewed by me.</p>
-<h3>Approach</h3>
-<p>Based on the catalogue, build skills in two formats to test:</p>
-<h4>Option A: One Skill Per Feature</h4>
-<p>Each change gets its own skill file (e.g. <code>skills/ops-collect-unit-status/SKILL.md</code>) containing:</p>
-<ul>
-<li>Context on the change and why it matters</li>
-<li>Before/after code examples</li>
-<li>Step-by-step instructions for applying the change</li>
-<li>Links to exemplar charms</li>
-<li>Common pitfalls and edge cases</li>
-<li>Verification steps (what to check after applying)</li>
-</ul>
-<h4>Option B: Single "Upgrade Ops" Skill</h4>
-<p>One comprehensive skill that:</p>
-<ol>
-<li>Analyses the charm's current ops version and usage patterns</li>
-<li>Identifies applicable upgrades</li>
-<li>Applies them in a sensible order</li>
-<li>Verifies the result</li>
-</ol>
-<p>The experiment should test both approaches to answer research question 4.</p>
-<h3>Skill Format</h3>
-<p>Skills should follow the copilot-collections format (design to work with GitHub Copilot, but also likely where they would live). They should also be compatible with Claude Code's <code>.claude/skills/</code> structure.</p>
-<h2>Phase 4: Select Target Charms</h2>
-<p>Choose ~5 charms for evaluation, balancing:</p>
-<table>
-<thead>
-<tr>
-<th>Criterion</th>
-<th>Why it matters</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Ops version</strong></td>
-<td>Should be on an older ops version with room to upgrade</td>
-</tr>
-<tr>
-<td><strong>Complexity</strong></td>
-<td>Mix of simple and complex charms</td>
-</tr>
-<tr>
-<td><strong>Test coverage</strong></td>
-<td>Has both unit tests (to evaluate testing-related changes)</td>
-</tr>
-<tr>
-<td><strong>Tracing</strong></td>
-<td>At least one charm should use or be a candidate for ops-tracing</td>
-</tr>
-<tr>
-<td><strong>Maintenance status</strong></td>
-<td>Active enough that the upgrade would be welcome, but not so active that it's already up to date</td>
-</tr>
-</tbody>
-</table>
-<h3>Selected Target Charms</h3>
+<p>The single comprehensive skill (C1s) was also tested but with fewer runs.</p>
+<h3>Target Charms</h3>
 <table>
 <thead>
 <tr>
 <th>Charm</th>
 <th>Ops Version</th>
 <th>Domain</th>
-<th>Tests (Unit/Integ)</th>
-<th>Tracing</th>
 <th>Complexity</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/canonical/discourse-k8s-operator">discourse-k8s-operator</a></td>
-<td><code>==2.23.2</code> (hard-pinned)</td>
-<td>Web Apps (IS DevOps)</td>
-<td>2/8</td>
-<td>No (candidate to add)</td>
-<td>Medium (29 config, 9 relations, 3 actions)</td>
+<td><a href="https://github.com/canonical/discourse-k8s-operator">discourse-k8s</a></td>
+<td>2.23.2 (hard-pinned)</td>
+<td>Web Apps</td>
+<td>Medium</td>
 </tr>
 <tr>
-<td><a href="https://github.com/canonical/alertmanager-k8s-operator">alertmanager-k8s-operator</a></td>
-<td><code>2.21.1</code> (locked)</td>
+<td><a href="https://github.com/canonical/alertmanager-k8s-operator">alertmanager-k8s</a></td>
+<td>2.21.1</td>
 <td>Observability</td>
-<td>13/12</td>
-<td>Yes (charm_tracing lib, candidate to migrate to ops-tracing)</td>
-<td>High (7 config, 14 relations, 1 action)</td>
+<td>High</td>
 </tr>
 <tr>
-<td><a href="https://github.com/canonical/loki-k8s-operator">loki-k8s-operator</a></td>
-<td><code>2.21.1</code> (locked)</td>
-<td>Observability / Logging</td>
-<td>13/19</td>
-<td>Yes (charm_tracing lib, candidate to migrate)</td>
-<td>High (6 config, 12 relations)</td>
+<td><a href="https://github.com/canonical/loki-k8s-operator">loki-k8s</a></td>
+<td>2.21.1</td>
+<td>Observability</td>
+<td>High</td>
 </tr>
 <tr>
-<td><a href="https://github.com/canonical/indico-operator">indico-operator</a></td>
-<td><code>&gt;=2.0.0,&lt;3.0.0</code> (blocks 3.x)</td>
+<td><a href="https://github.com/canonical/indico-operator">indico</a></td>
+<td>&gt;=2.0.0,&lt;3.0.0</td>
 <td>Events Platform</td>
-<td>3/7</td>
-<td>No (candidate to add)</td>
-<td>Medium (8 config, 11 relations, 3 actions)</td>
+<td>Medium</td>
 </tr>
 <tr>
-<td><a href="https://github.com/canonical/traefik-k8s-operator">traefik-k8s-operator</a></td>
-<td><code>&gt;=2.10.0</code> (loose, verify lock)</td>
-<td>Networking / Ingress</td>
-<td>31/17</td>
-<td>Yes (charm + workload tracing)</td>
-<td>High (13 relations, 2 actions)</td>
+<td><a href="https://github.com/canonical/traefik-k8s-operator">traefik-k8s</a></td>
+<td>&gt;=2.10.0</td>
+<td>Networking</td>
+<td>High</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Backup</strong>: if traefik-k8s already resolves to ops 3.x in its lock file, substitute <a href="https://github.com/canonical/wordpress-k8s-operator">wordpress-k8s-operator</a> (<code>ops==3.5.1</code>, IS DevOps, 4/12 tests, no tracing).</p>
-<p>Selection rationale:
-* <strong>All on ops 2.x</strong> with significant upgrade room to 3.6.0
-* <strong>None use new ops features</strong> (load_config, load_params, relation.save/load), maximising the upgrade surface
-* <strong>Domain diversity</strong>: web apps, observability (×2), events, networking
-* <strong>Tracing mix</strong>: 2 without (candidates to add), 3 with existing library-based tracing (candidates to migrate)
-* <strong>Complexity mix</strong>: 2 medium, 3 high
-* <strong>All published</strong> on Charmhub and in the canonical/operator published charms CI
-* <strong>All actively maintained</strong> with commits within the last 1-3 months</p>
-<p>(I provided the rationale (except the ops version, for some reason Claude added that), and let Claude do the selection, as that seemed most fair, although there does seem to be a tendency towards picking certain charms.)</p>
-<h2>Phase 5: Evaluation</h2>
-<h3>Experimental Design</h3>
-<p>For each target charm × each applicable change (or set of changes), run four conditions:</p>
-<h4>Condition 1: Dedicated Skill</h4>
-<p>Prompt Copilot with the skill available and a simple instruction to use it:</p>
-<blockquote>
-<p>Upgrade this charm's ops usage. There is a skill available for this.</p>
-</blockquote>
-<p>Or, for per-feature skills:</p>
-<blockquote>
-<p>This charm could benefit from [feature X]. There is a skill available for applying this change.</p>
-</blockquote>
-<h4>Condition 2: Simple Prompt (Feature-Specific)</h4>
-<p>Prompt Copilot with only a description of the feature:</p>
-<blockquote>
-<p>ops [version] added [feature description]. Learn how to use that feature and update this charm to make use of it.</p>
-</blockquote>
-<p>No skill, no examples, no step-by-step guidance -- just the feature name and a nudge.</p>
-<h4>Condition 3: Simple Prompt + Exemplar Reference</h4>
-<p>Same as Condition 2, but with a pointer to an exemplar charm:</p>
-<blockquote>
-<p>ops [version] added [feature description]. The [exemplar-charm] charm already uses this feature -- look at how they did it and update this charm similarly.</p>
-</blockquote>
-<p>This isolates the value of exemplar references from the rest of the skill.</p>
-<h4>Condition 4: Generic Release-Notes Prompt</h4>
-<p>A reusable, feature-agnostic prompt that asks the agent to do its own analysis:</p>
-<blockquote>
-<p>There is a new ops (and ops-tracing, and ops-scenario) release. Carefully read the release notes and analyse how each change (feature, bug fix, deprecation, etc.) impacts this charm. Prepare a branch that upgrades to the new ops version, making use of new features wherever sensible and addressing any other items that arise from your analysis.</p>
-</blockquote>
-<p>This condition is the most practically interesting because it requires <strong>zero per-release human effort</strong> -- the same prompt works for every ops release without anyone needing to read the changelog first. If this approach performs comparably to the dedicated skill, it dramatically changes the cost-benefit calculation: instead of building and maintaining skills for each release, teams could simply re-run this prompt whenever ops is updated.</p>
-<p>The trade-off is that the agent must do its own feature discovery, which introduces risk of missing changes or misunderstanding their relevance. This condition directly tests research question 5 (can an AI agent reliably identify which upgrades are applicable?).</p>
-<h3>Evaluation Criteria</h3>
-<table>
-<thead>
-<tr>
-<th>Dimension</th>
-<th>Weight</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Correctness</strong></td>
-<td>30%</td>
-<td>Does the upgraded code work? Are APIs used correctly?</td>
-</tr>
-<tr>
-<td><strong>Completeness</strong></td>
-<td>25%</td>
-<td>Were all instances of the pattern found and updated?</td>
-</tr>
-<tr>
-<td><strong>Code quality</strong></td>
-<td>15%</td>
-<td>Is the result idiomatic? Does it follow the new pattern well?</td>
-</tr>
-<tr>
-<td><strong>Minimal diff</strong></td>
-<td>15%</td>
-<td>Were unnecessary changes avoided?</td>
-</tr>
-<tr>
-<td><strong>Human review needed</strong></td>
-<td>15%</td>
-<td>How much work remains for a human reviewer?</td>
-</tr>
-</tbody>
-</table>
-<p>Each dimension scored 1-5; composite score is weighted average on a 25-point scale.</p>
-<h3>Additional Metrics</h3>
-<ul>
-<li><strong>Applicable changes identified</strong> -- for the "single upgrade skill" approach, did the agent correctly identify which changes apply?</li>
-<li><strong>False positives</strong> -- did the agent try to apply changes that don't apply?</li>
-<li><strong>Exemplar influence</strong> -- when given an exemplar, did the agent visibly use it? Did it help or introduce copy-paste issues?</li>
-<li><strong>Time/tokens</strong> -- rough cost comparison between approaches</li>
-</ul>
-<h2>Phase 6: Analysis and Write-Up</h2>
-<h3>Deliverables</h3>
-<ol>
-<li><strong>results/</strong> -- raw output from each run (diffs, transcripts)</li>
-<li><strong>results.md</strong> -- quantitative results table and analysis</li>
-<li><strong>evaluation.md</strong> -- detailed evaluation of each run</li>
-<li><strong>skills/</strong> -- the final skill files (usable by others)</li>
-<li><strong>guidance.md</strong> -- practical recommendations for charm teams wanting to use the skills</li>
-<li>Updated <strong>README.md</strong> with findings</li>
-</ol>
-<h3>Key Comparisons</h3>
-<ul>
-<li>Skill vs. simple prompt (per feature and overall)</li>
-<li>Skill vs. simple prompt + exemplar (isolating the value of structured guidance beyond just "look at this example")</li>
-<li>Per-feature skills vs. single upgrade skill</li>
-<li>Generic release-notes prompt vs. all other conditions (the "zero-effort" baseline)</li>
-<li>Difficulty by change category (are some types of ops changes inherently harder for AI?)</li>
-<li>Feature discovery accuracy: which conditions correctly identify applicable changes, and which miss or hallucinate?</li>
-</ul>
-<h2>Execution Plan</h2>
-<table>
-<thead>
-<tr>
-<th>Phase</th>
-<th>Description</th>
-<th>Depends on</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Catalogue ops changes</td>
-<td>--</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Find exemplar charms</td>
-<td>Phase 1</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Build skills</td>
-<td>Phase 1, Phase 2</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Select target charms</td>
-<td>Phase 1</td>
-</tr>
-<tr>
-<td>5</td>
-<td>Run evaluations</td>
-<td>Phase 3, Phase 4</td>
-</tr>
-<tr>
-<td>6</td>
-<td>Analyse and write up</td>
-<td>Phase 5</td>
-</tr>
-</tbody>
-</table>
-<h2>Results (Phase 5)</h2>
-<p>Phase 5 was run using GitHub Copilot CLI (claude-sonnet-4.6) in non-interactive mode. 21 runs across 3 charms, 3 features, and 4 conditions. Full results in <a href="results/results.md">results/results.md</a> and <a href="results/evaluation.md">results/evaluation.md</a>.</p>
+<p>All with ops 2.x in their supported range and significant upgrade room, none using the newer features, and a mix of domains and complexity levels.</p>
+<p>(I provided the selection rationale and let Claude do the picking, which seemed fairest, although there does seem to be a tendency towards certain charms.)</p>
+<h2>Results</h2>
+<p>Full results are in <a href="results/results.md">results/results.md</a> and <a href="results/evaluation.md">results/evaluation.md</a>. The detailed experimental design, phase descriptions, and methodology are in <a href="WRITE-UP.md">WRITE-UP.md</a>.</p>
 <h3>Headline Numbers</h3>
 <table>
 <thead>
@@ -381,21 +110,6 @@
 </thead>
 <tbody>
 <tr>
-<td>C1pf (per-feature skill)</td>
-<td style="text-align: center;">21.04</td>
-<td style="text-align: center;">6</td>
-</tr>
-<tr>
-<td>C2 (simple prompt)</td>
-<td style="text-align: center;">18.43</td>
-<td style="text-align: center;">8</td>
-</tr>
-<tr>
-<td>C3 (exemplar)</td>
-<td style="text-align: center;">20.44</td>
-<td style="text-align: center;">4</td>
-</tr>
-<tr>
 <td>C1s (single upgrade skill)</td>
 <td style="text-align: center;">22.00</td>
 <td style="text-align: center;">2</td>
@@ -405,101 +119,79 @@
 <td style="text-align: center;">21.17</td>
 <td style="text-align: center;">3</td>
 </tr>
+<tr>
+<td>C1pf (per-feature skill)</td>
+<td style="text-align: center;">21.04</td>
+<td style="text-align: center;">6</td>
+</tr>
+<tr>
+<td>C3 (exemplar)</td>
+<td style="text-align: center;">20.44</td>
+<td style="text-align: center;">4</td>
+</tr>
+<tr>
+<td>C2 (simple prompt)</td>
+<td style="text-align: center;">18.43</td>
+<td style="text-align: center;">8</td>
+</tr>
 </tbody>
 </table>
-<h3>Key Findings</h3>
-<ol>
-<li>
-<p><strong>Skills prevent scope errors.</strong> The biggest quality gap was in relation-data-classes, where the skill's instruction to "only convert charm-owned data" prevented catastrophic mistakes (C1pf: 21.25 avg vs C2: 10.25 avg). For simpler features, the simple prompt was competitive.</p>
-</li>
-<li>
-<p><strong>Exemplars are a double-edged sword.</strong> C3 produced the single best result in the experiment (alertmanager relation-data, 23.5/25 — a backwards-compatible decoder inspired by the exemplar) but also poor results when the exemplar had gaps (discourse action-classes, 19.0/25 — missing <code>errors="fail"</code>).</p>
-</li>
-<li>
-<p><strong>The generic prompt works but is unreliable.</strong> discourse C4 scored 23.5/25 (finding nearly everything), but indico C4 scored 19.0/25 (fixating on cosmetic namespace migration, missing config-classes and action-classes entirely).</p>
-</li>
-<li>
-<p><strong>Relation-data-classes is the hardest feature for AI</strong> (mean 17.30/25) because it requires understanding ownership boundaries between charm code and charm libraries. Config-classes and action-classes are much more mechanical.</p>
-</li>
-<li>
-<p><strong>The Harness staleness problem is universal.</strong> 5 of 9 config-classes runs hit the same issue: storing config in <code>__init__</code> breaks Harness tests. All eventually self-corrected, but it consumed significant agent time.</p>
-</li>
-<li>
-<p><strong>A single comprehensive skill is the best practical approach</strong> (mean 22.00), supplemented by per-feature skills for complex features like relation-data-classes.</p>
-</li>
-</ol>
+<h3>What I Found</h3>
+<p><strong>Skills prevent some mistakes.</strong> The biggest quality gap showed up with relation-data-classes, where the skill's instruction to "only convert charm-owned data" prevented scope errors. The per-feature skill averaged 21.25 there versus the simple prompt's 10.25. For simpler, more mechanical features, the simple prompt was competitive.</p>
+<p><strong>Exemplars are a double-edged sword.</strong> The exemplar condition produced both the single best result in the entire experiment (alertmanager relation-data, 23.5/25 -- the agent created a backwards-compatible decoder inspired by the exemplar) <em>and</em> poor results when the exemplar had gaps (discourse action-classes, 19.0/25 -- missing <code>errors="fail"</code>).</p>
+<p><strong>The generic prompt works but is unreliable.</strong> The discourse C4 run scored 23.5/25, finding nearly everything with zero upfront effort. But the indico C4 run scored 19.0/25, fixating on cosmetic namespace migration while missing config-classes and action-classes entirely. When it works, it's brilliant; when it doesn't, you don't know until you review the output.</p>
+<p><strong>Relation-data-classes is the hardest feature for AI</strong> (mean 17.30/25). It requires understanding ownership boundaries between charm code and charm libraries -- the kind of semantic understanding that models still struggle with. Config-classes and action-classes are much more mechanical and consistently done well.</p>
+<p><strong>Charms still using Harness is a problem.</strong> 5 of 9 config-classes runs hit the same issue: storing config in <code>__init__</code> breaks Harness tests. All eventually self-corrected, but it consumed significant agent time.</p>
+<h3>The Practical Recommendation</h3>
+<p>A single comprehensive skill is the best overall approach (mean 22.00), supplemented by per-feature skills for genuinely complex features like relation-data-classes. The generic release-notes prompt is surprisingly competitive and costs nothing to maintain -- worth using as a first pass, with targeted skills for the hard bits.</p>
 <h2>Emerging Findings</h2>
-<h3>Poor feature adoption limits exemplar-based approaches</h3>
-<p>Phase 2 (exemplar search) revealed that many ops features introduced in the past year have very low adoption across the charm ecosystem:</p>
+<h3>Poor Feature Adoption Limits Exemplar-Based Approaches</h3>
+<p>Phase 2 revealed (well, "confirmed" is probably more accurate) that many recent <code>ops</code> features have very low adoption:</p>
 <table>
 <thead>
 <tr>
 <th>Feature</th>
-<th>Version</th>
-<th>Exemplar charms found</th>
+<th>Exemplar Charms Found</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>load_config()</code></td>
-<td>2.23.0</td>
 <td>~5 (all Pydantic, mostly newer charms)</td>
 </tr>
 <tr>
 <td><code>load_params()</code></td>
-<td>2.23.0</td>
-<td>~2 production charms + official examples</td>
+<td>~2 production charms</td>
 </tr>
 <tr>
 <td><code>Relation.save()</code>/<code>.load()</code></td>
-<td>2.23.0</td>
 <td>~5 (all Pydantic, mostly in charm libraries)</td>
 </tr>
 <tr>
 <td><code>layer_from_rockcraft()</code></td>
-<td>2.23.0</td>
 <td><strong>0</strong> (only in ops' own tests/docs)</td>
-</tr>
-<tr>
-<td><code>SCENARIO_BARE_CHARM_ERRORS</code></td>
-<td>3.5.0</td>
-<td><strong>0</strong> (only in ops' own tests)</td>
-</tr>
-<tr>
-<td><code>JujuContext.from_environ()</code></td>
-<td>3.3.0</td>
-<td>1 (blackbox-exporter-operator)</td>
-</tr>
-<tr>
-<td><code>Context(app_name=, unit_id=)</code></td>
-<td>3.1.0</td>
-<td>~5 (most adopted of the testing features)</td>
 </tr>
 </tbody>
 </table>
-<p>This has two implications for the experiment:</p>
-<ol>
-<li><strong>Condition 3 (simple prompt + exemplar) may be untestable</strong> for some features, because there are no good exemplars to point the agent at.</li>
-<li><strong>The "generic release-notes prompt" (Condition 4) is testing a realistic scenario</strong> -- in practice, most charms <em>haven't</em> adopted these features, so any upgrade process would be starting from scratch. Charm Tech could work to make this better, by more regularly opening PRs post-release, for upstream adoption.</li>
-</ol>
-<h3>Recommendation: exemplar PRs as part of the release process</h3>
-<p>If we (Charm Tech) want AI-assisted upgrades to work well, we should significantly improve the ecosystem by <strong>opening exemplar PRs with each ops release</strong> -- one per significant feature, against a well-known charm (e.g. one of the published charms used in CI). These PRs would serve as:</p>
-<ul>
-<li><strong>Gold standard references</strong> for AI agents (and humans) to learn the intended usage pattern</li>
-<li><strong>Adoption catalysts</strong> -- a merged PR is a real-world example that shows up in GitHub search</li>
-<li><strong>Additional Validation</strong> that the feature works in practice, not just in the ops test suite and simple charms we used in development</li>
-<li><strong>Documentation supplements</strong> -- a diff showing before/after in a real charm is often clearer than API docs</li>
-</ul>
-<p>Even 2-3 exemplar PRs per release would dramatically improve the quality of both AI-assisted and human-driven feature adoption. Without them, the "prompt + exemplar" approach degrades to "prompt + official docs", which is a weaker signal.</p>
-<p>(We've really had this goal already for some time, and we do it -- but infrequently. Perhaps it should really be part of the definition of done for most or all features, or at least all features that are done through roadmap planning?)</p>
+<p>This has a practical implication: the "simple prompt + exemplar" approach is untestable for some features because there are no good exemplars to point the agent at.</p>
+<h3>Recommendation: Exemplar PRs as Part of the Release Process</h3>
+<p>If we want AI-assisted upgrades to work well (and human-driven ones, for that matter), we should be <strong>opening exemplar PRs with each ops release</strong> -- one per significant feature, against a well-known charm. These serve as gold standard references for AI and humans alike, adoption catalysts, additional validation, and documentation supplements.</p>
+<p>Even 2-3 exemplar PRs per release would dramatically improve the quality of both AI-assisted and human-driven feature adoption.</p>
+<p>(We've had this goal for some time, and we do it -- but infrequently. Perhaps it should really be part of the definition of done for most or all features?)</p>
 <h2>Notes</h2>
 <ul>
-<li>All runs use GitHub Copilot to align with Canonical's current tooling focus.</li>
-<li>Skills could be designed to be upstreamed to <a href="https://github.com/canonical/copilot-collections">copilot-collections</a> if they prove useful. Alternatively, perhaps the <code>charmcraft</code> profiles should have some instructions and skills (there's an existing ticket suggesting that), or perhaps Charm Tech should have a storage location itself?</li>
+<li>All runs used GitHub Copilot to align with Canonical's current tooling focus.</li>
+<li>Skills could be upstreamed to <a href="https://github.com/canonical/copilot-collections">copilot-collections</a>, or perhaps the <code>charmcraft</code> profiles should include them, or Charm Tech should have its own storage location.</li>
 <li>The "simple prompt" condition is intentionally minimal -- the question is whether the model's existing knowledge plus a feature name is sufficient, not whether a carefully crafted prompt can match a skill.</li>
+</ul>
+<h2>Files of Interest</h2>
+<ul>
+<li><a href="WRITE-UP.md">WRITE-UP.md</a> -- Full experimental design, methodology, and phase-by-phase details</li>
+<li><a href="results/results.md">results/results.md</a> -- Quantitative results</li>
+<li><a href="results/evaluation.md">results/evaluation.md</a> -- Detailed per-run evaluation</li>
 </ul>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
-      <pubDate>Wed, 11 Mar 2026 19:49:07 +1300</pubDate>
+      <pubDate>Sun, 15 Mar 2026 08:18:37 +1300</pubDate>
       <guid isPermaLink="false">experiment-2026-01-25-ops-upgrade</guid>
     </item>
     <item>
