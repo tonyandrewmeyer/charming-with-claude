@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 1</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 1/1</h1>
+        
+
+<div class="pagination"><a href="index.html" class="index-link">Index</a></div>
+
+        
+<div class="message user" id="msg-2026-03-14T05-49-50-179Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T05-49-50-179Z" class="timestamp-link"><time datetime="2026-03-14T05:49:50.179Z" data-timestamp="2026-03-14T05:49:50.179Z">2026-03-14T05:49:50.179Z</time></a></div><div class="message-content">
+<div class="user-content"><p>read WRITE-UP.md for context. I need to review the bugs that the initial round and subsequent iterations have found, to be confident that none are false positives. this is tedious to do manually. please build me a web UI to do this. I'll need to see the code in question, information about what problem was found, a way to mark each item as reviewed, a way to mark items as false positives, and lets have a way to add a custom note. we should store data in sqlite. have a backend server that's implemented in python maybe fastapi or something else small. a frontend that does not use any big frameworks (react, vue, angular), maybe htmx or maybe data-star.dev. maybe it look really nicer, but also ux is critical, I need to see all the information i need to decide if it's accurate or not, and to be able to move through the review quickly. there will be future iterations so i also need to be able to have some way of adding new review items in. a good pattern is that there should be a CLI tool that reflects the API. See https://jnsgr.uk/2026/03/brewlog-coffee-and-agents/ for more information about that concept. You'll need to plan this and then get me to review and approve the plan, and the implement it.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-49-53-026Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-49-53-026Z" class="timestamp-link"><time datetime="2026-03-14T05:49:53.026Z" data-timestamp="2026-03-14T05:49:53.026Z">2026-03-14T05:49:53.026Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>I'll start by reading the WRITE-UP.md for context, and fetching the blog post for the CLI pattern reference.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-49-53-847Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-49-53-847Z" class="timestamp-link"><time datetime="2026-03-14T05:49:53.847Z" data-timestamp="2026-03-14T05:49:53.847Z">2026-03-14T05:49:53.847Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01M9QKawVR1RWwUSkwt3Sg4R"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/WRITE-UP.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-49-53-856Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-49-53-856Z" class="timestamp-link"><time datetime="2026-03-14T05:49:53.856Z" data-timestamp="2026-03-14T05:49:53.856Z">2026-03-14T05:49:53.856Z</time></a></div><div class="message-content"><div class="tool-result tool-error"><div class="truncatable"><div class="truncatable-content"><pre>File does not exist. Note: your current working directory is /home/ubuntu/charming-analysis.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-49-54-665Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-49-54-665Z" class="timestamp-link"><time datetime="2026-03-14T05:49:54.665Z" data-timestamp="2026-03-14T05:49:54.665Z">2026-03-14T05:49:54.665Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01RKeWcoPFAW526rNVJkydji"><div class="tool-header"><span class="tool-icon">⚙</span> ToolSearch</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;query&#34;: &#34;select:WebFetch,WebSearch,EnterPlanMode,TaskCreate,TaskList&#34;,
+  &#34;max_results&#34;: 5
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-49-54-666Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-49-54-666Z" class="timestamp-link"><time datetime="2026-03-14T05:49:54.666Z" data-timestamp="2026-03-14T05:49:54.666Z">2026-03-14T05:49:54.666Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;WebFetch&quot;
+}</pre><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;WebSearch&quot;
+}</pre><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;EnterPlanMode&quot;
+}</pre><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;TaskCreate&quot;
+}</pre><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;TaskList&quot;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-49-57-942Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-49-57-942Z" class="timestamp-link"><time datetime="2026-03-14T05:49:57.942Z" data-timestamp="2026-03-14T05:49:57.942Z">2026-03-14T05:49:57.942Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-49-58-556Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-49-58-556Z" class="timestamp-link"><time datetime="2026-03-14T05:49:58.556Z" data-timestamp="2026-03-14T05:49:58.556Z">2026-03-14T05:49:58.556Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>The WRITE-UP.md doesn't exist at that path. Let me explore what's in the repo and fetch the blog post.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-49-59-489Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-49-59-489Z" class="timestamp-link"><time datetime="2026-03-14T05:49:59.489Z" data-timestamp="2026-03-14T05:49:59.489Z">2026-03-14T05:49:59.489Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01GQKvDzkyziba5svQpEaSLm">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">List files in project directory</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">ls -la /home/ubuntu/charming-analysis/</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-49-59-543Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-49-59-543Z" class="timestamp-link"><time datetime="2026-03-14T05:49:59.543Z" data-timestamp="2026-03-14T05:49:59.543Z">2026-03-14T05:49:59.543Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>total 124
+drwxrwxr-x   7 ubuntu ubuntu  4096 Mar 14 18:40 .
+drwxr-x---  13 ubuntu ubuntu  4096 Mar 14 18:44 ..
+drwxrwxr-x   4 ubuntu ubuntu  4096 Mar 14 14:17 .claude
+-rw-rw-r--   1 ubuntu ubuntu 53407 Mar 14 16:10 CROSS_REPO_PATTERNS.md
+-rw-rw-r--   1 ubuntu ubuntu 22530 Mar 14 18:40 WRITEUP.md
+drwxrwxr-x   2 ubuntu ubuntu  4096 Mar 14 14:24 commit-summaries
+drwxrwxr-x   3 ubuntu ubuntu 12288 Mar 14 15:19 data
+drwxrwxr-x 144 ubuntu ubuntu 12288 Mar 14 14:37 repos
+drwxrwxr-x   2 ubuntu ubuntu  4096 Mar 14 16:00 scripts</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-01-630Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-01-630Z" class="timestamp-link"><time datetime="2026-03-14T05:50:01.630Z" data-timestamp="2026-03-14T05:50:01.630Z">2026-03-14T05:50:01.630Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01CDj7Ef35ttSFw6sv41sByv"><div class="tool-header"><span class="tool-icon">⚙</span> WebFetch</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;url&#34;: &#34;https://jnsgr.uk/2026/03/brewlog-coffee-and-agents/&#34;,
+  &#34;prompt&#34;: &#34;Extract the key concepts about the CLI tool pattern that mirrors a web API. What is the architecture pattern being described? How does the CLI relate to the backend API? What are the key design principles?&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-08-180Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-08-180Z" class="timestamp-link"><time datetime="2026-03-14T05:50:08.180Z" data-timestamp="2026-03-14T05:50:08.180Z">2026-03-14T05:50:08.180Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre># CLI-as-First-Class API Client Pattern
+
+## Architecture Pattern
+
+The author describes a unified binary approach where the server and client are distributed as a single executable. This eliminates separate client/server binaries and consolidates the API surface.
+
+## CLI and Backend Relationship
+
+The Brewlog binary functions as both server (hosting the API and web UI) and API client. The CLI commands provide programmatic access to the same endpoints exposed via HTTP, creating consistency across interfaces.
+
+## Key Design Principles
+
+**Single Surface Area**: &quot;If you&#x27;re building an API-backed app, I highly recommend this pattern. It keeps the surface area small&quot; — maintaining one implementation rather than duplicating logic.
+
+**Concurrent Development**: The CLI pattern enables scriptable workflows. The author references a bootstrap script that exercises the API, demonstrating how developers can automate setup and troubleshooting.
+
+**API-First Enforcement**: The design requires that whenever HTTP endpoints are added, corresponding CLI commands ship simultaneously. This prevents API-only features and ensures complete coverage.
+
+**Practical Benefits**: The unified binary simplifies deployment, backup, and introspection. Users can interact with the application through shell scripts, automation tools, or direct HTTP clients interchangeably.
+
+This pattern emphasizes **consistency**, **discoverability**, and **scriptability** — treating the CLI as a first-class citizen rather than an afterthought.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-11-048Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-11-048Z" class="timestamp-link"><time datetime="2026-03-14T05:50:11.048Z" data-timestamp="2026-03-14T05:50:11.048Z">2026-03-14T05:50:11.048Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-11-970Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-11-970Z" class="timestamp-link"><time datetime="2026-03-14T05:50:11.970Z" data-timestamp="2026-03-14T05:50:11.970Z">2026-03-14T05:50:11.970Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Found it - it's <code>WRITEUP.md</code> (no hyphen). Let me read it and explore the data structure.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-12-387Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-12-387Z" class="timestamp-link"><time datetime="2026-03-14T05:50:12.387Z" data-timestamp="2026-03-14T05:50:12.387Z">2026-03-14T05:50:12.387Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01QHWbjXGRPcCceNhWq88vFS"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/WRITEUP.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-12-395Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-12-395Z" class="timestamp-link"><time datetime="2026-03-14T05:50:12.395Z" data-timestamp="2026-03-14T05:50:12.395Z">2026-03-14T05:50:12.395Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# Charm Bug Pattern Analysis: 6,116 Fixes Across 134 Repositories
+     2→
+     3→## Overview
+     4→
+     5→This analysis systematically examined bug fix commits across the entire Juju charm ecosystem to identify recurring bug patterns and build an automated bug-finding skill. The work follows the methodology established in the [operator-analysis](../operator-analysis/) (single-repo, 235 fixes) and [charm-tech-analysis](../charm-tech-analysis/) (10 repos, 452 fixes) projects, but at ecosystem scale.
+     6→
+     7→### Scope
+     8→
+     9→- **134 charm repositories** cloned from `charms.csv`
+    10→- **10 teams**: Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, BootStack, Charm-Tech
+    11→- **6,116 bug fix commits** identified via conventional commit parsing and keyword scoring
+    12→- **2,519 source-code fixes** sampled for deep analysis (excluding CI-only, docs-only, test-only changes)
+    13→
+    14→### Key Outputs
+    15→
+    16→1. **CROSS_REPO_PATTERNS.md** -- 15 universal patterns, 58 searchable anti-patterns
+    17→2. **charm-find-bugs skill** -- Domain expert skill with SKILL.md + 2 reference files
+    18→3. **Per-repo fix data** -- JSON files for each of 134 repos in `data/`
+    19→4. **Validation results** -- 59 real bugs found across 14 test repos, 0 false positives (4 iteration rounds)
+    20→
+    21→---
+    22→
+    23→## Methodology
+    24→
+    25→### Phase 1: Data Collection
+    26→
+    27→All 144 unique GitHub repositories from `charms.csv` were cloned (2 failed -- personal repos not publicly accessible). For each repo, bug fix commits were identified using two methods:
+    28→
+    29→1. **Conventional commits**: Messages matching `^fix[\s(:]` (case-insensitive)
+    30→2. **Keyword scoring**: Commit messages scored against 30+ fix-related keywords (fix, bug, crash, broken, missing, etc.) minus negative keywords (feat, refactor, docs, bump, etc.), threshold &gt;= 3
+    31→
+    32→This dual approach was critical because conventional commit adoption varies widely:
+    33→- Identity team: 96% conventional
+    34→- K8s team: 35% conventional
+    35→
+    36→Without keyword scoring, 37% of the K8s team&#x27;s fixes would have been missed entirely.
+    37→
+    38→### Phase 2: Classification
+    39→
+    40→Fixes were classified in two passes:
+    41→
+    42→1. **Automated heuristic classification** of all 6,116 fixes by bug area (19 categories), bug type (12 categories), and severity (high/medium/low) using regex pattern matching against commit messages, changed files, and diff content.
+    43→
+    44→2. **Deep agent analysis** of 18 representative batches (2 per team, ~40 fixes each) by Claude agents that read actual diffs and identified recurring patterns with concrete code examples.
+    45→
+    46→### Phase 3: Pattern Synthesis
+    47→
+    48→Team-level patterns were synthesized into cross-repo patterns by a synthesis agent that read all 8 team analysis reports plus aggregate statistics. The synthesis identified 15 universal patterns (appearing across 3+ teams) and team-specific patterns.
+    49→
+    50→### Phase 4: Skill Construction
+    51→
+    52→A `charm-find-bugs` skill was built following the Domain Expert pattern:
+    53→- `SKILL.md` -- 6-step workflow with code area routing table
+    54→- `references/bug-patterns.md` -- 13 pattern categories with before/after code examples
+    55→- `references/anti-patterns.md` -- 43 searchable patterns with grep commands and false-positive controls
+    56→
+    57→### Phase 5: Validation
+    58→
+    59→The skill was tested against 2 charm repos not used in synthesis:
+    60→
+    61→| Repo | Findings | High | Medium | Low | False Positives |
+    62→|------|----------|------|--------|-----|----------------|
+    63→| grafana-k8s-operator | 3 | 1 | 2 | 0 | 0 |
+    64→| kafka-k8s-operator | 3 | 1 | 1 | 1 | 0 |
+    65→| **Total** | **6** | **2** | **3** | **1** | **0** |
+    66→
+    67→Notable finds:
+    68→- **grafana-k8s**: Profiling feature silently broken due to unused constructor parameter (High)
+    69→- **kafka-k8s**: `event.relation.app` accessed without None guard in relation_broken handler (High)
+    70→- **kafka-k8s**: Typo &quot;controller-passwrod&quot; in requested_secrets silently prevents secret retrieval (Low)
+    71→- Both repos had dead code: relation_broken handlers defined but never registered with `framework.observe()`
+    72→
+    73→---
+    74→
+    75→## Findings
+    76→
+    77→### Severity Distribution
+    78→
+    79→| Severity | Count | Percentage |
+    80→|----------|-------|------------|
+    81→| Low | 3,047 | 49.8% |
+    82→| Medium | 2,840 | 46.4% |
+    83→| High | 229 | 3.7% |
+    84→
+    85→Nearly half of all fixes are low severity (docs, formatting, test-only, trivial config). The 229 high-severity fixes concentrate in two areas: **observability** (44) and **database** (41), accounting for 37% of all critical bugs.
+    86→
+    87→### Where Bugs Live
+    88→
+    89→The top bug areas by fix count, excluding CI/build and test-only fixes:
+    90→
+    91→| Area | Fixes | Repos | Teams | Why |
+    92→|------|-------|-------|-------|-----|
+    93→| Observability | 648 | 88 | 10 | Dashboard wiring, alert rules, scrape config, metric labels |
+    94→| Database | 546 | 41 | 7 | Connection handling, TLS, replication, backup safety |
+    95→| Packaging | 446 | 83 | 8 | Requirements pinning, dependency management |
+    96→| Juju interaction | 314 | 92 | 9 | Leader guards, secrets, model API, peer data |
+    97→| TLS/certificates | 299 | 67 | 9 | Certificate lifecycle, CA chain format, renewal |
+    98→| Ingress/networking | 278 | 46 | 9 | URL construction, scheme detection, external hostname |
+    99→| Status management | 243 | 79 | 10 | Status coherence, blocked vs waiting, early returns |
+   100→| Config handling | 210 | 79 | 9 | Truthiness, type mismatches, f-string omission |
+   101→| Pebble | 199 | 61 | 8 | Readiness, replanning, plan mutation, ChangeError |
+   102→| Auth/identity | 204 | 45 | 9 | Credential logging, permissions, method/property confusion |
+   103→
+   104→### The Most Pervasive Patterns
+   105→
+   106→**1. Missing exception handling** (15+ repos, 60% high severity)
+   107→External calls to K8s APIs, Pebble, databases, or Juju secrets without adequate try/except. The narrow-except variant (catching only one type when multiple are possible) is especially common.
+   108→
+   109→**2. Truthiness vs explicit comparison** (virtually every team)
+   110→`if self.config[&#x27;port&#x27;]:` treats 0 as &quot;not configured&quot;. This is the single most pervasive bug pattern. The Observability team alone fixed this 12+ times.
+   111→
+   112→**3. Unregistered event handlers** (found in 2/2 validation repos)
+   113→Methods defined for relation_broken but never wired up with `framework.observe()`. The handler exists, the cleanup logic is correct, but the event never reaches it. This suggests a systematic issue with how event registration is organised.
+   114→
+   115→**4. event.relation.app is None** (39+ repos)
+   116→During relation teardown, `event.relation.app` can be None. Code that accesses `.name` or `.data[app]` without a guard crashes.
+   117→
+   118→**5. Stale TLS flags** (67 repos)
+   119→Storing `tls_enabled: true` in relation data instead of checking relation existence. When leadership changes, the flag becomes stale.
+   120→
+   121→### Team-Specific Patterns
+   122→
+   123→| Team | Distinctive Pattern | Why |
+   124→|------|-------------------|-----|
+   125→| Data | TLS toggle race conditions | Coordinating TLS state between charm and database requires two-phase handshake |
+   126→| Observability | Wrong datasource variables in dashboards | Importing dashboards from standalone Grafana uses `${DS_PROMETHEUS}` instead of COS `${prometheusds}` |
+   127→| MLOps | K8s resource cleanup on removal | CRDs and PVCs not cleaned up when charm is removed |
+   128→| Identity | Method vs property confusion | Auth library APIs changed signatures across versions |
+   129→| Telco | K8s API idempotency | Create-or-update patterns not handling &quot;already exists&quot; errors |
+   130→| IS | Pebble lifecycle ordering | Web app charms need config files pushed before service starts |
+   131→| K8s | Subprocess error handling | Missing `CalledProcessError` handling on snap/kubectl commands |
+   132→| BootStack | Hardware detection edge cases | BIOS/BMC queries failing on non-standard hardware |
+   133→
+   134→### Temporal Trends
+   135→
+   136→Bug fix volume grew from 101 (2020) to 1,563 (2023), then stabilised:
+   137→- **Config bugs dominate and grow**: From 45 (2020) to 539 (2024), reflecting increasing charm complexity
+   138→- **Security awareness increased in 2025**: Security fixes jumped from 7 (2024) to 26 (2025)
+   139→- **Race conditions emerged in 2023**: Correlates with multi-unit and multi-relation patterns in Data team charms
+   140→- **Edge cases are persistent**: High since 2022, reflecting diverse deployment environments
+   141→
+   142→### Conventional Commit Adoption
+   143→
+   144→| Team | Adoption | Impact |
+   145→|------|----------|--------|
+   146→| Identity | 96% | Easy to track fixes automatically |
+   147→| MLOps | 88% | Good coverage |
+   148→| Telco | 84% | Good coverage |
+   149→| IS | 83% | Good coverage |
+   150→| BootStack | 85% | Good coverage |
+   151→| Data | 69% | Many fixes found only via keyword scoring |
+   152→| Observability | 69% | Same |
+   153→| Charm-Tech | 65% | Small sample |
+   154→| Commercial Systems | 62% | Significant gap |
+   155→| K8s | 35% | Most fixes found via keyword scoring only |
+   156→
+   157→---
+   158→
+   159→## Skill Validation Analysis
+   160→
+   161→### What Worked Well
+   162→
+   163→1. **Anti-pattern catalogue produces high-signal matches.** All 6 bugs found by the skill were real, actionable issues. Zero false positives.
+   164→
+   165→2. **Cross-cutting concern checklist catches systematic issues.** The &quot;unregistered event handler&quot; pattern was found in both validation repos independently, confirming it&#x27;s a systematic issue not caught by existing reviews.
+   166→
+   167→3. **False-positive controls prevent noise.** The skill correctly dismissed 7 patterns in grafana-k8s and 5 patterns in kafka-k8s that looked suspicious but were verified as correct (e.g., truthiness checks on genuinely boolean configs, credentials in container-internal Kafka config files).
+   168→
+   169→4. **Novel bug detection works.** 2 of 6 bugs were &quot;novel&quot; (not matching any catalogued anti-pattern): the profiling parameter never passed in grafana-k8s, and the typo in kafka-k8s. The step 3 &quot;hunt for novel bugs&quot; methodology (end-to-end reading, tracing call chains) found these.
+   170→
+   171→### Limitations
+   172→
+   173→1. **Coverage depth vs breadth tradeoff.** With 134 repos, deep analysis of every repo was not feasible. The heuristic classification provides aggregate statistics but may miss nuanced patterns. The deep analysis covered ~18 batches (representative, not exhaustive).
+   174→
+   175→2. **Keyword scoring has noise.** Some &quot;fixes&quot; identified by keyword scoring are actually features, refactors, or CI changes that happened to use fix-related words. The sampling step (filtering to source-code fixes) mitigated this.
+   176→
+   177→3. **Heuristic severity classification is approximate.** The auto-classifier uses keyword matching on commit messages and diff size, which is a rough proxy. Some medium-severity bugs may actually be high-severity, and vice versa.
+   178→
+   179→4. **No VM charm coverage.** The Launchpad and OpenDev repos in charms.csv (17 repos) were excluded because they require different cloning mechanisms. These include older machine charms that may have different bug patterns.
+   180→
+   181→### Comparison to Prior Analyses
+   182→
+   183→| Metric | operator-analysis | charm-tech-analysis | This analysis |
+   184→|--------|------------------|--------------------|-|
+   185→| Repos | 1 | 10 | 134 |
+   186→| Fixes analysed | 235 | 452 | 6,116 |
+   187→| Pattern categories | 13 | 16 (Python) + 14 (Go) | 15 + 58 anti-patterns |
+   188→| Bugs found in validation | 11 | 33 | 59 (14 repos tested) |
+   189→| False positive rate | 0% | 0% | 0% |
+   190→| Languages | Python | Python + Go | Python |
+   191→
+   192→The scaling from 10 to 134 repos revealed patterns not visible at smaller scale:
+   193→- **Unregistered event handlers** -- only detectable as a systematic issue when seen across multiple repos
+   194→- **Team-specific patterns** -- TLS race conditions are a Data team problem; datasource variables are an Observability problem
+   195→- **Convention adoption variance** -- the 35-96% range in conventional commit adoption significantly affects automated analysis
+   196→
+   197→---
+   198→
+   199→## Iteration
+   200→
+   201→After the initial skill build and validation (6 bugs, 0 FP across 2 repos), the skill was tested against 4 additional repos covering teams not in the initial validation:
+   202→
+   203→| Repo | Team | Findings | High | Medium | Low | FP |
+   204→|------|------|----------|------|--------|-----|----|
+   205→| discourse-k8s | IS | 4 | 2 | 2 | 0 | 0 |
+   206→| hydra | Identity | 4 | 2 | 1 | 1 | 0 |
+   207→| opensearch | Data (VM) | 4 | 3 | 1 | 0 | 0 |
+   208→| sdcore-amf | Telco | 4 | 1 | 3 | 0 | 0 |
+   209→
+   210→This iteration revealed 5 new anti-patterns not in the original catalogue:
+   211→
+   212→1. **AP-044: Missing return after event.fail()** -- `event.fail()` doesn&#x27;t stop execution; without `return`, the success path runs with None values. Found in hydra-operator.
+   213→2. **AP-045: next() without default** -- `next(gen)` raises `StopIteration` when no match. Especially dangerous in generator contexts where it silently terminates. Found in discourse-k8s.
+   214→3. **AP-046: Shell-style $VAR in f-strings** -- `f&quot;${self.path}/logs&quot;` includes a literal `$` because Python f-strings only interpolate `{...}`. Found in opensearch-operator.
+   215→4. **AP-047: Contradictory unit vs app status** -- Unit shows BlockedStatus while app shows WaitingStatus for the same condition. Found in sdcore-amf.
+   216→5. **AP-005 expanded** -- Boolean values (not just None) in Pebble environment dicts. Python `True` becomes `&quot;True&quot;` (capital T), which may not match Go expectations. Found in hydra-operator.
+   217→
+   218→The false-positive controls were also expanded with 8 new known-safe patterns observed during validation (e.g., library-internal leader guards, `datetime.utcnow()` paired with naive-UTC cert expiry, `shell=True` with controlled inputs).
+   219→
+   220→### Cumulative Validation Results (Rounds 1-2)
+   221→
+   222→| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+   223→|-------|-------------|------------|------|--------|-----|----------------|
+   224→| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+   225→| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+   226→| **Total** | **6 repos** | **22** | **10** | **10** | **2** | **0** |
+   227→
+   228→Notable findings across both rounds:
+   229→- **Unregistered event handlers** found in 3 of 6 repos (grafana-k8s, kafka-k8s, discourse-k8s dead SAML handler)
+   230→- **None guard missing** found in 3 of 6 repos (kafka-k8s, hydra, opensearch)
+   231→- **Unconditional replan** found in 2 of 6 repos (discourse-k8s, sdcore-amf)
+   232→- **Novel bugs** (not matching any catalogued pattern) found in 4 of 6 repos
+   233→
+   234→### Round 3
+   235→
+   236→The skill was tested against 4 more repos covering ingress, secrets management, workflow orchestration, and database delegation patterns:
+   237→
+   238→| Repo | Team | Findings | High | Medium | Low | FP |
+   239→|------|------|----------|------|--------|-----|----|
+   240→| traefik-k8s | Observability | 5 | 1 | 2 | 2 | 0 |
+   241→| temporal-k8s | Commercial Systems | 6 | 0 | 4 | 2 | 0 |
+   242→| vault-k8s | Identity | 5 | 0 | 2 | 3 | 0 |
+   243→| mongodb-k8s | Data | 0* | 0 | 0 | 0 | 0 |
+   244→
+   245→\* mongodb-k8s delegates all charm logic to the external `mongo-charms-single-kernel` package. The in-repo `src/charm.py` is a 36-line wrapper. 7 bugs were found in test helpers, but no charm-runtime bugs can be assessed without the external package. This revealed a limitation: **charms that vendor logic into external packages cannot be fully audited from their repo alone**.
+   246→
+   247→This iteration revealed 6 new anti-patterns not in the previous catalogue:
+   248→
+   249→1. **AP-048: exec() without wait()** -- `container.exec([&quot;find&quot;, dir, &quot;-delete&quot;])` runs asynchronously; discarding the Process object means subsequent file pushes race with the still-running command. Found in traefik-k8s-operator.
+   250→2. **AP-049: Hardcoded string slicing for file extensions** -- `path.name[:5]` to strip `.cert` only works for 5-character basenames. Found in traefik-k8s-operator (cert cleanup deletes valid certs / retains stale ones).
+   251→3. **AP-050: Status set by helper overwritten by caller** -- `_handle_frontend_tls()` sets `BlockedStatus` and returns, but the calling `_update()` continues and overwrites with `MaintenanceStatus`. Found in temporal-k8s-operator.
+   252→4. **AP-051: Inverted boolean condition** -- `if skip_verify is False: logger.warning(&quot;configured to skip verification&quot;)` fires on the safe path. Found in vault-k8s-operator.
+   253→5. **AP-052: Wrong config key name** -- `self.config.get(&quot;pki_ca_allowed_domains&quot;)` when the actual key is `pki_allowed_domains`. `.get()` silently returns None, bypassing validation. Found in vault-k8s-operator.
+   254→6. **AP-053: Missing return after event.set_results()** -- Similar to AP-044 but for `set_results()`. Execution falls through to a second API call with invalid parameters. Found in temporal-k8s-operator.
+   255→
+   256→Notable findings from round 3:
+   257→- **traefik-k8s cert cleanup** uses `path.name[:5]`, `path.name[:4]`, and `path.name[:18]` to extract hostnames from filenames -- all broken for any hostname not matching the assumed length (High severity)
+   258→- **vault-k8s hardcoded PKI mount path** -- ACME issuing cert and CRL URLs use `/v1/pki/` instead of the actual mount point (`charm-acme`), causing certificate chain validation failures for clients that follow AIA/CRL URLs (Medium)
+   259→- **temporal-k8s proxy env None values** -- when only one of HTTP_PROXY/HTTPS_PROXY is set, the other is None in the Pebble environment dict, causing `add_layer` to fail (Medium, AP-005)
+   260→- **Missing can_connect() guard** found in traefik-k8s (cert-removed handler) and temporal-k8s (restart action), confirming this remains one of the most pervasive patterns (AP-006)
+   261→
+   262→The false-positive controls were expanded with 3 new known-safe patterns (exec without wait for read-only commands, intentionally disabled TLS in remove handlers, test helper code type issues).
+   263→
+   264→### Round 4
+   265→
+   266→The skill was tested against 4 more repos, including core COS infrastructure and a complex database charm:
+   267→
+   268→| Repo | Team | Findings | High | Medium | Low | FP |
+   269→|------|------|----------|------|--------|-----|----|
+   270→| postgresql-k8s | Data | 6 | 0 | 2 | 4 | 0 |
+   271→| indico | IS | 10 | 2 | 5 | 3 | 0 |
+   272→| prometheus-k8s | Observability | 2 | 0 | 2 | 0 | 0 |
+   273→| kratos | Identity | 3 | 0 | 0 | 3 | 0 |
+   274→
+   275→This iteration revealed 5 new anti-patterns:
+   276→
+   277→1. **AP-054: String comparison of numeric counter values** -- `&quot;9&quot; &gt; &quot;10&quot;` is True lexicographically. Relation data is always strings, so counter comparisons need `int()` conversion. Found in postgresql-k8s async replication primary selection.
+   278→2. **AP-055: None value in f-string URL interpolation** -- `f&quot;{self.external_url}/path&quot;` produces `&quot;None/path&quot;` when external_url is None. Found in prometheus-k8s catalogue API endpoints.
+   279→3. **AP-056: Action handler missing event.fail() on error path** -- Action catches exception, logs error, but doesn&#x27;t call `event.fail()`. Action silently succeeds with empty results. Found in postgresql-k8s and indico.
+   280→4. **AP-057: os.path.join for URL construction** -- Works on Linux by coincidence but discards base URL if second arg starts with `/`. Found in kratos-operator.
+   281→5. **AP-058: model.get_secret(id=None)** -- `peer_data.get(&quot;secret-id&quot;)` returns None before leader sets it, then `model.get_secret(id=None)` crashes. Found in indico-operator.
+   282→
+   283→Notable findings from round 4:
+   284→- **postgresql-k8s** has a subtle bug in `get_primary_cluster()` that uses string comparison for promotion counters while its sibling method correctly uses `int()` -- only triggers after 10+ async replication promotions
+   285→- **indico** has pervasive non-string values in Pebble environment dicts (booleans, ints, and potential Nones from 11+ sources in `_get_indico_env_config`)
+   286→- **prometheus-k8s** uses `self.external_url` (which can be None) in f-strings for catalogue API endpoints but correctly uses `self.most_external_url` for the main URL -- likely a copy-paste error
+   287→- **indico** calls `container.exec()` via `_get_installed_plugins()` BEFORE checking `can_connect()` in action handlers (AP-006 ordering variant)
+   288→- **AP-005 (non-string Pebble env)** continues to be the most pervasive pattern, found in 3 of 4 repos this round (postgresql-k8s LDAP port, indico multiple values, kratos boolean)
+   289→
+   290→### Cumulative Validation Results (All Rounds)
+   291→
+   292→| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+   293→|-------|-------------|------------|------|--------|-----|----------------|
+   294→| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+   295→| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+   296→| 3 | traefik-k8s, temporal-k8s, vault-k8s, mongodb-k8s* | 16 | 1 | 8 | 7 | 0 |
+   297→| 4 | postgresql-k8s, indico, prometheus-k8s, kratos | 21 | 2 | 9 | 10 | 0 |
+   298→| **Total** | **14 repos** | **59** | **13** | **27** | **19** | **0** |
+   299→
+   300→\* mongodb-k8s excluded from bug count (external package delegation).
+   301→
+   302→The skill now catalogues **58 anti-patterns** (AP-001 through AP-058) and **21 cross-cutting concerns**, with **0 false positives across 14 repos**.
+   303→
+   304→### Pattern frequency across all validation repos
+   305→
+   306→| Pattern | Repos found in | Frequency |
+   307→|---------|---------------|-----------|
+   308→| AP-005 (non-string Pebble env) | 6/14 | Most pervasive |
+   309→| AP-006 (missing can_connect) | 5/14 | Very common |
+   310→| AP-010 (restart without ChangeError) | 4/14 | Common |
+   311→| AP-012 (missing relation_broken) | 4/14 | Common |
+   312→| AP-014 (relation.app None) | 4/14 | Common |
+   313→| AP-045 (next without default) | 3/14 | Moderate |
+   314→| Unregistered event handlers | 3/14 | Moderate |
+   315→| AP-044/053 (missing return after fail/set_results) | 3/14 | Moderate |
+   316→
+   317→---
+   318→
+   319→## Files Produced
+   320→
+   321→```
+   322→charm-analysis/
+   323→├── WRITEUP.md                          # This document
+   324→├── CROSS_REPO_PATTERNS.md              # 15 universal patterns, 58 anti-patterns
+   325→├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x4)
+   326→│   ├── SKILL.md                        # 6-step workflow + 21 cross-cutting concerns
+   327→│   └── references/
+   328→│       ├── bug-patterns.md             # 15 pattern categories with examples
+   329→│       └── anti-patterns.md            # 58 searchable anti-patterns
+   330→├── scripts/
+   331→│   ├── extract_fixes.py                # Clone repos and extract fix commits
+   332→│   ├── auto_classify.py                # Heuristic classification
+   333→│   ├── sample_for_analysis.py          # Sample representative fixes
+   334→│   ├── prepare_batches.py              # Batch fixes for agent analysis
+   335→│   └── aggregate_patterns.py           # Cross-repo aggregate analysis
+   336→├── data/
+   337→│   ├── all_fixes.json                  # 6,116 raw fix commits
+   338→│   ├── all_classified.json             # Heuristic classification of all fixes
+   339→│   ├── classification_stats.json       # Aggregate statistics
+   340→│   ├── aggregate_analysis.json         # Cross-repo analysis
+   341→│   ├── analysis_*.json                 # Per-team deep analysis (8 files)
+   342→│   ├── skill_validation_grafana.md     # Validation: 3 bugs, 0 FP
+   343→│   ├── skill_validation_kafka.md       # Validation: 3 bugs, 0 FP
+   344→│   ├── batches/                        # 68 batch files for agent analysis
+   345→│   └── *_fixes.json                    # Per-repo fix data (134 files)
+   346→└── repos/                              # 142 cloned charm repos
+   347→```
+   348→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-15-965Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-15-965Z" class="timestamp-link"><time datetime="2026-03-14T05:50:15.965Z" data-timestamp="2026-03-14T05:50:15.965Z">2026-03-14T05:50:15.965Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01UQ5zMonzCHm9gAJk4jV6kM"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Explore data directory structure</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;subagent_type&#34;: &#34;Explore&#34;,
+  &#34;prompt&#34;: &#34;Explore the /home/ubuntu/charming-analysis/data/ directory thoroughly. I need to understand:\n1. What files and subdirectories exist\n2. The format/structure of the bug finding data files (read a few examples)\n3. What fields are available in the bug data (JSON structure, CSV columns, etc.)\n4. How bugs are organized (by repo, by iteration, etc.)\n5. Read at least 2-3 complete bug entries to understand the data model\n\nBe very thorough - read actual file contents, not just list files.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-47-491Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-47-491Z" class="timestamp-link"><time datetime="2026-03-14T05:50:47.491Z" data-timestamp="2026-03-14T05:50:47.491Z">2026-03-14T05:50:47.491Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Perfect! Now I have a comprehensive understanding. Let me create a final summary report of the data structure:
+
+## Comprehensive Analysis of the Bug Finding Data Directory
+
+I&#x27;ve thoroughly explored the `/home/ubuntu/charming-analysis/data/` directory. Here&#x27;s what I found:
+
+### 1. Directory Structure and File Organization
+
+The data directory contains:
+- **128 per-repository bug fix files** (named `{repo-name}_fixes.json`)
+- **Analysis and statistics files**: `classification_stats.json`, `sample_stats.json`, `batch_manifest.json`
+- **Aggregated datasets**: `all_fixes.json`, `all_classified.json`, `sampled_fixes.json`
+- **Skill validation markdown files** (6 files for specific operators: Discourse, Grafana, Hydra, Kafka, OpenSearch, SDCore-AMF)
+
+File count: 158 JSON/MD files total
+Large files range from 1.7KB to 11MB
+
+### 2. Data Organization by Repository
+
+Bugs are organized by **individual charm/operator repositories**. Each repository has:
+- A specific team assigned (Data, Observability, Telco, Identity, MLOps, etc.)
+- Multiple bug entries (varying from 1 to 335 bugs per repo)
+- Complete git commit information
+
+### 3. Bug Data Model (JSON Structure)
+
+Each bug entry contains these **fields**:
+
+**Git Metadata:**
+- `sha` - commit hash (string, 40 chars)
+- `author` - author name
+- `email` - author email
+- `date` - ISO 8601 timestamp
+- `subject` - commit message subject line
+- `body` - optional extended commit body
+
+**File Changes:**
+- `diff` - full unified diff of all changes
+- `changed_files` - list of modified files with status (M=modified, A=added, D=deleted)
+
+**Classification Data:**
+- `repo` - repository name
+- `charm_name` - specific charm/operator name
+- `team` - team responsible
+- `classification_method` - either &quot;conventional&quot; (commit message based) or &quot;keyword&quot; (pattern-based)
+- `keyword_score` - severity/importance score (1-6 scale typically)
+
+### 4. Complete Example Bug Entries
+
+From `/home/ubuntu/charming-analysis/data/test-charms_fixes.json`:
+```json
+{
+  &quot;sha&quot;: &quot;3f3f7765a5d8ce2a281c49ca900c15f90050c09b&quot;,
+  &quot;author&quot;: &quot;Ben Hoyt&quot;,
+  &quot;email&quot;: &quot;ben.hoyt@canonical.com&quot;,
+  &quot;date&quot;: &quot;2022-11-22T17:21:25+13:00&quot;,
+  &quot;subject&quot;: &quot;Fix name of secret_changed hook func&quot;,
+  &quot;body&quot;: &quot;&quot;,
+  &quot;diff&quot;: &quot;[full unified diff]&quot;,
+  &quot;changed_files&quot;: [&quot;M\twebapp/src/charm.py&quot;],
+  &quot;repo&quot;: &quot;test-charms&quot;,
+  &quot;classification_method&quot;: &quot;conventional&quot;,
+  &quot;keyword_score&quot;: 3,
+  &quot;team&quot;: &quot;Charm-Tech&quot;,
+  &quot;charm_name&quot;: &quot;webapp (example charm)&quot;
+}
+```
+
+From `/home/ubuntu/charming-analysis/data/postgresql-operator_fixes.json`:
+- Multi-file commits with comprehensive diffs
+- Example: commit fixing FIXMEs, docstrings, and logic errors
+- Modified multiple test integration files
+- Classification method: &quot;conventional&quot; (conventional commit with &quot;fix:&quot; prefix)
+
+From `/home/ubuntu/charming-analysis/data/kafka-k8s-operator_fixes.json`:
+- Documentation and code fixes
+- Examples include: spelling fixes, wording improvements, environment variable refactoring
+- Both documentation (Markdown) and source code (Python) changes tracked
+
+### 5. How Bugs Are Organized
+
+**Primary Organization:**
+- By repository (128 separate files)
+- Each file is a JSON array of bug objects
+
+**Secondary Organization (in batch_manifest.json):**
+- Batches grouped by team (10 teams total)
+- 67 batches with 40-item size limits typically
+- Batch metadata includes: batch_id, team, repos in batch, count, path reference
+
+**Sampling Strategy:**
+- `sample_stats.json` shows: total bugs, source bugs (post-filtering), sampled count
+- Example: postgresql-operator has 93 total bugs, 77 source, 30 sampled
+
+### 6. Classification/Categorization System
+
+From `classification_stats.json`:
+- **Total bugs in dataset**: 6,116
+- **Severity levels**: low (3047), medium (2840), high (229)
+- **Bug types** (13 categories):
+  - config (2240)
+  - test-fix (1575)
+  - api-contract (540)
+  - edge-case (535)
+  - docs-fix (308)
+  - logic-error (195)
+  - type-error (74)
+  - performance (72)
+  - security (69)
+  - race-condition (39)
+  - crash (25)
+  - data-loss (5)
+  - other (439)
+
+- **Affected areas** (21 categories):
+  - ci-build (1111)
+  - testing (1062)
+  - observability (648)
+  - database (546)
+  - packaging (446)
+  - juju-interaction (314)
+  - tls-certificates (299)
+  - ingress-networking (278)
+  - status-management (243)
+  - config-handling (210)
+  - [9 more areas...]
+
+- **Distribution by team**: MLOps (1413), Data (1224), Observability (939), IS (795), Telco (710), Identity (649), Commercial Systems (150), K8s (139), BootStack (77), Charm-Tech (20)
+
+### File Paths Summary
+
+Key data files:
+- `/home/ubuntu/charming-analysis/data/` - main directory
+- `/home/ubuntu/charming-analysis/data/batches/` - batch files (referenced in batch_manifest.json, 68 batch files)
+- Individual repo files like: `/home/ubuntu/charming-analysis/data/postgresql-operator_fixes.json`
+- Aggregates: `/home/ubuntu/charming-analysis/data/all_fixes.json` (112,747 lines), `/home/ubuntu/charming-analysis/data/sampled_fixes.json` (47,562 lines)</pre><pre>agentId: a9af0a5aee9bd7e8f (for resuming to continue this agent&#x27;s work if needed)
+&lt;usage&gt;total_tokens: 67427
+tool_uses: 10
+duration_ms: 31525&lt;/usage&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-53-034Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-53-034Z" class="timestamp-link"><time datetime="2026-03-14T05:50:53.034Z" data-timestamp="2026-03-14T05:50:53.034Z">2026-03-14T05:50:53.034Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-53-445Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-53-445Z" class="timestamp-link"><time datetime="2026-03-14T05:50:53.445Z" data-timestamp="2026-03-14T05:50:53.445Z">2026-03-14T05:50:53.445Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now let me look at the validation files to understand the bug findings format that needs reviewing.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-54-058Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-54-058Z" class="timestamp-link"><time datetime="2026-03-14T05:50:54.058Z" data-timestamp="2026-03-14T05:50:54.058Z">2026-03-14T05:50:54.058Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_012U7RwYzmXePrXz7w42siNv"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;data/skill_validation*.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-54-106Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-54-106Z" class="timestamp-link"><time datetime="2026-03-14T05:50:54.106Z" data-timestamp="2026-03-14T05:50:54.106Z">2026-03-14T05:50:54.106Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/charming-analysis/data/skill_validation_kafka.md
+/home/ubuntu/charming-analysis/data/skill_validation_grafana.md
+/home/ubuntu/charming-analysis/data/skill_validation_sdcore_amf.md
+/home/ubuntu/charming-analysis/data/skill_validation_opensearch.md
+/home/ubuntu/charming-analysis/data/skill_validation_discourse.md
+/home/ubuntu/charming-analysis/data/skill_validation_hydra.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-54-262Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-54-262Z" class="timestamp-link"><time datetime="2026-03-14T05:50:54.262Z" data-timestamp="2026-03-14T05:50:54.262Z">2026-03-14T05:50:54.262Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01H4mwEwUeFp5WTTXJd6P3fu"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;data/*validation*&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-54-299Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-54-299Z" class="timestamp-link"><time datetime="2026-03-14T05:50:54.299Z" data-timestamp="2026-03-14T05:50:54.299Z">2026-03-14T05:50:54.299Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/charming-analysis/data/skill_validation_kafka.md
+/home/ubuntu/charming-analysis/data/skill_validation_grafana.md
+/home/ubuntu/charming-analysis/data/skill_validation_sdcore_amf.md
+/home/ubuntu/charming-analysis/data/skill_validation_opensearch.md
+/home/ubuntu/charming-analysis/data/skill_validation_discourse.md
+/home/ubuntu/charming-analysis/data/skill_validation_hydra.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-56-543Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-56-543Z" class="timestamp-link"><time datetime="2026-03-14T05:50:56.543Z" data-timestamp="2026-03-14T05:50:56.543Z">2026-03-14T05:50:56.543Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01WHYTGEk71xFXHmLETxH9wQ"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/data/skill_validation_kafka.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-56-552Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-56-552Z" class="timestamp-link"><time datetime="2026-03-14T05:50:56.552Z" data-timestamp="2026-03-14T05:50:56.552Z">2026-03-14T05:50:56.552Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→## Bug Review: kafka-k8s-operator/src/
+     2→
+     3→### Summary
+     4→- **Findings**: 3 (0 Critical, 1 High, 1 Medium, 1 Low)
+     5→- **Code areas reviewed**: Pebble/containers, Relations/Events, TLS/Security, Configuration, Status Management, Auth/Credentials, Upgrade, Juju Interaction, Error Handling
+     6→- **Charm name**: kafka-k8s
+     7→
+     8→### Findings
+     9→
+    10→#### [BUG-001] Relations -- `event.relation.app` accessed without None guard in `relation_broken` handler (High)
+    11→- **Location**: `src/events/provider.py:215`
+    12→- **Pattern**: AP-014 (event.relation.app is None)
+    13→- **Issue**: In the `_on_relation_broken` handler, `event.relation.app.name` is accessed without first checking whether `event.relation.app` is `None`. During `relation_broken` events, the remote application may already be removed, causing `event.relation.app` to be `None`. This will raise an `AttributeError` and crash the charm.
+    14→- **Impact**: When a client application is removed (e.g., `juju remove-application`), the `relation_broken` event fires and the charm crashes with `AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;name&#x27;`. The mTLS certificate cleanup and client ACL removal are skipped, leaving stale credentials and certificates in the Kafka cluster.
+    15→- **Evidence**:
+    16→  ```python
+    17→  def _on_relation_broken(self, event: RelationBrokenEvent) -&gt; None:
+    18→      if not self.dependent.healthy:
+    19→          event.defer()
+    20→          return
+    21→
+    22→      alias = KafkaClient.generate_alias(
+    23→          app_name=event.relation.app.name,  # BUG: event.relation.app can be None
+    24→          relation_id=event.relation.id,
+    25→      )
+    26→      if (
+    27→          alias in self.dependent.tls_manager.trusted_certificates
+    28→          and event.relation.app != self.charm.app  # Also unsafe if app is None
+    29→      ):
+    30→  ```
+    31→- **Recommended fix**:
+    32→  ```python
+    33→  def _on_relation_broken(self, event: RelationBrokenEvent) -&gt; None:
+    34→      if not self.dependent.healthy:
+    35→          event.defer()
+    36→          return
+    37→
+    38→      if not event.relation.app:
+    39→          # App already removed; skip alias-based cleanup, reconcile() below
+    40→          # will handle stale client removal via username comparison.
+    41→          self.reconcile()
+    42→          return
+    43→
+    44→      alias = KafkaClient.generate_alias(
+    45→          app_name=event.relation.app.name,
+    46→          relation_id=event.relation.id,
+    47→      )
+    48→      # ... rest of handler
+    49→  ```
+    50→- **Historical precedent**: This pattern was fixed in 39+ charm repositories. The `event.relation.app` being None during teardown is one of the most common relation bugs.
+    51→
+    52→#### [BUG-002] Relations -- `_on_peer_cluster_broken` handler defined but never registered (Medium)
+    53→- **Location**: `src/events/peer_cluster.py:182`
+    54→- **Pattern**: AP-012 (Missing relation_broken handler)
+    55→- **Issue**: The `_on_peer_cluster_broken` method is defined and contains cleanup logic (stopping the workload, removing meta.properties, clearing credentials), but it is never registered with `self.framework.observe()`. The `__init__` method registers `relation_created` and `relation_changed` handlers for both `peer-cluster` and `peer-cluster-orchestrator` relations, but no `relation_broken` handler is ever wired up for either.
+    56→- **Impact**: When the `peer-cluster` or `peer-cluster-orchestrator` relation is removed, no cleanup occurs. The workload continues running with stale configuration, meta.properties files referencing the old cluster are not removed, and internal credentials are not cleared. Re-relating to a different controller/orchestrator cluster will fail because of conflicting ClusterID in meta.properties.
+    57→- **Evidence**:
+    58→  ```python
+    59→  # In __init__: handlers registered for created and changed, but NOT broken
+    60→  for relation_name in [PEER_CLUSTER_RELATION, PEER_CLUSTER_ORCHESTRATOR_RELATION]:
+    61→      self.framework.observe(
+    62→          self.charm.on[relation_name].relation_created,
+    63→          self._on_peer_cluster_created,
+    64→      )
+    65→
+    66→  # ... no observe for relation_broken ...
+    67→
+    68→  # Method exists but is dead code:
+    69→  def _on_peer_cluster_broken(self, _: RelationBrokenEvent):
+    70→      &quot;&quot;&quot;Handle the required logic to remove.&quot;&quot;&quot;
+    71→      if self.charm.state.runs_controller:
+    72→          return
+    73→      self.charm.workload.stop()
+    74→      # ...
+    75→  ```
+    76→- **Recommended fix**:
+    77→  ```python
+    78→  # Add to __init__, after the relation_created observers:
+    79→  for relation_name in [PEER_CLUSTER_RELATION, PEER_CLUSTER_ORCHESTRATOR_RELATION]:
+    80→      self.framework.observe(
+    81→          self.charm.on[relation_name].relation_broken,
+    82→          self._on_peer_cluster_broken,
+    83→      )
+    84→  ```
+    85→- **Historical precedent**: Missing `relation_broken` handler registration is a common issue. The code was clearly intended to have this handler (the method exists and has correct logic), but the wiring was omitted.
+    86→
+    87→#### [BUG-003] Configuration -- Typo in BALANCER `requested_secrets` (Low)
+    88→- **Location**: `src/literals.py:183`
+    89→- **Pattern**: Novel
+    90→- **Issue**: The `BALANCER` role&#x27;s `requested_secrets` list contains `&quot;controller-passwrod&quot;` (typo) instead of `&quot;controller-password&quot;`. This means the balancer role will never successfully request the controller password secret from the peer-cluster relation, as the key name doesn&#x27;t match what the providing side sets.
+    91→- **Impact**: In a multi-app deployment where the balancer runs in a separate application from the controller, the balancer will fail to receive the controller password through the secrets mechanism. The impact is mitigated because in single-app mode (roles=broker,balancer,controller), the password is available through the local peer data. In multi-app mode, the `controller-password` is typically provided through a different code path. However, the typo indicates the secret request for this field silently fails.
+    92→- **Evidence**:
+    93→  ```python
+    94→  BALANCER = Role(
+    95→      value=&quot;balancer&quot;,
+    96→      service=&quot;cruise-control&quot;,
+    97→      paths=PATHS[&quot;cruise-control&quot;],
+    98→      relation=PEER_CLUSTER_RELATION,
+    99→      requested_secrets=[
+   100→          &quot;broker-username&quot;,
+   101→          &quot;broker-password&quot;,
+   102→          &quot;broker-uris&quot;,
+   103→          &quot;controller-passwrod&quot;,  # BUG: typo, should be &quot;controller-password&quot;
+   104→          &quot;zk-username&quot;,
+   105→          &quot;zk-password&quot;,
+   106→          &quot;zk-uris&quot;,
+   107→      ],
+   108→  )
+   109→  ```
+   110→- **Recommended fix**:
+   111→  ```python
+   112→  requested_secrets=[
+   113→      &quot;broker-username&quot;,
+   114→      &quot;broker-password&quot;,
+   115→      &quot;broker-uris&quot;,
+   116→      &quot;controller-password&quot;,  # Fixed typo
+   117→      &quot;zk-username&quot;,
+   118→      &quot;zk-password&quot;,
+   119→      &quot;zk-uris&quot;,
+   120→  ],
+   121→  ```
+   122→- **Historical precedent**: Typos in relation data keys are a known class of bugs that silently fail because string keys have no compile-time validation.
+   123→
+   124→### Confirmed Safe
+   125→
+   126→The following patterns were investigated and determined to be non-issues:
+   127→
+   128→- **Pebble `container.restart()` without `ChangeError` handling** (`workload.py:109`): The `start()` method calls `container.restart()`, but this is inside the Pebble layer management flow where the charm&#x27;s overall event handling would catch and retry. Additionally, the charm uses `container.can_connect()` checks before reaching this code path.
+   129→
+   130→- **Credentials in CLI arguments** (`managers/auth.py:158`): The `add_user` method passes passwords as CLI arguments to `kafka-configs.sh` via `container.exec()`. This is the standard Kafka SCRAM credential management API; there is no environment variable or config file alternative for this specific command. The process runs inside the isolated workload container, limiting exposure.
+   131→
+   132→- **Passwords written to config files** (`managers/config.py:421,429,453,482,694`): SCRAM JAAS configuration strings containing passwords are written to `server.properties` and `client.properties`. These files are written with `user=kafka, group=kafka` ownership via Pebble. This is standard Kafka configuration practice and the files live inside the container.
+   133→
+   134→- **`if self.config.expose_external:` truthiness check** (`events/broker.py:462`, `managers/config.py:609`): The `expose_external` config is validated by `structured_config.py` to return `None` for `&quot;false&quot;` and the string `&quot;nodeport&quot;` for the enabled case. So `if self.config.expose_external:` is a correct check (None is falsy, &quot;nodeport&quot; is truthy).
+   135→
+   136→- **Status management via `collect_unit_status`** (`charm.py:79,171`): The charm uses `collect_unit_status` and `collect_app_status` hooks to reconcile status from multiple subsystems, which is the correct pattern.
+   137→
+   138→- **`event.relation.app` access in `_default_relation_changed`** (`events/peer_cluster.py:212`): This method correctly guards with `if not event.relation.app: return` before accessing relation data.
+   139→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-50-57-073Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-50-57-073Z" class="timestamp-link"><time datetime="2026-03-14T05:50:57.073Z" data-timestamp="2026-03-14T05:50:57.073Z">2026-03-14T05:50:57.073Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_015m1Hj1rot7vHvEgJxXN3P5"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/data/skill_validation_grafana.md&#34;,
+  &#34;limit&#34;: 100
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-50-57-078Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-50-57-078Z" class="timestamp-link"><time datetime="2026-03-14T05:50:57.078Z" data-timestamp="2026-03-14T05:50:57.078Z">2026-03-14T05:50:57.078Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→## Bug Review: grafana-k8s-operator src/ directory
+     2→
+     3→### Summary
+     4→- **Findings**: 3 (0 Critical, 1 High, 2 Medium)
+     5→- **Code areas reviewed**: Pebble/container management, relations/events, TLS/certificates, configuration handling, status management, ingress/networking, observability/Grafana dashboards, database interaction, auth/identity, error handling, security
+     6→- **Charm name**: grafana-k8s
+     7→
+     8→### Findings
+     9→
+    10→#### [BUG-001] Pebble -- Profiling never enabled in Pebble layer (High)
+    11→- **Location**: `src/grafana.py:62,75,186` and `src/charm.py:214-225,355`
+    12→- **Pattern**: Novel (unused constructor parameter)
+    13→- **Issue**: The `Grafana` class constructor accepts an `enable_profiling` parameter (default `False`), but the charm never passes this argument when constructing the `Grafana` instance. The profiling state is instead computed and stored in `PebbleEnvironment.enable_profiling` (charm.py:355), but the `_layer` property checks `self._enable_profiling` (the constructor parameter, always `False`) rather than reading from `pebble_env`.
+    14→- **Impact**: When a `profiling-endpoint` relation is established (e.g., with Parca), the Grafana server&#x27;s built-in profiling diagnostics (`GF_DIAGNOSTICS_PROFILING_ENABLED`, `GF_DIAGNOSTICS_PROFILING_ADDR`, `GF_DIAGNOSTICS_PROFILING_PORT`) are never set in the Pebble layer. Profiling data collection silently fails to activate, making the profiling integration non-functional.
+    15→- **Evidence**:
+    16→  ```python
+    17→  # charm.py:214-225 -- enable_profiling is NOT passed
+    18→  self._grafana_service = Grafana(
+    19→      container=self.unit.get_container(&quot;grafana&quot;),
+    20→      is_leader=self.unit.is_leader(),
+    21→      grafana_config_generator=self._grafana_config,
+    22→      pebble_env=self._pebble_env,
+    23→      tls_config=self._tls_config,
+    24→      # ... no enable_profiling argument
+    25→  )
+    26→
+    27→  # charm.py:355 -- value computed but only stored in PebbleEnvironment
+    28→  enable_profiling=bool(self.model.relations.get(&quot;profiling-endpoint&quot;)),
+    29→
+    30→  # grafana.py:75 -- constructor default is False
+    31→  self._enable_profiling = enable_profiling  # always False
+    32→
+    33→  # grafana.py:186 -- this check always evaluates to False
+    34→  if self._enable_profiling:
+    35→      extra_info.update({
+    36→          &quot;GF_DIAGNOSTICS_PROFILING_ENABLED&quot;: &quot;true&quot;,
+    37→          ...
+    38→      })
+    39→  ```
+    40→- **Recommended fix**:
+    41→  ```python
+    42→  # Option A: Pass enable_profiling to Grafana constructor in charm.py
+    43→  self._grafana_service = Grafana(
+    44→      ...,
+    45→      enable_profiling=bool(self.model.relations.get(&quot;profiling-endpoint&quot;)),
+    46→  )
+    47→
+    48→  # Option B: Read from pebble_env in _layer property (grafana.py)
+    49→  pebble_env = self._pebble_env()
+    50→  ...
+    51→  if pebble_env.enable_profiling:
+    52→      extra_info.update(...)
+    53→  ```
+    54→- **Historical precedent**: Similar pattern to missed parameter passing seen across charm repos during refactoring from monolithic to modular architecture.
+    55→
+    56→#### [BUG-002] Error Handling -- Unhandled ExecError in grafana_version crashes reconcile (Medium)
+    57→- **Location**: `src/grafana.py:94`
+    58→- **Pattern**: AP-036 (Narrow exception handling) / AP-006 (point-in-time can_connect)
+    59→- **Issue**: The `grafana_version` property calls `container.exec([&quot;grafana-server&quot;, &quot;-v&quot;]).wait_output()` after a `can_connect()` check. If the `grafana-server` binary fails (non-zero exit code) or the container disconnects between the check and the exec, an unhandled `ExecError` or `ConnectionError` propagates up and crashes the entire `_reconcile()` method.
+    60→- **Impact**: During container startup or transient Pebble issues, the entire reconcile loop is aborted. No configuration updates, TLS provisioning, relation data updates, or Pebble layer changes will be applied for that event cycle. The charm enters an inconsistent state until the next event triggers a successful reconcile.
+    61→- **Evidence**:
+    62→  ```python
+    63→  # grafana.py:86-100
+    64→  @property
+    65→  def grafana_version(self) -&gt; str:
+    66→      if not self._container.can_connect():
+    67→          return &quot;&quot;
+    68→      version_output, _ = self._container.exec([&quot;grafana-server&quot;, &quot;-v&quot;]).wait_output()
+    69→      # No try/except for ExecError or ConnectionError
+    70→
+    71→  # charm.py:429 -- called early in reconcile, before any other operations
+    72→  self.unit.set_workload_version(self._grafana_service.grafana_version)
+    73→  ```
+    74→- **Recommended fix**:
+    75→  ```python
+    76→  @property
+    77→  def grafana_version(self) -&gt; str:
+    78→      if not self._container.can_connect():
+    79→          return &quot;&quot;
+    80→      try:
+    81→          version_output, _ = self._container.exec([&quot;grafana-server&quot;, &quot;-v&quot;]).wait_output()
+    82→      except (ExecError, ConnectionError) as e:
+    83→          logger.debug(&quot;Could not determine Grafana version: %s&quot;, e)
+    84→          return &quot;&quot;
+    85→      result = re.search(r&quot;Version (\d*\.\d*\.\d*)&quot;, version_output)
+    86→      if not result:
+    87→          return &quot;&quot;
+    88→      return result.group(1)
+    89→  ```
+    90→- **Historical precedent**: Missing ExecError handling on container.exec() is a common pattern across charm repos (alertmanager-k8s, loki-k8s, prometheus-k8s all had similar fixes).
+    91→
+    92→#### [BUG-003] Relations -- Dead code: _on_database_broken handler never registered (Medium)
+    93→- **Location**: `src/charm.py:535-552`
+    94→- **Pattern**: AP-012 (Missing relation_broken handler)
+    95→- **Issue**: The `_on_database_broken` method is defined but never registered with `self.framework.observe()`. Database creation and endpoint changes are observed (lines 235-236), but the broken event is not. This leaves stale database configuration in peer data when the pgsql relation is removed.
+    96→- **Impact**: When the pgsql relation is removed, the peer data retains the old database connection info (`host`, `user`, `password`, `name`). The charm still switches to sqlite3 correctly (because `_enable_external_db` checks relation existence), so runtime behavior is not directly affected. However, stale credentials remain in peer relation data indefinitely, which is a data hygiene issue. If the pgsql relation is later re-established, the stale data is overwritten by `_on_database_changed`, so no incorrect connection occurs.
+    97→- **Evidence**:
+    98→  ```python
+    99→  # charm.py:234-236 -- only database_created and endpoints_changed are observed
+   100→  if self._db is not None:</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-03-296Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-03-296Z" class="timestamp-link"><time datetime="2026-03-14T05:51:03.296Z" data-timestamp="2026-03-14T05:51:03.296Z">2026-03-14T05:51:03.296Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-04-171Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-04-171Z" class="timestamp-link"><time datetime="2026-03-14T05:51:04.171Z" data-timestamp="2026-03-14T05:51:04.171Z">2026-03-14T05:51:04.171Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now I have a thorough understanding of the project. Let me check if there are validation files for rounds 3-4.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-04-914Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-04-914Z" class="timestamp-link"><time datetime="2026-03-14T05:51:04.914Z" data-timestamp="2026-03-14T05:51:04.914Z">2026-03-14T05:51:04.914Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01YHwFBMiF97crQRjXMVrift"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;skill_validation|validation&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-analysis/data&#34;,
+  &#34;glob&#34;: &#34;*.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-51-04-924Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-51-04-924Z" class="timestamp-link"><time datetime="2026-03-14T05:51:04.924Z" data-timestamp="2026-03-14T05:51:04.924Z">2026-03-14T05:51:04.924Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Found 2 files
+data/skill_validation_discourse.md
+data/skill_validation_kafka.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-08-087Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-08-087Z" class="timestamp-link"><time datetime="2026-03-14T05:51:08.087Z" data-timestamp="2026-03-14T05:51:08.087Z">2026-03-14T05:51:08.087Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Only 6 validation markdown files exist (rounds 1-2). Rounds 3-4 findings are documented in the WRITEUP but don't have separate files. Now I have enough context to plan. Let me enter plan mode.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-08-087Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-08-087Z" class="timestamp-link"><time datetime="2026-03-14T05:51:08.087Z" data-timestamp="2026-03-14T05:51:08.087Z">2026-03-14T05:51:08.087Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01XPVFsSXCsjckFd2t81ynK2"><div class="tool-header"><span class="tool-icon">⚙</span> EnterPlanMode</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-51-08-088Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-51-08-088Z" class="timestamp-link"><time datetime="2026-03-14T05:51:08.088Z" data-timestamp="2026-03-14T05:51:08.088Z">2026-03-14T05:51:08.088Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Entered plan mode. You should now focus on exploring the codebase and designing an implementation approach.
+
+In plan mode, you should:
+1. Thoroughly explore the codebase to understand existing patterns
+2. Identify similar features and architectural approaches
+3. Consider multiple approaches and their trade-offs
+4. Use AskUserQuestion if you need to clarify the approach
+5. Design a concrete implementation strategy
+6. When ready, use ExitPlanMode to present your plan for approval
+
+Remember: DO NOT write or edit any files yet. This is a read-only exploration and planning phase.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-19-044Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-19-044Z" class="timestamp-link"><time datetime="2026-03-14T05:51:19.044Z" data-timestamp="2026-03-14T05:51:19.044Z">2026-03-14T05:51:19.044Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-19-920Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-19-920Z" class="timestamp-link"><time datetime="2026-03-14T05:51:19.920Z" data-timestamp="2026-03-14T05:51:19.920Z">2026-03-14T05:51:19.920Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>I have enough context from my earlier exploration. Let me design the plan.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-51-36-766Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-51-36-766Z" class="timestamp-link"><time datetime="2026-03-14T05:51:36.766Z" data-timestamp="2026-03-14T05:51:36.766Z">2026-03-14T05:51:36.766Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01BceYnzsRhKmAQLsS5giSnX"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Design bug review web UI</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;subagent_type&#34;: &#34;Plan&#34;,
+  &#34;prompt&#34;: &#34;Design a web application for reviewing bug findings from a charm analysis project. Here&#39;s the full context:\n\n## Project Context\nThe project analyzed 134 Juju charm repositories and found 59 bugs across 14 repos in 4 rounds of validation. Bug findings are stored in markdown files at `/home/ubuntu/charming-analysis/data/skill_validation_*.md` (6 files covering rounds 1-2). Rounds 3-4 findings are documented in WRITEUP.md but don&#39;t have separate files.\n\nEach bug finding in the markdown has this structure:\n- Bug ID like `[BUG-001]`\n- Category and title (e.g., \&#34;Relations -- event.relation.app accessed without None guard\&#34;)\n- Severity: High, Medium, Low\n- Location: file path and line number\n- Pattern: anti-pattern ID or \&#34;Novel\&#34;\n- Issue: detailed description\n- Impact: what happens if not fixed\n- Evidence: code snippets showing the bug\n- Recommended fix: code snippets showing the fix\n- Historical precedent: context\n\nThere&#39;s also a \&#34;Confirmed Safe\&#34; section listing patterns that were investigated and dismissed.\n\n## Requirements\n1. **Backend**: Python, FastAPI or similar lightweight framework\n2. **Database**: SQLite for storing review state\n3. **Frontend**: No big frameworks (React/Vue/Angular). Use htmx or Datastar (data-star.dev)\n4. **Features**:\n   - View all bug findings with full detail (code, description, location, severity, etc.)\n   - Mark items as \&#34;reviewed\&#34; \n   - Mark items as \&#34;false positive\&#34;\n   - Add custom notes to each finding\n   - Import new findings (for future iteration rounds)\n   - Nice looking UI with good UX for fast review workflow\n5. **CLI tool**: A CLI that mirrors the API (single binary pattern - see brewlog concept where CLI commands map 1:1 to API endpoints)\n6. **Import**: Need to parse the existing markdown files to seed the database\n\n## Design Considerations\n- The reviewer needs to see ALL information to make a decision - code evidence, impact, location, pattern info\n- Fast workflow: keyboard shortcuts or efficient navigation to move through items quickly\n- The app lives in `/home/ubuntu/charming-analysis/review-tool/` or similar\n- Consider the data model carefully - findings have rich structured data\n- The CLI should support: listing findings, importing findings from markdown, updating review status, adding notes, exporting results\n\nPlease provide:\n1. Recommended tech stack with specific package choices\n2. Database schema\n3. API endpoint design\n4. CLI command design\n5. Frontend layout/UX design\n6. File structure\n7. Import/parsing strategy for the markdown files\n8. How to handle the round 3-4 findings that are only in WRITEUP.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-55-06-190Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-55-06-190Z" class="timestamp-link"><time datetime="2026-03-14T05:55:06.190Z" data-timestamp="2026-03-14T05:55:06.190Z">2026-03-14T05:55:06.190Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Now I have a thorough understanding of both the data format and the Datastar framework. Let me design the complete implementation plan.
+
+---
+
+## Implementation Plan: Charm Bug Review Tool
+
+### 1. Recommended Tech Stack
+
+| Component | Choice | Rationale |
+|-----------|--------|-----------|
+| **Backend** | **FastAPI** (with `uvicorn`) | Async-native, excellent Python typing, built-in OpenAPI docs, first-class SSE support via `StreamingResponse` |
+| **Frontend** | **Datastar** (v1, via CDN) | Lighter than htmx, SSE-native (perfect for streaming updates), two-way data binding with `data-bind`, reactive show/hide without JS. The `datastar-py` package has explicit FastAPI integration via `DatastarResponse`. |
+| **Database** | **SQLite** via `aiosqlite` + raw SQL | No ORM overhead for a small schema. `aiosqlite` for async compatibility with FastAPI. |
+| **CLI** | **`click`** | Clean subcommand structure, maps naturally to API calls. Uses `httpx` to call the same FastAPI endpoints. |
+| **Templating** | **Jinja2** (via `fastapi.templating`) | Server-side HTML rendering for initial page loads; Datastar SSE for partial updates. |
+| **CSS** | **Pico CSS** (classless) + a small custom stylesheet | Good-looking defaults with zero build step. Semantic HTML just works. |
+| **Markdown parsing** | **`re`** (regex) | The markdown files have a rigid, predictable structure. A regex-based parser is simpler and more reliable than a markdown AST parser for this specific format. |
+| **Syntax highlighting** | **Pygments** (server-side) | Render code blocks as highlighted HTML on the server. No client-side JS needed. |
+
+Python packages: `fastapi`, `uvicorn`, `jinja2`, `aiosqlite`, `click`, `httpx`, `pygments`, `datastar-py`, `python-multipart` (for form data).
+
+### 2. Database Schema
+
+```sql
+-- The core finding record, one row per bug
+CREATE TABLE findings (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    bug_id        TEXT NOT NULL,          -- e.g. &quot;BUG-001&quot;
+    repo          TEXT NOT NULL,          -- e.g. &quot;kafka-k8s-operator&quot;
+    charm_name    TEXT NOT NULL,          -- e.g. &quot;kafka-k8s&quot;
+    round         INTEGER NOT NULL,       -- validation round 1-4
+    category      TEXT NOT NULL,          -- e.g. &quot;Relations&quot;, &quot;Pebble&quot;, &quot;Configuration&quot;
+    title         TEXT NOT NULL,          -- e.g. &quot;event.relation.app accessed without None guard&quot;
+    severity      TEXT NOT NULL CHECK(severity IN (&#x27;Critical&#x27;,&#x27;High&#x27;,&#x27;Medium&#x27;,&#x27;Low&#x27;)),
+    location      TEXT NOT NULL,          -- e.g. &quot;src/events/provider.py:215&quot;
+    pattern       TEXT NOT NULL,          -- e.g. &quot;AP-014&quot; or &quot;Novel&quot;
+    issue         TEXT NOT NULL,          -- full description
+    impact        TEXT NOT NULL,          -- impact description
+    evidence      TEXT NOT NULL,          -- code snippet (raw markdown/text)
+    recommended_fix TEXT NOT NULL,        -- code snippet (raw markdown/text)
+    historical_precedent TEXT NOT NULL DEFAULT &#x27;&#x27;,
+    
+    -- Review state
+    review_status TEXT NOT NULL DEFAULT &#x27;pending&#x27; 
+                  CHECK(review_status IN (&#x27;pending&#x27;,&#x27;reviewed&#x27;,&#x27;false_positive&#x27;)),
+    reviewer_notes TEXT NOT NULL DEFAULT &#x27;&#x27;,
+    reviewed_at   TEXT,                   -- ISO timestamp, NULL if not reviewed
+    
+    -- Metadata
+    source_file   TEXT,                   -- path to source markdown file, NULL for round 3-4
+    created_at    TEXT NOT NULL DEFAULT (datetime(&#x27;now&#x27;)),
+    updated_at    TEXT NOT NULL DEFAULT (datetime(&#x27;now&#x27;)),
+    
+    UNIQUE(repo, bug_id)                  -- BUG-001 is unique within a repo
+);
+
+-- Confirmed-safe patterns (the &quot;not a bug&quot; list)
+CREATE TABLE confirmed_safe (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo          TEXT NOT NULL,
+    charm_name    TEXT NOT NULL,
+    round         INTEGER NOT NULL,
+    pattern       TEXT NOT NULL,          -- pattern name or short label
+    location      TEXT NOT NULL,          -- file:line
+    explanation   TEXT NOT NULL,          -- why it&#x27;s safe
+    source_file   TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime(&#x27;now&#x27;))
+);
+
+-- Import log to track which files have been imported and prevent duplicates
+CREATE TABLE import_log (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_file   TEXT NOT NULL,
+    imported_at   TEXT NOT NULL DEFAULT (datetime(&#x27;now&#x27;)),
+    findings_count INTEGER NOT NULL,
+    safe_count    INTEGER NOT NULL
+);
+
+-- Indexes for common query patterns
+CREATE INDEX idx_findings_severity ON findings(severity);
+CREATE INDEX idx_findings_status ON findings(review_status);
+CREATE INDEX idx_findings_repo ON findings(repo);
+CREATE INDEX idx_findings_round ON findings(round);
+CREATE INDEX idx_findings_pattern ON findings(pattern);
+```
+
+Key design decisions:
+- `evidence` and `recommended_fix` are stored as raw text (preserving the code blocks). Pygments renders them to HTML at display time. This keeps the database format-agnostic.
+- `UNIQUE(repo, bug_id)` prevents re-importing the same finding. BUG-001 in kafka is different from BUG-001 in grafana.
+- `confirmed_safe` is a separate table because these are structurally different (no severity, no fix, no review workflow).
+- No separate `reviews` table -- review state lives directly on the finding. There is one reviewer (the user). If multi-user review were needed later, a separate table would make sense, but for this use case, columns on `findings` are simpler.
+
+### 3. API Endpoint Design
+
+All endpoints return either HTML (for browser, via Jinja2 templates) or SSE events (for Datastar partial updates). The CLI uses the same endpoints but with `Accept: application/json` to get JSON responses.
+
+```
+GET  /                          -- Dashboard: summary stats, severity breakdown, review progress
+GET  /findings                  -- List all findings, filterable by severity/status/repo/round/pattern
+GET  /findings/{id}             -- Single finding detail view (full info)
+PATCH /findings/{id}            -- Update review status and/or notes
+       body: { review_status?: string, reviewer_notes?: string }
+
+GET  /findings/{id}/next        -- Redirect to next unreviewed finding (for fast workflow)
+GET  /findings/{id}/prev        -- Redirect to previous finding
+
+GET  /safe                      -- List confirmed-safe patterns
+GET  /safe/{id}                 -- Single confirmed-safe detail
+
+POST /import                    -- Import findings from a markdown file
+       body: { file_path: string, round: int, repo?: string }
+POST /import/writeup            -- Import round 3-4 findings from WRITEUP.md
+       body: { file_path: string }
+
+GET  /export                    -- Export all findings as JSON (for downstream use)
+GET  /stats                     -- Aggregate statistics (for dashboard)
+
+GET  /api/findings              -- JSON API: list findings (same filters as /findings)
+GET  /api/findings/{id}         -- JSON API: single finding
+PATCH /api/findings/{id}        -- JSON API: update finding
+GET  /api/stats                 -- JSON API: statistics
+POST /api/import                -- JSON API: import
+GET  /api/export                -- JSON API: export
+```
+
+The dual `/` and `/api/` pattern is clean: browser hits `/findings`, CLI hits `/api/findings`. The HTML endpoints use Datastar SSE for partial updates (e.g., toggling review status updates just the status badge without a full page reload).
+
+### 4. CLI Command Design
+
+The CLI is a `click` group that calls the API via `httpx`. It defaults to `http://localhost:8000` but accepts `--base-url`.
+
+```
+review-tool serve [--port 8000] [--host 0.0.0.0]
+    Start the web server.
+
+review-tool import &lt;file_path&gt; --round &lt;N&gt; [--repo &lt;name&gt;]
+    Import findings from a markdown file. Repo name is auto-detected
+    from the file&#x27;s &quot;### Summary&quot; section if not provided.
+
+review-tool import-writeup &lt;file_path&gt;
+    Import round 3-4 findings from WRITEUP.md (different parser).
+
+review-tool list [--severity high|medium|low] [--status pending|reviewed|false_positive]
+             [--repo &lt;name&gt;] [--round &lt;N&gt;] [--pattern &lt;AP-xxx&gt;]
+    List findings with optional filters. Tabular output.
+
+review-tool show &lt;id&gt;
+    Show full detail for a single finding.
+
+review-tool review &lt;id&gt; --status &lt;reviewed|false_positive&gt; [--notes &quot;...&quot;]
+    Update the review status of a finding.
+
+review-tool note &lt;id&gt; &quot;note text&quot;
+    Add/append a note to a finding.
+
+review-tool stats
+    Show summary statistics.
+
+review-tool export [--format json|csv] [--output file.json]
+    Export all findings.
+```
+
+Implementation detail: `import` and `import-writeup` can work in two modes:
+1. **Direct DB mode** (when server is not running): import directly into SQLite.
+2. **API mode** (when server is running): POST to the API endpoint.
+
+The CLI detects which mode by trying to connect to the server first.
+
+### 5. Frontend Layout / UX Design
+
+**Page structure** (single-page feel with server-rendered HTML + Datastar partial updates):
+
+```
++------------------------------------------------------------------+
+|  CHARM BUG REVIEW TOOL                              [Stats] [Export] |
++------------------------------------------------------------------+
+|  Filters:  [Severity ▼] [Status ▼] [Repo ▼] [Round ▼] [Pattern]  |
+|  Progress: ████████░░░░ 34/59 reviewed  (3 false positives)       |
++------------------------------------------------------------------+
+|                                                                    |
+|  FINDINGS LIST (left panel, ~35% width)  |  DETAIL (right, ~65%)  |
+|                                          |                         |
+|  [H] BUG-001 kafka-k8s          ●pending |  [BUG-001] Relations   |
+|  [M] BUG-002 kafka-k8s        ✓reviewed  |  event.relation.app... |
+|  [L] BUG-003 kafka-k8s        ✓reviewed  |                         |
+|  [H] BUG-001 grafana-k8s      ✗false_pos |  Severity: High        |
+|  [M] BUG-002 grafana-k8s        ●pending |  Location: src/...py:215|
+|  ...                                     |  Pattern: AP-014        |
+|                                          |  Round: 1               |
+|                                          |                         |
+|                                          |  ISSUE                  |
+|                                          |  In the _on_relation... |
+|                                          |                         |
+|                                          |  IMPACT                 |
+|                                          |  When a client app...   |
+|                                          |                         |
+|                                          |  EVIDENCE               |
+|                                          |  ┌─────────────────────┐|
+|                                          |  │ def _on_relation_... ││
+|                                          |  │   alias = ...       ││
+|                                          |  └─────────────────────┘|
+|                                          |                         |
+|                                          |  RECOMMENDED FIX        |
+|                                          |  ┌─────────────────────┐|
+|                                          |  │ if not event...     ││
+|                                          |  └─────────────────────┘|
+|                                          |                         |
+|                                          |  HISTORICAL PRECEDENT   |
+|                                          |  This pattern was...    |
+|                                          |                         |
+|                                          |  ─── REVIEW ──────────  |
+|                                          |  [✓ Reviewed] [✗ FP]    |
+|                                          |  Notes: [textarea     ] |
+|                                          |  [Save] [Next ▶]        |
++------------------------------------------+-------------------------+
+```
+
+**Keyboard shortcuts** (implemented via `data-on:keydown.window`):
+- `j` / `k` or arrow down/up: Navigate findings list
+- `r`: Mark current as &quot;reviewed&quot;
+- `f`: Mark current as &quot;false positive&quot;
+- `p`: Reset to &quot;pending&quot;
+- `n`: Focus notes textarea
+- `Enter` (in notes): Save notes
+- `]` or `Space`: Next unreviewed finding
+- `[`: Previous finding
+- `1`/`2`/`3`/`4`: Filter by round
+- `Escape`: Clear filters
+
+**Datastar integration specifics:**
+
+The findings list is a server-rendered HTML fragment. Clicking a finding triggers `@get(&#x27;/findings/42&#x27;)` which returns an SSE event that patches the detail panel:
+
+```html
+&lt;!-- List item --&gt;
+&lt;div data-on:click=&quot;@get(&#x27;/findings/42&#x27;)&quot; 
+     data-class:selected=&quot;$selectedId == 42&quot;
+     data-on:keydown.j.window=&quot;@get(&#x27;/findings/{{next_id}}&#x27;)&quot;&gt;
+  &lt;span class=&quot;severity-badge high&quot;&gt;H&lt;/span&gt;
+  BUG-001 kafka-k8s
+  &lt;span class=&quot;status-dot pending&quot;&gt;&lt;/span&gt;
+&lt;/div&gt;
+
+&lt;!-- Detail panel --&gt;
+&lt;div id=&quot;detail-panel&quot;&gt;
+  &lt;!-- Replaced via SSE patch_elements --&gt;
+&lt;/div&gt;
+
+&lt;!-- Review buttons --&gt;
+&lt;button data-on:click=&quot;@patch(&#x27;/findings/42&#x27;, {review_status: &#x27;reviewed&#x27;})&quot;&gt;
+  Reviewed
+&lt;/button&gt;
+```
+
+When the user clicks &quot;Reviewed&quot;, Datastar sends a PATCH, and the server responds with SSE events that update both the detail panel status badge AND the list item status dot simultaneously.
+
+**Filter controls** use `data-bind` for two-way binding and `data-on:change` to trigger filtered list reloads:
+
+```html
+&lt;select data-bind:severity data-on:change=&quot;@get(&#x27;/findings?severity=&#x27; + $severity)&quot;&gt;
+  &lt;option value=&quot;&quot;&gt;All&lt;/option&gt;
+  &lt;option value=&quot;High&quot;&gt;High&lt;/option&gt;
+  ...
+&lt;/select&gt;
+```
+
+### 6. File Structure
+
+```
+review-tool/
+├── pyproject.toml                 # Project metadata, dependencies, CLI entry point
+├── README.md
+├── review_tool/
+│   ├── __init__.py
+│   ├── __main__.py               # Entry point: python -m review_tool
+│   ├── app.py                    # FastAPI app creation, middleware, lifespan
+│   ├── config.py                 # Settings (DB path, host, port, data dir)
+│   ├── db.py                     # Database init, migrations, connection management
+│   ├── models.py                 # Pydantic models for Finding, ConfirmedSafe, etc.
+│   ├── cli.py                    # Click CLI commands
+│   ├── parser.py                 # Markdown parser for validation files
+│   ├── parser_writeup.py         # Separate parser for WRITEUP.md (rounds 3-4)
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── pages.py              # HTML page routes (/, /findings, /findings/{id})
+│   │   ├── api.py                # JSON API routes (/api/*)
+│   │   └── sse.py                # SSE/Datastar response helpers
+│   ├── templates/
+│   │   ├── base.html             # Base layout with Datastar CDN, Pico CSS, keyboard shortcuts
+│   │   ├── index.html            # Dashboard
+│   │   ├── findings_list.html    # Findings list (full page)
+│   │   ├── partials/
+│   │   │   ├── finding_row.html  # Single row in findings list (for SSE updates)
+│   │   │   ├── finding_detail.html  # Full detail panel (for SSE updates)
+│   │   │   ├── review_controls.html # Review buttons + notes form
+│   │   │   ├── stats_bar.html    # Progress bar + stats
+│   │   │   └── filters.html      # Filter controls
+│   │   └── safe_list.html        # Confirmed safe patterns page
+│   └── static/
+│       ├── style.css             # Custom styles (severity colors, layout, code blocks)
+│       └── favicon.svg
+├── tests/
+│   ├── test_parser.py
+│   ├── test_api.py
+│   └── test_cli.py
+└── data/                         # Symlink to ../data or copy
+```
+
+The `pyproject.toml` defines a CLI entry point:
+```toml
+[project.scripts]
+review-tool = &quot;review_tool.cli:main&quot;
+```
+
+### 7. Import / Parsing Strategy for Markdown Files
+
+The 6 existing markdown files (rounds 1-2) follow a completely consistent structure. The parser uses regex to extract structured fields.
+
+**Parser algorithm for `skill_validation_*.md` files:**
+
+```
+1. Extract header metadata:
+   - Repo name from filename: skill_validation_&lt;repo&gt;.md
+   - Charm name from &quot;**Charm name**:&quot; line
+   - Finding count and severity from &quot;**Findings**:&quot; line
+
+2. Split on &quot;#### [BUG-&quot; to get individual finding blocks
+
+3. For each finding block, extract:
+   - bug_id: regex r&#x27;\[BUG-(\d+)\]&#x27;
+   - category + title: text between &#x27;]&#x27; and &#x27;(&#x27; on the first line,
+     split on &#x27; -- &#x27;
+   - severity: text in parentheses at end of first line
+   - location: line starting with &#x27;- **Location**:&#x27;
+   - pattern: line starting with &#x27;- **Pattern**:&#x27;
+   - issue: text after &#x27;- **Issue**:&#x27; until next field
+   - impact: text after &#x27;- **Impact**:&#x27; until next field
+   - evidence: text between ```python fences after &#x27;- **Evidence**:&#x27;
+   - recommended_fix: text between ```python fences after &#x27;- **Recommended fix**:&#x27;
+   - historical_precedent: text after &#x27;- **Historical precedent**:&#x27;
+
+4. Split on &quot;### Confirmed Safe&quot; to get the safe section
+
+5. Parse confirmed-safe items (they use &#x27;- **pattern name**&#x27; format
+   or table format depending on the file)
+```
+
+Key regex patterns:
+- Finding header: `r&#x27;####\s+\[BUG-(\d+)\]\s+(.+?)\s+--\s+(.+?)\s+\((\w+)\)&#x27;`
+- Field extraction: `r&#x27;- \*\*(\w[\w\s/]*)\*\*:\s*(.*?)(?=\n- \*\*|\n####|\n###|\Z)&#x27;` with `re.DOTALL`
+- Code blocks: `` r&#x27;```(?:python|json|sql)?\n(.*?)```&#x27; `` with `re.DOTALL`
+
+**Round auto-detection**: Files in `data/skill_validation_*.md` are rounds 1-2. The mapping is:
+- Round 1: grafana, kafka (from WRITEUP.md table)
+- Round 2: discourse, hydra, opensearch, sdcore_amf
+
+This mapping can be hardcoded or passed as a CLI argument.
+
+### 8. Handling Rounds 3-4 from WRITEUP.md
+
+Rounds 3-4 findings are documented only in WRITEUP.md at `/home/ubuntu/charming-analysis/WRITEUP.md`, starting at the &quot;### Round 3&quot; and &quot;### Round 4&quot; sections. The format differs from the standalone files:
+
+- Findings are described in prose paragraphs, not the structured `#### [BUG-xxx]` format
+- They mention repo names, anti-pattern IDs, severity, and descriptions but in running text
+- The summary tables give counts per repo but not individual bug details
+
+**Strategy: Manual-entry import with structured templates**
+
+Since the WRITEUP.md contains findings in narrative form rather than the structured format, the `parser_writeup.py` module takes a different approach:
+
+1. **Extract what is structured**: The summary tables (repo, team, finding counts, severity breakdown) and the numbered anti-pattern list (AP-048 through AP-058) can be parsed.
+
+2. **Extract notable findings**: The &quot;Notable findings from round N&quot; bullet points contain enough detail (repo, description, severity, pattern ID) to create finding records, though evidence/fix code blocks are absent.
+
+3. **Create partial records**: For each notable finding mentioned, create a finding record with the available fields populated and `evidence`/`recommended_fix` set to a placeholder like `&quot;See WRITEUP.md, Round 3 section&quot;`.
+
+4. **Support manual enrichment**: The review tool&#x27;s notes field and the future &quot;import&quot; feature allow the reviewer to paste in evidence/fix details later.
+
+Concretely, the parser can extract these from the WRITEUP.md round 3-4 text:
+
+From Round 3:
+- traefik-k8s: `path.name[:5]` cert cleanup bug (High, AP-049)
+- traefik-k8s: `exec()` without `wait()` (AP-048)
+- vault-k8s: hardcoded PKI mount path (Medium)
+- vault-k8s: inverted boolean condition (AP-051)
+- vault-k8s: wrong config key name (AP-052)
+- temporal-k8s: status set by helper overwritten by caller (AP-050)
+- temporal-k8s: missing return after `event.set_results()` (AP-053)
+- temporal-k8s: proxy env None values (Medium, AP-005)
+- traefik-k8s: missing `can_connect()` guard (AP-006)
+- temporal-k8s: missing `can_connect()` guard (AP-006)
+
+From Round 4:
+- postgresql-k8s: string comparison of numeric counter values (AP-054)
+- prometheus-k8s: None value in f-string URL interpolation (AP-055)
+- postgresql-k8s + indico: action handler missing `event.fail()` (AP-056)
+- kratos: `os.path.join` for URL construction (AP-057)
+- indico: `model.get_secret(id=None)` (AP-058)
+- indico: non-string values in Pebble environment (AP-005)
+- indico: `container.exec()` before `can_connect()` (AP-006)
+
+The parser creates findings with `severity` inferred from context (the text says &quot;High severity&quot;, &quot;Medium&quot;, etc.) and the description extracted from the bullet text. Where severity is not stated, it defaults to the counts in the summary table (allocating highs first, then mediums, then lows).
+
+**Implementation approach for `parser_writeup.py`:**
+
+```
+1. Find &quot;### Round 3&quot; and &quot;### Round 4&quot; sections
+2. Parse the summary table to get repo -&gt; (findings, high, medium, low) mapping
+3. Parse the numbered anti-pattern list to get AP-048..AP-058 descriptions
+4. Parse &quot;Notable findings&quot; bullets using regex to extract:
+   - repo name (bold text or first word)
+   - description
+   - severity (if mentioned in parens)
+   - pattern ID (AP-xxx if mentioned)
+5. For repos with more findings than notable bullets, create placeholder
+   records: &quot;Finding from round N, details in WRITEUP.md&quot;
+6. Assign severity levels to match the table totals
+```
+
+This is imperfect but captures the 37 round 3-4 findings (16 + 21) with enough detail to be useful in the review tool. The reviewer can then update the records as they review the WRITEUP.md text.
+
+### Summary of Approach
+
+The architecture is deliberately simple: one Python package, one SQLite database, server-rendered HTML with Datastar for reactivity. No build step, no node_modules, no client-side state management. The CLI is a thin wrapper over the API. The parser handles the well-structured round 1-2 files with regex and does best-effort extraction for the narrative round 3-4 text.
+
+The reviewer workflow is: start the server, open the browser, use keyboard shortcuts to move through findings, mark each as reviewed or false positive, add notes where needed. The progress bar shows how far along the review is. Export when done.
+
+### Critical Files for Implementation
+
+- `/home/ubuntu/charming-analysis/data/skill_validation_kafka.md` - Reference for parser design: this file exemplifies the exact markdown structure (fields, fences, confirmed-safe format) that the parser must handle
+- `/home/ubuntu/charming-analysis/WRITEUP.md` - Contains round 3-4 findings in narrative form (lines 234-302) that need the separate `parser_writeup.py` approach, plus the definitive round-to-repo mapping tables
+- `/home/ubuntu/charming-analysis/data/skill_validation_discourse.md` - Secondary parser reference: the confirmed-safe section uses a table format (`| Pattern | Location | Why |`) rather than bullet points, so the parser must handle both formats
+- `/home/ubuntu/charming-analysis/data/skill_validation_opensearch.md` - Parser edge case: findings are separated by `---` horizontal rules (unlike other files), and the &quot;Confirmed Safe&quot; section uses numbered items instead of bullets</pre><pre>agentId: a772b3ff63fc1014b (for resuming to continue this agent&#x27;s work if needed)
+&lt;usage&gt;total_tokens: 48672
+tool_uses: 19
+duration_ms: 209422&lt;/usage&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-09-597Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-09-597Z" class="timestamp-link"><time datetime="2026-03-14T05:55:09.597Z" data-timestamp="2026-03-14T05:55:09.597Z">2026-03-14T05:55:09.597Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Good context. Let me also check the other validation files for parser edge cases, then write the plan.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-10-270Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-10-270Z" class="timestamp-link"><time datetime="2026-03-14T05:55:10.270Z" data-timestamp="2026-03-14T05:55:10.270Z">2026-03-14T05:55:10.270Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01BkaKHMt9mB1XLNYK2zQ9HE"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/data/skill_validation_discourse.md&#34;,
+  &#34;limit&#34;: 50
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-55-10-281Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-55-10-281Z" class="timestamp-link"><time datetime="2026-03-14T05:55:10.281Z" data-timestamp="2026-03-14T05:55:10.281Z">2026-03-14T05:55:10.281Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→## Bug Review: discourse-k8s-operator src/ directory
+     2→
+     3→### Summary
+     4→- **Findings**: 4 (0 Critical, 2 High, 2 Medium)
+     5→- **Code areas reviewed**: Pebble/containers, Relations/events, Configuration handling, Status management, Ingress/networking, Observability/Grafana, Auth/identity (SAML, OAuth)
+     6→- **Charm name**: discourse-k8s
+     7→
+     8→### Findings
+     9→
+    10→#### [BUG-001] Observability -- Grafana dashboard uses non-COS datasource variable (High)
+    11→- **Location**: `src/grafana_dashboards/discourse.json:4,61,139,217,295,373,451,538,640,754,858,972,1057,1146,1223,1320,1397,1486,1563,1660,1737,1826,1903`
+    12→- **Pattern**: AP-022 (Wrong datasource variable)
+    13→- **Issue**: The `discourse.json` dashboard uses `${DS_PROMETHEUS}` as its datasource template variable throughout the file, instead of the COS-standard `${prometheusds}`. The companion dashboard `discourse_service_health.json` correctly uses `${prometheusds}`.
+    14→- **Impact**: All panels in `discourse.json` fail to render in COS Grafana because no datasource named `DS_PROMETHEUS` exists. The dashboard appears blank. This affects 23 datasource references across the entire dashboard.
+    15→- **Evidence**:
+    16→  ```json
+    17→  &quot;__inputs&quot;: [
+    18→    {
+    19→      &quot;name&quot;: &quot;DS_PROMETHEUS&quot;,
+    20→      &quot;label&quot;: &quot;Prometheus&quot;,
+    21→      ...
+    22→    }
+    23→  ],
+    24→  ...
+    25→  &quot;datasource&quot;: &quot;${DS_PROMETHEUS}&quot;,
+    26→  ```
+    27→- **Recommended fix**:
+    28→  Replace all occurrences of `DS_PROMETHEUS` with `prometheusds`:
+    29→  ```json
+    30→  &quot;datasource&quot;: &quot;${prometheusds}&quot;,
+    31→  ```
+    32→  Also remove the `__inputs` block, which is a Grafana export artifact not used by COS.
+    33→- **Historical precedent**: This exact pattern was fixed in grafana-k8s, alertmanager-k8s, and many other charms. The anti-patterns reference identifies `DS_PROMETHEUS` as the most common Grafana dashboard bug in COS deployments.
+    34→
+    35→#### [BUG-002] Relations -- Missing SAML relation_broken handler leaves stale config (High)
+    36→- **Location**: `src/charm.py:97` (handler registration area -- no broken handler registered for saml)
+    37→- **Pattern**: AP-012 (Missing relation_broken handler)
+    38→- **Issue**: The charm handles `saml_data_available` (line 97) to configure SAML environment variables, but there is no `saml_relation_broken` handler. When the SAML relation is removed, the SAML-related environment variables (`DISCOURSE_SAML_TARGET_URL`, `DISCOURSE_SAML_CERT_FINGERPRINT`, `DISCOURSE_SAML_FULL_SCREEN_LOGIN`, etc.) persist in the Pebble layer until the next unrelated event triggers `_configure_pod`. During this window, Discourse continues to enforce SAML authentication using stale IdP settings.
+    39→- **Impact**: After removing the SAML relation, users may be redirected to a now-invalid SAML identity provider for login, locking them out until another event triggers a full reconfiguration. Contrast with the OAuth relation, which has a proper `relation_broken` handler (line 58 in `oauth_observer.py`).
+    40→- **Evidence**:
+    41→  ```python
+    42→  # SAML relation setup (line 97) -- no corresponding broken handler
+    43→  self.saml = SamlRequires(self)
+    44→  self.framework.observe(self.saml.on.saml_data_available, self._on_saml_data_available)
+    45→  # No: self.framework.observe(self.on[DEFAULT_RELATION_NAME].relation_broken, ...)
+    46→
+    47→  # Compare with OAuth which correctly handles broken (oauth_observer.py:57-59):
+    48→  self.framework.observe(
+    49→      self.charm.on[OAUTH_RELATION_NAME].relation_broken, self._on_oauth_relation_broken
+    50→  )</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-11-089Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-11-089Z" class="timestamp-link"><time datetime="2026-03-14T05:55:11.089Z" data-timestamp="2026-03-14T05:55:11.089Z">2026-03-14T05:55:11.089Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01KcZ6vtUBfseHAmLnnZUtqk"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/data/skill_validation_opensearch.md&#34;,
+  &#34;limit&#34;: 50
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-55-11-095Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-55-11-095Z" class="timestamp-link"><time datetime="2026-03-14T05:55:11.095Z" data-timestamp="2026-03-14T05:55:11.095Z">2026-03-14T05:55:11.095Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→## Bug Review: opensearch-operator (VM charm) -- src/ and lib/charms/opensearch/
+     2→
+     3→### Summary
+     4→- **Findings**: 4 (0 Critical, 3 High, 1 Medium)
+     5→- **Code areas reviewed**: TLS/Security, Upgrade, Service management, Backup/Snapshots, Configuration
+     6→- **Charm name**: opensearch-operator
+     7→
+     8→### Findings
+     9→
+    10→#### [BUG-001] Configuration -- Incorrect /proc/pid/stat parsing causes wrong service status detection (High)
+    11→- **Location**: `src/opensearch.py:112-117`
+    12→- **Pattern**: novel
+    13→- **Issue**: The code reads `/proc/{pid}/stat` and checks `stat[2]` (the 3rd character of the raw string) to determine process state. However, the `/proc/pid/stat` format is `pid (comm) state ppid ...`. For any PID with more than one digit (which is virtually all processes), `stat[2]` indexes into the PID number itself, not the state field. For example, with PID `12345`, the string starts with `12345 (java) S ...`, and `stat[2]` is `&#x27;3&#x27;` (the digit 3), not `&#x27;S&#x27;` (sleeping).
+    14→- **Impact**: The function `is_service_started()` returns incorrect results. Because `&#x27;3&#x27;` (or any digit) is not in `[&quot;Z&quot;, &quot;T&quot;, &quot;X&quot;]`, the function incorrectly returns `True` for any non-zombie process, but this is accidental. For the `paused=True` path (`stat[2] == &quot;T&quot;`), paused detection never works for multi-digit PIDs because `stat[2]` is always a digit from the PID.
+    15→- **Evidence**:
+    16→  ```python
+    17→  with open(f&quot;/proc/{pid}/stat&quot;) as f:
+    18→      stat = f.read()
+    19→  # ...
+    20→  if stat[2] == &quot;T&quot; and paused:
+    21→      return True
+    22→  return stat[2] not in [&quot;Z&quot;, &quot;T&quot;, &quot;X&quot;]
+    23→  ```
+    24→- **Recommended fix**:
+    25→  ```python
+    26→  with open(f&quot;/proc/{pid}/stat&quot;) as f:
+    27→      stat = f.read()
+    28→  # The state is the 3rd field, after &quot;pid (comm) &quot;.
+    29→  # comm can contain spaces/parens, so find the last &#x27;)&#x27; first.
+    30→  state = stat[stat.rfind(&quot;)&quot;) + 2]
+    31→  if state == &quot;T&quot; and paused:
+    32→      return True
+    33→  return state not in [&quot;Z&quot;, &quot;T&quot;, &quot;X&quot;]
+    34→  ```
+    35→- **Historical precedent**: Novel -- proc filesystem parsing bugs are uncommon in charms but common in system monitoring code.
+    36→
+    37→---
+    38→
+    39→#### [BUG-002] Configuration -- Literal `$` in SNAP_LOG_DIR environment variable (High)
+    40→- **Location**: `src/opensearch.py:171`
+    41→- **Pattern**: AP-002 (Missing f-string prefix variant -- shell/Python syntax confusion)
+    42→- **Issue**: The environment variable `SNAP_LOG_DIR` is set to `f&quot;${self._SNAP_COMMON}/ops/snap/logs&quot;`. Because `$` is a literal character in Python f-strings (only `{...}` triggers interpolation), the `$` is preserved verbatim. The resulting value is `$/var/snap/opensearch/common/ops/snap/logs` -- a path starting with a literal `$` character. The other env vars on adjacent lines correctly use `f&quot;{self._SNAP}/...&quot;` and `f&quot;{self.paths.home}/...&quot;` without the `$`.
+    43→- **Impact**: Any code or process that reads `SNAP_LOG_DIR` gets an invalid path starting with `$`. If used for log file creation, logs would be written to a non-existent directory (or a directory literally named `$var`), causing silent log loss or errors.
+    44→- **Evidence**:
+    45→  ```python
+    46→  os.environ[&quot;SNAP_LOG_DIR&quot;] = f&quot;${self._SNAP_COMMON}/ops/snap/logs&quot;  # BUG: literal $
+    47→  os.environ[&quot;OPS_ROOT&quot;] = f&quot;{self._SNAP}/opt/opensearch&quot;             # correct
+    48→  os.environ[&quot;OPENSEARCH_BIN&quot;] = f&quot;{self._SNAP}/usr/share/opensearch/bin&quot;  # correct
+    49→  ```
+    50→- **Recommended fix**:</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-11-399Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-11-399Z" class="timestamp-link"><time datetime="2026-03-14T05:55:11.399Z" data-timestamp="2026-03-14T05:55:11.399Z">2026-03-14T05:55:11.399Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01XCAbRmutksddoeWWqaF3rn"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;.claude/skills/charm-find-bugs/**/*&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-55-11-447Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-55-11-447Z" class="timestamp-link"><time datetime="2026-03-14T05:55:11.447Z" data-timestamp="2026-03-14T05:55:11.447Z">2026-03-14T05:55:11.447Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md
+/home/ubuntu/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md
+/home/ubuntu/charming-analysis/.claude/skills/charm-find-bugs/references/bug-patterns.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-14-045Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-14-045Z" class="timestamp-link"><time datetime="2026-03-14T05:55:14.045Z" data-timestamp="2026-03-14T05:55:14.045Z">2026-03-14T05:55:14.045Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01N5BG5ft2YkNXPncbek9P6p"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md&#34;,
+  &#34;limit&#34;: 80
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-55-14-050Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-55-14-050Z" class="timestamp-link"><time datetime="2026-03-14T05:55:14.050Z" data-timestamp="2026-03-14T05:55:14.050Z">2026-03-14T05:55:14.050Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→---
+     2→name: charm-find-bugs
+     3→description: Find bugs in Juju charm operator repositories. Use when asked to &quot;find bugs&quot;, &quot;audit code&quot;, &quot;review for bugs&quot;, &quot;check for issues&quot;, &quot;security review&quot;, or review Python code in any Juju charm. Specialized for charm-specific bug patterns including Pebble container management, relation data handling, TLS certificate lifecycle, status management, config handling, ingress/networking, Grafana dashboard wiring, and Juju interaction. Built from analysis of 6,116 historical bug fixes across 134 charm repositories spanning 10 teams (Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, BootStack, Charm-Tech).
+     4→---
+     5→
+     6→# Charm Bug Finder
+     7→
+     8→Find bugs in Juju charm codebases using domain-specific knowledge from 6,116 historical bug fixes across 134 repositories.
+     9→
+    10→## Scope
+    11→
+    12→Report on: only the files or diff the user specifies.
+    13→Research: the entire codebase to build confidence before reporting.
+    14→
+    15→Do not report issues based solely on pattern matching. Investigate data flow and confirm the bug is real before reporting.
+    16→
+    17→## Step 1: Determine review scope
+    18→
+    19→Identify what code areas are being reviewed and load the relevant reference sections:
+    20→
+    21→| Code Area | Indicators | Reference Section |
+    22→|-----------|-----------|-------------------|
+    23→| Pebble / containers | `Container`, `Layer`, `can_connect`, `replan`, `push`, `pull`, `exec` | `references/bug-patterns.md` -- Pebble |
+    24→| Relation data | `relation_get`, `relation_set`, `RelationData`, `relation_joined`, `relation_changed`, `relation_broken` | `references/bug-patterns.md` -- Relations |
+    25→| TLS / certificates | `tls`, `certificate`, `csr`, `ca_chain`, `private_key`, `x509` | `references/bug-patterns.md` -- TLS |
+    26→| Config handling | `self.config`, `config_changed`, `config.yaml` | `references/bug-patterns.md` -- Configuration |
+    27→| Status management | `ActiveStatus`, `BlockedStatus`, `WaitingStatus`, `MaintenanceStatus`, `collect_unit_status` | `references/bug-patterns.md` -- Status |
+    28→| Ingress / networking | `ingress`, `traefik`, `nginx`, `external_url`, `proxy` | `references/bug-patterns.md` -- Ingress |
+    29→| Grafana / observability | dashboard JSON, `datasource`, `prometheusds`, alert rules, `scrape_jobs` | `references/bug-patterns.md` -- Observability |
+    30→| Database interaction | connection strings, `postgresql`, `mysql`, `mongodb`, `kafka`, `dsn` | `references/bug-patterns.md` -- Database |
+    31→| Auth / identity | `oauth`, `oidc`, `saml`, `ldap`, `credentials`, `password`, `token` | `references/bug-patterns.md` -- Auth |
+    32→| Upgrade / migration | `upgrade`, `rollback`, `pre-upgrade-check` | `references/bug-patterns.md` -- Upgrade |
+    33→| Juju interaction | `model.`, `unit.`, `app.`, `leader`, `peer`, secrets, actions | `references/bug-patterns.md` -- Juju |
+    34→| Broad review / full audit | Multiple areas or unspecified | Read full `references/bug-patterns.md` |
+    35→
+    36→Always read `references/anti-patterns.md` for concrete code patterns to search for.
+    37→
+    38→## Step 2: Search for known bug patterns
+    39→
+    40→For each relevant code area, search the codebase for the anti-patterns listed in `references/anti-patterns.md`. Use Grep with the provided search patterns.
+    41→
+    42→For each match:
+    43→1. Read surrounding context (at least 20 lines around the match).
+    44→2. Trace data flow to determine if the pattern is actually buggy.
+    45→3. Check if there is an existing fix, test, or guard.
+    46→4. Only report if the bug is confirmed after investigation.
+    47→
+    48→## Step 3: Hunt for novel bugs
+    49→
+    50→After searching for known patterns, actively look for new bugs:
+    51→
+    52→1. **Read each file in scope end-to-end** -- do not rely solely on grep matches.
+    53→2. **Trace data through call chains**: pick 3-5 public API methods and trace inputs from caller to callee. Look for:
+    54→   - Assumptions about input types that callers can violate
+    55→   - Missing validation at API boundaries
+    56→   - State changes not rolled back on error
+    57→3. **Compare parallel implementations**: for operations with both K8s and VM variants, or with multiple relation providers, diff the logic side by side. Divergences are likely bugs.
+    58→4. **Check recent commits** (`git log --oneline -20 -- &lt;file&gt;`): recently changed code is more likely to contain bugs.
+    59→5. **Look for incomplete fixes**: when a bug was fixed in one place, search for the same pattern in analogous code. Charms commonly share patterns across handlers -- a fix in `_on_config_changed` may be missing from `_on_upgrade_charm`.
+    60→
+    61→## Step 4: Check cross-cutting concerns
+    62→
+    63→Always check these regardless of code area:
+    64→
+    65→1. **Pebble readiness**: Are `container.push()`, `container.restart()`, `container.replan()`, or `container.exec()` calls guarded by `container.can_connect()`?
+    66→2. **Truthiness vs explicit comparison**: Are `if value` or `if not value` checks used where `value is not None` is needed? Especially for config values that can be 0, empty string, or False.
+    67→3. **None guards on relation data**: Are `event.relation.app`, `event.relation.data[app]`, or relation data values checked for None before access? Also check `model.get_relation()` return values.
+    68→4. **Leader guards**: Are leader-only operations (app relation data writes, peer data writes) guarded by `self.unit.is_leader()`?
+    69→5. **Missing relation-broken handler**: If `relation_joined`/`relation_changed` is handled, is there a corresponding `relation_broken` handler for cleanup? Also check if the handler is *registered* with `framework.observe()` -- dead code handlers are a common bug.
+    70→6. **Status coherence**: Does every exit path from event handlers set an appropriate status? Are unit and app statuses consistent (not contradicting each other with Blocked vs Waiting for the same condition)?
+    71→7. **Credential exposure**: Are passwords, tokens, or secrets logged, written to world-readable files, or passed as CLI arguments?
+    72→8. **Unnecessary restarts**: Are `container.replan()` or `container.restart()` calls guarded by a plan comparison check?
+    73→9. **URL construction**: Are URLs built with string concatenation instead of `urllib.parse.urljoin`? Does `urljoin` lose path segments?
+    74→10. **f-string omission**: Are format strings missing the `f` prefix, producing literal `{variable}` in output? Also check for shell-style `$VAR` mixed with Python f-strings.
+    75→11. **Missing return after event.fail()**: Do action handlers `return` after calling `event.fail()`? Falling through executes the success path.
+    76→12. **next() without default**: Are `next()` calls on generators over relation data, config, or parsed output protected with a default value? Unprotected `next()` raises `StopIteration`.
+    77→13. **Non-string Pebble environment values**: Are Python `bool` or `int` values used directly in Pebble environment dicts? Pebble expects all values to be strings.
+    78→14. **exec() without wait()**: Are `container.exec()` return values discarded without calling `.wait()` or `.wait_output()`? The command runs asynchronously and may race with subsequent file operations.
+    79→15. **Status set by helper overwritten by caller**: Do helper methods set `BlockedStatus` or `WaitingStatus` and return, only for the calling `_update()` method to overwrite the status and continue processing?
+    80→16. **Wrong config key name**: Do `self.config.get()` or `self.config[]` calls use key names that don&#x27;t match `config.yaml` / `charmcraft.yaml`? `.get()` silently returns None for nonexistent keys, bypassing validation.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-18-775Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-18-775Z" class="timestamp-link"><time datetime="2026-03-14T05:55:18.775Z" data-timestamp="2026-03-14T05:55:18.775Z">2026-03-14T05:55:18.775Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-55-19-225Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-55-19-225Z" class="timestamp-link"><time datetime="2026-03-14T05:55:19.225Z" data-timestamp="2026-03-14T05:55:19.225Z">2026-03-14T05:55:19.225Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now I have everything I need. Let me write the plan.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-56-19-037Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-56-19-037Z" class="timestamp-link"><time datetime="2026-03-14T05:56:19.037Z" data-timestamp="2026-03-14T05:56:19.037Z">2026-03-14T05:56:19.037Z</time></a></div><div class="message-content"><div class="file-tool write-tool" data-tool-id="toolu_012qnGq4hp4toyYbsDXtr9vz">
+<div class="file-tool-header write-header"><span class="file-tool-icon">📝</span> Write <span class="file-tool-path">merry-baking-minsky.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/.claude/plans/merry-baking-minsky.md</div>
+<div class="truncatable"><div class="truncatable-content"><pre class="file-content"># Plan: Bug Finding Review Tool
+
+**Context**: Build a local web UI + CLI for reviewing the 59 bug findings from the charm-find-bugs skill validation (4 rounds, 14 repos). Must support marking findings as reviewed/false-positive, adding notes, importing new rounds, and running entirely locally on Ubuntu.
+
+## Tech Stack
+
+| Component | Choice | Why |
+|-----------|--------|-----|
+| Backend | **FastAPI** + uvicorn | Lightweight, async, built-in OpenAPI |
+| Database | **SQLite** via aiosqlite | Zero config, local-only |
+| Frontend | **htmx** (CDN) + server-rendered Jinja2 | Simpler than Datastar, better docs, no build step |
+| CSS | **Pico CSS** (CDN) + custom stylesheet | Classless defaults, looks good immediately |
+| Code highlighting | **Pygments** (server-side) | Python snippets rendered as HTML |
+| CLI | **click** + httpx | Maps 1:1 to API endpoints |
+
+htmx over Datastar: htmx is more mature, better documented, and the partial-swap model is a perfect fit for this (click finding -&gt; swap detail panel). No SSE complexity needed.
+
+## Database Schema
+
+```sql
+CREATE TABLE findings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    bug_id          TEXT NOT NULL,           -- &#34;BUG-001&#34;
+    repo            TEXT NOT NULL,           -- &#34;kafka-k8s-operator&#34;
+    charm_name      TEXT NOT NULL,           -- &#34;kafka-k8s&#34;
+    round           INTEGER NOT NULL,        -- 1-4
+    category        TEXT NOT NULL,           -- &#34;Relations&#34;, &#34;Pebble&#34;, etc.
+    title           TEXT NOT NULL,           -- short description
+    severity        TEXT NOT NULL CHECK(severity IN (&#39;Critical&#39;,&#39;High&#39;,&#39;Medium&#39;,&#39;Low&#39;)),
+    location        TEXT NOT NULL,           -- &#34;src/events/provider.py:215&#34;
+    pattern         TEXT NOT NULL,           -- &#34;AP-014&#34; or &#34;Novel&#34;
+    issue           TEXT NOT NULL,           -- full description
+    impact          TEXT NOT NULL,
+    evidence        TEXT NOT NULL,           -- code snippet (raw text)
+    recommended_fix TEXT NOT NULL,
+    historical_precedent TEXT NOT NULL DEFAULT &#39;&#39;,
+    review_status   TEXT NOT NULL DEFAULT &#39;pending&#39;
+                    CHECK(review_status IN (&#39;pending&#39;,&#39;reviewed&#39;,&#39;false_positive&#39;)),
+    reviewer_notes  TEXT NOT NULL DEFAULT &#39;&#39;,
+    reviewed_at     TEXT,
+    source_file     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;)),
+    updated_at      TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;)),
+    UNIQUE(repo, bug_id)
+);
+
+CREATE TABLE confirmed_safe (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    repo            TEXT NOT NULL,
+    round           INTEGER NOT NULL,
+    location        TEXT NOT NULL,
+    explanation     TEXT NOT NULL,
+    source_file     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;))
+);
+
+CREATE TABLE import_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_file     TEXT NOT NULL UNIQUE,
+    imported_at     TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;)),
+    findings_count  INTEGER NOT NULL,
+    safe_count      INTEGER NOT NULL DEFAULT 0
+);
+```
+
+## API Design
+
+Browser routes return HTML; `/api/*` routes return JSON (used by CLI).
+
+```
+GET  /                              Dashboard with stats + progress
+GET  /findings                      List view with filters (htmx partial: #findings-list)
+GET  /findings/{id}                 Detail panel (htmx partial: #detail-panel)
+PATCH /findings/{id}                Update review_status / notes (htmx re-renders row + detail)
+GET  /findings/{id}/next-unreviewed Redirect to next pending finding
+
+GET  /api/findings                  JSON list, query params: severity, status, repo, round, pattern
+GET  /api/findings/{id}             JSON detail
+PATCH /api/findings/{id}            JSON update
+POST /api/import                    Import from markdown file path
+GET  /api/stats                     Aggregate stats
+GET  /api/export                    Full JSON export
+```
+
+## CLI Commands
+
+```
+review-tool serve [--port 8000]                    Start local server
+review-tool import &lt;file&gt; --round N [--repo NAME]  Import findings from markdown
+review-tool list [--severity X] [--status X] ...   List findings (table)
+review-tool show &lt;id&gt;                              Show single finding
+review-tool review &lt;id&gt; --status reviewed|false_positive [--notes &#34;...&#34;]
+review-tool stats                                  Summary statistics
+review-tool export [--output file.json]            Export all findings
+```
+
+Import works in two modes: direct-to-DB (no server needed) or via API (if server is running).
+
+## Frontend UX
+
+Two-panel layout:
+
+```
++-------------------------------------------------------------------+
+| CHARM BUG REVIEW          Progress: ████████░░ 34/59 (3 FP)       |
++-------------------------------------------------------------------+
+| Filters: [Severity] [Status] [Repo] [Round]                       |
++-------------------------------------------------------------------+
+| FINDINGS LIST (35%)          | DETAIL PANEL (65%)                  |
+|                              |                                     |
+| [H] BUG-001 kafka  ●pending | ## [BUG-001] Relations              |
+| [M] BUG-002 kafka  ✓done    | event.relation.app without guard   |
+| [L] BUG-003 kafka  ✓done    |                                     |
+| [H] BUG-001 grafana ✗fp     | Severity: High | Pattern: AP-014    |
+|                              | Location: src/events/provider.py:215|
+|                              | Round: 1 | Repo: kafka-k8s-operator |
+|                              |                                     |
+|                              | ### Issue                           |
+|                              | In the _on_relation_broken...       |
+|                              |                                     |
+|                              | ### Impact                          |
+|                              | When a client application...        |
+|                              |                                     |
+|                              | ### Evidence                        |
+|                              | [syntax-highlighted code block]     |
+|                              |                                     |
+|                              | ### Recommended Fix                 |
+|                              | [syntax-highlighted code block]     |
+|                              |                                     |
+|                              | ### Historical Precedent            |
+|                              | This pattern was fixed in 39+...    |
+|                              |                                     |
+|                              | --- REVIEW ---                      |
+|                              | [✓ Reviewed] [✗ False Positive]     |
+|                              | Notes: [_________________]          |
+|                              | [Save Notes]  [Next Unreviewed →]   |
++------------------------------+-------------------------------------+
+```
+
+Keyboard shortcuts (via JS event listener):
+- `j`/`k`: navigate list
+- `r`: mark reviewed
+- `f`: mark false positive
+- `n`: focus notes
+- `Space`/`]`: next unreviewed
+
+htmx mechanics:
+- Clicking a finding row: `hx-get=&#34;/findings/{id}&#34; hx-target=&#34;#detail-panel&#34;`
+- Review buttons: `hx-patch=&#34;/findings/{id}&#34; hx-vals=&#39;{&#34;review_status&#34;:&#34;reviewed&#34;}&#39; hx-target=&#34;#finding-row-{id}&#34; hx-swap=&#34;outerHTML&#34;` + also swap detail status
+- Filters: `hx-get=&#34;/findings?severity=High&#34; hx-target=&#34;#findings-list&#34;`
+
+## File Structure
+
+```
+review-tool/
+├── pyproject.toml
+├── review_tool/
+│   ├── __init__.py
+│   ├── __main__.py           # python -m review_tool
+│   ├── app.py                # FastAPI app, lifespan, middleware
+│   ├── config.py             # Settings (db path, host, port)
+│   ├── db.py                 # SQLite init, queries
+│   ├── models.py             # Pydantic models
+│   ├── parser.py             # Markdown parser for skill_validation_*.md files
+│   ├── cli.py                # Click CLI
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── pages.py          # HTML routes
+│   │   └── api.py            # JSON API routes
+│   ├── templates/
+│   │   ├── base.html
+│   │   ├── index.html        # Dashboard
+│   │   ├── findings.html     # Main review page (two-panel)
+│   │   └── partials/
+│   │       ├── finding_row.html
+│   │       ├── finding_detail.html
+│   │       ├── findings_list.html
+│   │       └── stats_bar.html
+│   └── static/
+│       └── style.css
+```
+
+## Markdown Parser Strategy
+
+The 6 `skill_validation_*.md` files follow a rigid structure. Parser uses regex:
+
+1. Extract repo/charm from header section
+2. Split on `#### [BUG-` to isolate findings
+3. For each finding, extract fields via regex:
+   - `r&#39;\[BUG-(\d+)\]\s+(.+?)\s+--\s+(.+?)\s+\((\w+)\)&#39;` for id/category/title/severity
+   - `r&#39;- \*\*Location\*\*:\s*(.+)&#39;` etc. for each field
+   - `` r&#39;```(?:\w+)?\n(.*?)```&#39; `` for code blocks
+4. Parse &#34;Confirmed Safe&#34; section (bullet format or paragraph format)
+
+Round mapping (from WRITEUP.md tables):
+- Round 1: grafana-k8s, kafka-k8s
+- Round 2: discourse-k8s, hydra, opensearch, sdcore-amf
+
+Rounds 3-4 don&#39;t have standalone validation files. Two options:
+1. Create validation files for rounds 3-4 by running the skill against those repos
+2. Import the narrative from WRITEUP.md as partial records
+
+I&#39;ll build the parser for the structured files first. The CLI `import` command handles adding new rounds (same format).
+
+## Future Rounds Skill
+
+A new skill `run-validation-round` that:
+1. Takes a list of repos and a round number
+2. Runs `charm-find-bugs` against each repo
+3. Saves results as `data/skill_validation_&lt;repo&gt;.md` (matching existing format)
+4. Calls `review-tool import` to add findings to the review DB
+5. Updates WRITEUP.md with the new round&#39;s summary table and notable findings
+6. Updates cumulative validation results table in WRITEUP.md
+
+This skill will be created as `.claude/skills/run-validation-round/SKILL.md`.
+
+## Implementation Order
+
+1. **Database + models** (`db.py`, `models.py`, `config.py`)
+2. **Markdown parser** (`parser.py`) - parse the 6 existing files
+3. **API routes** (`routes/api.py`) - JSON endpoints
+4. **CLI** (`cli.py`) - import, list, show, review, stats, export, serve
+5. **Templates + pages** (`templates/`, `routes/pages.py`, `static/style.css`)
+6. **App assembly** (`app.py`, `__main__.py`, `pyproject.toml`)
+7. **Import existing data** - run `review-tool import` for all 6 files
+8. **Future rounds skill** (`.claude/skills/run-validation-round/SKILL.md`)
+
+## Verification
+
+```bash
+cd /home/ubuntu/charming-analysis/review-tool &amp;&amp; pip install -e . &amp;&amp; review-tool import ../data/skill_validation_kafka.md --round 1 &amp;&amp; review-tool list &amp;&amp; review-tool serve --port 8000
+```
+Then open http://localhost:8000 in browser to verify the two-panel UI works.
+</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-56-19-118Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-56-19-118Z" class="timestamp-link"><time datetime="2026-03-14T05:56:19.118Z" data-timestamp="2026-03-14T05:56:19.118Z">2026-03-14T05:56:19.118Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>File created successfully at: /home/ubuntu/.claude/plans/merry-baking-minsky.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-56-22-156Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-56-22-156Z" class="timestamp-link"><time datetime="2026-03-14T05:56:22.156Z" data-timestamp="2026-03-14T05:56:22.156Z">2026-03-14T05:56:22.156Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_017fLNEUjvqsp9ZnJR7QnwaC"><div class="tool-header"><span class="tool-icon">⚙</span> ToolSearch</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;query&#34;: &#34;select:ExitPlanMode&#34;,
+  &#34;max_results&#34;: 1
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T05-56-22-157Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T05-56-22-157Z" class="timestamp-link"><time datetime="2026-03-14T05:56:22.157Z" data-timestamp="2026-03-14T05:56:22.157Z">2026-03-14T05:56:22.157Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;ExitPlanMode&quot;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T05-56-25-638Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T05-56-25-638Z" class="timestamp-link"><time datetime="2026-03-14T05:56:25.638Z" data-timestamp="2026-03-14T05:56:25.638Z">2026-03-14T05:56:25.638Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01R2LxAQFspDMYhLX9MNj59b"><div class="tool-header"><span class="tool-icon">⚙</span> ExitPlanMode</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;allowedPrompts&#34;: [
+    {
+      &#34;tool&#34;: &#34;Bash&#34;,
+      &#34;prompt&#34;: &#34;install Python dependencies with pip&#34;
+    },
+    {
+      &#34;tool&#34;: &#34;Bash&#34;,
+      &#34;prompt&#34;: &#34;run the review tool CLI commands&#34;
+    },
+    {
+      &#34;tool&#34;: &#34;Bash&#34;,
+      &#34;prompt&#34;: &#34;start the review tool server&#34;
+    },
+    {
+      &#34;tool&#34;: &#34;Bash&#34;,
+      &#34;prompt&#34;: &#34;list directory contents&#34;
+    }
+  ],
+  &#34;plan&#34;: &#34;# Plan: Bug Finding Review Tool\n\n**Context**: Build a local web UI + CLI for reviewing the 59 bug findings from the charm-find-bugs skill validation (4 rounds, 14 repos). Must support marking findings as reviewed/false-positive, adding notes, importing new rounds, and running entirely locally on Ubuntu.\n\n## Tech Stack\n\n| Component | Choice | Why |\n|-----------|--------|-----|\n| Backend | **FastAPI** + uvicorn | Lightweight, async, built-in OpenAPI |\n| Database | **SQLite** via aiosqlite | Zero config, local-only |\n| Frontend | **htmx** (CDN) + server-rendered Jinja2 | Simpler than Datastar, better docs, no build step |\n| CSS | **Pico CSS** (CDN) + custom stylesheet | Classless defaults, looks good immediately |\n| Code highlighting | **Pygments** (server-side) | Python snippets rendered as HTML |\n| CLI | **click** + httpx | Maps 1:1 to API endpoints |\n\nhtmx over Datastar: htmx is more mature, better documented, and the partial-swap model is a perfect fit for this (click finding -&gt; swap detail panel). No SSE complexity needed.\n\n## Database Schema\n\n```sql\nCREATE TABLE findings (\n    id              INTEGER PRIMARY KEY AUTOINCREMENT,\n    bug_id          TEXT NOT NULL,           -- \&#34;BUG-001\&#34;\n    repo            TEXT NOT NULL,           -- \&#34;kafka-k8s-operator\&#34;\n    charm_name      TEXT NOT NULL,           -- \&#34;kafka-k8s\&#34;\n    round           INTEGER NOT NULL,        -- 1-4\n    category        TEXT NOT NULL,           -- \&#34;Relations\&#34;, \&#34;Pebble\&#34;, etc.\n    title           TEXT NOT NULL,           -- short description\n    severity        TEXT NOT NULL CHECK(severity IN (&#39;Critical&#39;,&#39;High&#39;,&#39;Medium&#39;,&#39;Low&#39;)),\n    location        TEXT NOT NULL,           -- \&#34;src/events/provider.py:215\&#34;\n    pattern         TEXT NOT NULL,           -- \&#34;AP-014\&#34; or \&#34;Novel\&#34;\n    issue           TEXT NOT NULL,           -- full description\n    impact          TEXT NOT NULL,\n    evidence        TEXT NOT NULL,           -- code snippet (raw text)\n    recommended_fix TEXT NOT NULL,\n    historical_precedent TEXT NOT NULL DEFAULT &#39;&#39;,\n    review_status   TEXT NOT NULL DEFAULT &#39;pending&#39;\n                    CHECK(review_status IN (&#39;pending&#39;,&#39;reviewed&#39;,&#39;false_positive&#39;)),\n    reviewer_notes  TEXT NOT NULL DEFAULT &#39;&#39;,\n    reviewed_at     TEXT,\n    source_file     TEXT,\n    created_at      TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;)),\n    updated_at      TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;)),\n    UNIQUE(repo, bug_id)\n);\n\nCREATE TABLE confirmed_safe (\n    id              INTEGER PRIMARY KEY AUTOINCREMENT,\n    repo            TEXT NOT NULL,\n    round           INTEGER NOT NULL,\n    location        TEXT NOT NULL,\n    explanation     TEXT NOT NULL,\n    source_file     TEXT,\n    created_at      TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;))\n);\n\nCREATE TABLE import_log (\n    id              INTEGER PRIMARY KEY AUTOINCREMENT,\n    source_file     TEXT NOT NULL UNIQUE,\n    imported_at     TEXT NOT NULL DEFAULT (datetime(&#39;now&#39;)),\n    findings_count  INTEGER NOT NULL,\n    safe_count      INTEGER NOT NULL DEFAULT 0\n);\n```\n\n## API Design\n\nBrowser routes return HTML; `/api/*` routes return JSON (used by CLI).\n\n```\nGET  /                              Dashboard with stats + progress\nGET  /findings                      List view with filters (htmx partial: #findings-list)\nGET  /findings/{id}                 Detail panel (htmx partial: #detail-panel)\nPATCH /findings/{id}                Update review_status / notes (htmx re-renders row + detail)\nGET  /findings/{id}/next-unreviewed Redirect to next pending finding\n\nGET  /api/findings                  JSON list, query params: severity, status, repo, round, pattern\nGET  /api/findings/{id}             JSON detail\nPATCH /api/findings/{id}            JSON update\nPOST /api/import                    Import from markdown file path\nGET  /api/stats                     Aggregate stats\nGET  /api/export                    Full JSON export\n```\n\n## CLI Commands\n\n```\nreview-tool serve [--port 8000]                    Start local server\nreview-tool import &lt;file&gt; --round N [--repo NAME]  Import findings from markdown\nreview-tool list [--severity X] [--status X] ...   List findings (table)\nreview-tool show &lt;id&gt;                              Show single finding\nreview-tool review &lt;id&gt; --status reviewed|false_positive [--notes \&#34;...\&#34;]\nreview-tool stats                                  Summary statistics\nreview-tool export [--output file.json]            Export all findings\n```\n\nImport works in two modes: direct-to-DB (no server needed) or via API (if server is running).\n\n## Frontend UX\n\nTwo-panel layout:\n\n```\n+-------------------------------------------------------------------+\n| CHARM BUG REVIEW          Progress: ████████░░ 34/59 (3 FP)       |\n+-------------------------------------------------------------------+\n| Filters: [Severity] [Status] [Repo] [Round]                       |\n+-------------------------------------------------------------------+\n| FINDINGS LIST (35%)          | DETAIL PANEL (65%)                  |\n|                              |                                     |\n| [H] BUG-001 kafka  ●pending | ## [BUG-001] Relations              |\n| [M] BUG-002 kafka  ✓done    | event.relation.app without guard   |\n| [L] BUG-003 kafka  ✓done    |                                     |\n| [H] BUG-001 grafana ✗fp     | Severity: High | Pattern: AP-014    |\n|                              | Location: src/events/provider.py:215|\n|                              | Round: 1 | Repo: kafka-k8s-operator |\n|                              |                                     |\n|                              | ### Issue                           |\n|                              | In the _on_relation_broken...       |\n|                              |                                     |\n|                              | ### Impact                          |\n|                              | When a client application...        |\n|                              |                                     |\n|                              | ### Evidence                        |\n|                              | [syntax-highlighted code block]     |\n|                              |                                     |\n|                              | ### Recommended Fix                 |\n|                              | [syntax-highlighted code block]     |\n|                              |                                     |\n|                              | ### Historical Precedent            |\n|                              | This pattern was fixed in 39+...    |\n|                              |                                     |\n|                              | --- REVIEW ---                      |\n|                              | [✓ Reviewed] [✗ False Positive]     |\n|                              | Notes: [_________________]          |\n|                              | [Save Notes]  [Next Unreviewed →]   |\n+------------------------------+-------------------------------------+\n```\n\nKeyboard shortcuts (via JS event listener):\n- `j`/`k`: navigate list\n- `r`: mark reviewed\n- `f`: mark false positive\n- `n`: focus notes\n- `Space`/`]`: next unreviewed\n\nhtmx mechanics:\n- Clicking a finding row: `hx-get=\&#34;/findings/{id}\&#34; hx-target=\&#34;#detail-panel\&#34;`\n- Review buttons: `hx-patch=\&#34;/findings/{id}\&#34; hx-vals=&#39;{\&#34;review_status\&#34;:\&#34;reviewed\&#34;}&#39; hx-target=\&#34;#finding-row-{id}\&#34; hx-swap=\&#34;outerHTML\&#34;` + also swap detail status\n- Filters: `hx-get=\&#34;/findings?severity=High\&#34; hx-target=\&#34;#findings-list\&#34;`\n\n## File Structure\n\n```\nreview-tool/\n├── pyproject.toml\n├── review_tool/\n│   ├── __init__.py\n│   ├── __main__.py           # python -m review_tool\n│   ├── app.py                # FastAPI app, lifespan, middleware\n│   ├── config.py             # Settings (db path, host, port)\n│   ├── db.py                 # SQLite init, queries\n│   ├── models.py             # Pydantic models\n│   ├── parser.py             # Markdown parser for skill_validation_*.md files\n│   ├── cli.py                # Click CLI\n│   ├── routes/\n│   │   ├── __init__.py\n│   │   ├── pages.py          # HTML routes\n│   │   └── api.py            # JSON API routes\n│   ├── templates/\n│   │   ├── base.html\n│   │   ├── index.html        # Dashboard\n│   │   ├── findings.html     # Main review page (two-panel)\n│   │   └── partials/\n│   │       ├── finding_row.html\n│   │       ├── finding_detail.html\n│   │       ├── findings_list.html\n│   │       └── stats_bar.html\n│   └── static/\n│       └── style.css\n```\n\n## Markdown Parser Strategy\n\nThe 6 `skill_validation_*.md` files follow a rigid structure. Parser uses regex:\n\n1. Extract repo/charm from header section\n2. Split on `#### [BUG-` to isolate findings\n3. For each finding, extract fields via regex:\n   - `r&#39;\\[BUG-(\\d+)\\]\\s+(.+?)\\s+--\\s+(.+?)\\s+\\((\\w+)\\)&#39;` for id/category/title/severity\n   - `r&#39;- \\*\\*Location\\*\\*:\\s*(.+)&#39;` etc. for each field\n   - `` r&#39;```(?:\\w+)?\\n(.*?)```&#39; `` for code blocks\n4. Parse \&#34;Confirmed Safe\&#34; section (bullet format or paragraph format)\n\nRound mapping (from WRITEUP.md tables):\n- Round 1: grafana-k8s, kafka-k8s\n- Round 2: discourse-k8s, hydra, opensearch, sdcore-amf\n\nRounds 3-4 don&#39;t have standalone validation files. Two options:\n1. Create validation files for rounds 3-4 by running the skill against those repos\n2. Import the narrative from WRITEUP.md as partial records\n\nI&#39;ll build the parser for the structured files first. The CLI `import` command handles adding new rounds (same format).\n\n## Future Rounds Skill\n\nA new skill `run-validation-round` that:\n1. Takes a list of repos and a round number\n2. Runs `charm-find-bugs` against each repo\n3. Saves results as `data/skill_validation_&lt;repo&gt;.md` (matching existing format)\n4. Calls `review-tool import` to add findings to the review DB\n5. Updates WRITEUP.md with the new round&#39;s summary table and notable findings\n6. Updates cumulative validation results table in WRITEUP.md\n\nThis skill will be created as `.claude/skills/run-validation-round/SKILL.md`.\n\n## Implementation Order\n\n1. **Database + models** (`db.py`, `models.py`, `config.py`)\n2. **Markdown parser** (`parser.py`) - parse the 6 existing files\n3. **API routes** (`routes/api.py`) - JSON endpoints\n4. **CLI** (`cli.py`) - import, list, show, review, stats, export, serve\n5. **Templates + pages** (`templates/`, `routes/pages.py`, `static/style.css`)\n6. **App assembly** (`app.py`, `__main__.py`, `pyproject.toml`)\n7. **Import existing data** - run `review-tool import` for all 6 files\n8. **Future rounds skill** (`.claude/skills/run-validation-round/SKILL.md`)\n\n## Verification\n\n```bash\ncd /home/ubuntu/charming-analysis/review-tool &amp;&amp; pip install -e . &amp;&amp; review-tool import ../data/skill_validation_kafka.md --round 1 &amp;&amp; review-tool list &amp;&amp; review-tool serve --port 8000\n```\nThen open http://localhost:8000 in browser to verify the two-panel UI works.\n&#34;,
+  &#34;planFilePath&#34;: &#34;/home/ubuntu/.claude/plans/merry-baking-minsky.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+        
+
+<div class="pagination"><a href="index.html" class="index-link">Index</a></div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>

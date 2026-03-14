@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 12</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 12/13</h1>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-011.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<a href="page-004.html">4</a>
+<a href="page-005.html">5</a>
+<a href="page-006.html">6</a>
+<a href="page-007.html">7</a>
+<a href="page-008.html">8</a>
+<a href="page-009.html">9</a>
+<a href="page-010.html">10</a>
+<a href="page-011.html">11</a>
+<span class="current">12</span>
+<a href="page-013.html">13</a>
+<a href="page-013.html">Next &rarr;</a>
+</div>
+
+        
+<div class="message user" id="msg-2026-03-14T21-59-09-924Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T21-59-09-924Z" class="timestamp-link"><time datetime="2026-03-14T21:59:09.924Z" data-timestamp="2026-03-14T21:59:09.924Z">2026-03-14T21:59:09.924Z</time></a></div><div class="message-content">
+<div class="user-content"><p>yeah, the latter. i think our iteration over the skill has reached a point where returns are low, so i am curious about this other unexamined historical data.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-22-864Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-22-864Z" class="timestamp-link"><time datetime="2026-03-14T21:59:22.864Z" data-timestamp="2026-03-14T21:59:22.864Z">2026-03-14T21:59:22.864Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-23-326Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-23-326Z" class="timestamp-link"><time datetime="2026-03-14T21:59:23.326Z" data-timestamp="2026-03-14T21:59:23.326Z">2026-03-14T21:59:23.326Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Good idea. Let me pick 4 unanalysed batches from different teams and have agents read the actual diffs to look for patterns not already in our catalogue.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-26-278Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-26-278Z" class="timestamp-link"><time datetime="2026-03-14T21:59:26.278Z" data-timestamp="2026-03-14T21:59:26.278Z">2026-03-14T21:59:26.278Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01Qdz6UYHpCvunRW1hxjXjbx">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Check batch structure with actual data</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">python3 -c &#34;
+import json
+batch = json.load(open(&#39;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/batches/batch_012.json&#39;))
+print(f&#39;Batch 12: {len(batch)} fixes&#39;)
+for fix in batch[:3]:
+    print(f&#39;  {fix[\&#34;sha\&#34;][:8]} {fix[\&#34;repo\&#34;]} - {fix[\&#34;subject\&#34;][:60]}&#39;)
+    print(f&#39;    files: {fix[\&#34;changed_files\&#34;][:3]}&#39;)
+&#34;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T21-59-26-380Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T21-59-26-380Z" class="timestamp-link"><time datetime="2026-03-14T21:59:26.380Z" data-timestamp="2026-03-14T21:59:26.380Z">2026-03-14T21:59:26.380Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Batch 12: 40 fixes
+  57370254 opensearch-operator - fix condition for ca rotation complete and add tls_configure
+    files: [&#x27;M\tlib/charms/opensearch/v0/opensearch_tls.py&#x27;]
+  f1cd4c61 opensearch-operator - fix: handle cases credentials are valid but bucket does not 
+    files: [&#x27;M\tlib/charms/opensearch/v0/helper_security.py&#x27;]
+  ca6a9912 opensearch-operator - fix: run CA tests with a  different tests ID
+    files: [&#x27;M\tlib/charms/opensearch/v0/constants_charm.py&#x27;, &#x27;M\tlib/charms/opensearch/v0/opensearch_snapshots.py&#x27;, &#x27;M\ttests/integration/ha/test_backups.py&#x27;]</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-33-984Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-33-984Z" class="timestamp-link"><time datetime="2026-03-14T21:59:33.984Z" data-timestamp="2026-03-14T21:59:33.984Z">2026-03-14T21:59:33.984Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Good — each batch has SHAs and repo names. The agents can <code>git show</code> from the cloned repos. Let me pick 4 diverse batches:</p>
+<ul>
+<li><strong>Batch 9</strong> (Data: mysql-operator, mysql-k8s) — MySQL charms, untested area</li>
+<li><strong>Batch 22</strong> (IS: jenkins-k8s, mattermost, nginx-ingress) — diverse IS charms</li>
+<li><strong>Batch 39</strong> (MLOps: knative, kserve, kubeflow-dashboard) — Kubeflow ecosystem</li>
+<li><strong>Batch 53</strong> (Observability: loki-k8s, mimir-coordinator) — COS core charms</li>
+</ul></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-44-646Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-44-646Z" class="timestamp-link"><time datetime="2026-03-14T21:59:44.646Z" data-timestamp="2026-03-14T21:59:44.646Z">2026-03-14T21:59:44.646Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01DFG975eigQqKthb7634gMy"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Analyse batch 9 historical fixes</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are analysing historical bug fix commits to find patterns that may be missing from our charm-find-bugs skill&#39;s anti-pattern catalogue.\n\nRead the batch file at: /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/batches/batch_009.json\n\nThis contains ~40 bug fix commits from Data team repos (mysql-operator, mysql-k8s-operator). For each fix:\n1. Read the commit SHA and repo name from the batch file\n2. Run `git show &lt;sha&gt; -- &#39;*.py&#39;` in the repo directory at `/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/repos/&lt;repo-name&gt;/` to see the actual diff\n3. Identify what bug pattern the fix addresses\n\nThen read the current anti-patterns catalogue:\n/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md\n\nCompare the patterns you found in the diffs against the existing catalogue. Report:\n1. **Known patterns confirmed** — patterns already in the catalogue that appeared in these fixes\n2. **Potential new patterns** — bug patterns that appear in 2+ fixes but are NOT in the current catalogue. For each, provide:\n   - Description of the pattern\n   - The specific commits (SHA + repo) that demonstrate it\n   - A concrete code example (before/after from the diff)\n   - Why it&#39;s not already covered by an existing AP\n\nFocus on patterns that would be actionable for the charm-find-bugs skill — things an agent could search for and flag. Skip one-off typos or highly repo-specific issues.\n\nDo NOT read test-only fixes (skip commits that only change files in tests/).&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T21-59-44-649Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T21-59-44-649Z" class="timestamp-link"><time datetime="2026-03-14T21:59:44.649Z" data-timestamp="2026-03-14T21:59:44.649Z">2026-03-14T21:59:44.649Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a5caefe0095a3f4e8 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a5caefe0095a3f4e8.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-48-369Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-48-369Z" class="timestamp-link"><time datetime="2026-03-14T21:59:48.369Z" data-timestamp="2026-03-14T21:59:48.369Z">2026-03-14T21:59:48.369Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01VyJ7XkW275GUXVQNEqrGRG"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Analyse batch 22 historical fixes</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are analysing historical bug fix commits to find patterns that may be missing from our charm-find-bugs skill&#39;s anti-pattern catalogue.\n\nRead the batch file at: /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/batches/batch_022.json\n\nThis contains ~40 bug fix commits from IS team repos (jenkins-k8s, mattermost, nginx-ingress-integrator). For each fix:\n1. Read the commit SHA and repo name from the batch file\n2. Run `git show &lt;sha&gt; -- &#39;*.py&#39;` in the repo directory at `/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/repos/&lt;repo-name&gt;/` to see the actual diff\n3. Identify what bug pattern the fix addresses\n\nThen read the current anti-patterns catalogue:\n/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md\n\nCompare the patterns you found against the existing catalogue. Report:\n1. **Known patterns confirmed** — patterns already in the catalogue\n2. **Potential new patterns** — bug patterns in 2+ fixes NOT in the catalogue, with:\n   - Description\n   - Specific commits (SHA + repo)\n   - Code example from the diff\n   - Why not covered by existing AP\n\nFocus on actionable patterns. Skip test-only fixes.&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T21-59-48-371Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T21-59-48-371Z" class="timestamp-link"><time datetime="2026-03-14T21:59:48.371Z" data-timestamp="2026-03-14T21:59:48.371Z">2026-03-14T21:59:48.371Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: ad7b8f54b58f52695 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/ad7b8f54b58f52695.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-51-717Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-51-717Z" class="timestamp-link"><time datetime="2026-03-14T21:59:51.717Z" data-timestamp="2026-03-14T21:59:51.717Z">2026-03-14T21:59:51.717Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01JRbMZetg2zavE9B23NRJnn"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Analyse batch 39 historical fixes</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are analysing historical bug fix commits to find patterns that may be missing from our charm-find-bugs skill&#39;s anti-pattern catalogue.\n\nRead the batch file at: /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/batches/batch_039.json\n\nThis contains ~40 bug fix commits from MLOps team repos (knative-operators, kserve-operators, kubeflow-dashboard-operator). For each fix:\n1. Read the commit SHA and repo name from the batch file\n2. Run `git show &lt;sha&gt; -- &#39;*.py&#39;` in the repo directory at `/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/repos/&lt;repo-name&gt;/` to see the actual diff\n3. Identify what bug pattern the fix addresses\n\nThen read the current anti-patterns catalogue:\n/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md\n\nCompare the patterns you found against the existing catalogue. Report:\n1. **Known patterns confirmed** — patterns already in the catalogue\n2. **Potential new patterns** — bug patterns in 2+ fixes NOT in the catalogue, with:\n   - Description\n   - Specific commits (SHA + repo)\n   - Code example from the diff\n   - Why not covered by existing AP\n\nFocus on actionable patterns. Skip test-only fixes.&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T21-59-51-718Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T21-59-51-718Z" class="timestamp-link"><time datetime="2026-03-14T21:59:51.718Z" data-timestamp="2026-03-14T21:59:51.718Z">2026-03-14T21:59:51.718Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a40fdf896f458827a (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a40fdf896f458827a.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T21-59-54-797Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T21-59-54-797Z" class="timestamp-link"><time datetime="2026-03-14T21:59:54.797Z" data-timestamp="2026-03-14T21:59:54.797Z">2026-03-14T21:59:54.797Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01T9WzhmMdDqsJcG1gYjzmLb"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Analyse batch 53 historical fixes</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are analysing historical bug fix commits to find patterns that may be missing from our charm-find-bugs skill&#39;s anti-pattern catalogue.\n\nRead the batch file at: /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/batches/batch_053.json\n\nThis contains ~40 bug fix commits from Observability team repos (loki-k8s-operator, mimir-coordinator-k8s-operator). For each fix:\n1. Read the commit SHA and repo name from the batch file\n2. Run `git show &lt;sha&gt; -- &#39;*.py&#39;` in the repo directory at `/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/repos/&lt;repo-name&gt;/` to see the actual diff\n3. Identify what bug pattern the fix addresses\n\nThen read the current anti-patterns catalogue:\n/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md\n\nCompare the patterns you found against the existing catalogue. Report:\n1. **Known patterns confirmed** — patterns already in the catalogue\n2. **Potential new patterns** — bug patterns in 2+ fixes NOT in the catalogue, with:\n   - Description\n   - Specific commits (SHA + repo)\n   - Code example from the diff\n   - Why not covered by existing AP\n\nFocus on actionable patterns. Skip test-only fixes.&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T21-59-54-800Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T21-59-54-800Z" class="timestamp-link"><time datetime="2026-03-14T21:59:54.800Z" data-timestamp="2026-03-14T21:59:54.800Z">2026-03-14T21:59:54.800Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a65a6de4b0d8c7a64 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a65a6de4b0d8c7a64.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-00-01-262Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-00-01-262Z" class="timestamp-link"><time datetime="2026-03-14T22:00:01.262Z" data-timestamp="2026-03-14T22:00:01.262Z">2026-03-14T22:00:01.262Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>All 4 historical batch analyses running. These are reading through ~160 actual git diffs from the unanalysed batches. Waiting for results.</p></div></div></div>
+<div class="message user" id="msg-2026-03-14T22-01-25-407Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-01-25-407Z" class="timestamp-link"><time datetime="2026-03-14T22:01:25.407Z" data-timestamp="2026-03-14T22:01:25.407Z">2026-03-14T22:01:25.407Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>ad7b8f54b58f52695</task-id>
+<tool-use-id>toolu_01VyJ7XkW275GUXVQNEqrGRG</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/ad7b8f54b58f52695.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Analyse batch 22 historical fixes" completed</summary>
+<p><result>Now I have a comprehensive picture. Let me categorise all the findings.</p>
+<p>Here is my analysis of the 42 commits in batch_022:</p>
+<hr />
+<h2>1. Known Patterns Confirmed</h2>
+<h3>AP-006: Missing can_connect() check / Missing event.defer() on early return</h3>
+<ul>
+<li><strong>Commit:</strong> <code>96665539e292</code> (jenkins-k8s-operator)</li>
+<li><strong>Details:</strong> The <code>relation_joined</code> and <code>relation_changed</code> handlers checked <code>can_connect()</code> and returned early but did not call <code>event.defer()</code>. The fix added <code>event.defer()</code> before the return so the event gets retried when Pebble becomes ready. This is the inverse of AP-006 -- the <code>can_connect()</code> guard existed but didn't defer.</li>
+</ul>
+<h3>AP-040: Requirements pointing to git branch</h3>
+<ul>
+<li><strong>Commit:</strong> <code>1cd804d35998</code> (mattermost-k8s-operator)</li>
+<li><strong>Details:</strong> <code>tox.ini</code> had <code>git+https://github.com/juju/python-libjuju.git</code> and <code>git+https://github.com/charmed-kubernetes/pytest-operator.git</code> as unpinned git dependencies. Fixed by replacing with a requirements.txt with pinned versions.</li>
+</ul>
+<h3>AP-052: Wrong config key name (silent miss)</h3>
+<ul>
+<li><strong>Commit:</strong> <code>144315bec416</code> (mattermost-k8s-operator)</li>
+<li><strong>Details:</strong> Tests used <code>"license"</code> as config key but the actual config.yaml key had been renamed to <code>"licence"</code>. The tests silently passed the wrong key, causing test data to not match what the charm expected.</li>
+</ul>
+<hr />
+<h2>2. Potential New Patterns</h2>
+<h3>Pattern A: Missing event.defer() on not-ready early return (2+ commits)</h3>
+<p><strong>Description:</strong> An event handler checks for readiness conditions (e.g., <code>can_connect()</code>, storage readiness) and returns early if not ready, but fails to call <code>event.defer()</code>. The event is silently dropped and never retried, so the charm never processes it when the subsystem becomes ready.</p>
+<p><strong>Commits:</strong>
+- <code>96665539e292</code> (jenkins-k8s-operator) -- Added <code>event.defer()</code> to 2 handlers that returned early when Pebble/storage not ready</p>
+<p><strong>Why not AP-006:</strong> AP-006 focuses on the absence of the <code>can_connect()</code> check itself. This pattern is different: the check exists, but the handler silently returns instead of deferring. The event is lost. This is a separate anti-pattern about <strong>missing defer on early return due to unready state</strong>.</p>
+<p><strong>Assessment:</strong> This only appeared in 1 commit (though it fixed 4 handler methods). I would flag it as a sub-variant of AP-006 rather than a standalone new pattern. The existing catalogue could be extended to note: "Also check that the early-return path calls <code>event.defer()</code> when appropriate."</p>
+<hr />
+<h3>Pattern B: Unscoped Kubernetes API queries (1 commit)</h3>
+<p><strong>Description:</strong> When listing Kubernetes resources (ingress, pods, etc.), the query lacks a label selector or other scoping filter. In a shared namespace, this returns resources from all applications, leading to incorrect operations (revoking other apps' certificates, managing other apps' ingresses).</p>
+<p><strong>Commit:</strong>
+- <code>ecd1a0c0bafa</code> (nginx-ingress-integrator-operator) -- <code>list_namespaced_ingress(namespace=namespace)</code> was missing <code>label_selector=f"{CREATED_BY_LABEL}={self.charm_app.name}"</code>, so TLS certificate management operated on all ingresses in the namespace, not just ones owned by this charm.</p>
+<p><strong>Code example (before):</strong></p>
+<pre><code class="language-python">ingresses = api.list_namespaced_ingress(namespace=namespace)
+</code></pre>
+<p><strong>Code example (after):</strong></p>
+<pre><code class="language-python">ingresses = api.list_namespaced_ingress(
+    namespace=namespace, label_selector=f&quot;{CREATED_BY_LABEL}={self.charm_app.name}&quot;
+)
+</code></pre>
+<p><strong>Assessment:</strong> Only 1 commit in this batch. Interesting pattern but needs a second occurrence to qualify.</p>
+<hr />
+<h3>Pattern C: Undefined variable reference from wrong scope (1 commit)</h3>
+<p><strong>Description:</strong> Using a local variable name (e.g., <code>config</code>) that shadows or was intended to reference <code>self.model.config</code>, causing <code>NameError</code> or silently reading stale data.</p>
+<p><strong>Commit:</strong>
+- <code>4621a9b3a401</code> (mattermost-k8s-operator) -- <code>config['max_file_size']</code> referenced a local variable <code>config</code> that was not in scope in that function. Fixed to <code>self.model.config['max_file_size']</code>.</p>
+<p><strong>Assessment:</strong> Only 1 commit. This is a generic Python scoping bug, not charm-specific enough for the catalogue.</p>
+<hr />
+<h2>3. Summary</h2>
+<p>The vast majority of commits in this batch fall into these categories and are <strong>not relevant</strong> to the anti-patterns catalogue:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Test-only fixes (fixtures, assertions, imports)</td>
+<td>~15</td>
+</tr>
+<tr>
+<td>Dependency version bumps (renovate bot)</td>
+<td>~10</td>
+</tr>
+<tr>
+<td>Cosmetic (licence headers, copyright year, typos, indentation, linting)</td>
+<td>~10</td>
+</tr>
+<tr>
+<td>Metadata/config fixes (metadata.yaml, charmcraft.yaml)</td>
+<td>~3</td>
+</tr>
+<tr>
+<td>Substantive source code bug fixes</td>
+<td>~4</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Known patterns confirmed:</strong> 3 (AP-006, AP-040, AP-052)</p>
+<p><strong>Potential new patterns with 2+ occurrences:</strong> None definitively. The most promising candidate is the "missing <code>event.defer()</code> on early return" sub-pattern, but it appeared in only 1 commit and is best treated as an extension of AP-006 rather than a standalone entry. The unscoped Kubernetes API query pattern (<code>ecd1a0c0bafa</code>) is interesting but also only 1 occurrence.</p>
+<p><strong>Recommendation:</strong> Consider adding a note to AP-006 that the check should include:</p>
+<blockquote>
+<p>"When the handler returns early because the container is not ready, verify that <code>event.defer()</code> is called so the event is retried. A bare <code>return</code> silently drops the event."</result>
+<usage><total_tokens>55720</total_tokens><tool_uses>14</tool_uses><duration_ms>96994</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/ad7b8f54b58f52695.output</p>
+</blockquote></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-01-34-169Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-01-34-169Z" class="timestamp-link"><time datetime="2026-03-14T22:01:34.169Z" data-timestamp="2026-03-14T22:01:34.169Z">2026-03-14T22:01:34.169Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p><strong>Batch 22</strong> (IS: jenkins, mattermost, nginx-ingress) — mostly test/dependency fixes. 3 known patterns confirmed (AP-006, AP-040, AP-052), no new multi-occurrence patterns. Good suggestion to extend AP-006 to note missing <code>event.defer()</code> on early return.</p>
+<p>Waiting on batches 9, 39, 53.</p></div></div></div>
+<div class="message user" id="msg-2026-03-14T22-02-16-458Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-02-16-458Z" class="timestamp-link"><time datetime="2026-03-14T22:02:16.458Z" data-timestamp="2026-03-14T22:02:16.458Z">2026-03-14T22:02:16.458Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a65a6de4b0d8c7a64</task-id>
+<tool-use-id>toolu_01T9WzhmMdDqsJcG1gYjzmLb</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a65a6de4b0d8c7a64.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Analyse batch 53 historical fixes" completed</summary>
+<p><result>Now I have enough information. Let me compile the analysis.</p>
+<h2>Analysis Report</h2>
+<h3>Categorising each commit</h3>
+<p>Skipping the following as test-only or non-Python fixes:
+- <code>a19ef66bc3ea</code> - build constraint for setuptools-scm (charmcraft.yaml only)
+- <code>cb38a3268848</code> - doc link fix in docstring
+- <code>fdc0ee29d786</code> - remove setuptools-scm from pyproject.toml
+- <code>1fb48443bad8</code> - test-only: metadata.yaml -&gt; charmcraft.yaml refs in tests
+- <code>864703354eab</code> - docstring punctuation fix
+- <code>84605f382366</code> - doc link formatting
+- <code>a5a90583ee71</code> - test-only: LogQL query fix
+- <code>843204653e0e</code> - test-only + library API change (PatchState enum removal)
+- <code>43dfda4c253e</code> - test-only: mock fixture
+- <code>9f4c98e8d8de</code> - test-only: missing decorator
+- <code>8cce14b6bbd0</code> - dashboard JSON fixes only
+- <code>f25e367416a6</code> - test-only: assertion logic
+- <code>b1b24b1d7af0</code> - test-only: add retry
+- <code>8e73633d8fee</code>, <code>46e0f88a6301</code> - test-only: channel changes
+- <code>7a22e3f4fdae</code> - alert rule file extension change (.yaml -&gt; .rule)
+- <code>8728317e9134</code> - peer relation added (feature, not bug fix pattern)
+- <code>b94dc773a055</code> - nginx image bump + library cleanup
+- <code>78ef5f48449c</code> - dependency version bump only</p>
+<hr />
+<h3>1. Known Patterns Confirmed</h3>
+<p><strong>AP-027: Hardcoded http scheme</strong>
+- Commit <code>6e7b6f4b381f</code> (loki-k8s-operator): <code>_url()</code> method hardcoded <code>"http://"</code> instead of using <code>self.scheme</code>. Fix: <code>f"{self.scheme}://{socket.getfqdn()}:{self.port}"</code></p>
+<p><strong>AP-006: Missing can_connect() check</strong>
+- Commit <code>77f6d808300b</code> (loki-k8s-operator): <code>container.pull()</code> called without checking <code>can_connect()</code> first. Fix added <code>can_connect()</code> guard and <code>try/except</code> for <code>ProtocolError, PathError</code>.</p>
+<p><strong>AP-009: Container name assumption</strong>
+- Commit <code>75467431f66d</code> (mimir-coordinator-k8s-operator): <code>container_name="charm"</code> was wrong; should have been <code>"nginx"</code>. The resource patch was applied to the wrong container.</p>
+<p><strong>AP-028: Missing port/path in URL</strong>
+- Commits <code>a45c85887694</code>, <code>7679f2cc2856</code>, <code>45753759ebec</code> (mimir-coordinator-k8s-operator, 3 commits across 2 branches): URL for Prometheus API was missing the <code>/prometheus</code> path suffix. The root URL was exposed instead of the correct subpath.</p>
+<p><strong>AP-055: None value in f-string URL interpolation</strong>
+- Commits <code>a45c85887694</code>, <code>45753759ebec</code> (mimir-coordinator-k8s-operator): <code>ingress_url=f"{self.external_url}/prometheus"</code> would produce <code>"None/prometheus"</code> when <code>external_url</code> is None. Fix: <code>f"{self.external_url}/prometheus" if self.external_url else None</code></p>
+<p><strong>AP-024: Wrong rate interval</strong>
+- Commit <code>8cce14b6bbd0</code> (loki-k8s-operator): Dashboard used <code>[1m]</code> inside <code>irate()</code> instead of <code>[$__rate_interval]</code>.</p>
+<p><strong>AP-019: World-readable credential/binary files (related)</strong>
+- Commit <code>1a0754d6edc0</code> (loki-k8s-operator): <code>cos-tool</code> binary had <code>chmod 0o777</code> (world-writable). Fix: changed to <code>chmod 775</code> and removed runtime chmod from library. CIS hardening requirement.</p>
+<p><strong>AP-036: Narrow except clause</strong>
+- Commit <code>1a0754d6edc0</code> (loki-k8s-operator): Changed <code>except NotImplementedError</code> and separate <code>except FileNotFoundError</code> to <code>except (FileNotFoundError, OSError)</code>.</p>
+<p><strong>AP-029: ActiveStatus / status issues</strong>
+- Commit <code>0108e0a03b68</code> (loki-k8s-operator): Grafana datasource source_url was using <code>internal_url</code> instead of <code>_external_url</code>, which would cause Grafana to fail connecting to Loki from outside the cluster.</p>
+<hr />
+<h3>2. Potential New Patterns</h3>
+<p><strong>Pattern A: Wrong dictionary key names for library/API consumption (2+ instances)</strong></p>
+<p>Commits:
+- <code>6c26adf5a7c8</code> (loki-k8s-operator): Proxy dict keys used <code>"https_proxy"</code>, <code>"http_proxy"</code>, <code>"no_proxy"</code> but Python's <code>ProxyHandler</code> expects <code>"https"</code>, <code>"http"</code>, <code>"no"</code>.
+- <code>6c26adf5a7c8</code> same fix applied in both v0 and v1 of the library.</p>
+<p>Code example:</p>
+<pre><code class="language-python"># Bug:
+proxies = {
+    &quot;https_proxy&quot;: os.environ.get(&quot;JUJU_CHARM_HTTPS_PROXY&quot;, &quot;&quot;),
+    &quot;http_proxy&quot;: os.environ.get(&quot;JUJU_CHARM_HTTP_PROXY&quot;, &quot;&quot;),
+    &quot;no_proxy&quot;: os.environ.get(&quot;JUJU_CHARM_NO_PROXY&quot;, &quot;&quot;),
+}
+# Fix:
+proxies = {
+    &quot;https&quot;: os.environ.get(&quot;JUJU_CHARM_HTTPS_PROXY&quot;, &quot;&quot;),
+    &quot;http&quot;: os.environ.get(&quot;JUJU_CHARM_HTTP_PROXY&quot;, &quot;&quot;),
+    &quot;no&quot;: os.environ.get(&quot;JUJU_CHARM_NO_PROXY&quot;, &quot;&quot;),
+}
+</code></pre>
+<p>This is a single commit (even though touching two library versions), so it does not reach the 2+ threshold. Noting it as a singleton.</p>
+<p><strong>Pattern B: Using local time instead of UTC for time-sensitive operations (1 instance)</strong></p>
+<p>Commit:
+- <code>5c42457694be</code> (loki-k8s-operator): <code>datetime.date.today()</code> uses local time, but Loki's schema config <code>from</code> field expects UTC dates.</p>
+<p>Code example:</p>
+<pre><code class="language-python"># Bug:
+today = datetime.date.today()
+# Fix:
+today = datetime.datetime.now(datetime.timezone.utc)
+</code></pre>
+<p>Single instance only.</p>
+<p><strong>Pattern C: Missing <code>.get()</code> for dict key access on potentially empty config (2 instances)</strong></p>
+<p>Commits:
+- <code>77f6d808300b</code> (loki-k8s-operator): <code>self._current_config["clients"]</code> raises <code>KeyError</code> when config is empty dict (from failed pull). Fix: <code>self._current_config.get("clients")</code>.
+- <code>77f6d808300b</code> (same commit): Also added error handling for the <code>container.pull()</code> that produces this empty dict.</p>
+<p>Single commit, but combined with the broader pattern of "dict access on data that may not have expected structure" this is related to existing AP patterns. Not enough distinct commits.</p>
+<p><strong>Pattern D: Applying workload configuration to wrong target (2 instances)</strong></p>
+<p>Commits:
+- <code>75467431f66d</code> (mimir-coordinator-k8s-operator): Resource patch applied to <code>container_name="charm"</code> instead of <code>"nginx"</code>.
+- <code>0108e0a03b68</code> (loki-k8s-operator): Grafana datasource <code>source_url</code> set to <code>internal_url</code> (cluster-internal) instead of <code>_external_url</code> (externally reachable).</p>
+<p>These are both cases where a configuration parameter targets the wrong internal entity. The container name case is partially covered by AP-009 but AP-009 specifically covers using <code>self.meta.name</code> or <code>self.app.name</code> as container name. This is a broader issue: hardcoding the wrong container name as a string literal. However, the two instances here are quite different in nature (one is container name, one is URL choice), so this is not a coherent pattern.</p>
+<p><strong>Pattern E: Missing API subpath in URL exposed over relation data (3 instances)</strong></p>
+<p>Commits:
+- <code>a45c85887694</code> (mimir-coordinator-k8s-operator, track/main): <code>direct_url=self.internal_url</code> missing <code>/prometheus</code> path
+- <code>7679f2cc2856</code> (mimir-coordinator-k8s-operator, track/2): Same fix
+- <code>45753759ebec</code> (mimir-coordinator-k8s-operator, track/2): Same fix again</p>
+<p>Code example:</p>
+<pre><code class="language-python"># Bug:
+prometheus_api.publish(
+    direct_url=self.internal_url,
+    ingress_url=self.external_url,
+)
+# Fix:
+prometheus_api.publish(
+    direct_url=f&quot;{self.internal_url}/prometheus&quot;,
+    ingress_url=f&quot;{self.external_url}/prometheus&quot; if self.external_url else None,
+)
+</code></pre>
+<p>Why not covered by existing AP: AP-028 covers "missing port in URL" but this is about a missing API subpath. The base URL is correct, but the workload serves its API on a subpath (e.g., <code>/prometheus</code>) and the charm exposes the root URL over relation data. AP-028 mentions "URL construction that omits port or uses wrong default" but doesn't explicitly call out missing subpaths in relation data URLs. However, these are all the same fix applied across branches, so it is effectively one bug fixed 3 times.</p>
+<hr />
+<h3>Summary</h3>
+<p><strong>Known patterns confirmed (8 distinct anti-patterns):</strong>
+- AP-006 (missing can_connect) - 1 commit
+- AP-009 (container name assumption) - 1 commit
+- AP-019 (file permissions) - 1 commit
+- AP-024 (wrong rate interval) - 1 commit
+- AP-027 (hardcoded http scheme) - 1 commit
+- AP-028 (missing path in URL) - 3 commits (same fix across branches)
+- AP-036 (narrow except clause) - 1 commit
+- AP-055 (None in f-string URL) - 2 commits</p>
+<p><strong>Potential new patterns: None meeting the 2+ distinct-bug threshold.</strong></p>
+<p>The batch is heavily weighted towards test-only fixes, documentation/link fixes, dependency bumps, and dashboard JSON changes. The non-trivial source code bug fixes largely map to existing anti-patterns. The most notable observations are:</p>
+<ol>
+<li>
+<p>AP-028 (missing path/port in URL) was confirmed across 3 commits but as the same bug fixed on multiple branches. Consider broadening AP-028's description to explicitly mention "missing API subpath" alongside "missing port."</p>
+</li>
+<li>
+<p>The proxy key naming bug (<code>6c26adf5a7c8</code>) is interesting but unique -- it is about using wrong dict keys for a standard library API (<code>ProxyHandler</code>). This could generalise to "wrong key names when constructing dicts consumed by external libraries" but needs more instances from other batches to justify a new anti-pattern entry.</p>
+</li>
+<li>
+<p>The local-time-vs-UTC bug (<code>5c42457694be</code>) is a real hazard for any charm that generates time-sensitive configuration, but appears only once here.</result>
+<usage><total_tokens>60998</total_tokens><tool_uses>20</tool_uses><duration_ms>141604</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a65a6de4b0d8c7a64.output</p>
+</li>
+</ol></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-02-23-491Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-02-23-491Z" class="timestamp-link"><time datetime="2026-03-14T22:02:23.491Z" data-timestamp="2026-03-14T22:02:23.491Z">2026-03-14T22:02:23.491Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p><strong>Batch 53</strong> (Observability: loki, mimir-coordinator) — 8 known patterns confirmed (AP-006, AP-009, AP-019, AP-024, AP-027, AP-028, AP-036, AP-055). No new multi-occurrence patterns. Suggested broadening AP-028 to include missing API subpaths.</p>
+<p>Waiting on batches 9 and 39.</p></div></div></div>
+<div class="message user" id="msg-2026-03-14T22-02-29-545Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-02-29-545Z" class="timestamp-link"><time datetime="2026-03-14T22:02:29.545Z" data-timestamp="2026-03-14T22:02:29.545Z">2026-03-14T22:02:29.545Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a40fdf896f458827a</task-id>
+<tool-use-id>toolu_01JRbMZetg2zavE9B23NRJnn</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a40fdf896f458827a.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Analyse batch 39 historical fixes" completed</summary>
+<p><result>Now I have a good picture of all the commits. Let me categorise the findings.</p>
+<hr />
+<h2>Analysis Results</h2>
+<h3>Commits Reviewed</h3>
+<p>I analysed all entries in batch_039.json. Many commits were duplicates (same fix cherry-picked across branches), test-only, linting-only, or dependency/image bumps. The substantive charm code fixes are:</p>
+<p><strong>Skipped (test-only, linting, deps, image bumps, whitespace, typo-in-docstring, metadata name fixes):</strong>
+- <code>3f0402fc3ecf</code> - test dep pinning
+- <code>89fc983fe622</code>, <code>3e5cb55e122f</code>, <code>c812b145ef54</code> - linting
+- <code>93d476743740</code> - uncomment tests
+- <code>d46eff3e5d94</code> - metadata.yaml name fix (not Python)
+- <code>8e31d7648dc9</code>, <code>fdde676a38ba</code>, <code>dd0b503259ab</code> - charmcraft.yaml / requirements fixes
+- <code>94431329b3f1</code>, <code>cc905250d5c3</code>, <code>8d431c0cd030</code> - image version bumps
+- <code>2770a701a6cb</code> - whitespace in JSON
+- <code>c9cff9b72a30</code> - library LIBID mismatch fix
+- <code>7cd68c77836f</code> - docstring typo
+- <code>a434ab749622</code> - test dep pinning
+- <code>58f8447352b0</code> - test fixes / web-app removal
+- <code>51230751be89</code> - test relation name fix
+- <code>c31941bfe338</code> - charmcraft build-packages
+- <code>02597e872747</code>, <code>a6d557aa2af1</code> - test linting
+- <code>61745b4fa48a</code>, <code>884ff4c8a352</code>, <code>6021ccabca45</code> - proxy env vars (feature addition, not bug fix)</p>
+<p><strong>Substantive charm code fixes analysed:</strong></p>
+<table>
+<thead>
+<tr>
+<th>SHA</th>
+<th>Repo</th>
+<th>Pattern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>c19ef2adba86</code></td>
+<td>knative-operators</td>
+<td>Relation data not sent on config_changed; provider raising on no relations</td>
+</tr>
+<tr>
+<td><code>f80bd6f0c20b</code></td>
+<td>knative-operators</td>
+<td>Stale cached relation data (instance variable vs live read)</td>
+</tr>
+<tr>
+<td><code>2fa7ded0b9ed</code></td>
+<td>knative-operators</td>
+<td>Wrong import (<code>import logger</code> vs <code>import logging</code>), typo in variable name (<code>_conatiner</code>), status set in wrong location</td>
+</tr>
+<tr>
+<td><code>9d5881cc7d65</code> + <code>53a0c7f673be</code></td>
+<td>kserve-operators</td>
+<td>Multiple event handlers doing partial work; refactored to single reconcile handler</td>
+</tr>
+<tr>
+<td><code>ce7259c920be</code> + <code>e16a6eecc3a8</code> + <code>f25cd42cb89b</code></td>
+<td>kserve-operators</td>
+<td>Incomplete error message matching (too-specific string match)</td>
+</tr>
+<tr>
+<td><code>90c0c5ffd45e</code></td>
+<td>kserve-operators</td>
+<td>Wrong ordering: applying K8s resources before starting Pebble service they depend on</td>
+</tr>
+<tr>
+<td><code>a2c6fc574c3e</code></td>
+<td>kserve-operators</td>
+<td>Using Pebble check to gate operations on external service readiness</td>
+</tr>
+<tr>
+<td><code>3e6dd95781d4</code></td>
+<td>kserve-operators</td>
+<td>Missing webhook validation resource + Pebble health checks</td>
+</tr>
+<tr>
+<td><code>e6df8697709c</code> + <code>31f4efc3d1d4</code> + <code>f9be8674cb45</code></td>
+<td>kserve-operators</td>
+<td>Wrong resource deletion order (CRDs deleted before CRs, or resources with webhooks deleted after webhook)</td>
+</tr>
+<tr>
+<td><code>ab699d19254a</code></td>
+<td>kubeflow-dashboard-operator</td>
+<td>Hardcoded model name check (<code>model.name != "kubeflow"</code>)</td>
+</tr>
+<tr>
+<td><code>f1cfcd47c3e0</code></td>
+<td>kubeflow-dashboard-operator</td>
+<td>Missing upgrade_charm event observation in library</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3>1. Known Patterns Confirmed</h3>
+<p><strong>AP-029: ActiveStatus set before all subsystems ready</strong>
+- Commit <code>2fa7ded0b9ed</code> (knative-operators): <code>ActiveStatus()</code> was set unconditionally at the end of <code>_main()</code>, even if <code>_apply_all_resources()</code> succeeded but the Pebble layer failed. Fixed by moving <code>ActiveStatus()</code> into the else branch.</p>
+<p><strong>AP-033: Connection string / relation data not refreshed (stale cached data)</strong>
+- Commit <code>f80bd6f0c20b</code> (knative-operators): Relation data was cached in <code>self._context_ext</code> (instance variable) during <code>relation_changed</code>. On subsequent events, the stale cached copy was used rather than re-reading from the relation data bag. Fixed by replacing the instance variable with a property that reads live from the relation.</p>
+<p><strong>AP-036: Narrow except clause / incomplete error matching</strong>
+- Commits <code>ce7259c920be</code>, <code>e16a6eecc3a8</code>, <code>f25cd42cb89b</code> (kserve-operators): Error handling matched only <code>"connection refused"</code> in the error message, but the same error scenario could also produce <code>"operation not permitted"</code>. Fixed by matching the common prefix <code>"connect: "</code> and also checking <code>e.status.code == 500</code>.</p>
+<p><strong>AP-041: Missing dependency in charmcraft.yaml</strong>
+- Commits <code>8e31d7648dc9</code>, <code>fdde676a38ba</code>, <code>dd0b503259ab</code> (kserve-operators): Binary packages not pinned in <code>charm-binary-python-packages</code>, causing build failures with charmcraft's dependency resolver.</p>
+<hr />
+<h3>2. Potential New Patterns</h3>
+<h4>Pattern A: Relation data not re-sent on config_changed</h4>
+<p><strong>Description:</strong> When a charm provides data to related applications via relation data bags, the data is often only sent in the <code>relation_changed</code> or <code>relation_joined</code> handler. If the provided data depends on config values, changing the config does not trigger re-sending the data, leaving related apps with stale information.</p>
+<p><strong>Commits:</strong>
+- <code>c19ef2adba86</code> (knative-operators): Gateway info (derived from config <code>istio.gateway.name</code>, <code>istio.gateway.namespace</code>) was only sent in <code>_on_ingress_gateway_relation_changed</code>. After the fix, <code>_send_ingress_gateway_data()</code> and <code>_send_local_gateway_data()</code> are also called from <code>_on_config_changed</code>.</p>
+<p><strong>Code example (before fix):</strong></p>
+<pre><code class="language-python">def _on_config_changed(self, _):
+    self._apply_and_set_status()
+    # BUG: never re-sends gateway data to related apps
+
+def _on_ingress_gateway_relation_changed(self, _):
+    self._ingress_gateway_provider.send_gateway_relation_data(
+        gateway_name=self.model.config[&quot;istio.gateway.name&quot;],
+        gateway_namespace=self.model.config[&quot;istio.gateway.namespace&quot;],
+    )
+</code></pre>
+<p><strong>Why not covered:</strong> AP-011 through AP-015 cover relation data issues (overwrite, missing handlers, leader guards) but none address the pattern where config-derived relation data is not re-sent when config changes. This is distinct from AP-033 (stale cached data) because the data is not cached -- it is simply never pushed to the relation on the relevant event.</p>
+<hr />
+<h4>Pattern B: Provider library raising exception when no applications are related</h4>
+<p><strong>Description:</strong> A relation data provider library raises an exception when there are zero related applications. This causes the charm to crash or enter error state during events where the relation may legitimately not exist yet (e.g., <code>config_changed</code> before the relation is established).</p>
+<p><strong>Commits:</strong>
+- <code>c19ef2adba86</code> (knative-operators): <code>GatewayProvider.send_gateway_relation_data()</code> raised <code>GatewayRelationMissingError</code> when <code>not relations</code>. The fix removed this raise, making the method a no-op when there are no relations.</p>
+<p><strong>Code example (before fix):</strong></p>
+<pre><code class="language-python">class GatewayProvider(Object):
+    def send_gateway_relation_data(self, gateway_name, gateway_namespace):
+        relations = self.model.relations[self.relation_name]
+        if not relations:
+            raise GatewayRelationMissingError()  # BUG: crashes when called before relation exists
+        for relation in relations:
+            relation.data[self.provider_charm.app].update({...})
+</code></pre>
+<p><strong>Why not covered:</strong> The existing catalogue covers missing relation checks from the consumer side (AP-035: missing database readiness check) but not the provider pattern where a library unnecessarily raises when it could safely be a no-op. This is a library design anti-pattern.</p>
+<hr />
+<h4>Pattern C: Separate per-event handlers doing partial reconciliation instead of a single reconcile handler</h4>
+<p><strong>Description:</strong> Each event (install, config_changed, pebble_ready, relation_changed) has its own handler that performs only a subset of the full reconciliation. This causes bugs where one handler sets ActiveStatus while another subsystem is not yet ready, or where ordering dependencies between subsystems are violated.</p>
+<p><strong>Commits:</strong>
+- <code>9d5881cc7d65</code> (kserve-operators, Dec 2023): Refactored from separate <code>_on_install</code>, <code>_on_config_changed</code>, <code>_on_kserve_controller_ready</code>, <code>_on_kube_rbac_proxy_ready</code>, <code>_on_ingress_gateway_relation_changed</code>, etc. into a single <code>_on_event</code> handler.
+- <code>53a0c7f673be</code> (kserve-operators, Jul 2024): Same fix cherry-picked to another branch.</p>
+<p><strong>Code example (before fix):</strong></p>
+<pre><code class="language-python">def _on_kserve_controller_ready(self, event):
+    update_layer(...)
+    # TODO determine status checking if rbac proxy is also up
+    self.unit.status = ActiveStatus()  # BUG: sets Active even if K8s resources not applied
+
+def _on_kube_rbac_proxy_ready(self, event):
+    update_layer(...)
+    # TODO determine status checking if controller is also up
+    self.unit.status = ActiveStatus()  # BUG: sets Active even if controller not ready
+</code></pre>
+<p><strong>Why not covered:</strong> AP-029 covers "ActiveStatus set before all subsystems ready" but focuses on the status-setting symptom. This pattern is about the structural issue of having multiple partial reconcilers instead of a single full-reconciliation handler. The root cause is the architectural choice, not just the status call.</p>
+<hr />
+<h4>Pattern D: Wrong operation ordering -- applying K8s resources before starting the service they depend on</h4>
+<p><strong>Description:</strong> When applying Kubernetes resources (e.g., custom resources with validating webhooks), the charm applies the resources before starting the Pebble service that serves the webhook. This causes the K8s API server to reject the resources because the webhook endpoint is unreachable.</p>
+<p><strong>Commits:</strong>
+- <code>90c0c5ffd45e</code> (kserve-operators): Moved <code>update_layer()</code> and <code>_restart_controller_service()</code> to run before <code>cluster_runtimes_resource_handler.apply()</code>, because the ClusterServingRuntime CRs need to go through a validating webhook served by the kserve-controller.
+- <code>a2c6fc574c3e</code> (kserve-operators): Further refined by using a Pebble check to verify the webhook is actually up before applying the CRs.</p>
+<p><strong>Code example (before fix):</strong></p>
+<pre><code class="language-python">def _on_event(self, event):
+    self.k8s_resource_handler.apply()
+    self.cm_resource_handler.apply()
+    self.cluster_runtimes_resource_handler.apply()  # BUG: webhook not up yet, fails
+    # ...
+    update_layer(...)  # starts the service that serves the webhook
+    self._restart_controller_service()
+</code></pre>
+<p><strong>Why not covered:</strong> No existing AP addresses operation ordering within a reconciler. AP-006 covers missing <code>can_connect()</code> checks, and AP-048 covers <code>exec()</code> without <code>wait()</code>, but neither covers the broader pattern of applying K8s resources that depend on a service before that service is started.</p>
+<hr />
+<h4>Pattern E: Missing upgrade_charm event observation in charm library</h4>
+<p><strong>Description:</strong> A charm library that sends relation data on <code>relation_created</code> does not observe <code>upgrade_charm</code>. After a charm upgrade, the library code may change what data it sends (e.g., new fields), but since <code>relation_created</code> does not fire again for existing relations, the relation data is never updated.</p>
+<p><strong>Commits:</strong>
+- <code>f1cfcd47c3e0</code> (kubeflow-dashboard-operator): <code>KubeflowDashboardLinksRequirer</code> was only sending data on <code>relation_created</code>. Added <code>self.framework.observe(self._charm.on.upgrade_charm, self._on_send_data)</code>.</p>
+<p><strong>Code example (before fix):</strong></p>
+<pre><code class="language-python">class KubeflowDashboardLinksRequirer(Object):
+    def __init__(self, ...):
+        self.framework.observe(
+            self._charm.on[self._relation_name].relation_created, self._on_send_data
+        )
+        # BUG: after charm upgrade, relation_created won't fire for existing relations
+        # so any new/changed data in the library won't be sent
+</code></pre>
+<p><strong>Why not covered:</strong> No existing AP covers the pattern of libraries that fail to re-send data on upgrade_charm. This is distinct from AP-012 (missing relation_broken handler) and the config_changed pattern above. It is specifically about library authors forgetting that upgrades can change the data format or content.</p>
+<hr />
+<h4>Pattern F: Hardcoded model/namespace name assumption</h4>
+<p><strong>Description:</strong> Charm code checks that <code>self.model.name</code> equals a specific string (e.g., <code>"kubeflow"</code>) and blocks deployment otherwise. This prevents deployment in any model with a different name, even when the underlying upstream issue has been resolved.</p>
+<p><strong>Commits:</strong>
+- <code>ab699d19254a</code> (kubeflow-dashboard-operator): Removed <code>_check_model_name()</code> which required <code>self.model.name != "kubeflow"</code>. Also fixed a Grafana dashboard that hardcoded <code>juju_model=~"kubeflow"</code> instead of using the template variable <code>{{juju_model}}</code>.</p>
+<p><strong>Code example (before fix):</strong></p>
+<pre><code class="language-python">def _check_model_name(self):
+    if self.model.name != &quot;kubeflow&quot;:
+        raise CheckFailed(
+            &quot;kubeflow-dashboard must be deployed to model named `kubeflow`&quot;,
+            BlockedStatus,
+        )
+</code></pre>
+<p><strong>Why not covered:</strong> AP-009 covers container name assumptions but no AP covers hardcoded model name assumptions. This is a related but distinct pattern -- the charm assumes it will only be deployed in a specific Juju model name.</p>
+<hr />
+<h3>Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Known patterns confirmed</td>
+<td>4 (AP-029, AP-033, AP-036, AP-041)</td>
+</tr>
+<tr>
+<td>Potential new patterns</td>
+<td>6 (A through F)</td>
+</tr>
+</tbody>
+</table>
+<p>The most actionable new patterns (appearing in 2+ commits) are:</p>
+<ol>
+<li><strong>Pattern C</strong> (partial reconcilers instead of single handler) -- 3 commits across 2 branches. Very common in MLOps charms and a recurring source of status bugs.</li>
+<li><strong>Pattern D</strong> (wrong operation ordering with webhooks) -- 3 commits in the same repo, each iterating on the fix. Indicates the pattern is hard to get right.</li>
+<li><strong>Pattern A</strong> (relation data not re-sent on config_changed) -- while only 1 commit, it is combined with Pattern B (provider raising on no relations) in the same fix, suggesting these are related and both worth cataloguing.</result>
+<usage><total_tokens>81459</total_tokens><tool_uses>16</tool_uses><duration_ms>157780</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a40fdf896f458827a.output</li>
+</ol></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-02-48-762Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-02-48-762Z" class="timestamp-link"><time datetime="2026-03-14T22:02:48.762Z" data-timestamp="2026-03-14T22:02:48.762Z">2026-03-14T22:02:48.762Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p><strong>Batch 39</strong> (MLOps: knative, kserve, kubeflow-dashboard) — the most interesting one so far. 4 known patterns confirmed, plus <strong>6 potential new patterns</strong>:</p>
+<ul>
+<li><strong>Pattern C</strong>: Partial per-event reconcilers instead of single handler (3 commits) — root cause of many status bugs</li>
+<li><strong>Pattern D</strong>: Wrong operation ordering with K8s webhooks (3 commits) — apply CRs before the webhook service is running</li>
+<li><strong>Pattern E</strong>: Library missing <code>upgrade_charm</code> observation (1 commit) — relation data never updated after upgrade</li>
+<li><strong>Pattern F</strong>: Hardcoded model name assumption (1 commit)</li>
+<li><strong>Pattern A/B</strong>: Config-derived relation data not re-sent on config_changed + provider raising on no relations</li>
+</ul>
+<p>Waiting on batch 9 (Data: mysql).</p></div></div></div>
+<div class="message user" id="msg-2026-03-14T22-02-48-954Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-02-48-954Z" class="timestamp-link"><time datetime="2026-03-14T22:02:48.954Z" data-timestamp="2026-03-14T22:02:48.954Z">2026-03-14T22:02:48.954Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a5caefe0095a3f4e8</task-id>
+<tool-use-id>toolu_01DFG975eigQqKthb7634gMy</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a5caefe0095a3f4e8.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Analyse batch 9 historical fixes" completed</summary>
+<p><result>Now I have a good picture of all the patterns. Let me compile the analysis.</p>
+<hr />
+<h2>Analysis Report</h2>
+<h3>1. Known Patterns Confirmed</h3>
+<p>The following existing anti-patterns appeared in the batch:</p>
+<p><strong>AP-006: Missing can_connect() check</strong>
+- <code>c67ed7abd148</code> (mysql-k8s-operator): <code>self.unit.get_container(CONTAINER_NAME)</code> was used as a truthiness check, but the container object is always truthy. The fix added <code>.can_connect()</code>.</p>
+<p><strong>AP-018: Credential logging</strong>
+- <code>7c6b1206fcbc</code> (mysql-k8s-operator) and <code>1fb61c1ee3e3</code> (mysql-operator): Both commits removed passwords from connection strings that were passed through CLI arguments and logged in exceptions. The fix changed <code>logger.exception(f"... with error {e.message}", exc_info=e)</code> to <code>logger.error(f"... for: {self.instance_address}")</code>, removing the exception details that might contain credentials.</p>
+<p><strong>AP-020: Credentials in CLI arguments</strong>
+- <code>7c6b1206fcbc</code> (mysql-k8s-operator) and <code>1fb61c1ee3e3</code> (mysql-operator): Passwords were embedded in connection strings passed as arguments to mysqlsh scripts (e.g. <code>shell.connect('{user}:{password}@{host}')</code>). The fix moved to passing credentials separately via user/password parameters.</p>
+<p><strong>AP-029: ActiveStatus set before all subsystems ready</strong>
+- <code>1edd406a131f</code> (mysql-k8s-operator): <code>ActiveStatus</code> was set directly after a container restart without calling <code>_on_update_status</code> to check the actual cluster state. The fix replaced the direct <code>ActiveStatus</code> with a call to <code>_on_update_status(None)</code>.</p>
+<p><strong>AP-036: Narrow except clause</strong>
+- <code>636ca92b22e4</code> (mysql-k8s-operator): <code>except ExecError</code> was too narrow -- <code>APIError</code> could also be raised by Pebble operations. The fix broadened it to <code>except (ExecError, APIError)</code>.</p>
+<hr />
+<h3>2. Potential New Patterns</h3>
+<h4>Pattern A: <code>lstrip()</code> used as <code>removeprefix()</code> for path/string prefix stripping</h4>
+<p><strong>Description:</strong> <code>str.lstrip()</code> removes individual <em>characters</em>, not a prefix. When used to strip a directory prefix from a path, it can eat into the filename if any leading characters of the filename match characters in the prefix string.</p>
+<p><strong>Commits:</strong>
+- <code>127f00bb5454</code> (mysql-k8s-operator): <code>key.lstrip(s3_path_directory).split("/")[0]</code> changed to <code>key.removeprefix(s3_path_directory)</code></p>
+<p><strong>Before:</strong></p>
+<pre><code class="language-python">filename = key.lstrip(s3_path_directory).split(&quot;/&quot;)[0]
+</code></pre>
+<p><strong>After:</strong></p>
+<pre><code class="language-python">filename = key.removeprefix(s3_path_directory)
+</code></pre>
+<p><strong>Why not covered:</strong> AP-049 covers hardcoded string slicing for file extensions, but this is a different bug: using <code>lstrip()</code>/<code>rstrip()</code> for prefix/suffix removal. <code>lstrip("abc/def")</code> removes any leading <code>a</code>, <code>b</code>, <code>c</code>, <code>/</code>, <code>d</code>, <code>e</code>, or <code>f</code> characters individually, which silently corrupts the result. This is a well-known Python footgun that is both searchable (<code>lstrip(</code> with a multi-character argument) and actionable.</p>
+<hr />
+<h4>Pattern B: <code>self.unit</code> in an Object subclass instead of <code>self.charm.unit</code></h4>
+<p><strong>Description:</strong> In classes that inherit from <code>ops.framework.Object</code> (relation handlers, libraries), <code>self.unit</code> does not exist. The author likely intended <code>self.charm.unit</code>. If <code>self.unit</code> is set on the Object accidentally (e.g. via <code>__init__</code>), it may refer to the wrong thing.</p>
+<p><strong>Commits:</strong>
+- <code>e64949687373</code> (mysql-k8s-operator): <code>self.unit.status = BlockedStatus(...)</code> changed to <code>self.charm.unit.status = BlockedStatus(...)</code></p>
+<p><strong>Before:</strong></p>
+<pre><code class="language-python">self.unit.status = BlockedStatus(&quot;Missing `osm-mysql` relation data&quot;)
+</code></pre>
+<p><strong>After:</strong></p>
+<pre><code class="language-python">self.charm.unit.status = BlockedStatus(&quot;Missing `osm-mysql` relation data&quot;)
+</code></pre>
+<p><strong>Why not covered:</strong> No existing AP covers this. This is a single-commit pattern in this batch, so it does not meet the 2+ threshold. Noted for future reference but not promoted.</p>
+<hr />
+<h4>Pattern C: Missing readiness guard in relation/event handler (handler assumes initialisation is complete)</h4>
+<p><strong>Description:</strong> Event handlers (especially <code>leader_elected</code>, <code>relation_created</code>) that perform operations requiring the cluster/database to be fully initialised, without checking initialisation state. The handler fails or produces wrong results when fired before setup is complete.</p>
+<p><strong>Commits:</strong>
+- <code>8d7bf9418ce7</code> (mysql-operator): <code>_on_leader_elected</code> called <code>get_cluster_primary_address()</code> without guarding for the case where the cluster was not yet formed. Fix: wrap in try/except and bail out early.
+- <code>025afd666eec</code> (mysql-k8s-operator): <code>_cos_relation_created</code> did not check if <code>cluster-name</code> was set in peer data. Fix: check and defer if not ready.
+- <code>29437d308c07</code> (mysql-k8s-operator): <code>_on_leader_elected</code> in <code>MySQLRootRelation</code> only checked <code>_is_peer_data_set</code> but not <code>unit_initialized()</code> or <code>member-state</code>. Fix: add the missing guards and defer.
+- <code>1edd406a131f</code> (mysql-k8s-operator): <code>_on_peer_relation_changed</code> processed self-unit join events. Fix: skip when <code>event.unit.name == self.unit.name</code>.</p>
+<p><strong>Before (example from 8d7bf9418ce7):</strong></p>
+<pre><code class="language-python">def _on_leader_elected(self, _) -&gt; None:
+    ...
+    primary_address = self.charm._mysql.get_cluster_primary_address()
+</code></pre>
+<p><strong>After:</strong></p>
+<pre><code class="language-python">def _on_leader_elected(self, _) -&gt; None:
+    ...
+    try:
+        primary_address = self.charm._mysql.get_cluster_primary_address()
+    except MySQLGetClusterPrimaryAddressError:
+        logger.debug(&quot;First leader elected run, bailing out.&quot;)
+        return
+</code></pre>
+<p><strong>Why not covered:</strong> AP-035 covers "missing database readiness check" for generic database operations, but this is specifically about <strong>event handlers assuming the charm/cluster is fully initialised</strong> when they fire. Events like <code>leader-elected</code> and <code>relation-created</code> can fire very early in the charm lifecycle, before the workload is running. This is a broader pattern about event ordering assumptions, not just database readiness. It's actionable: search for event handlers that call workload-dependent methods without checking initialisation state.</p>
+<hr />
+<h4>Pattern D: SQL query result parsed with wrong split logic</h4>
+<p><strong>Description:</strong> Output from <code>mysqlsh</code> or <code>mysql</code> CLI is parsed by splitting on whitespace or newlines, but the parsing logic does not account for the actual output format (e.g., header rows, empty columns, tab separators). This produces wrong results or crashes.</p>
+<p><strong>Commits:</strong>
+- <code>29c6c1f4cbe8</code> (mysql-k8s-operator): <code>output.lower().split()</code> on <code>mysqlsh</code> print output was changed to split by <code>\n</code>, take <code>lines[1]</code> (skip header), then split by whitespace. Also added a length check <code>if len(lines) &lt; 2</code>.
+- <code>98ffa4411d92</code> (mysql-k8s-operator): <code>self._execute_query(query)[0][0]</code> returned a version string like <code>"8.0.23-3build1"</code> but the code expected just <code>"8.0.23"</code>. Fix: <code>.split("-")[0]</code>.</p>
+<p><strong>Before (from 29c6c1f4cbe8):</strong></p>
+<pre><code class="language-python">output = self._run_mysqlsh_script(&quot;\n&quot;.join(member_state_commands), timeout=10)
+results = output.lower().split()
+</code></pre>
+<p><strong>After:</strong></p>
+<pre><code class="language-python">output = self._run_mysqlcli_script(member_state_query, ...)
+lines = output.lower().split(&quot;\n&quot;)
+if len(lines) &lt; 2:
+    raise MySQLGetMemberStateError(&quot;No member state retrieved&quot;)
+results = lines[1].split()
+</code></pre>
+<p><strong>Why not covered:</strong> This is a fairly domain-specific pattern (MySQL output parsing). While it appeared in 2 commits, both are in the same codebase working with the same MySQL CLI output. It is not easily generalised to a cross-charm anti-pattern, though it could be seen as a case of "fragile output parsing" -- parsing CLI output by positional splitting without validation.</p>
+<hr />
+<h4>Pattern E: Incomplete exception propagation (exception message logged but contains sensitive data)</h4>
+<p><strong>Description:</strong> <code>logger.exception()</code> with <code>exc_info=e</code> or <code>f"... with error {e.message}"</code> leaks exception details that contain credentials (from connection strings, CLI arguments, etc.).</p>
+<p><strong>Commits:</strong>
+- <code>7c6b1206fcbc</code> (mysql-k8s-operator): Changed <code>logger.exception(f"Failed to configure users for: {self.instance_address} with error {e.message}", exc_info=e)</code> to <code>logger.error(f"Failed to configure users for: {self.instance_address}")</code>
+- <code>1fb61c1ee3e3</code> (mysql-operator): Same pattern, same shared library.</p>
+<p><strong>Before:</strong></p>
+<pre><code class="language-python">except MySQLClientError as e:
+    logger.exception(
+        f&quot;Failed to configure users for: {self.instance_address} with error {e.message}&quot;,
+        exc_info=e,
+    )
+    raise MySQLConfigureMySQLUsersError(e.message)
+</code></pre>
+<p><strong>After:</strong></p>
+<pre><code class="language-python">except MySQLClientError:
+    logger.error(f&quot;Failed to configure users for: {self.instance_address}&quot;)
+    raise MySQLConfigureMySQLUsersError
+</code></pre>
+<p><strong>Why not covered:</strong> AP-018 covers explicitly logging passwords, but this is subtler: exception messages and tracebacks from external tool invocations can <em>implicitly</em> contain credentials (e.g., the failed command line includes a connection string with the password). Using <code>logger.exception()</code> with <code>exc_info=</code> on such exceptions leaks credentials through the traceback. This is an extension of AP-018 but distinct enough to be a separate pattern. However, the two commits are from the same shared library change applied to two repos, so it's really a single fix.</p>
+<hr />
+<h3>Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Pattern</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AP-006</td>
+<td>Missing can_connect()</td>
+<td><strong>Confirmed</strong></td>
+</tr>
+<tr>
+<td>AP-018/020</td>
+<td>Credentials in logs/CLI args</td>
+<td><strong>Confirmed</strong></td>
+</tr>
+<tr>
+<td>AP-029</td>
+<td>ActiveStatus before ready</td>
+<td><strong>Confirmed</strong></td>
+</tr>
+<tr>
+<td>AP-036</td>
+<td>Narrow except clause</td>
+<td><strong>Confirmed</strong></td>
+</tr>
+<tr>
+<td>Pattern A</td>
+<td><code>lstrip()</code> as <code>removeprefix()</code></td>
+<td><strong>Potential new</strong> (1 commit, but very actionable and universal)</td>
+</tr>
+<tr>
+<td>Pattern C</td>
+<td>Missing initialisation guard in event handler</td>
+<td><strong>Potential new</strong> (4 commits across 2 repos)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation:</strong> Pattern C (missing initialisation guard in event handlers) is the strongest candidate for a new anti-pattern entry. It appeared in 4 separate commits across both mysql-k8s-operator and mysql-operator, and is highly actionable: the skill could search for <code>leader_elected</code> and <code>relation_created</code> handlers that call workload methods without checking initialisation state (e.g., checking peer data flags, <code>unit_initialized()</code>, or <code>member-state</code>).</p>
+<p>Pattern A (<code>lstrip</code> as <code>removeprefix</code>) only appeared once in this batch, but it is a classic Python footgun that is trivially searchable (<code>lstrip(</code> or <code>rstrip(</code> with a multi-character string argument). It may be worth adding if other batches confirm it.</result>
+<usage><total_tokens>67148</total_tokens><tool_uses>22</tool_uses><duration_ms>175852</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data-charming-analysis/93bff0df-f5c5-418b-ad91-8608aeb90620/tasks/a5caefe0095a3f4e8.output</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-03-09-465Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-03-09-465Z" class="timestamp-link"><time datetime="2026-03-14T22:03:09.465Z" data-timestamp="2026-03-14T22:03:09.465Z">2026-03-14T22:03:09.465Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>All 4 batch analyses complete. Here's the synthesis:</p>
+<h3>What the historical data tells us</h3>
+<p><strong>Known patterns confirmed across all 4 batches:</strong> AP-006, AP-018, AP-020, AP-027, AP-028, AP-029, AP-033, AP-036, AP-041, AP-052, AP-055 — the catalogue is covering the recurring patterns well.</p>
+<p><strong>Most promising new patterns from the unanalysed historical data:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Occurrences</th>
+<th>Source</th>
+<th>Actionable?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Missing initialisation guard in early-lifecycle event handlers</td>
+<td>4 commits, 2 repos</td>
+<td>Batch 9 (mysql)</td>
+<td>Yes — search for <code>leader_elected</code>/<code>relation_created</code> handlers calling workload methods without init checks</td>
+</tr>
+<tr>
+<td>Partial per-event reconcilers instead of single handler</td>
+<td>3 commits, 1 repo</td>
+<td>Batch 39 (kserve)</td>
+<td>Structural — hard to grep for, but good for step 3 "novel bug hunting"</td>
+</tr>
+<tr>
+<td>Wrong K8s resource ordering with webhooks</td>
+<td>3 commits, 1 repo</td>
+<td>Batch 39 (kserve)</td>
+<td>Niche — K8s-specific, mostly Kubeflow</td>
+</tr>
+<tr>
+<td><code>lstrip()</code>/<code>rstrip()</code> used as <code>removeprefix()</code>/<code>removesuffix()</code></td>
+<td>1 commit</td>
+<td>Batch 9 (mysql)</td>
+<td>Very searchable — <code>lstrip(</code> with multi-char arg</td>
+</tr>
+<tr>
+<td>Config-derived relation data not re-sent on config_changed</td>
+<td>1 commit</td>
+<td>Batch 39 (knative)</td>
+<td>Moderate — requires tracing data flow</td>
+</tr>
+<tr>
+<td>Missing <code>upgrade_charm</code> observation in libraries</td>
+<td>1 commit</td>
+<td>Batch 39 (kubeflow-dashboard)</td>
+<td>Moderate</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The verdict:</strong> The existing catalogue already covers the majority of recurring patterns. The historical data confirms this — most source-code fixes in the unanalysed batches map to existing APs or are one-off/test-only fixes. The two strongest candidates for new anti-patterns are:</p>
+<ol>
+<li><strong>Missing initialisation guard</strong> (4 commits) — but this is quite specific to database charms with complex init sequences</li>
+<li><strong><code>lstrip</code> as <code>removeprefix</code></strong> (1 commit) — only 1 occurrence but it's a classic Python footgun that's trivially searchable</li>
+</ol>
+<p>The batch analysis also validates your earlier observation about diminishing returns — the skill's current anti-pattern catalogue is comprehensive enough that the unexamined historical data isn't revealing major gaps. The patterns that are "missing" tend to be either highly repo-specific (MySQL CLI output parsing), structural (partial reconcilers — hard to grep for), or very niche (K8s webhook ordering).</p>
+<p>Want me to add the <code>lstrip</code>-as-<code>removeprefix</code> pattern (it's so searchable it's basically free) and note the initialisation guard pattern, or leave the catalogue as-is?</p></div></div></div>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-011.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<a href="page-004.html">4</a>
+<a href="page-005.html">5</a>
+<a href="page-006.html">6</a>
+<a href="page-007.html">7</a>
+<a href="page-008.html">8</a>
+<a href="page-009.html">9</a>
+<a href="page-010.html">10</a>
+<a href="page-011.html">11</a>
+<span class="current">12</span>
+<a href="page-013.html">13</a>
+<a href="page-013.html">Next &rarr;</a>
+</div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>

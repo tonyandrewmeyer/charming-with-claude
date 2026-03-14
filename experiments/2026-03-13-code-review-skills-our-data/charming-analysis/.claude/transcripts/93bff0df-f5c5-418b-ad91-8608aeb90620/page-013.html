@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 13</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 13/13</h1>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-012.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<a href="page-004.html">4</a>
+<a href="page-005.html">5</a>
+<a href="page-006.html">6</a>
+<a href="page-007.html">7</a>
+<a href="page-008.html">8</a>
+<a href="page-009.html">9</a>
+<a href="page-010.html">10</a>
+<a href="page-011.html">11</a>
+<a href="page-012.html">12</a>
+<span class="current">13</span>
+<span class="disabled">Next &rarr;</span>
+</div>
+
+        
+<div class="message user" id="msg-2026-03-14T22-03-53-651Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-03-53-651Z" class="timestamp-link"><time datetime="2026-03-14T22:03:53.651Z" data-timestamp="2026-03-14T22:03:53.651Z">2026-03-14T22:03:53.651Z</time></a></div><div class="message-content">
+<div class="user-content"><p>yes, let's add what you found</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-04-00-240Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-04-00-240Z" class="timestamp-link"><time datetime="2026-03-14T22:04:00.240Z" data-timestamp="2026-03-14T22:04:00.240Z">2026-03-14T22:04:00.240Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_011kXfi412ZR8RS5iXujqG3x"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md&#34;,
+  &#34;offset&#34;: 440,
+  &#34;limit&#34;: 30
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-04-00-286Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-04-00-286Z" class="timestamp-link"><time datetime="2026-03-14T22:04:00.286Z" data-timestamp="2026-03-14T22:04:00.286Z">2026-03-14T22:04:00.286Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   440→### AP-065: Implicit None return used as valid value
+   441→- **Search:** Functions with `-&gt; str` return type that have code paths with no explicit `return`
+   442→- **Bug:** A function iterates over options and returns a value when found, but has no return statement after the loop. Callers use the result in f-strings or `.add()`, producing `&quot;None:30123&quot;` or adding `None` to sets.
+   443→- **False positive:** When callers explicitly check for None before using the result
+   444→- **Fix:** Add explicit `return None` after the loop and add a None guard in the caller
+   445→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-04-25-558Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-04-25-558Z" class="timestamp-link"><time datetime="2026-03-14T22:04:25.558Z" data-timestamp="2026-03-14T22:04:25.558Z">2026-03-14T22:04:25.558Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_019ukyAR61dC4qiCMn9f94Mn">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">anti-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">### AP-065: Implicit None return used as valid value
+- **Search:** Functions with `-&gt; str` return type that have code paths with no explicit `return`
+- **Bug:** A function iterates over options and returns a value when found, but has no return statement after the loop. Callers use the result in f-strings or `.add()`, producing `&#34;None:30123&#34;` or adding `None` to sets.
+- **False positive:** When callers explicitly check for None before using the result
+- **Fix:** Add explicit `return None` after the loop and add a None guard in the caller</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">### AP-065: Implicit None return used as valid value
+- **Search:** Functions with `-&gt; str` return type that have code paths with no explicit `return`
+- **Bug:** A function iterates over options and returns a value when found, but has no return statement after the loop. Callers use the result in f-strings or `.add()`, producing `&#34;None:30123&#34;` or adding `None` to sets.
+- **False positive:** When callers explicitly check for None before using the result
+- **Fix:** Add explicit `return None` after the loop and add a None guard in the caller
+
+### AP-066: lstrip/rstrip used as removeprefix/removesuffix
+- **Search:** `lstrip(` or `rstrip(` with a multi-character string argument (not single char)
+- **Bug:** `path.lstrip(&#34;s3://bucket/&#34;)` removes individual *characters* `s`, `3`, `:`, `/`, `b`, `u`, `c`, `k`, `e`, `t` from the left, not the prefix string. This silently corrupts the result when leading characters of the remainder overlap with characters in the argument.
+- **False positive:** When the argument is a single character (e.g., `lstrip(&#34;/&#34;)`) — single-char lstrip is correct
+- **Fix:** Use `str.removeprefix()` / `str.removesuffix()` (Python 3.9+), or `if s.startswith(prefix): s = s[len(prefix):]`
+
+### AP-067: Missing initialisation guard in early-lifecycle event handlers
+- **Search:** `_on_leader_elected`, `_on_.*relation_created`, `_on_.*relation_joined` handlers that call workload methods (database queries, cluster operations, API calls) without checking initialisation state
+- **Bug:** Events like `leader-elected` and `relation-created` fire very early in the charm lifecycle, before the workload is fully initialised. Handlers that assume the workload is ready will crash or produce wrong results.
+- **False positive:** When the handler explicitly checks initialisation state (peer data flags, `unit_initialized()`, cluster membership) before calling workload methods
+- **Fix:** Add initialisation guards and either `return` early or `event.defer()` when the workload is not yet ready
+
+### AP-068: Config-derived relation data not re-sent on config_changed
+- **Search:** Relation data providers that set data in `relation_joined`/`relation_changed` but are not called from `_on_config_changed`
+- **Bug:** When relation data depends on config values (e.g., gateway name, external hostname, port), changing the config does not trigger re-sending updated data to related applications. Related apps retain stale information.
+- **False positive:** When the relation data is config-independent, or when a centralised reconciler already handles all events
+- **Fix:** Call the relation data update method from `_on_config_changed` as well as from relation handlers
+
+### AP-069: Exception message or traceback leaks credentials
+- **Search:** `logger.exception(` or `exc_info=` near code that calls external tools with credentials in arguments or connection strings
+- **Bug:** `logger.exception(f&#34;Failed: {e.message}&#34;, exc_info=e)` logs the full traceback, which may include the command line or connection string containing passwords. Unlike AP-018 (explicitly logging credentials), this leak is implicit through exception details.
+- **False positive:** When the exception cannot contain credential data (e.g., pure Python logic errors)
+- **Fix:** Use `logger.error()` with a sanitised message instead of `logger.exception()`. Do not include `e.message` or `exc_info=` when the exception may contain credentials</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-04-25-566Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-04-25-566Z" class="timestamp-link"><time datetime="2026-03-14T22:04:25.566Z" data-timestamp="2026-03-14T22:04:25.566Z">2026-03-14T22:04:25.566Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-04-32-244Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-04-32-244Z" class="timestamp-link"><time datetime="2026-03-14T22:04:32.244Z" data-timestamp="2026-03-14T22:04:32.244Z">2026-03-14T22:04:32.244Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now update the contents listing and add to the cross-cutting concerns in SKILL.md.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-04-34-029Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-04-34-029Z" class="timestamp-link"><time datetime="2026-03-14T22:04:34.029Z" data-timestamp="2026-03-14T22:04:34.029Z">2026-03-14T22:04:34.029Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_011i4FGP9ZAADYSeujtQevdy">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">anti-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">- Logic and Data Flow (AP-048 to AP-058)</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">- Logic and Data Flow (AP-048 to AP-069)</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-04-34-084Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-04-34-084Z" class="timestamp-link"><time datetime="2026-03-14T22:04:34.084Z" data-timestamp="2026-03-14T22:04:34.084Z">2026-03-14T22:04:34.084Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-04-39-860Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-04-39-860Z" class="timestamp-link"><time datetime="2026-03-14T22:04:39.860Z" data-timestamp="2026-03-14T22:04:39.860Z">2026-03-14T22:04:39.860Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now add the new cross-cutting concerns to SKILL.md.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-04-50-223Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-04-50-223Z" class="timestamp-link"><time datetime="2026-03-14T22:04:50.223Z" data-timestamp="2026-03-14T22:04:50.223Z">2026-03-14T22:04:50.223Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01QeEx2cvCwmQqjpB2KsetBw">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">SKILL.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">21. **os.path.join for URLs**: Is `os.path.join()` used to construct URLs? It works on Linux by coincidence but is semantically wrong and breaks if the second arg starts with `/`.</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">21. **os.path.join for URLs**: Is `os.path.join()` used to construct URLs? It works on Linux by coincidence but is semantically wrong and breaks if the second arg starts with `/`.
+22. **lstrip/rstrip as removeprefix/removesuffix**: Are `lstrip()` or `rstrip()` called with multi-character strings to strip path prefixes or suffixes? `lstrip(&#34;s3://bucket/&#34;)` removes individual characters, not the prefix string.
+23. **Missing initialisation guard in early-lifecycle handlers**: Do `leader_elected`, `relation_created`, or `relation_joined` handlers call workload methods without checking that the workload/cluster is fully initialised?
+24. **Config-derived relation data not re-sent on config_changed**: Are relation data providers that set data from config values also called from `_on_config_changed`? Config changes may silently leave related apps with stale data.
+25. **Exception messages leaking credentials**: Does `logger.exception()` or `exc_info=` log tracebacks from external tool calls that may contain credentials in command lines or connection strings?</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-04-50-231Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-04-50-231Z" class="timestamp-link"><time datetime="2026-03-14T22:04:50.231Z" data-timestamp="2026-03-14T22:04:50.231Z">2026-03-14T22:04:50.231Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-05-01-365Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-05-01-365Z" class="timestamp-link"><time datetime="2026-03-14T22:05:01.365Z" data-timestamp="2026-03-14T22:05:01.365Z">2026-03-14T22:05:01.365Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Done. Updated the skill with 4 new anti-patterns and 4 new cross-cutting concerns from the historical batch analysis:</p>
+<p><strong>New anti-patterns (AP-066 to AP-069):</strong>
+- <strong>AP-066</strong>: <code>lstrip()</code>/<code>rstrip()</code> used as <code>removeprefix()</code>/<code>removesuffix()</code> — classic Python footgun, trivially searchable
+- <strong>AP-067</strong>: Missing initialisation guard in early-lifecycle event handlers — <code>leader_elected</code>/<code>relation_created</code> calling workload methods before init complete
+- <strong>AP-068</strong>: Config-derived relation data not re-sent on <code>config_changed</code> — related apps get stale data
+- <strong>AP-069</strong>: Exception message or traceback leaks credentials — <code>logger.exception()</code> with <code>exc_info=</code> on external tool calls</p>
+<p><strong>New cross-cutting concerns (22-25)</strong> added to the SKILL.md checklist.</p>
+<p>The catalogue now has <strong>69 anti-patterns</strong> (AP-001 to AP-069, minus AP-008 and AP-014) and <strong>25 cross-cutting concerns</strong>.</p></div></div></div>
+<div class="message user" id="msg-2026-03-14T22-05-31-384Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-05-31-384Z" class="timestamp-link"><time datetime="2026-03-14T22:05:31.384Z" data-timestamp="2026-03-14T22:05:31.384Z">2026-03-14T22:05:31.384Z</time></a></div><div class="message-content">
+<div class="user-content"><p>can you update the write-up with our recent work?</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-05-37-963Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-05-37-963Z" class="timestamp-link"><time datetime="2026-03-14T22:05:37.963Z" data-timestamp="2026-03-14T22:05:37.963Z">2026-03-14T22:05:37.963Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01YGyKDuWEHwDa3GFeX58RFF"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 290,
+  &#34;limit&#34;: 80
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-05-38-015Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-05-38-015Z" class="timestamp-link"><time datetime="2026-03-14T22:05:38.015Z" data-timestamp="2026-03-14T22:05:38.015Z">2026-03-14T22:05:38.015Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   290→### Cumulative Validation Results (All Rounds)
+   291→
+   292→| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+   293→|-------|-------------|------------|------|--------|-----|----------------|
+   294→| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+   295→| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+   296→| 3 | traefik-k8s, temporal-k8s, vault-k8s, mongodb-k8s* | 16 | 1 | 8 | 7 | 0 |
+   297→| 4 | postgresql-k8s, indico, prometheus-k8s, kratos | 21 | 2 | 9 | 10 | 0 |
+   298→| **Total** | **14 repos** | **59** | **13** | **27** | **19** | **0** |
+   299→
+   300→\* mongodb-k8s excluded from bug count (external package delegation).
+   301→
+   302→The skill now catalogues **58 anti-patterns** (AP-001 through AP-058) and **21 cross-cutting concerns**, with **0 false positives across 14 repos**.
+   303→
+   304→### Pattern frequency across all validation repos
+   305→
+   306→| Pattern | Repos found in | Frequency |
+   307→|---------|---------------|-----------|
+   308→| AP-005 (non-string Pebble env) | 6/14 | Most pervasive |
+   309→| AP-006 (missing can_connect) | 5/14 | Very common |
+   310→| AP-010 (restart without ChangeError) | 4/14 | Common |
+   311→| AP-012 (missing relation_broken) | 4/14 | Common |
+   312→| AP-014 (relation.app None) | 4/14 | Common |
+   313→| AP-045 (next without default) | 3/14 | Moderate |
+   314→| Unregistered event handlers | 3/14 | Moderate |
+   315→| AP-044/053 (missing return after fail/set_results) | 3/14 | Moderate |
+   316→
+   317→---
+   318→
+   319→## Review Tool
+   320→
+   321→To support the iterative validation workflow, a local review tool was built for triaging and tracking bug findings. The `charm-find-bugs` skill produces structured markdown reports (`skill_validation_*.md`), but reviewing dozens of findings across multiple rounds required more than reading files -- it needed filtering, status tracking, and a way to record reviewer judgements that could feed back into skill improvement.
+   322→
+   323→### What It Does
+   324→
+   325→The tool implements a four-stage loop:
+   326→
+   327→1. **Import** -- Parses structured markdown validation reports and loads findings into a local SQLite database, keyed by `(repo, bug_id)` for deduplication.
+   328→2. **Review** -- Presents each finding in a two-panel interface where a reviewer reads the issue, evidence, and recommended fix, then marks it as **reviewed** (true positive) or **false positive**.
+   329→3. **Track** -- Maintains review progress, statistics by severity/repo/round, and reviewer notes.
+   330→4. **Export** -- Dumps all findings and their review status as JSON for feeding back into skill improvement.
+   331→
+   332→### Stack and Design
+   333→
+   334→The tool provides three interfaces -- a web UI, a terminal UI (TUI), and a CLI -- all backed by the same SQLite database:
+   335→
+   336→- **Web UI** (FastAPI + htmx + Pico CSS): A dashboard with progress bars and breakdowns, plus a two-panel findings page with filter dropdowns and keyboard shortcuts (`j`/`k` navigate, `r` reviewed, `f` false positive, `n` notes).
+   337→- **TUI** (Textual): The same two-panel review workflow in the terminal, useful for SSH sessions or when a browser is inconvenient.
+   338→- **CLI** (Click): `import`, `import-all`, `list`, `show`, `review`, `stats`, `export`, `serve`, and `tui` subcommands.
+   339→
+   340→Key design choices:
+   341→- **Dual sync/async DB layer** -- the CLI and TUI use synchronous SQLite; the web server uses `aiosqlite`. Both share the same schema.
+   342→- **htmx-driven UI** -- partial HTML responses keep the UI responsive without a JavaScript framework. Filters, row selection, and review actions all use htmx swaps.
+   343→- **Markdown parser** -- `parser.py` extracts structured fields from the `#### [BUG-NNN]` format used by the skill&#x27;s validation reports, handling code blocks, severity levels, and confirmed-safe sections.
+   344→- **Deduplication on import** -- `UNIQUE(repo, bug_id)` constraint means re-imports are safe.
+   345→
+   346→### Why It Matters
+   347→
+   348→The review tool closed the feedback loop between skill validation and skill improvement. Without it, tracking which findings were true positives across 14 repos and 4 rounds would have been error-prone and tedious. The export capability meant that after each review round, confirmed true positives could be fed back to expand the anti-pattern catalogue, while false positives (of which there were none) would have been used to tighten the false-positive controls. The tool lives at `review-tool/` in this experiment directory.
+   349→
+   350→---
+   351→
+   352→## Files Produced
+   353→
+   354→```
+   355→charm-analysis/
+   356→├── WRITEUP.md                          # This document
+   357→├── CROSS_REPO_PATTERNS.md              # 15 universal patterns, 58 anti-patterns
+   358→├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x4)
+   359→│   ├── SKILL.md                        # 6-step workflow + 21 cross-cutting concerns
+   360→│   └── references/
+   361→│       ├── bug-patterns.md             # 15 pattern categories with examples
+   362→│       └── anti-patterns.md            # 58 searchable anti-patterns
+   363→├── scripts/
+   364→│   ├── extract_fixes.py                # Clone repos and extract fix commits
+   365→│   ├── auto_classify.py                # Heuristic classification
+   366→│   ├── sample_for_analysis.py          # Sample representative fixes
+   367→│   ├── prepare_batches.py              # Batch fixes for agent analysis
+   368→│   └── aggregate_patterns.py           # Cross-repo aggregate analysis
+   369→├── data/</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-05-44-501Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-05-44-501Z" class="timestamp-link"><time datetime="2026-03-14T22:05:44.501Z" data-timestamp="2026-03-14T22:05:44.501Z">2026-03-14T22:05:44.501Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01GHM8Jfz5vHmdn38YppXHy4"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 369,
+  &#34;limit&#34;: 30
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-05-44-546Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-05-44-546Z" class="timestamp-link"><time datetime="2026-03-14T22:05:44.546Z" data-timestamp="2026-03-14T22:05:44.546Z">2026-03-14T22:05:44.546Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   369→├── data/
+   370→│   ├── all_fixes.json                  # 6,116 raw fix commits
+   371→│   ├── all_classified.json             # Heuristic classification of all fixes
+   372→│   ├── classification_stats.json       # Aggregate statistics
+   373→│   ├── aggregate_analysis.json         # Cross-repo analysis
+   374→│   ├── analysis_*.json                 # Per-team deep analysis (8 files)
+   375→│   ├── skill_validation_grafana.md     # Validation: 3 bugs, 0 FP
+   376→│   ├── skill_validation_kafka.md       # Validation: 3 bugs, 0 FP
+   377→│   ├── batches/                        # 68 batch files for agent analysis
+   378→│   └── *_fixes.json                    # Per-repo fix data (134 files)
+   379→├── review-tool/                        # Finding review and triage tool
+   380→│   ├── review_tool/
+   381→│   │   ├── app.py                      # FastAPI app factory
+   382→│   │   ├── cli.py                      # Click CLI (import, review, stats, export, serve, tui)
+   383→│   │   ├── config.py                   # Paths, round/repo mappings
+   384→│   │   ├── db.py                       # Schema, sync + async DB helpers
+   385→│   │   ├── models.py                   # Pydantic models
+   386→│   │   ├── parser.py                   # Markdown parser for validation reports
+   387→│   │   ├── tui.py                      # Textual TUI (two-panel review)
+   388→│   │   ├── routes/                     # API and page routes
+   389→│   │   ├── templates/                  # Jinja2 + htmx templates
+   390→│   │   └── static/                     # CSS
+   391→│   ├── review.db                       # SQLite database (59 findings)
+   392→│   └── pyproject.toml
+   393→└── repos/                              # 142 cloned charm repos
+   394→```
+   395→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-05-52-193Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-05-52-193Z" class="timestamp-link"><time datetime="2026-03-14T22:05:52.193Z" data-timestamp="2026-03-14T22:05:52.193Z">2026-03-14T22:05:52.193Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now I have the full picture. Let me update the WRITEUP with rounds 5-10 and the historical batch analysis.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-06-46-761Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-06-46-761Z" class="timestamp-link"><time datetime="2026-03-14T22:06:46.761Z" data-timestamp="2026-03-14T22:06:46.761Z">2026-03-14T22:06:46.761Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_019BKUcabKgsYXoPtwAym2PB">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">### Cumulative Validation Results (All Rounds)
+
+| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+|-------|-------------|------------|------|--------|-----|----------------|
+| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+| 3 | traefik-k8s, temporal-k8s, vault-k8s, mongodb-k8s* | 16 | 1 | 8 | 7 | 0 |
+| 4 | postgresql-k8s, indico, prometheus-k8s, kratos | 21 | 2 | 9 | 10 | 0 |
+| **Total** | **14 repos** | **59** | **13** | **27** | **19** | **0** |
+
+\* mongodb-k8s excluded from bug count (external package delegation).
+
+The skill now catalogues **58 anti-patterns** (AP-001 through AP-058) and **21 cross-cutting concerns**, with **0 false positives across 14 repos**.
+
+### Pattern frequency across all validation repos
+
+| Pattern | Repos found in | Frequency |
+|---------|---------------|-----------|
+| AP-005 (non-string Pebble env) | 6/14 | Most pervasive |
+| AP-006 (missing can_connect) | 5/14 | Very common |
+| AP-010 (restart without ChangeError) | 4/14 | Common |
+| AP-012 (missing relation_broken) | 4/14 | Common |
+| AP-014 (relation.app None) | 4/14 | Common |
+| AP-045 (next without default) | 3/14 | Moderate |
+| Unregistered event handlers | 3/14 | Moderate |
+| AP-044/053 (missing return after fail/set_results) | 3/14 | Moderate |</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">### Cumulative Validation Results (Rounds 1-4)
+
+| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+|-------|-------------|------------|------|--------|-----|----------------|
+| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+| 3 | traefik-k8s, temporal-k8s, vault-k8s, mongodb-k8s* | 16 | 1 | 8 | 7 | 0 |
+| 4 | postgresql-k8s, indico, prometheus-k8s, kratos | 21 | 2 | 9 | 10 | 0 |
+| **Total** | **14 repos** | **59** | **13** | **27** | **19** | **0** |
+
+\* mongodb-k8s excluded from bug count (external package delegation).
+
+---
+
+## Rounds 5-10: Human-Reviewed Iteration
+
+After building the review tool (see below), the skill was iterated through 6 further rounds with human review of every finding. An `iterate-bugs` skill was created to automate the cycle: run `charm-find-bugs` against untested repos → import results into the review tool → human reviews each finding → export reviewed data → update the skill.
+
+### Round 5
+
+| Repo | Team | Findings | High | Medium | Low | FP |
+|------|------|----------|------|--------|-----|----|
+| pgbouncer-k8s | Data | 7 | 3 | 3 | 0 | 0 |
+| redis-k8s | Data | 6 | 3 | 3 | 0 | 0 |
+| synapse | IS | 6 | 2 | 3 | 0 | 0 |
+| loki-k8s | Observability | 5 | 1 | 3 | 1 | 0 |
+| wordpress-k8s | IS | 5 | 1 | 2 | 1 | 0 |
+| oathkeeper | Identity | 4 | 2 | 2 | 0 | 0 |
+| tempo-coordinator-k8s | Observability | 3 | 2 | 0 | 1 | 0 |
+| alertmanager-k8s | Observability | 2 | 1 | 1 | 0 | 0 |
+
+Notable findings:
+- **wordpress-k8s Critical**: Unescaped DB password interpolated into PHP code -- potential code injection
+- **pgbouncer-k8s Critical**: Monitoring password exposed in Pebble CLI arguments
+- **redis-k8s**: `==` instead of `=` for status assignment (novel pattern, now AP-059)
+- **loki-k8s**: Operator precedence bug with ternary expression (now AP-060)
+- **synapse**: Glob pattern in exec without shell (now AP-061); `DeepDiff is not None` always True (now AP-062)
+- **AP-005 (non-string Pebble env)** found in 2/8 repos, confirming it as the most pervasive pattern
+
+This round&#39;s human review identified **10 false positives** across rounds 1-5, revealing three systematic FP categories:
+
+1. **`relation.app` is never None with modern ops** (5 FPs) -- AP-014 removed from catalogue
+2. **Unconditional `container.replan()` is fine** (3 FPs) -- AP-008 removed; Pebble handles idempotency
+3. **ExecError on workload binary is acceptable** (1 FP) -- added to FP controls
+
+### Rounds 6-10
+
+After incorporating the FP corrections, the skill achieved 0% false positive rate across the remaining rounds:
+
+| Round | Repos Tested | Confirmed | FP | FP Rate |
+|-------|-------------|-----------|-----|---------|
+| 6 | postgresql-vm, grafana-agent, zookeeper-k8s, seldon-core | 17 | 0 | 0% |
+| 7 | pgbouncer-vm, trino-k8s, cos-proxy, mlflow | 17 | 1 | 5.6% |
+| 8 | identity-platform-admin-ui, cos-configuration-k8s, superset-k8s, sdcore-nms | 19 | 0 | 0% |
+| 9 | self-signed-certificates, gunicorn-k8s, openfga, mimir-coordinator-k8s | 11 | 0 | 0% |
+| 10 | hardware-observer, kubeflow-profiles, nginx-ingress-integrator, content-cache-k8s | 15 | 1 | 6.3% |
+
+New anti-patterns added from rounds 5-10: AP-059 through AP-065 (comparison operator as assignment, operator precedence with ternary, glob in exec without shell, DeepDiff truthiness, unescaped data in config language, missing None guard on version field, implicit None return).
+
+Additional false-positive controls added from reviewer notes:
+- `@cached_property` on charm instances is safe (ops reinitialises per hook)
+- Short busy-wait loops are acceptable (Juju lacks retry facilities)
+
+### Historical Batch Analysis
+
+After 10 validation rounds showed diminishing returns, 4 of the 50 unanalysed historical fix batches were examined to check for patterns missed during the initial 18-batch deep analysis:
+
+- **Batch 9** (Data: mysql-k8s, mysql-operator, 40 fixes)
+- **Batch 22** (IS: jenkins-k8s, mattermost, nginx-ingress, 40 fixes)
+- **Batch 39** (MLOps: knative, kserve, kubeflow-dashboard, 40 fixes)
+- **Batch 53** (Observability: loki-k8s, mimir-coordinator, 40 fixes)
+
+Results: The existing catalogue covered the majority of recurring patterns. Most fixes were test-only, dependency bumps, or linting. The substantive source-code fixes mapped to existing APs (AP-006, AP-018, AP-020, AP-027, AP-028, AP-029, AP-033, AP-036, AP-041, AP-052, AP-055). Four new patterns were identified and added:
+
+- **AP-066**: `lstrip()`/`rstrip()` used as `removeprefix()`/`removesuffix()` -- classic Python footgun
+- **AP-067**: Missing initialisation guard in early-lifecycle event handlers (4 commits across 2 repos)
+- **AP-068**: Config-derived relation data not re-sent on `config_changed`
+- **AP-069**: Exception message or traceback leaks credentials
+
+### Cumulative Validation Results (All Rounds)
+
+| Round | Repos Tested | Confirmed | FP | FP Rate |
+|-------|-------------|-----------|-----|---------|
+| 1-4 | 14 | 59 | 0 | 0% |
+| 5 | 8 | 28 | 10 | 26.3%* |
+| 6 | 4 | 17 | 0 | 0% |
+| 7 | 4 | 17 | 1 | 5.6% |
+| 8 | 4 | 19 | 0 | 0% |
+| 9 | 4 | 11 | 0 | 0% |
+| 10 | 4 | 15 | 1 | 6.3% |
+| **Total** | **41 repos** | **166** | **12** | **6.7%** |
+
+\* Round 5 FPs were from systematic categories (relation.app None, unconditional replan) that were corrected in the skill. After correction, FP rate dropped to 1.6% across rounds 6-10.
+
+The skill now catalogues **69 anti-patterns** (AP-001 through AP-069, minus AP-008 and AP-014) and **25 cross-cutting concerns**.
+
+### Pattern frequency across all validation repos
+
+| Pattern | Repos found in | Frequency |
+|---------|---------------|-----------|
+| AP-005 (non-string Pebble env) | 14/41 | Most pervasive |
+| AP-010 (restart without ChangeError) | 8/41 | Very common |
+| AP-006 (missing can_connect) | 7/41 | Very common |
+| AP-044/056 (missing return/fail in actions) | 7/41 | Very common |
+| AP-012 (missing relation_broken) | 5/41 | Common |
+| AP-018/020 (credential exposure) | 7/41 | Common |
+| AP-045 (next without default) | 5/41 | Common |
+| AP-050 (status overwritten by caller) | 4/41 | Common |
+| AP-001 (truthiness on config) | 4/41 | Common |
+| AP-054 (string comparison of counters) | 3/41 | Moderate |
+| AP-055 (None in f-string URL) | 3/41 | Moderate |
+| AP-057 (os.path.join for URLs) | 3/41 | Moderate |</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-06-46-798Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-06-46-798Z" class="timestamp-link"><time datetime="2026-03-14T22:06:46.798Z" data-timestamp="2026-03-14T22:06:46.798Z">2026-03-14T22:06:46.798Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-06-52-389Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-06-52-389Z" class="timestamp-link"><time datetime="2026-03-14T22:06:52.389Z" data-timestamp="2026-03-14T22:06:52.389Z">2026-03-14T22:06:52.389Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now update the files produced section and the review tool section.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-06-59-133Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-06-59-133Z" class="timestamp-link"><time datetime="2026-03-14T22:06:59.133Z" data-timestamp="2026-03-14T22:06:59.133Z">2026-03-14T22:06:59.133Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01HxryNrRiJdvtRn5zLhBMAk">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">The review tool closed the feedback loop between skill validation and skill improvement. Without it, tracking which findings were true positives across 14 repos and 4 rounds would have been error-prone and tedious. The export capability meant that after each review round, confirmed true positives could be fed back to expand the anti-pattern catalogue, while false positives (of which there were none) would have been used to tighten the false-positive controls. The tool lives at `review-tool/` in this experiment directory.</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">The review tool closed the feedback loop between skill validation and skill improvement. Without it, tracking which findings were true positives across 41 repos and 10 rounds would have been error-prone and tedious. The export capability meant that after each review round, confirmed true positives could be fed back to expand the anti-pattern catalogue, while false positives informed tightening of the false-positive controls. Reviewer notes captured domain knowledge (e.g., &#34;modern ops guarantees `.app` is non-None&#34;, &#34;Pebble handles replan idempotency&#34;) that directly shaped the skill&#39;s evolution. The tool lives at `review-tool/` in this experiment directory.</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-06-59-187Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-06-59-187Z" class="timestamp-link"><time datetime="2026-03-14T22:06:59.187Z" data-timestamp="2026-03-14T22:06:59.187Z">2026-03-14T22:06:59.187Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-10-122Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-10-122Z" class="timestamp-link"><time datetime="2026-03-14T22:07:10.122Z" data-timestamp="2026-03-14T22:07:10.122Z">2026-03-14T22:07:10.122Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01NNLtYvbH5hGCBYLB3PNNyf">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">├── CROSS_REPO_PATTERNS.md              # 15 universal patterns, 58 anti-patterns
+├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x4)
+│   ├── SKILL.md                        # 6-step workflow + 21 cross-cutting concerns
+│   └── references/
+│       ├── bug-patterns.md             # 15 pattern categories with examples
+│       └── anti-patterns.md            # 58 searchable anti-patterns</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">├── CROSS_REPO_PATTERNS.md              # 15 universal patterns
+├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x10)
+│   ├── SKILL.md                        # 6-step workflow + 25 cross-cutting concerns
+│   └── references/
+│       ├── bug-patterns.md             # 15 pattern categories with examples
+│       └── anti-patterns.md            # 69 searchable anti-patterns
+├── .claude/skills/iterate-bugs/        # Iteration workflow skill
+│   └── SKILL.md                        # 8-step cycle: audit → import → review → update</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-10-131Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-10-131Z" class="timestamp-link"><time datetime="2026-03-14T22:07:10.131Z" data-timestamp="2026-03-14T22:07:10.131Z">2026-03-14T22:07:10.131Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-22-321Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-22-321Z" class="timestamp-link"><time datetime="2026-03-14T22:07:22.321Z" data-timestamp="2026-03-14T22:07:22.321Z">2026-03-14T22:07:22.321Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_0185zBa8Tr6y2M7sQipY67rG">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">│   ├── skill_validation_grafana.md     # Validation: 3 bugs, 0 FP
+│   ├── skill_validation_kafka.md       # Validation: 3 bugs, 0 FP
+│   ├── batches/                        # 68 batch files for agent analysis
+│   └── *_fixes.json                    # Per-repo fix data (134 files)</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">│   ├── skill_validation_*.md           # Validation reports (41 repos, rounds 1-10)
+│   ├── all_rounds_reviewed.json        # Full reviewed dataset (178 findings)
+│   ├── reviewer_notes.md              # Human reviewer domain knowledge
+│   ├── batches/                        # 68 batch files for agent analysis
+│   └── *_fixes.json                    # Per-repo fix data (134 files)</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-22-385Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-22-385Z" class="timestamp-link"><time datetime="2026-03-14T22:07:22.385Z" data-timestamp="2026-03-14T22:07:22.385Z">2026-03-14T22:07:22.385Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-29-105Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-29-105Z" class="timestamp-link"><time datetime="2026-03-14T22:07:29.105Z" data-timestamp="2026-03-14T22:07:29.105Z">2026-03-14T22:07:29.105Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01KLfR2AZqWzfvy3Yk39spzW">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">│   ├── review.db                       # SQLite database (59 findings)
+│   └── pyproject.toml</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">│   ├── review.db                       # SQLite database (178 findings, fully reviewed)
+│   └── pyproject.toml</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-29-160Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-29-160Z" class="timestamp-link"><time datetime="2026-03-14T22:07:29.160Z" data-timestamp="2026-03-14T22:07:29.160Z">2026-03-14T22:07:29.160Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-35-872Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-35-872Z" class="timestamp-link"><time datetime="2026-03-14T22:07:35.872Z" data-timestamp="2026-03-14T22:07:35.872Z">2026-03-14T22:07:35.872Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now add the future work note about CI/doc/test fixes.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-36-544Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-36-544Z" class="timestamp-link"><time datetime="2026-03-14T22:07:36.544Z" data-timestamp="2026-03-14T22:07:36.544Z">2026-03-14T22:07:36.544Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_019WdDt3KQuN3uCESyJRUo4K"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 388,
+  &#34;limit&#34;: 10
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-36-595Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-36-595Z" class="timestamp-link"><time datetime="2026-03-14T22:07:36.595Z" data-timestamp="2026-03-14T22:07:36.595Z">2026-03-14T22:07:36.595Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   388→| Pattern | Repos found in | Frequency |
+   389→|---------|---------------|-----------|
+   390→| AP-005 (non-string Pebble env) | 14/41 | Most pervasive |
+   391→| AP-010 (restart without ChangeError) | 8/41 | Very common |
+   392→| AP-006 (missing can_connect) | 7/41 | Very common |
+   393→| AP-044/056 (missing return/fail in actions) | 7/41 | Very common |
+   394→| AP-012 (missing relation_broken) | 5/41 | Common |
+   395→| AP-018/020 (credential exposure) | 7/41 | Common |
+   396→| AP-045 (next without default) | 5/41 | Common |
+   397→| AP-050 (status overwritten by caller) | 4/41 | Common |</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-42-279Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-42-279Z" class="timestamp-link"><time datetime="2026-03-14T22:07:42.279Z" data-timestamp="2026-03-14T22:07:42.279Z">2026-03-14T22:07:42.279Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01MAmm5BA1egRBCnxLQCVa6W"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 398,
+  &#34;limit&#34;: 20
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-42-321Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-42-321Z" class="timestamp-link"><time datetime="2026-03-14T22:07:42.321Z" data-timestamp="2026-03-14T22:07:42.321Z">2026-03-14T22:07:42.321Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   398→| AP-001 (truthiness on config) | 4/41 | Common |
+   399→| AP-054 (string comparison of counters) | 3/41 | Moderate |
+   400→| AP-055 (None in f-string URL) | 3/41 | Moderate |
+   401→| AP-057 (os.path.join for URLs) | 3/41 | Moderate |
+   402→
+   403→---
+   404→
+   405→## Review Tool
+   406→
+   407→To support the iterative validation workflow, a local review tool was built for triaging and tracking bug findings. The `charm-find-bugs` skill produces structured markdown reports (`skill_validation_*.md`), but reviewing dozens of findings across multiple rounds required more than reading files -- it needed filtering, status tracking, and a way to record reviewer judgements that could feed back into skill improvement.
+   408→
+   409→### What It Does
+   410→
+   411→The tool implements a four-stage loop:
+   412→
+   413→1. **Import** -- Parses structured markdown validation reports and loads findings into a local SQLite database, keyed by `(repo, bug_id)` for deduplication.
+   414→2. **Review** -- Presents each finding in a two-panel interface where a reviewer reads the issue, evidence, and recommended fix, then marks it as **reviewed** (true positive) or **false positive**.
+   415→3. **Track** -- Maintains review progress, statistics by severity/repo/round, and reviewer notes.
+   416→4. **Export** -- Dumps all findings and their review status as JSON for feeding back into skill improvement.
+   417→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-48-063Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-48-063Z" class="timestamp-link"><time datetime="2026-03-14T22:07:48.063Z" data-timestamp="2026-03-14T22:07:48.063Z">2026-03-14T22:07:48.063Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01CYc5ssoMKqP2woJqcnrDou"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 440,
+  &#34;limit&#34;: 20
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-48-111Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-48-111Z" class="timestamp-link"><time datetime="2026-03-14T22:07:48.111Z" data-timestamp="2026-03-14T22:07:48.111Z">2026-03-14T22:07:48.111Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   440→```
+   441→charm-analysis/
+   442→├── WRITEUP.md                          # This document
+   443→├── CROSS_REPO_PATTERNS.md              # 15 universal patterns
+   444→├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x10)
+   445→│   ├── SKILL.md                        # 6-step workflow + 25 cross-cutting concerns
+   446→│   └── references/
+   447→│       ├── bug-patterns.md             # 15 pattern categories with examples
+   448→│       └── anti-patterns.md            # 69 searchable anti-patterns
+   449→├── .claude/skills/iterate-bugs/        # Iteration workflow skill
+   450→│   └── SKILL.md                        # 8-step cycle: audit → import → review → update
+   451→├── scripts/
+   452→│   ├── extract_fixes.py                # Clone repos and extract fix commits
+   453→│   ├── auto_classify.py                # Heuristic classification
+   454→│   ├── sample_for_analysis.py          # Sample representative fixes
+   455→│   ├── prepare_batches.py              # Batch fixes for agent analysis
+   456→│   └── aggregate_patterns.py           # Cross-repo aggregate analysis
+   457→├── data/
+   458→│   ├── all_fixes.json                  # 6,116 raw fix commits
+   459→│   ├── all_classified.json             # Heuristic classification of all fixes</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-07-54-597Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-07-54-597Z" class="timestamp-link"><time datetime="2026-03-14T22:07:54.597Z" data-timestamp="2026-03-14T22:07:54.597Z">2026-03-14T22:07:54.597Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01NkVfwR6N6bFxzSLPub6Ssi"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 470,
+  &#34;limit&#34;: 10
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-07-54-639Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-07-54-639Z" class="timestamp-link"><time datetime="2026-03-14T22:07:54.639Z" data-timestamp="2026-03-14T22:07:54.639Z">2026-03-14T22:07:54.639Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   470→│   │   ├── app.py                      # FastAPI app factory
+   471→│   │   ├── cli.py                      # Click CLI (import, review, stats, export, serve, tui)
+   472→│   │   ├── config.py                   # Paths, round/repo mappings
+   473→│   │   ├── db.py                       # Schema, sync + async DB helpers
+   474→│   │   ├── models.py                   # Pydantic models
+   475→│   │   ├── parser.py                   # Markdown parser for validation reports
+   476→│   │   ├── tui.py                      # Textual TUI (two-panel review)
+   477→│   │   ├── routes/                     # API and page routes
+   478→│   │   ├── templates/                  # Jinja2 + htmx templates
+   479→│   │   └── static/                     # CSS</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-08-00-818Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-08-00-818Z" class="timestamp-link"><time datetime="2026-03-14T22:08:00.818Z" data-timestamp="2026-03-14T22:08:00.818Z">2026-03-14T22:08:00.818Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_012DS7RVKX8b5MYf2v24FLdZ"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 480,
+  &#34;limit&#34;: 10
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-08-00-859Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-08-00-859Z" class="timestamp-link"><time datetime="2026-03-14T22:08:00.859Z" data-timestamp="2026-03-14T22:08:00.859Z">2026-03-14T22:08:00.859Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   480→│   ├── review.db                       # SQLite database (178 findings, fully reviewed)
+   481→│   └── pyproject.toml
+   482→└── repos/                              # 142 cloned charm repos
+   483→```
+   484→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-08-19-059Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-08-19-059Z" class="timestamp-link"><time datetime="2026-03-14T22:08:19.059Z" data-timestamp="2026-03-14T22:08:19.059Z">2026-03-14T22:08:19.059Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01HLeAUn5B66HUFL1z3v8PaJ">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">└── repos/                              # 142 cloned charm repos
+```</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">└── repos/                              # 142 cloned charm repos
+```
+
+---
+
+## Future Work
+
+### CI, Documentation, and Test Fix Analysis
+
+This analysis deliberately filtered to source-code fixes, excluding CI-only (GitHub Actions, tox), docs-only, and test-only changes from deep analysis. Of the 6,116 fix commits, 1,732 (28%) fell into these categories. Repeating the methodology on these excluded fixes could yield:
+
+- **CI/GHA anti-patterns** -- recurring workflow bugs, insecure action pinning, flaky test handling
+- **Test anti-patterns** -- common testing mistakes in Juju charm test suites (mock vs integration, fixture patterns, scenario testing pitfalls)
+- **Documentation anti-patterns** -- stale docs, wrong API references, missing examples
+
+A `charm-find-test-bugs` or `charm-find-ci-bugs` skill built from this data could complement `charm-find-bugs` for full-spectrum code review.
+
+### Remaining Historical Batches
+
+Of the 68 historical fix batches, 22 were deeply analysed (18 during initial skill construction + 4 during the historical batch analysis). The remaining 46 batches could be examined to find further patterns, though the historical batch analysis suggests diminishing returns -- the 4 batches examined confirmed existing patterns and yielded only 4 new anti-patterns (AP-066 to AP-069).
+
+### Scaling to More Repos
+
+41 of 142 repos (29%) have been validated. The remaining 101 repos include many smaller charms, multi-charm repos without `src/charm.py`, and SD-Core network functions. Running the skill against more repos would further validate its coverage, particularly for under-represented archetypes (VM/machine charms, Kubeflow multi-charm repos, ACME certificate automation).</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-08-19-068Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-08-19-068Z" class="timestamp-link"><time datetime="2026-03-14T22:08:19.068Z" data-timestamp="2026-03-14T22:08:19.068Z">2026-03-14T22:08:19.068Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-08-26-284Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-08-26-284Z" class="timestamp-link"><time datetime="2026-03-14T22:08:26.284Z" data-timestamp="2026-03-14T22:08:26.284Z">2026-03-14T22:08:26.284Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Done. The WRITEUP now covers:</p>
+<ul>
+<li><strong>Rounds 5-10</strong> with per-round tables, notable findings, and the FP correction story</li>
+<li><strong>Historical batch analysis</strong> — methodology, results, and the 4 new patterns found</li>
+<li><strong>Updated cumulative results</strong> — 178 findings, 166 confirmed, 12 FP across 41 repos</li>
+<li><strong>Updated pattern frequency table</strong> reflecting all 41 repos</li>
+<li><strong>Updated files produced</strong> section with new skills, data files, and DB size</li>
+<li><strong>Future work</strong> section noting the opportunity to analyse CI/docs/test fixes</li>
+</ul></div></div></div>
+<div class="message user" id="msg-2026-03-14T22-09-10-016Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-14T22-09-10-016Z" class="timestamp-link"><time datetime="2026-03-14T22:09:10.016Z" data-timestamp="2026-03-14T22:09:10.016Z">2026-03-14T22:09:10.016Z</time></a></div><div class="message-content">
+<div class="user-content"><p>check the formstting in the list of files, i think the human review item was missing a space. also, add a note about the repos that they won't be in the commited version of this since they are external and large, but that github.com/tonyandrewmeyer/charm-analysis has a tool, get-charms, that will efficiently clone them all from a csv.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-09-16-397Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-09-16-397Z" class="timestamp-link"><time datetime="2026-03-14T22:09:16.397Z" data-timestamp="2026-03-14T22:09:16.397Z">2026-03-14T22:09:16.397Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01VE8NTMQkuzn7kKwdhQMFKv"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 438,
+  &#34;limit&#34;: 50
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-09-16-448Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-09-16-448Z" class="timestamp-link"><time datetime="2026-03-14T22:09:16.448Z" data-timestamp="2026-03-14T22:09:16.448Z">2026-03-14T22:09:16.448Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   438→## Files Produced
+   439→
+   440→```
+   441→charm-analysis/
+   442→├── WRITEUP.md                          # This document
+   443→├── CROSS_REPO_PATTERNS.md              # 15 universal patterns
+   444→├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x10)
+   445→│   ├── SKILL.md                        # 6-step workflow + 25 cross-cutting concerns
+   446→│   └── references/
+   447→│       ├── bug-patterns.md             # 15 pattern categories with examples
+   448→│       └── anti-patterns.md            # 69 searchable anti-patterns
+   449→├── .claude/skills/iterate-bugs/        # Iteration workflow skill
+   450→│   └── SKILL.md                        # 8-step cycle: audit → import → review → update
+   451→├── scripts/
+   452→│   ├── extract_fixes.py                # Clone repos and extract fix commits
+   453→│   ├── auto_classify.py                # Heuristic classification
+   454→│   ├── sample_for_analysis.py          # Sample representative fixes
+   455→│   ├── prepare_batches.py              # Batch fixes for agent analysis
+   456→│   └── aggregate_patterns.py           # Cross-repo aggregate analysis
+   457→├── data/
+   458→│   ├── all_fixes.json                  # 6,116 raw fix commits
+   459→│   ├── all_classified.json             # Heuristic classification of all fixes
+   460→│   ├── classification_stats.json       # Aggregate statistics
+   461→│   ├── aggregate_analysis.json         # Cross-repo analysis
+   462→│   ├── analysis_*.json                 # Per-team deep analysis (8 files)
+   463→│   ├── skill_validation_*.md           # Validation reports (41 repos, rounds 1-10)
+   464→│   ├── all_rounds_reviewed.json        # Full reviewed dataset (178 findings)
+   465→│   ├── reviewer_notes.md              # Human reviewer domain knowledge
+   466→│   ├── batches/                        # 68 batch files for agent analysis
+   467→│   └── *_fixes.json                    # Per-repo fix data (134 files)
+   468→├── review-tool/                        # Finding review and triage tool
+   469→│   ├── review_tool/
+   470→│   │   ├── app.py                      # FastAPI app factory
+   471→│   │   ├── cli.py                      # Click CLI (import, review, stats, export, serve, tui)
+   472→│   │   ├── config.py                   # Paths, round/repo mappings
+   473→│   │   ├── db.py                       # Schema, sync + async DB helpers
+   474→│   │   ├── models.py                   # Pydantic models
+   475→│   │   ├── parser.py                   # Markdown parser for validation reports
+   476→│   │   ├── tui.py                      # Textual TUI (two-panel review)
+   477→│   │   ├── routes/                     # API and page routes
+   478→│   │   ├── templates/                  # Jinja2 + htmx templates
+   479→│   │   └── static/                     # CSS
+   480→│   ├── review.db                       # SQLite database (178 findings, fully reviewed)
+   481→│   └── pyproject.toml
+   482→└── repos/                              # 142 cloned charm repos
+   483→```
+   484→
+   485→---
+   486→
+   487→## Future Work</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-09-22-488Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-09-22-488Z" class="timestamp-link"><time datetime="2026-03-14T22:09:22.488Z" data-timestamp="2026-03-14T22:09:22.488Z">2026-03-14T22:09:22.488Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>I see it — <code>reviewer_notes.md</code> on line 465 has one fewer space before the <code>#</code> comment than the lines above it. Let me fix that and add the repos note.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-09-24-203Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-09-24-203Z" class="timestamp-link"><time datetime="2026-03-14T22:09:24.203Z" data-timestamp="2026-03-14T22:09:24.203Z">2026-03-14T22:09:24.203Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01AVuffepXxMYPFAzbXtxaBC">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">│   ├── reviewer_notes.md              # Human reviewer domain knowledge</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">│   ├── reviewer_notes.md               # Human reviewer domain knowledge</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-09-24-262Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-09-24-262Z" class="timestamp-link"><time datetime="2026-03-14T22:09:24.262Z" data-timestamp="2026-03-14T22:09:24.262Z">2026-03-14T22:09:24.262Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-09-36-727Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-09-36-727Z" class="timestamp-link"><time datetime="2026-03-14T22:09:36.727Z" data-timestamp="2026-03-14T22:09:36.727Z">2026-03-14T22:09:36.727Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01XVbf7iSYVoRH8w2j1p5Fn4">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">└── repos/                              # 142 cloned charm repos
+```</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">└── repos/                              # 142 cloned charm repos (not committed)
+```
+
+Note: The `repos/` directory contains 142 cloned charm repositories and is excluded from the committed version of this experiment due to size. To reproduce, use the `get-charms` tool from [github.com/tonyandrewmeyer/charm-analysis](https://github.com/tonyandrewmeyer/charm-analysis), which efficiently clones all repositories listed in `charms.csv`.</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-14T22-09-36-736Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-14T22-09-36-736Z" class="timestamp-link"><time datetime="2026-03-14T22:09:36.736Z" data-timestamp="2026-03-14T22:09:36.736Z">2026-03-14T22:09:36.736Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-14T22-09-42-170Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-14T22-09-42-170Z" class="timestamp-link"><time datetime="2026-03-14T22:09:42.170Z" data-timestamp="2026-03-14T22:09:42.170Z">2026-03-14T22:09:42.170Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Fixed the alignment on <code>reviewer_notes.md</code> and added the repos note with the <code>charm-analysis</code> tool reference.</p></div></div></div>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-012.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<a href="page-004.html">4</a>
+<a href="page-005.html">5</a>
+<a href="page-006.html">6</a>
+<a href="page-007.html">7</a>
+<a href="page-008.html">8</a>
+<a href="page-009.html">9</a>
+<a href="page-010.html">10</a>
+<a href="page-011.html">11</a>
+<a href="page-012.html">12</a>
+<span class="current">13</span>
+<span class="disabled">Next &rarr;</span>
+</div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>

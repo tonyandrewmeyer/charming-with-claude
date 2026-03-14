@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 3</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 3/3</h1>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-002.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<span class="current">3</span>
+<span class="disabled">Next &rarr;</span>
+</div>
+
+        
+<div class="message user" id="msg-2026-03-13T20-35-55-681Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T20-35-55-681Z" class="timestamp-link"><time datetime="2026-03-13T20:35:55.681Z" data-timestamp="2026-03-13T20:35:55.681Z">2026-03-13T20:35:55.681Z</time></a></div><div class="message-content">
+<div class="user-content"><p>yes, update it</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-02-165Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-02-165Z" class="timestamp-link"><time datetime="2026-03-13T20:36:02.165Z" data-timestamp="2026-03-13T20:36:02.165Z">2026-03-13T20:36:02.165Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-03-814Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-03-814Z" class="timestamp-link"><time datetime="2026-03-13T20:36:03.814Z" data-timestamp="2026-03-13T20:36:03.814Z">2026-03-13T20:36:03.814Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me update the skill based on the evaluation. The main issues: (1) the skill re-confirmed known bugs but didn't find new ones — it needs to push beyond documented findings, (2) anti-patterns reference is missing search patterns for several bug categories.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-04-027Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-04-027Z" class="timestamp-link"><time datetime="2026-03-13T20:36:04.027Z" data-timestamp="2026-03-13T20:36:04.027Z">2026-03-13T20:36:04.027Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01HEx2jKjLa71CdVAzi2tNnZ"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/SKILL.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-36-04-045Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-36-04-045Z" class="timestamp-link"><time datetime="2026-03-13T20:36:04.045Z" data-timestamp="2026-03-13T20:36:04.045Z">2026-03-13T20:36:04.045Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→---
+     2→name: operator-find-bugs
+     3→description: Find bugs in the canonical/operator (ops) Python framework for Juju charms. Use when asked to &quot;find bugs in operator&quot;, &quot;audit ops code&quot;, &quot;review operator for bugs&quot;, &quot;check ops for issues&quot;, &quot;find bugs in this charm framework code&quot;, or review ops/, testing/, or pebble code for correctness issues. Specialized for Juju operator framework bug patterns including relation data, secrets, Pebble containers, data mutability, and testing-production divergence.
+     4→---
+     5→
+     6→# Operator Bug Finder
+     7→
+     8→Find bugs in the canonical/operator codebase using domain-specific knowledge from 235+ historical bug fixes.
+     9→
+    10→## Scope
+    11→
+    12→Report on: only the files or diff the user specifies.
+    13→Research: the entire codebase to build confidence before reporting.
+    14→
+    15→Do not report issues based solely on pattern matching. Investigate data flow and confirm the bug is real before reporting.
+    16→
+    17→## Step 1: Determine review scope
+    18→
+    19→Identify what code areas are being reviewed:
+    20→
+    21→| Code Area | Indicators | Load Reference |
+    22→|-----------|-----------|----------------|
+    23→| Relation data handling | `relation_get`, `relation_set`, `RelationData`, databag | `references/bug-patterns.md` section &quot;Relation Data&quot; |
+    24→| Secrets management | `secret_get`, `secret_set`, `secret_add`, `Secret` | `references/bug-patterns.md` section &quot;Secrets&quot; |
+    25→| Pebble / containers | `Container`, `push`, `pull`, `exec`, `pebble`, `Layer` | `references/bug-patterns.md` section &quot;Pebble&quot; |
+    26→| Testing framework | `Harness`, `Scenario`, `Context`, `_MockModelBackend` | `references/bug-patterns.md` section &quot;Testing Divergence&quot; |
+    27→| Data structures / API boundaries | `dict`, `copy`, `__init__`, `config`, return statements | `references/bug-patterns.md` section &quot;Data Mutability&quot; |
+    28→| Event framework | `emit`, `observe`, `defer`, `StoredState`, `Handle` | `references/bug-patterns.md` section &quot;Event Framework&quot; |
+    29→| Hook commands | `hookcmds`, `_ModelBackend`, Juju CLI calls | `references/bug-patterns.md` section &quot;Juju API&quot; |
+    30→| Error handling | `raise`, `except`, `Error`, exception classes | `references/bug-patterns.md` section &quot;Error Handling&quot; |
+    31→| Security-sensitive code | `open()`, `tempfile`, `ExecError`, permissions, credentials | `references/bug-patterns.md` section &quot;Security&quot; |
+    32→| Broad review / full audit | Multiple areas or unspecified | Read full `references/bug-patterns.md` |
+    33→
+    34→Always read `references/anti-patterns.md` for concrete code patterns to search for.
+    35→
+    36→## Step 2: Search for known bug patterns
+    37→
+    38→For each relevant code area, search the codebase for the anti-patterns listed in `references/anti-patterns.md`. Use Grep with the provided search patterns.
+    39→
+    40→For each match:
+    41→1. Read surrounding context (at least 20 lines around the match).
+    42→2. Trace data flow to determine if the pattern is actually buggy.
+    43→3. Check if there is an existing fix, test, or guard.
+    44→4. Only report if the bug is confirmed after investigation.
+    45→
+    46→## Step 3: Check for cross-cutting concerns
+    47→
+    48→Always check these regardless of code area:
+    49→
+    50→1. **Mutability at boundaries**: Are dicts/lists copied when stored from external input? Are internal dicts copied when returned?
+    51→2. **None guards**: Are values from Juju (env vars, API responses, metadata) guarded against None?
+    52→3. **Naming conventions**: Are hyphens vs underscores handled correctly at Juju API boundaries?
+    53→4. **Testing parity**: If a bug exists in ops, does the same bug exist in Harness or Scenario (or vice versa)?
+    54→5. **Timezone awareness**: Are datetimes created with explicit timezone info?
+    55→
+    56→## Step 4: Verify each finding
+    57→
+    58→For each potential bug:
+    59→- Confirm the input is actually reachable (trace callers).
+    60→- Check if another code path already handles the case.
+    61→- Search for existing tests that cover the scenario.
+    62→- Check git blame to see if the code was recently changed.
+    63→- Compare behavior between ops (production) and testing backends (Harness/Scenario).
+    64→
+    65→## Step 5: Report findings
+    66→
+    67→### Severity classification
+    68→
+    69→| Severity | Criteria | Examples |
+    70→|----------|----------|----------|
+    71→| **Critical** | Security issue or data corruption | Credential leak in error messages, world-readable secret files |
+    72→| **High** | Runtime crash or silent wrong behavior | KeyError from missing None guard, mutated internal state via returned reference |
+    73→| **Medium** | Testing-production divergence or edge case | Harness returns reference instead of copy, naive datetime without timezone |
+    74→| **Low** | Code quality or unlikely edge case | Missing type annotation, theoretical mutability risk on immutable types |
+    75→
+    76→### Output format
+    77→
+    78→```markdown
+    79→## Bug Review: [Scope Description]
+    80→
+    81→### Summary
+    82→- **Findings**: X (Y High, Z Medium, ...)
+    83→- **Code areas reviewed**: [list]
+    84→
+    85→### Findings
+    86→
+    87→#### [BUG-001] [Category] — [Brief description] (Severity)
+    88→- **Location**: `file.py:123`
+    89→- **Pattern**: [Which known bug pattern this matches]
+    90→- **Issue**: [What the bug is]
+    91→- **Impact**: [What goes wrong at runtime]
+    92→- **Evidence**:
+    93→  ```python
+    94→  [Buggy code snippet]
+    95→  ```
+    96→- **Recommended fix**:
+    97→  ```python
+    98→  [Fixed code snippet]
+    99→  ```
+   100→- **Historical precedent**: [Link to commit that fixed a similar bug, if applicable]
+   101→
+   102→### Needs Verification
+   103→[Items where you could not fully confirm the bug]
+   104→
+   105→### Confirmed Safe
+   106→[Patterns that looked suspicious but were verified as correct, with explanation]
+   107→```
+   108→
+   109→### False positive controls
+   110→
+   111→Do NOT flag:
+   112→- Immutable types (str, int, bool, float) returned without copying
+   113→- `.get()` with a safe default value (e.g., `.get(&#x27;key&#x27;, {})` followed by `.items()`)
+   114→- Objects intentionally returned by reference (e.g., event emitters, the `on` attribute)
+   115→- Testing-only code that is documented as a known limitation
+   116→- Code paths guarded by version checks that correctly handle the version range
+   117→
+   118→### Known false-positive patterns in this codebase
+   119→
+   120→| Pattern | Why it&#x27;s safe |
+   121→|---------|--------------|
+   122→| `return self._data[key]` in `ConfigData` | Values are immutable primitives |
+   123→| `return self._data.on` in `StoredStateData` | `on` must be live for event observation |
+   124→| `.get(&#x27;options&#x27;, {}).get(key)` | Default `{}` makes chained access safe |
+   125→| `env.get(&#x27;JUJU_STORAGE_ID&#x27;, &#x27;&#x27;).split(&#x27;/&#x27;)` | Default `&#x27;&#x27;` makes split safe |
+   126→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-09-669Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-09-669Z" class="timestamp-link"><time datetime="2026-03-13T20:36:09.669Z" data-timestamp="2026-03-13T20:36:09.669Z">2026-03-13T20:36:09.669Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01Hx6z9cQLbA5UPFeramNpZk"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-36-09-685Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-36-09-685Z" class="timestamp-link"><time datetime="2026-03-13T20:36:09.685Z" data-timestamp="2026-03-13T20:36:09.685Z">2026-03-13T20:36:09.685Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# Operator Anti-Patterns: Searchable Code Patterns
+     2→
+     3→Concrete code patterns to grep for when auditing the operator codebase. Each pattern includes the search command, what to look for, and how to distinguish true bugs from false positives.
+     4→
+     5→## Contents
+     6→- Mutability: returning internal state
+     7→- Mutability: storing without copy
+     8→- Security: file permissions
+     9→- Security: error message exposure
+    10→- Secrets: invalid flags
+    11→- Secrets: caching
+    12→- Datetime: missing timezone
+    13→- Relations: non-string data
+    14→- Relations: post-broken access
+    15→- Pebble: string iteration
+    16→- Testing: return without copy
+    17→- Config: falsy default handling
+    18→- Naming: hyphen-underscore mismatch
+    19→
+    20→---
+    21→
+    22→## Mutability: returning internal state
+    23→
+    24→**Search**: `return self\._` in Python files
+    25→**What to check**: Is the returned value a mutable container (dict, list, set)? Could the caller mutate it?
+    26→**True bug**: Returns `self._relation_data_raw[id][name]` — caller can corrupt internal state.
+    27→**False positive**: Returns `self._data[key]` where values are immutable primitives (str, int, bool).
+    28→
+    29→**Example fix (from commit be090122):**
+    30→```python
+    31→# Before (bug):
+    32→return self._relation_data_raw[relation_id][member_name]
+    33→# After (fix):
+    34→return self._relation_data_raw[relation_id][member_name].copy()
+    35→```
+    36→
+    37→---
+    38→
+    39→## Mutability: storing without copy
+    40→
+    41→**Search**: `self\._\w+ = ` followed by a parameter name (not a constructor call)
+    42→**What to check**: Is a dict/list parameter stored directly without copying?
+    43→**True bug**: `self._meta = meta` where `meta` is a mutable dict from a caller.
+    44→**False positive**: `self._meta = meta` where `meta` is a frozen dataclass or immutable object.
+    45→
+    46→**Example fix (from commit 3f8fb9b9):**
+    47→```python
+    48→# Before (bug):
+    49→self._meta = meta
+    50→self._config = config
+    51→# After (fix):
+    52→self._meta = dict(meta)
+    53→self._config = dict(config)
+    54→```
+    55→
+    56→---
+    57→
+    58→## Security: file permissions
+    59→
+    60→**Search**: `open(` in files that handle secrets, credentials, or state
+    61→**What to check**: Are files created with restrictive permissions (0o600)?
+    62→**True bug**: `open(path, &#x27;w&#x27;)` for files containing secret content — uses default 0o644.
+    63→**False positive**: Opening files for reading, or files that contain only non-sensitive data.
+    64→
+    65→**Correct pattern:**
+    66→```python
+    67→fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=0o600)
+    68→with os.fdopen(fd, &#x27;w&#x27;, encoding=&#x27;utf-8&#x27;) as f:
+    69→    f.write(secret_value)
+    70→```
+    71→
+    72→---
+    73→
+    74→## Security: error message exposure
+    75→
+    76→**Search**: `__str__` and `__repr__` in exception classes
+    77→**What to check**: Do error string representations include full command lines, environment variables, or request bodies?
+    78→**True bug**: `f&quot;command {self.command} failed&quot;` — exposes full argument list.
+    79→**Correct pattern**: `f&quot;command {self.command[0]!r} failed&quot;` — shows only executable name.
+    80→
+    81→---
+    82→
+    83→## Secrets: invalid flags
+    84→
+    85→**Search**: `--owner` in secret-related code
+    86→**What to check**: Is `--owner` passed to `secret-set`? It is only valid for `secret-add`.
+    87→**True bug**: `args.extend([&#x27;--owner&#x27;, owner])` in a function that calls `secret-set`.
+    88→
+    89→---
+    90→
+    91→## Secrets: caching
+    92→
+    93→**Search**: `_secret_cache`, `_cached_secret`, or any dict storing secret content
+    94→**What to check**: Is secret content stored after retrieval and reused without re-fetching?
+    95→**True bug**: Any local cache of secret content — secrets must always be fetched fresh from Juju.
+    96→
+    97→---
+    98→
+    99→## Datetime: missing timezone
+   100→
+   101→**Search**: `datetime.now()` or `datetime.fromtimestamp(` without `tz=`
+   102→**What to check**: Is the result sent to Juju or serialized to RFC 3339?
+   103→**True bug**: `datetime.datetime.now() + expire` — naive datetime may be misinterpreted.
+   104→**Correct pattern**: `datetime.datetime.now(tz=datetime.timezone.utc)`
+   105→
+   106→---
+   107→
+   108→## Relations: non-string data
+   109→
+   110→**Search**: `relation_set` or databag `__setitem__`
+   111→**What to check**: Is there validation that both keys and values are strings before writing?
+   112→**True bug**: Allowing `data[123] = value` or `data[&#x27;key&#x27;] = 456` without type checking.
+   113→
+   114→---
+   115→
+   116→## Relations: post-broken access
+   117→
+   118→**Search**: `relation-broken` or `RelationBrokenEvent`
+   119→**What to check**: Does code access relation data bags during or after relation-broken events?
+   120→**True bug**: Accessing `event.relation.data` in a `relation_broken` handler without checking availability.
+   121→
+   122→---
+   123→
+   124→## Pebble: string iteration
+   125→
+   126→**Search**: `for .* in .*service` where the iterated variable could be a string
+   127→**What to check**: Is a `str | list[str]` parameter iterated directly without normalization?
+   128→**True bug**: `for svc in services` where `services` is a single string — iterates over characters.
+   129→**Correct pattern**: `services = [services] if isinstance(services, str) else list(services)`
+   130→
+   131→---
+   132→
+   133→## Testing: return without copy
+   134→
+   135→**Search**: `return self\._` in harness.py, mocking.py, or testing backend files
+   136→**What to check**: Same as &quot;returning internal state&quot; above, but specifically in testing backends.
+   137→**True bug**: Harness `relation_get()` returns direct reference while Scenario returns `.copy()`.
+   138→
+   139→---
+   140→
+   141→## Config: falsy default handling
+   142→
+   143→**Search**: `if not config` or `if config\[` or `or default` in config-related code
+   144→**What to check**: Are falsy values (0, False, empty string) treated as &quot;missing&quot;?
+   145→**True bug**: `value = config.get(key) or default` — treats `0`, `False`, `&quot;&quot;` as missing.
+   146→**Correct pattern**: `value = config.get(key); if value is None: value = default`
+   147→
+   148→---
+   149→
+   150→## Naming: hyphen-underscore mismatch
+   151→
+   152→**Search**: `auth-type`, `auth_type`, or any Juju field names in Python dicts
+   153→**What to check**: Does the code assume hyphens or underscores? Does it handle both?
+   154→**True bug**: `data[&#x27;auth-type&#x27;]` when the data dict uses underscored keys (or vice versa).
+   155→**Correct pattern**: Use `.get()` with explicit alias mapping or normalize at the boundary.
+   156→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-17-234Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-17-234Z" class="timestamp-link"><time datetime="2026-03-13T20:36:17.234Z" data-timestamp="2026-03-13T20:36:17.234Z">2026-03-13T20:36:17.234Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now I'll make the updates. Two changes: (1) add a "Step 2.5" to SKILL.md that pushes the agent to look <em>beyond</em> known patterns, and (2) add missing anti-pattern categories.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-27-262Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-27-262Z" class="timestamp-link"><time datetime="2026-03-13T20:36:27.262Z" data-timestamp="2026-03-13T20:36:27.262Z">2026-03-13T20:36:27.262Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01ByZSCZGgcSQhT3QtThVSA8">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">SKILL.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/SKILL.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">## Step 3: Check for cross-cutting concerns</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">## Step 2.5: Hunt for novel bugs
+
+The anti-patterns reference covers *known* recurring patterns. After searching for those, actively look for *new* bugs that do not match any documented pattern:
+
+1. **Read each file in scope end-to-end** — do not rely solely on grep matches. Bugs hide between the patterns.
+2. **Trace data through call chains**: pick 3-5 public API methods in the reviewed code and trace their inputs from caller to callee. Look for:
+   - Assumptions about input types that callers can violate
+   - Missing validation at API boundaries that exists at internal boundaries (or vice versa)
+   - State changes that are not rolled back on error
+3. **Compare parallel implementations**: for any operation implemented in both ops and a testing backend (Harness or Scenario), diff the logic side by side. Divergences not covered by the known patterns are likely new bugs.
+4. **Check recent commits** (`git log --oneline -20 -- &lt;file&gt;`): recently changed code is statistically more likely to contain bugs. Read the diff for each recent change and look for regressions.
+5. **Look for incomplete fixes**: when a bug was fixed in one place, search for the same pattern in analogous code. Historical fixes often miss parallel implementations.
+
+## Step 3: Check for cross-cutting concerns</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-36-27-288Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-36-27-288Z" class="timestamp-link"><time datetime="2026-03-13T20:36:27.288Z" data-timestamp="2026-03-13T20:36:27.288Z">2026-03-13T20:36:27.288Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/SKILL.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-31-251Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-31-251Z" class="timestamp-link"><time datetime="2026-03-13T20:36:31.251Z" data-timestamp="2026-03-13T20:36:31.251Z">2026-03-13T20:36:31.251Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now add the additional false-positive control from the test run:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-35-646Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-35-646Z" class="timestamp-link"><time datetime="2026-03-13T20:36:35.646Z" data-timestamp="2026-03-13T20:36:35.646Z">2026-03-13T20:36:35.646Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_013ATd2AkuD7DuDSqTjzwTNj">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">SKILL.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/SKILL.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">| `env.get(&#39;JUJU_STORAGE_ID&#39;, &#39;&#39;).split(&#39;/&#39;)` | Default `&#39;&#39;` makes split safe |</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">| `env.get(&#39;JUJU_STORAGE_ID&#39;, &#39;&#39;).split(&#39;/&#39;)` | Default `&#39;&#39;` makes split safe |
+| `return self._state.leader` in Scenario mock | Returns a `bool`, which is immutable |
+| `return self._state.planned_units` in Scenario mock | Returns an `int`, which is immutable |
+| Secret temp files inside `TemporaryDirectory` | Parent dir has 0o700 perms; files are deleted on block exit |
+| `status_get()` returning dict directly | Caller destructures immediately, dict is not retained |</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-36-35-688Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-36-35-688Z" class="timestamp-link"><time datetime="2026-03-13T20:36:35.688Z" data-timestamp="2026-03-13T20:36:35.688Z">2026-03-13T20:36:35.688Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/SKILL.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-39-981Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-39-981Z" class="timestamp-link"><time datetime="2026-03-13T20:36:39.981Z" data-timestamp="2026-03-13T20:36:39.981Z">2026-03-13T20:36:39.981Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now add the missing anti-pattern categories:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-46-714Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-46-714Z" class="timestamp-link"><time datetime="2026-03-13T20:36:46.714Z" data-timestamp="2026-03-13T20:36:46.714Z">2026-03-13T20:36:46.714Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_011PtQaQmmwHuj7vUyJKBG3V">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">anti-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">## Contents
+- Mutability: returning internal state
+- Mutability: storing without copy
+- Security: file permissions
+- Security: error message exposure
+- Secrets: invalid flags
+- Secrets: caching
+- Datetime: missing timezone
+- Relations: non-string data
+- Relations: post-broken access
+- Pebble: string iteration
+- Testing: return without copy
+- Config: falsy default handling
+- Naming: hyphen-underscore mismatch</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">## Contents
+- Mutability: returning internal state
+- Mutability: storing without copy
+- Mutability: incomplete mutation guards
+- Security: file permissions
+- Security: error message exposure
+- Secrets: invalid flags
+- Secrets: caching
+- Datetime: missing timezone
+- Relations: non-string data
+- Relations: post-broken access
+- Pebble: string iteration
+- Pebble: path handling
+- Pebble: temp file cleanup
+- Testing: return without copy
+- Testing: ops-harness-scenario divergence
+- Config: falsy default handling
+- Naming: hyphen-underscore mismatch
+- Event framework: deferred event snapshots
+- Event framework: handle reuse
+- Imports: circular dependencies
+- Imports: __all__ completeness
+- Error handling: wrong exception type
+- Error handling: bare dict access
+- Juju version: unchecked feature use</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-36-46-736Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-36-46-736Z" class="timestamp-link"><time datetime="2026-03-13T20:36:46.736Z" data-timestamp="2026-03-13T20:36:46.736Z">2026-03-13T20:36:46.736Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-36-50-543Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-36-50-543Z" class="timestamp-link"><time datetime="2026-03-13T20:36:50.543Z" data-timestamp="2026-03-13T20:36:50.543Z">2026-03-13T20:36:50.543Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now append the new anti-pattern sections:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-37-31-086Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-37-31-086Z" class="timestamp-link"><time datetime="2026-03-13T20:37:31.086Z" data-timestamp="2026-03-13T20:37:31.086Z">2026-03-13T20:37:31.086Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01VwzPUVimoeGyWH7tbrCVVb">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">anti-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">## Naming: hyphen-underscore mismatch
+
+**Search**: `auth-type`, `auth_type`, or any Juju field names in Python dicts
+**What to check**: Does the code assume hyphens or underscores? Does it handle both?
+**True bug**: `data[&#39;auth-type&#39;]` when the data dict uses underscored keys (or vice versa).
+**Correct pattern**: Use `.get()` with explicit alias mapping or normalize at the boundary.</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">## Mutability: incomplete mutation guards
+
+**Search**: `class.*\(dict\)` or `class.*\(list\)` in Python files
+**What to check**: Does the subclass override `__setitem__` to prevent mutation but leave `update()`, `pop()`, `clear()`, `__delitem__`, `setdefault()` unguarded?
+**True bug**: `_TestingConfig(dict)` overrides `__setitem__` to raise but inherits mutable `update()`.
+**False positive**: Classes that intentionally allow some mutations.
+
+**Correct pattern:**
+```python
+# Either override ALL mutation methods:
+class ImmutableDict(dict):
+    def __setitem__(self, key, value): raise TypeError(...)
+    def __delitem__(self, key): raise TypeError(...)
+    def update(self, *args, **kwargs): raise TypeError(...)
+    def pop(self, *args): raise TypeError(...)
+    def clear(self): raise TypeError(...)
+    def setdefault(self, *args): raise TypeError(...)
+
+# Or use MappingProxyType:
+from types import MappingProxyType
+config = MappingProxyType(raw_config)
+```
+
+---
+
+## Naming: hyphen-underscore mismatch
+
+**Search**: `auth-type`, `auth_type`, or any Juju field names in Python dicts
+**What to check**: Does the code assume hyphens or underscores? Does it handle both?
+**True bug**: `data[&#39;auth-type&#39;]` when the data dict uses underscored keys (or vice versa).
+**Correct pattern**: Use `.get()` with explicit alias mapping or normalize at the boundary.
+
+---
+
+## Pebble: path handling
+
+**Search**: `push_path|pull_path` and any path string concatenation (e.g., `f&#39;{path}/&#39;`, `os.path.join`)
+**What to check**: Are relative paths, empty strings, and trailing slashes handled? Is `pathlib.Path` used?
+**True bug**: String concatenation for paths without normalization — breaks on relative paths or empty components.
+**Correct pattern**: Use `pathlib.Path` for all path operations. Test with `&#34;.&#34;`, `&#34;&#34;`, `&#34;../foo&#34;`, and absolute paths.
+
+Precedent: `cbaec52e`
+
+---
+
+## Pebble: temp file cleanup
+
+**Search**: `tempfile` or `NamedTemporaryFile|TemporaryDirectory` in pebble-related code
+**What to check**: Is the temp file/dir always cleaned up, even on exception?
+**True bug**: Creating a temp file outside a `with` block or not handling cleanup in the error path.
+**Correct pattern**: Always use `with tempfile.TemporaryDirectory() as tmp:` or equivalent context manager.
+
+Precedent: `a1574f43`
+
+---
+
+## Testing: ops-harness-scenario divergence
+
+**Search**: For any method name, check if it exists in all three: `_ModelBackend` (ops/model.py), `_TestingModelBackend` (harness.py), `_MockModelBackend` (mocking.py)
+**What to check**: Does the same method behave differently across the three backends? Check:
+- Return types (copy vs reference)
+- Validation (present in one, absent in another)
+- Error types raised
+- Side effects (e.g., event emission)
+**True bug**: `relation_get` returns `.copy()` in Scenario but direct reference in Harness.
+**Method**: Pick a method name like `relation_get`, `config_get`, `secret_get`, etc. Read the implementation in all three backends and diff the logic.
+
+---
+
+## Event framework: deferred event snapshots
+
+**Search**: `defer()` or `snapshot` or `_stored_data` in framework.py
+**What to check**: When one observer defers an event and another does not, is the snapshot data still available for the deferred re-emission?
+**True bug**: Snapshot data lost because it was cleaned up after the first (non-deferring) observer finished.
+
+Precedent: `d0f9f501`
+
+---
+
+## Event framework: handle reuse
+
+**Search**: `_event_counter` or `handle.*count` or `Handle\(` in framework.py
+**What to check**: Is the event counter persisted across charm invocations? Reused handles cause event collisions.
+**True bug**: Counter resets to 0 on each invocation, causing handles like `on/start[0]` to collide with previously deferred events.
+
+Precedent: `f36e90b9`
+
+---
+
+## Imports: circular dependencies
+
+**Search**: `import ops` or `from ops` inside ops package files, especially conditional imports
+**What to check**: Are there import cycles between modules? Common cycle: `model.py` ↔ `charm.py` ↔ `framework.py`.
+**True bug**: Top-level import that creates a cycle, causing `ImportError` or `AttributeError` at import time.
+**False positive**: Imports inside `TYPE_CHECKING` blocks or inside function bodies (lazy imports).
+
+Precedent: `14f3baf5`
+
+---
+
+## Imports: __all__ completeness
+
+**Search**: `__all__` in `__init__.py` files
+**What to check**: Are all public API classes/functions listed? Are any listed names misspelled or referencing removed symbols?
+**True bug**: `__all__` lists a name that doesn&#39;t exist in the module, causing `AttributeError` on `from ops import *`.
+
+Precedent: `9dbb6b66`
+
+---
+
+## Error handling: wrong exception type
+
+**Search**: `except \w+Error` and `raise \w+Error` in ops source files
+**What to check**: Is the caught/raised exception the right type for the situation?
+**True bug**: `except KeyError` when the actual error is `RelationNotFoundError`, masking the real failure.
+**Also check**: Are `TypeError` and `ValueError` used correctly? `TypeError` for wrong argument types, `ValueError` for wrong argument values.
+
+Precedents: `97501fd7`, `4fc4cfdb`
+
+---
+
+## Error handling: bare dict access
+
+**Search**: `\[[&#39;&#34;]` (bracket-quote access) on dicts that come from Juju or external APIs
+**What to check**: Is `dict[key]` used where `.get(key)` with a default would be safer? Especially for Juju API responses where fields may be missing in certain versions.
+**True bug**: `data[&#39;field&#39;]` on a Juju API response where the field is optional or version-dependent.
+**False positive**: Access on dicts where the key is guaranteed by prior validation or construction.
+
+Precedent: `c1661cae` (missing fields in network-get)
+
+---
+
+## Juju version: unchecked feature use
+
+**Search**: `JujuVersion` or version-dependent Juju CLI flags like `--app`, `--label`, `--expire`
+**What to check**: Is there a `JujuVersion` check before using features that are not available in all supported versions?
+**True bug**: Unconditionally passing `--app` to `relation-get` when it was only added in Juju 2.7.0.
+**Also check**: Are the version thresholds correct? A wrong version number in a check is as bad as no check.
+
+Precedents: `d6d1746b`, `5151a1e`</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-37-31-116Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-37-31-116Z" class="timestamp-link"><time datetime="2026-03-13T20:37:31.116Z" data-timestamp="2026-03-13T20:37:31.116Z">2026-03-13T20:37:31.116Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-37-35-609Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-37-35-609Z" class="timestamp-link"><time datetime="2026-03-13T20:37:35.609Z" data-timestamp="2026-03-13T20:37:35.609Z">2026-03-13T20:37:35.609Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now re-run validation to confirm everything still passes:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-37-37-574Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-37-37-574Z" class="timestamp-link"><time datetime="2026-03-13T20:37:37.574Z" data-timestamp="2026-03-13T20:37:37.574Z">2026-03-13T20:37:37.574Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_014neubt6gLt6LJKvGViQPH8">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Validate updated skill and check sizes</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">uv run .claude/skills/skill-writer/scripts/quick_validate.py .claude/skills/operator-find-bugs --skill-class security-review --strict-depth &amp;&amp; echo &#34;---&#34; &amp;&amp; wc -l .claude/skills/operator-find-bugs/SKILL.md .claude/skills/operator-find-bugs/references/*.md</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-37-37-692Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-37-37-692Z" class="timestamp-link"><time datetime="2026-03-13T20:37:37.692Z" data-timestamp="2026-03-13T20:37:37.692Z">2026-03-13T20:37:37.692Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>{
+  &quot;valid&quot;: true,
+  &quot;skill_class&quot;: &quot;security-review&quot;,
+  &quot;strict_depth&quot;: true,
+  &quot;errors&quot;: [],
+  &quot;warnings&quot;: []
+}
+---
+  142 .claude/skills/operator-find-bugs/SKILL.md
+  300 .claude/skills/operator-find-bugs/references/anti-patterns.md
+  370 .claude/skills/operator-find-bugs/references/bug-patterns.md
+  812 total</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-37-53-692Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-37-53-692Z" class="timestamp-link"><time datetime="2026-03-13T20:37:53.692Z" data-timestamp="2026-03-13T20:37:53.692Z">2026-03-13T20:37:53.692Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Still passes clean. Here's what changed:</p>
+<p><strong>SKILL.md</strong> (125 → 142 lines):
+- Added <strong>Step 2.5: Hunt for novel bugs</strong> — 5 concrete strategies for finding bugs beyond documented patterns: end-to-end file reading, call chain tracing, parallel implementation diffing, recent commit review, and incomplete fix searching
+- Added 4 new false-positive entries from the test run (Scenario immutable returns, secret temp dirs, status_get destructuring)</p>
+<p><strong>anti-patterns.md</strong> (155 → 300 lines) — added 11 new searchable pattern categories:
+- Mutability: incomplete mutation guards (the <code>_TestingConfig</code> pattern)
+- Pebble: path handling
+- Pebble: temp file cleanup
+- Testing: ops-harness-scenario divergence (side-by-side diff methodology)
+- Event framework: deferred event snapshots
+- Event framework: handle reuse
+- Imports: circular dependencies
+- Imports: <code>__all__</code> completeness
+- Error handling: wrong exception type
+- Error handling: bare dict access
+- Juju version: unchecked feature use</p>
+<p>Total anti-patterns went from 13 → 24, covering all 11 bug categories from the research.</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T20-39-40-283Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T20-39-40-283Z" class="timestamp-link"><time datetime="2026-03-13T20:39:40.283Z" data-timestamp="2026-03-13T20:39:40.283Z">2026-03-13T20:39:40.283Z</time></a></div><div class="message-content">
+<div class="user-content"><p>let's validate</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-39-45-477Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-39-45-477Z" class="timestamp-link"><time datetime="2026-03-13T20:39:45.477Z" data-timestamp="2026-03-13T20:39:45.477Z">2026-03-13T20:39:45.477Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_018dU5MkWFkxyJcRhCkJEPJe">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Validate operator-find-bugs skill</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">uv run .claude/skills/skill-writer/scripts/quick_validate.py .claude/skills/operator-find-bugs --skill-class security-review --strict-depth</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-39-45-561Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-39-45-561Z" class="timestamp-link"><time datetime="2026-03-13T20:39:45.561Z" data-timestamp="2026-03-13T20:39:45.561Z">2026-03-13T20:39:45.561Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>{
+  &quot;valid&quot;: true,
+  &quot;skill_class&quot;: &quot;security-review&quot;,
+  &quot;strict_depth&quot;: true,
+  &quot;errors&quot;: [],
+  &quot;warnings&quot;: []
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-39-49-950Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-39-49-950Z" class="timestamp-link"><time datetime="2026-03-13T20:39:49.950Z" data-timestamp="2026-03-13T20:39:49.950Z">2026-03-13T20:39:49.950Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Clean pass — zero errors, zero warnings, strict depth gates satisfied.</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T20-39-57-608Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T20-39-57-608Z" class="timestamp-link"><time datetime="2026-03-13T20:39:57.608Z" data-timestamp="2026-03-13T20:39:57.608Z">2026-03-13T20:39:57.608Z</time></a></div><div class="message-content">
+<div class="user-content"><p>let's see if it performs better</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-40-13-616Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-40-13-616Z" class="timestamp-link"><time datetime="2026-03-13T20:40:13.616Z" data-timestamp="2026-03-13T20:40:13.616Z">2026-03-13T20:40:13.616Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_014R8iFXc9R35pQoFrfJqXrF"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Test updated operator-find-bugs skill</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are testing the updated operator-find-bugs skill. Your working directory is /home/ubuntu/operator-analysis/operator which contains the canonical/operator repository.\n\nRead the skill at /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/SKILL.md, then read both reference files:\n- /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/bug-patterns.md\n- /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md\n\nThen follow the skill&#39;s workflow to audit the current codebase. Focus on these areas that were NOT deeply covered in the previous test run:\n1. ops/pebble.py (Pebble container interactions)\n2. ops/framework.py (event framework, stored state, handles)\n3. ops/charm.py (charm base, event types)\n4. ops/jujucontext.py (Juju environment interaction)\n5. testing/src/scenario/state.py (Scenario state definitions)\n\nIMPORTANT: The previous test run already found these known bugs — do NOT re-report them:\n- BUG-001: --owner flag on secret-set (hookcmds/_secret.py:297)\n- BUG-002: Harness relation_get returns direct reference (harness.py:2458)\n- BUG-003: Naive datetime in _calculate_expiry (model.py:539)\n- BUG-004: Naive datetime in _build_fileinfo (model.py:3047)\n- BUG-005: _TestingConfig incomplete mutation guards (harness.py:2308)\n\nFollow ALL steps in the skill, especially Step 2.5 (Hunt for novel bugs). For Step 2.5:\n- Read each file end-to-end (at least skim all sections)\n- Trace 3-5 public API call chains\n- Compare parallel implementations between ops and testing backends\n- Check recent commits with `git log --oneline -20 -- &lt;file&gt;`\n- Look for incomplete fixes\n\nOutput your findings in the skill&#39;s prescribed output format. Be thorough — this is a test of whether the updated skill finds NEW bugs.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-44-44-018Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-44-44-018Z" class="timestamp-link"><time datetime="2026-03-13T20:44:44.018Z" data-timestamp="2026-03-13T20:44:44.018Z">2026-03-13T20:44:44.018Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Good. The `secret_set` method in mocking.py passes `content`, `label`, `description` directly from the caller. In the real Juju API, you can pass empty content to `secret-set` -- though content=`None` means &quot;don&#x27;t change content.&quot; The issue is that `if content:` treats `{}` (empty dict) the same as `None`, but empty dict and `None` have different semantics.
+
+Now I have enough findings. Let me compile the report.
+
+## Bug Review: ops/pebble.py, ops/framework.py, ops/charm.py, ops/jujucontext.py, testing/src/scenario/state.py
+
+### Summary
+- **Findings**: 6 (1 High, 4 Medium, 1 Low)
+- **Code areas reviewed**: Event framework (framework.py), Pebble container interactions (pebble.py), charm base &amp; event types (charm.py), Juju context (jujucontext.py), Scenario state definitions (state.py), Scenario mocking backend (mocking.py)
+
+### Findings
+
+#### [BUG-006] Event Framework -- `_event_context` not exception-safe (High)
+- **Location**: `ops/framework.py:922-956`
+- **Pattern**: Missing try/finally in context manager
+- **Issue**: The `_event_context` context manager sets `backend._hook_is_running` and `self._event_name` before the `yield` (lines 949-952), then restores them after the `yield` (lines 954-956). However, the `yield` is not wrapped in a `try/finally` block. If the event handler raises an exception, the cleanup code on lines 954-956 never executes, leaving both `_hook_is_running` and `_event_name` in a stale state for the remainder of the dispatch.
+- **Impact**: After an exception in an event handler, subsequent event dispatches in the same `_reemit` loop will see the wrong `_hook_is_running` value, which affects hook context validation in the backend (e.g., Harness uses this flag to decide whether certain operations are allowed). This can cause spurious permission errors or silently allow operations that should be rejected.
+- **Evidence**:
+  ```python
+  # framework.py:948-956
+  old_event_name = self._event_name
+  self._event_name = event_name
+
+  old_hook_is_running = backend._hook_is_running
+  backend._hook_is_running = event_name
+  yield  # If handler raises here, lines below never execute
+  backend._hook_is_running = old_hook_is_running
+
+  self._event_name = old_event_name
+  ```
+- **Recommended fix**:
+  ```python
+  old_event_name = self._event_name
+  self._event_name = event_name
+
+  old_hook_is_running = backend._hook_is_running
+  backend._hook_is_running = event_name
+  try:
+      yield
+  finally:
+      backend._hook_is_running = old_hook_is_running
+      self._event_name = old_event_name
+  ```
+
+#### [BUG-007] Scenario -- `secret_get` returns internal dict without copy (Medium)
+- **Location**: `testing/src/scenario/mocking.py:461-486`
+- **Pattern**: Returning internal state without copy (testing divergence)
+- **Issue**: `_MockModelBackend.secret_get()` returns `secret.latest_content` or `secret.tracked_content` directly without calling `.copy()`. These are the internal dicts of the `Secret` dataclass. A charm that modifies the returned dict will corrupt the internal state of the `Secret` object, which then affects subsequent `secret_get` calls and the output `State`.
+- **Impact**: A charm doing `content = self.model.get_secret(...).get_content(); content[&#x27;key&#x27;] = &#x27;new&#x27;` would silently mutate the Scenario `Secret` object, causing unpredictable test results. This is the same class of bug as the known BUG-002 (Harness `relation_get`) but in the Scenario secret backend. Note that the Scenario `relation_get` at line 257 correctly calls `.copy()`, so this is an inconsistency within Scenario itself.
+- **Evidence**:
+  ```python
+  # mocking.py:480-486
+  if peek or refresh:
+      if refresh:
+          secret._track_latest_revision()
+      assert secret.latest_content is not None
+      return secret.latest_content  # BUG: direct reference
+
+  return secret.tracked_content  # BUG: direct reference
+  ```
+- **Recommended fix**:
+  ```python
+  if peek or refresh:
+      if refresh:
+          secret._track_latest_revision()
+      assert secret.latest_content is not None
+      return secret.latest_content.copy()
+
+  return secret.tracked_content.copy()
+  ```
+- **Historical precedent**: Commit `be090122` fixed the same pattern in `relation_get`.
+
+#### [BUG-008] Scenario -- Naive datetime in `Secret._update_metadata` (Medium)
+- **Location**: `testing/src/scenario/state.py:342`
+- **Pattern**: Naive datetime without timezone
+- **Issue**: `Secret._update_metadata` uses `datetime.datetime.now()` without timezone when converting a `timedelta` expire to an absolute datetime. The same file defines `_now_utc()` at line 818-819 which correctly uses `datetime.datetime.now(tz=datetime.timezone.utc)`, but `_update_metadata` doesn&#x27;t use it.
+- **Impact**: When a charm calls `secret.set_content(expire=datetime.timedelta(hours=1))` in a Scenario test, the resulting `expire` datetime will be naive (no timezone). Comparing this with timezone-aware datetimes elsewhere will raise `TypeError`, and if serialized it may be misinterpreted as a different timezone. This is the same pattern as known BUG-003/BUG-004 but in a different location.
+- **Evidence**:
+  ```python
+  # state.py:340-342
+  if expire:
+      if isinstance(expire, datetime.timedelta):
+          expire = datetime.datetime.now() + expire  # BUG: naive datetime
+  ```
+- **Recommended fix**:
+  ```python
+  if expire:
+      if isinstance(expire, datetime.timedelta):
+          expire = datetime.datetime.now(tz=datetime.timezone.utc) + expire
+  ```
+
+#### [BUG-009] Scenario -- `Secret._update_metadata` uses truthy checks instead of `is not None` (Medium)
+- **Location**: `testing/src/scenario/state.py:334-345`
+- **Pattern**: Falsy default handling (config pattern applied to secrets)
+- **Issue**: `_update_metadata` uses `if content:`, `if label:`, `if description:` to decide whether to apply updates. These truthy checks will silently skip updates when the caller passes an empty dict (`{}`), empty string (`&#x27;&#x27;`), or other falsy values. The correct check is `if ... is not None:`, since `None` is the sentinel for &quot;not provided&quot; while falsy values may be intentional.
+- **Impact**: (a) A charm calling `secret.set_content(content={})` in a Scenario test will not create a new revision, diverging from real Juju where an empty-content set would still create a revision. (b) A charm calling `secret.set_content(label=&#x27;&#x27;)` to clear a label will silently fail. (c) A charm calling `secret.set_content(description=&#x27;&#x27;)` to clear a description will silently fail. These are all testing-production divergences.
+- **Evidence**:
+  ```python
+  # state.py:334-345
+  if content:       # BUG: skips {} (empty dict)
+      object.__setattr__(self, &#x27;latest_content&#x27;, content)
+  if label:         # BUG: skips &#x27;&#x27; (empty string)
+      object.__setattr__(self, &#x27;label&#x27;, label)
+  if description:   # BUG: skips &#x27;&#x27; (empty string)
+      object.__setattr__(self, &#x27;description&#x27;, description)
+  ```
+- **Recommended fix**:
+  ```python
+  if content is not None:
+      object.__setattr__(self, &#x27;latest_content&#x27;, content)
+  if label is not None:
+      object.__setattr__(self, &#x27;label&#x27;, label)
+  if description is not None:
+      object.__setattr__(self, &#x27;description&#x27;, description)
+  ```
+- **Historical precedent**: Commit `1c0ff40d` fixed a similar falsy-default pattern in config handling.
+
+#### [BUG-010] Charm -- `PebbleNoticeEvent.restore` and `PebbleCheckEvent.restore` mutate snapshot dict via `pop` (Medium)
+- **Location**: `ops/charm.py:977-986` and `ops/charm.py:1022-1029`
+- **Pattern**: Snapshot mutation during restore
+- **Issue**: `PebbleNoticeEvent.restore()` calls `snapshot.pop(&#x27;notice_id&#x27;)`, `snapshot.pop(&#x27;notice_type&#x27;)`, and `snapshot.pop(&#x27;notice_key&#x27;)` on the snapshot dict. Similarly, `PebbleCheckEvent.restore()` calls `snapshot.pop(&#x27;check_name&#x27;)`. This mutates the snapshot dict passed to the method. While the parent `WorkloadEvent.restore()` uses `snapshot.get()` (non-destructive), these subclasses destructively remove keys. If the framework ever needs to re-use the snapshot dict (e.g., for re-emission to a different observer), the keys will be missing, causing `KeyError`.
+- **Impact**: Currently the framework loads a fresh snapshot from storage for each observer, so this is unlikely to cause a crash in practice. However, it is inconsistent with the rest of the codebase (all other `restore` methods use `snapshot.get()` or `snapshot[&#x27;key&#x27;]` without removing keys) and could break under future framework changes. The `PebbleCheckEvent.restore` is particularly interesting because it pops `check_name` *before* calling `super().restore(snapshot)`, so the parent&#x27;s snapshot dict is already missing the key.
+- **Evidence**:
+  ```python
+  # charm.py:977-986 (PebbleNoticeEvent)
+  def restore(self, snapshot: dict[str, Any]):
+      super().restore(snapshot)
+      notice_id = snapshot.pop(&#x27;notice_id&#x27;)     # destructive
+      notice_type = snapshot.pop(&#x27;notice_type&#x27;)  # destructive
+      notice_key = snapshot.pop(&#x27;notice_key&#x27;)    # destructive
+
+  # charm.py:1022-1029 (PebbleCheckEvent)
+  def restore(self, snapshot: dict[str, Any]):
+      check_name = snapshot.pop(&#x27;check_name&#x27;)   # destructive, before super()
+      super().restore(snapshot)
+  ```
+- **Recommended fix**:
+  ```python
+  # PebbleNoticeEvent
+  def restore(self, snapshot: dict[str, Any]):
+      super().restore(snapshot)
+      notice_id = snapshot[&#x27;notice_id&#x27;]
+      notice_type = snapshot[&#x27;notice_type&#x27;]
+      notice_key = snapshot[&#x27;notice_key&#x27;]
+      self.notice = model.LazyNotice(self.workload, notice_id, notice_type, notice_key)
+
+  # PebbleCheckEvent
+  def restore(self, snapshot: dict[str, Any]):
+      super().restore(snapshot)
+      check_name = snapshot[&#x27;check_name&#x27;]
+      self.info = model.LazyCheckInfo(self.workload, check_name)
+  ```
+
+#### [BUG-011] Pebble -- `Service._merge` silently drops falsy values during layer merge (Low)
+- **Location**: `ops/pebble.py:1014-1028`
+- **Pattern**: Falsy default handling in merge
+- **Issue**: `Service._merge()` skips attributes where `not value` is true (line 1021). This means a layer that explicitly sets `user_id=0` or `backoff_factor=0` will have those values silently dropped during merge, since `0` is falsy. The inline comment says &quot;not value is safe here because a threshold of 0 is valid but inconsistently applied&quot; -- but this applies to `Check._merge`, not `Service._merge`. For services, `user_id=0` (root user) is a perfectly valid and common value.
+- **Impact**: A charm layer that sets `user-id: 0` to run a service as root will have this silently ignored during a `combine=True` layer merge. The service will run under whatever user the base layer specifies. This only affects merging (combine mode), not initial layer creation.
+- **Evidence**:
+  ```python
+  # pebble.py:1020-1028
+  def _merge(self, other: Service):
+      for name, value in other.__dict__.items():
+          if not value or name == &#x27;name&#x27;:  # BUG: drops user_id=0, group_id=0, backoff_factor=0
+              continue
+          if name in [&#x27;after&#x27;, &#x27;before&#x27;, &#x27;requires&#x27;]:
+              getattr(self, name).extend(value)
+          elif name in [&#x27;environment&#x27;, &#x27;on_check_failure&#x27;]:
+              getattr(self, name).update(value)
+          else:
+              setattr(self, name, value)
+  ```
+- **Recommended fix**:
+  ```python
+  def _merge(self, other: Service):
+      for name, value in other.__dict__.items():
+          if name == &#x27;name&#x27;:
+              continue
+          # None means &quot;not set in the layer&quot;; for strings, &#x27;&#x27; means &quot;not set&quot;.
+          # For optional ints (user_id, group_id, backoff_factor), None means &quot;not set&quot;
+          # but 0 is a valid value.
+          if value is None or (isinstance(value, str) and not value):
+              continue
+          if isinstance(value, list) and not value:
+              continue
+          if isinstance(value, dict) and not value:
+              continue
+          if name in [&#x27;after&#x27;, &#x27;before&#x27;, &#x27;requires&#x27;]:
+              getattr(self, name).extend(value)
+          elif name in [&#x27;environment&#x27;, &#x27;on_check_failure&#x27;]:
+              getattr(self, name).update(value)
+          else:
+              setattr(self, name, value)
+  ```
+
+### Needs Verification
+
+- **`StoredStateData.snapshot()` returns `self._cache` by reference** (`ops/framework.py:1136`): The `snapshot()` method returns the internal `_cache` dict directly. The caller (`Framework.save_snapshot`) passes this to `marshal.dumps()` for validation and then `pickle.dumps()` for storage. Since these operations are synchronous and single-threaded, and the dict is not modified between the `snapshot()` call and the pickle, this is safe in practice. However, it is worth noting that `restore()` also stores the loaded dict directly (`self._cache = snapshot`) -- this is safe because `load_snapshot` deserializes a fresh dict each time.
+
+- **`Plan.services` returns mutable internal dict** (`ops/pebble.py:844`): The `Plan.services`, `Plan.checks`, and `Plan.log_targets` properties all return internal dicts directly. The docstring says &quot;read-only&quot; but there&#x27;s no enforcement. However, this is by design -- the Harness `get_plan()` code at `harness.py:3499` deliberately mutates `plan.services` via `.update()`. Making this a copy would break that usage pattern.
+
+### Confirmed Safe
+
+| Pattern | Why it&#x27;s safe |
+|---------|--------------|
+| `JujuContext._from_dict` using `env.get(&#x27;JUJU_STORAGE_ID&#x27;, &#x27;&#x27;).split(&#x27;/&#x27;)` | Default `&#x27;&#x27;` makes split return `[&#x27;&#x27;]`, and the caller checks `env.get(&#x27;JUJU_STORAGE_ID&#x27;)` before using the parsed values |
+| `JujuContext.from_environ` using `env.get(&#x27;JUJU_VERSION&#x27;, &#x27;0.0.0&#x27;)` | Documented: `meter-status-changed` doesn&#x27;t set this var; fallback to `0.0.0` is correct |
+| `Scenario config_get` at `mocking.py:314` doing `self._state.config.copy()` | Correctly copies to avoid mutating state -- properly guarded |
+| `Scenario relation_get` at `mocking.py:257` returning `data.copy()` | Correctly copies -- this was the fix applied from the Harness bug |
+| `Framework._track` checking `self.framework._objects` | Uses `WeakValueDictionary` -- objects can be garbage collected, which is expected |
+| `Service.__init__` copying `environment` and lists from raw | Correctly uses `dict(...)` and `list(...)` defensive copies at lines 969-972 |
+| `Check.__init__` using `copy.deepcopy` for nested dicts | Properly deep-copies `http`, `tcp`, `exec` dicts at lines 1115-1126 |</pre><pre>agentId: a62d60080d6b8b436 (for resuming to continue this agent&#x27;s work if needed)
+&lt;usage&gt;total_tokens: 187832
+tool_uses: 63
+duration_ms: 270400&lt;/usage&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-45-01-398Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-45-01-398Z" class="timestamp-link"><time datetime="2026-03-13T20:45:01.398Z" data-timestamp="2026-03-13T20:45:01.398Z">2026-03-13T20:45:01.398Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Much better. The updated skill found <strong>6 new bugs</strong> (none overlapping with the previous run):</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Severity</th>
+<th>Category</th>
+<th>Location</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BUG-006</td>
+<td><strong>High</strong></td>
+<td>Event framework</td>
+<td><code>framework.py:922-956</code></td>
+<td><code>_event_context</code> yield not wrapped in try/finally — exception leaves <code>_hook_is_running</code> stale</td>
+</tr>
+<tr>
+<td>BUG-007</td>
+<td>Medium</td>
+<td>Testing divergence</td>
+<td><code>mocking.py:461-486</code></td>
+<td>Scenario <code>secret_get</code> returns internal dict without <code>.copy()</code></td>
+</tr>
+<tr>
+<td>BUG-008</td>
+<td>Medium</td>
+<td>Datetime</td>
+<td><code>state.py:342</code></td>
+<td>Scenario <code>_update_metadata</code> uses naive <code>datetime.now()</code> (ignores its own <code>_now_utc()</code> helper)</td>
+</tr>
+<tr>
+<td>BUG-009</td>
+<td>Medium</td>
+<td>Falsy defaults</td>
+<td><code>state.py:334-345</code></td>
+<td><code>if content:</code> / <code>if label:</code> skips empty dict/empty string (should be <code>is not None</code>)</td>
+</tr>
+<tr>
+<td>BUG-010</td>
+<td>Medium</td>
+<td>Snapshot mutation</td>
+<td><code>charm.py:977-1029</code></td>
+<td><code>PebbleNoticeEvent.restore</code> uses <code>snapshot.pop()</code> (destructive) instead of <code>snapshot['key']</code></td>
+</tr>
+<tr>
+<td>BUG-011</td>
+<td>Low</td>
+<td>Falsy defaults</td>
+<td><code>pebble.py:1014-1028</code></td>
+<td><code>Service._merge</code> drops <code>user_id=0</code> because <code>not 0</code> is <code>True</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key improvements from the update:</strong>
+- <strong>Step 2.5 worked</strong> — BUG-006 (context manager missing try/finally) and BUG-010 (snapshot.pop) are novel patterns not in any documented anti-pattern. They were found by end-to-end file reading.
+- <strong>New anti-patterns worked</strong> — BUG-009 was caught by the new "falsy default handling" pattern, BUG-007 by "testing: return without copy", BUG-011 by "falsy default handling" applied to Pebble merges.
+- <strong>The "incomplete fix" strategy worked</strong> — BUG-007 is the secret equivalent of the known relation_get copy bug, found by checking if the same fix was applied consistently across all similar methods.</p>
+<p>The skill went from 13 → 24 anti-patterns and the novel-bug-hunting step drove it to find genuinely new issues. Total across both runs: <strong>11 confirmed bugs</strong> found.</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T20-45-59-624Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T20-45-59-624Z" class="timestamp-link"><time datetime="2026-03-13T20:45:59.624Z" data-timestamp="2026-03-13T20:45:59.624Z">2026-03-13T20:45:59.624Z</time></a></div><div class="message-content">
+<div class="user-content"><p>let's write up a summary of what's been done here in a markdown document. you can see the data collection work in .claude/transcripts. note thst it was inspired by this blog post https://cra.mr/skill-synthesis and try to use my voice (tonyandrewmeyer.com). include an evaluation of whether the skill is likely to be useful and interesting avenues to explore next. aim for a blog post style rather than a dry write-up.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-46-03-922Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-46-03-922Z" class="timestamp-link"><time datetime="2026-03-13T20:46:03.922Z" data-timestamp="2026-03-13T20:46:03.922Z">2026-03-13T20:46:03.922Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me gather the context I need — your writing voice, the blog post, and the transcripts.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-46-04-032Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-46-04-032Z" class="timestamp-link"><time datetime="2026-03-13T20:46:04.032Z" data-timestamp="2026-03-13T20:46:04.032Z">2026-03-13T20:46:04.032Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_012GiBvgCQQ9dXWBZrD3nafk"><div class="tool-header"><span class="tool-icon">⚙</span> ToolSearch</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;query&#34;: &#34;WebFetch&#34;,
+  &#34;max_results&#34;: 1
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-46-04-034Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-46-04-034Z" class="timestamp-link"><time datetime="2026-03-13T20:46:04.034Z" data-timestamp="2026-03-13T20:46:04.034Z">2026-03-13T20:46:04.034Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &quot;type&quot;: &quot;tool_reference&quot;,
+  &quot;tool_name&quot;: &quot;WebFetch&quot;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-46-08-663Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-46-08-663Z" class="timestamp-link"><time datetime="2026-03-13T20:46:08.663Z" data-timestamp="2026-03-13T20:46:08.663Z">2026-03-13T20:46:08.663Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01CXCGiU1YS6BBpZuXwqqvLa"><div class="tool-header"><span class="tool-icon">⚙</span> WebFetch</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;url&#34;: &#34;https://cra.mr/skill-synthesis&#34;,
+  &#34;prompt&#34;: &#34;Extract the full content of this blog post. I need the writing style, structure, tone, and all the technical content. Return the complete text.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-46-09-922Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-46-09-922Z" class="timestamp-link"><time datetime="2026-03-13T20:46:09.922Z" data-timestamp="2026-03-13T20:46:09.922Z">2026-03-13T20:46:09.922Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_015vbDgEN95xqMvixdDoxz5u"><div class="tool-header"><span class="tool-icon">⚙</span> WebFetch</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;url&#34;: &#34;https://tonyandrewmeyer.com&#34;,
+  &#34;prompt&#34;: &#34;Extract all blog posts or writing samples from this site. I need to understand the author&#39;s writing voice, tone, style, sentence structure, and typical topics. Return as much text as possible from recent posts.&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<a href="page-002.html">&larr; Prev</a>
+<a href="page-001.html">1</a>
+<a href="page-002.html">2</a>
+<span class="current">3</span>
+<span class="disabled">Next &rarr;</span>
+</div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 1</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 1/5</h1>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<span class="disabled">&larr; Prev</span>
+<span class="current">1</span>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<a href="page-004.html">4</a>
+<a href="page-005.html">5</a>
+<a href="page-002.html">Next &rarr;</a>
+</div>
+
+        
+<div class="message user" id="msg-2026-03-13T20-56-08-198Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T20-56-08-198Z" class="timestamp-link"><time datetime="2026-03-13T20:56:08.198Z" data-timestamp="2026-03-13T20:56:08.198Z">2026-03-13T20:56:08.198Z</time></a></div><div class="message-content">
+<div class="user-content"><p>look at the work down in ../operator-analysis. there's a writeup and even transcripts if you want those. i want to repeat that work but on a larger scale to see whether that results in a more compelling skill. let's research, summarise, and then build a skill for all of the Canoncial Charm Tech team's repositories, https://github.com/orgs/canonical/teams/charm-tech/repositories - note that most are Python but two are Go (Concierge and Pebble) and there's a bit of other non-Python as well. maybe we want a python skill and a go skill or maybe the types of bugs that need to get fixed are common across languages. it will be interesting to see. note that this is a lot more work than the previous small experiement, but it should follow roughly the same pattern, just scaled up. ask me if you are unclear sbiut anything. pause and confirm with me before using the skill writer skill to make the new skill. you're in a vm so can safely do what you need, and this folder is empty other than a .claude folder so is the right place to work</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-56-17-174Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-56-17-174Z" class="timestamp-link"><time datetime="2026-03-13T20:56:17.174Z" data-timestamp="2026-03-13T20:56:17.174Z">2026-03-13T20:56:17.174Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-56-17-616Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-56-17-616Z" class="timestamp-link"><time datetime="2026-03-13T20:56:17.616Z" data-timestamp="2026-03-13T20:56:17.616Z">2026-03-13T20:56:17.616Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me start by understanding the previous work and then research the Charm Tech repositories.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-56-21-225Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-56-21-225Z" class="timestamp-link"><time datetime="2026-03-13T20:56:21.225Z" data-timestamp="2026-03-13T20:56:21.225Z">2026-03-13T20:56:21.225Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01FPh3DQGitdeVdU5YbobmSs"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Read operator-analysis writeup</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;Read all files in /home/ubuntu/operator-analysis/ to understand the previous work done there. Read the writeup/summary files first, then any transcripts or other supporting files. I need to understand:\n1. What methodology was used\n2. What the resulting skill looks like\n3. What patterns/bugs were found\n4. How the research was structured\n\nRead the CLAUDE.md if it exists, any markdown files, any skill files, and the directory structure. Be thorough - read everything available.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-56-24-597Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-56-24-597Z" class="timestamp-link"><time datetime="2026-03-13T20:56:24.597Z" data-timestamp="2026-03-13T20:56:24.597Z">2026-03-13T20:56:24.597Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01Pigsogiczprhr6LU8iJb3i"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Research Charm Tech repositories</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;I need to find all repositories belonging to the Canonical Charm Tech team. The team URL is https://github.com/orgs/canonical/teams/charm-tech/repositories.\n\nUse the GitHub CLI (gh) to list the repositories. Try these approaches:\n1. `gh api orgs/canonical/teams/charm-tech/repos --paginate` \n2. If that doesn&#39;t work, try variations\n\nFor each repository found, I need:\n- Repository name and URL\n- Primary language\n- Description\n- Whether it&#39;s active (recent commits)\n\nList ALL repositories. This is important for planning the research scope.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-56-58-645Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-56-58-645Z" class="timestamp-link"><time datetime="2026-03-13T20:56:58.645Z" data-timestamp="2026-03-13T20:56:58.645Z">2026-03-13T20:56:58.645Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>All 15 repositories retrieved. Here is the complete list of Canonical Charm Tech team repositories:
+
+---
+
+### Active Repositories (11)
+
+| # | Repository | Language | Description | Last Push |
+|---|-----------|----------|-------------|-----------|
+| 1 | [charmlibs](https://github.com/canonical/charmlibs) | Python | Monorepo for Canonical charmlibs. | 2026-03-13 |
+| 2 | [operator](https://github.com/canonical/operator) | Python | Pure Python framework for writing Juju charms. | 2026-03-13 |
+| 3 | [pytest-jubilant](https://github.com/canonical/pytest-jubilant) | Python | Makes integration tests jubilanter. | 2026-03-13 |
+| 4 | [jubilant](https://github.com/canonical/jubilant) | Python | Jubilant is a Pythonic wrapper around the Juju CLI, primarily for charm integration testing. | 2026-03-12 |
+| 5 | [pebble](https://github.com/canonical/pebble) | Go | Pebble is a lightweight Linux service manager with layered configuration and an HTTP API. | 2026-03-12 |
+| 6 | [concierge](https://github.com/canonical/concierge) | Go | An opinionated utility for provisioning charm development and testing machines. | 2026-03-10 |
+| 7 | [charmhub-listing-review](https://github.com/canonical/charmhub-listing-review) | Python | Requests for public listing on charmhub.io and automation of that process. | 2026-03-06 |
+| 8 | [copilot-collections](https://github.com/canonical/copilot-collections) | Python | Instructions, prompts, and configurations to help you make the most of GitHub Copilot. | 2026-03-04 |
+| 9 | [operator-libs-linux](https://github.com/canonical/operator-libs-linux) | Python | Linux helper libraries for the Ops framework. | 2026-02-13 |
+| 10 | [charmcraft-profile-tools](https://github.com/canonical/charmcraft-profile-tools) | Python | Dev tools for Charmcraft profiles. | 2026-02-12 |
+| 11 | [api_demo_server](https://github.com/canonical/api_demo_server) | Python | A demo server for use in the Ops Kubernetes charm tutorial. | 2026-01-23 |
+
+### Less Active / Older Repositories (1)
+
+| # | Repository | Language | Description | Last Push |
+|---|-----------|----------|-------------|-----------|
+| 12 | [charm-ubuntu](https://github.com/canonical/charm-ubuntu) | Python | This charm provides a blank Ubuntu image. | 2025-09-11 |
+
+### Archived Repositories (3)
+
+| # | Repository | Language | Description | Last Push |
+|---|-----------|----------|-------------|-----------|
+| 13 | [charm-relation-interfaces](https://github.com/canonical/charm-relation-interfaces) | Python | *(no description)* | 2025-11-26 |
+| 14 | [ops-basic-demos](https://github.com/canonical/ops-basic-demos) | Python | Experimental demos of how to charm an application. | 2025-12-01 |
+| 15 | [juju-sdk-tutorial-k8s](https://github.com/canonical/juju-sdk-tutorial-k8s) | Python | Historical code for the Kubernetes charm tutorial in the Ops docs. | 2025-07-09 |
+
+---
+
+### Summary
+
+- **Total repositories:** 15
+- **Active (not archived):** 12
+- **Archived:** 3
+- **Languages:** 13 Python, 2 Go
+- **Core projects:** `operator` (the Ops framework itself), `pebble` (service manager), `charmlibs` (shared libraries), `jubilant` + `pytest-jubilant` (testing), `concierge` (dev provisioning)
+- **Most recently active** (pushed within the last week): `charmlibs`, `operator`, `pytest-jubilant`, `jubilant`, `pebble`
+
+For research scoping, the 12 non-archived repos are the relevant targets, with the top 5-6 being the most actively developed.</pre><pre>agentId: aff8f089d9dabcafe (for resuming to continue this agent&#x27;s work if needed)
+&lt;usage&gt;total_tokens: 10467
+tool_uses: 2
+duration_ms: 34047&lt;/usage&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T20-58-15-818Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T20-58-15-818Z" class="timestamp-link"><time datetime="2026-03-13T20:58:15.818Z" data-timestamp="2026-03-13T20:58:15.818Z">2026-03-13T20:58:15.818Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Now I have a thorough understanding of the entire project. Here is my comprehensive summary:
+
+---
+
+## Summary of /home/ubuntu/operator-analysis/
+
+### 1. Methodology
+
+The project follows David Cramer&#x27;s &quot;Skill Synthesis&quot; approach (from his blog post at cra.mr/skill-synthesis) applied to the [canonical/operator](https://github.com/canonical/operator) Python framework for Juju charms. The methodology has four distinct phases:
+
+**Phase 1: Data Collection** -- Extract all bug fix commits from the ~2,000-commit git history.
+- Script `/home/ubuntu/operator-analysis/scripts/extract_commit_data.py` pulls full commit messages, diffs, dates, and changed files for each fix commit.
+- Two sources of fixes were identified: (a) **conventional commits** tagged with `fix:` prefixes (stored in `conventional_fixes.txt`), and (b) **non-conventional commits** from the pre-conventional era that were classified as likely fixes using keyword scoring (script: `classify_nonconv.py`, output: `candidate_nonconv_fixes.txt`).
+
+**Phase 2: Classification and Summarization** -- Script `generate_summaries.py` processes all fix candidates, applying heuristic classifiers to assign each commit:
+- **Bug area** (e.g., pebble, relations, secrets, testing-framework, etc.)
+- **Bug type** (e.g., mutability, exception-handling, security, caching, parsing)
+- **Severity** (high/medium/low)
+- **Fix category** (source-fix, test-fix, docs-fix, ci-fix, build-fix)
+
+Each commit gets its own markdown file in `commit-summaries/` with the diff, message, and classifications. An INDEX.md provides aggregate statistics.
+
+**Phase 3: Pattern Synthesis** -- The 235 classified bug fixes were synthesized into:
+- `BUG_PATTERNS.md` -- 13 recurring pattern categories with concrete examples and commit references
+- `CURRENT_CODE_AUDIT.md` -- Those patterns applied against current HEAD, identifying 14 findings (3 high, 6 medium, 5 low)
+- `high_severity_analysis.json` -- Deep-dive root cause analysis of the 15 most severe historical fixes
+
+**Phase 4: Skill Construction** -- The patterns were distilled into a Claude Code skill using the &quot;Domain Expert&quot; pattern with conditional reference loading.
+
+The data collection ran in ~23 minutes with parallel agents processing different severity bands. The severity breakdown: 15 high, 184 medium, 36 low.
+
+### 2. The Resulting Skill
+
+Located at `/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/`, the skill has three components:
+
+**SKILL.md** (~140 lines) -- The core workflow in 5 steps:
+1. Determine review scope by matching code area indicators to a lookup table
+2. Search for known anti-patterns using grep
+3. Hunt for novel bugs (read files end-to-end, trace call chains, compare parallel implementations, check recent commits, look for incomplete fixes)
+4. Check cross-cutting concerns (mutability at boundaries, None guards, naming conventions, testing parity, timezone awareness)
+5. Verify each finding (trace callers, check guards, search for tests, check git blame)
+6. Report in structured format with severity classification and false-positive controls
+
+The skill includes a **known false-positive table** with 8 entries specific to the codebase (e.g., `ConfigData.__getitem__` returning immutable primitives is safe, `TemporaryDirectory` parent dir has 0o700 perms, etc.).
+
+**references/bug-patterns.md** (~370 lines) -- Full pattern catalog organized into 11 sections: Security, Data Mutability, Relation Data, Secrets, Pebble, Testing Divergence, Juju API, Error Handling, Event Framework, Configuration, Type Annotations. Each pattern includes before/after code examples and commit hash precedents.
+
+**references/anti-patterns.md** (~300 lines) -- 24 concrete grep-able code patterns, each with: search regex, what to check, how to identify true bugs vs false positives, and the correct fix pattern. Categories include mutability (returning internal state, storing without copy, incomplete mutation guards), security (file permissions, error message exposure), secrets (invalid flags, caching), datetime issues, relation data, Pebble, testing divergence, config handling, naming, event framework, imports, error handling, and Juju version checks.
+
+**SOURCES.md** -- Provenance tracking showing all source materials (canonical trust tier), synthesis decisions, and a coverage matrix confirming all 13 pattern categories are fully covered.
+
+### 3. Patterns and Bugs Found
+
+**13 recurring bug pattern categories** were identified across 235 historical fixes:
+
+| Pattern | Historical Count | Priority |
+|---------|-----------------|----------|
+| Testing/production divergence | 32+ | Medium |
+| Relation data handling | 25+ | High |
+| Pebble/container bugs | 16+ | Medium |
+| Error handling gaps | 16+ | Medium |
+| Secrets management | 13+ | High |
+| Juju version compat | 13+ | Medium |
+| CI/build issues | 12+ | Low |
+| Type annotations | 10+ | Low |
+| Configuration handling | 7+ | Medium |
+| Data mutability | 6+ | High |
+| Import/module issues | 6+ | Low |
+| Crash on None/missing | 5+ | High |
+| Security | 3 | Critical |
+
+**Current code audit** (14 findings at current HEAD):
+- **H-1**: `hookcmds.secret_set()` passes `--owner` to `secret-set` (invalid flag for that command)
+- **H-2**: Harness `relation_get()` returns direct dict reference (Scenario was fixed but Harness was not)
+- **H-3**: Secret temp files created with default 0o644 permissions
+- **M-1 through M-6**: Nested dataclass aliasing risk, naive datetimes (2 instances), incomplete `_TestingConfig` mutation guards, Scenario `relation_set` operating on same dict as `RelationDataContent`, `_ModelCache` storing meta without copy
+- **L-1 through L-5**: File handle leak risk, plus 3 confirmed false positives
+
+**Second test run** (from the writeup) found 6 additional bugs:
+- **High**: `_event_context` context manager missing `try/finally` around `yield`
+- **Medium**: Scenario `secret_get` returns internal dict without copy (incomplete fix from the relation equivalent)
+- **Medium**: `Secret._update_metadata` uses `datetime.now()` instead of `_now_utc()` helper
+- **Medium**: `Secret._update_metadata` uses `if content:` instead of `if content is not None:`
+- **Medium**: `PebbleNoticeEvent.restore()` uses destructive `snapshot.pop()` unlike all other restore methods
+- **Low**: `Service._merge` drops `user_id=0` because `not 0` is `True`
+
+Total across both runs: **11 confirmed bugs** (2 high, 7 medium, 2 low).
+
+### 4. Research Structure
+
+The project directory structure:
+
+- **Top-level analysis artifacts**: `WRITEUP.md` (the narrative blog post), `BUG_PATTERNS.md` (pattern catalog), `CURRENT_CODE_AUDIT.md` (findings against current HEAD)
+- **Data files**: `all_fix_candidates.json`, `filtered_fixes.json`, `filtered_fixes_full.json`, `code_audit_findings.json`, `high_severity_analysis.json`, `detailed_analysis.json`, `detailed_analysis_remaining.json`
+- **Text lists**: `conventional_fixes.txt`, `nonconventional_commits.txt`, `candidate_nonconv_fixes.txt`
+- **Scripts** (`scripts/`): `extract_commit_data.py`, `generate_summaries.py`, `classify_nonconv.py`, `audit_current_code.py`
+- **Commit summaries** (`commit-summaries/`): ~200+ individual markdown files, one per analyzed bug fix, named `{date}_{sha_short}.md`
+- **The skill** (`.claude/skills/operator-find-bugs/`): `SKILL.md`, `SOURCES.md`, `references/bug-patterns.md`, `references/anti-patterns.md`
+- **The operator repo** (`operator/`): A full clone of canonical/operator with its `AGENTS.md` file providing project conventions
+- **Other skills** (`.claude/skills/`): The workspace also contains ~20 other skills (security-review, skill-writer, find-bugs, etc.) that were referenced but not the focus of this project
+
+Key insight from the writeup: the skill is strongest at finding **pattern variants** (e.g., the `secret_get` copy bug mirroring the `relation_get` copy bug), and the false-positive controls are as important as the patterns themselves. Generic security review skills would not have found most of these issues -- the domain specificity is what makes it effective.</pre><pre>agentId: a4921314dd411fb9d (for resuming to continue this agent&#x27;s work if needed)
+&lt;usage&gt;total_tokens: 77476
+tool_uses: 25
+duration_ms: 114591&lt;/usage&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-58-28-950Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-58-28-950Z" class="timestamp-link"><time datetime="2026-03-13T20:58:28.950Z" data-timestamp="2026-03-13T20:58:28.950Z">2026-03-13T20:58:28.950Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T20-58-41-299Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T20-58-41-299Z" class="timestamp-link"><time datetime="2026-03-13T20:58:41.299Z" data-timestamp="2026-03-13T20:58:41.299Z">2026-03-13T20:58:41.299Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Good, I now have a clear picture. Here's what I've learned:</p>
+<h2>Previous Work (operator-analysis)</h2>
+<p>The methodology followed David Cramer's "Skill Synthesis" approach:
+1. <strong>Extract</strong> all bug-fix commits from git history
+2. <strong>Classify</strong> each by area, type, severity
+3. <strong>Synthesize</strong> into recurring bug patterns (found 13 categories across 235 fixes)
+4. <strong>Audit</strong> current code against those patterns
+5. <strong>Build skill</strong> with pattern catalog, grep-able anti-patterns, and false-positive controls</p>
+<p>The resulting skill found <strong>11 confirmed bugs</strong> across two test runs. The key insight was that domain-specific patterns beat generic review — especially for finding "pattern variants" (same bug class in parallel code paths).</p>
+<h2>Charm Tech Repositories (15 total)</h2>
+<ul>
+<li><strong>12 active</strong>, 3 archived</li>
+<li><strong>13 Python</strong>, 2 Go (Pebble, Concierge)</li>
+<li>Core projects: <code>operator</code>, <code>pebble</code>, <code>charmlibs</code>, <code>jubilant</code>/<code>pytest-jubilant</code>, <code>concierge</code></li>
+<li>Smaller/supporting: <code>operator-libs-linux</code>, <code>charmhub-listing-review</code>, <code>charmcraft-profile-tools</code>, <code>copilot-collections</code>, <code>api_demo_server</code>, <code>charm-ubuntu</code></li>
+</ul>
+<h2>Proposed Plan</h2>
+<ol>
+<li><strong>Clone all 12 non-archived repos</strong> (skip archived tutorials/demos)</li>
+<li><strong>Extract bug-fix commits</strong> from each repo using the same methodology (conventional <code>fix:</code> commits + keyword-scored older commits)</li>
+<li><strong>Classify and summarize</strong> all fixes across repos — this will likely be thousands of commits total</li>
+<li><strong>Synthesize cross-repo patterns</strong> — looking for patterns that recur across repos, not just within one</li>
+<li><strong>Decide on skill structure</strong> — one unified skill? separate Python/Go skills? This depends on what the data shows</li>
+<li><strong>Build the skill(s)</strong> with the skill writer</li>
+</ol>
+<p>The big question is scope: should I include all 12 repos, or focus on the ~6 most active ones? The tutorial repos, demo server, and copilot-collections probably don't have rich bug histories. I'd suggest focusing on: <strong>operator, pebble, charmlibs, jubilant, pytest-jubilant, concierge, operator-libs-linux</strong> (7 repos) and doing a quick commit-count check on the others before deciding.</p>
+<p>Should I proceed with this plan?</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T21-01-45-224Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T21-01-45-224Z" class="timestamp-link"><time datetime="2026-03-13T21:01:45.224Z" data-timestamp="2026-03-13T21:01:45.224Z">2026-03-13T21:01:45.224Z</time></a></div><div class="message-content">
+<div class="user-content"><p>include all the repos that aren't demos or archived, and exclude copilot-collections, which isn't really our repo.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-01-59-955Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-01-59-955Z" class="timestamp-link"><time datetime="2026-03-13T21:01:59.955Z" data-timestamp="2026-03-13T21:01:59.955Z">2026-03-13T21:01:59.955Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-02-02-542Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-02-02-542Z" class="timestamp-link"><time datetime="2026-03-13T21:02:02.542Z" data-timestamp="2026-03-13T21:02:02.542Z">2026-03-13T21:02:02.542Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Got it. Here's my working set (10 repos):</p>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Language</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>operator</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>charmlibs</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>jubilant</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>pytest-jubilant</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>pebble</td>
+<td>Go</td>
+</tr>
+<tr>
+<td>concierge</td>
+<td>Go</td>
+</tr>
+<tr>
+<td>operator-libs-linux</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>charmhub-listing-review</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>charmcraft-profile-tools</td>
+<td>Python</td>
+</tr>
+<tr>
+<td>charm-ubuntu</td>
+<td>Python</td>
+</tr>
+</tbody>
+</table>
+<p>Excluding: copilot-collections, api_demo_server (demo), and the 3 archived repos.</p>
+<p>Let me start by cloning them all and getting commit counts.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-02-04-512Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-02-04-512Z" class="timestamp-link"><time datetime="2026-03-13T21:02:04.512Z" data-timestamp="2026-03-13T21:02:04.512Z">2026-03-13T21:02:04.512Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01FwaeEAf7bsiF4En2YJcMX6">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Clone all 10 Charm Tech repositories</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">for repo in operator charmlibs jubilant pytest-jubilant pebble concierge operator-libs-linux charmhub-listing-review charmcraft-profile-tools charm-ubuntu; do echo &#34;Cloning $repo...&#34; &amp;&amp; git clone --quiet &#34;https://github.com/canonical/$repo.git&#34; 2&gt;&amp;1 &amp; done &amp;&amp; wait &amp;&amp; echo &#34;All clones complete&#34;</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-02-10-747Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-02-10-747Z" class="timestamp-link"><time datetime="2026-03-13T21:02:10.747Z" data-timestamp="2026-03-13T21:02:10.747Z">2026-03-13T21:02:10.747Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Cloning operator...
+Cloning charmlibs...
+Cloning jubilant...
+Cloning pytest-jubilant...
+Cloning pebble...
+Cloning concierge...
+Cloning operator-libs-linux...
+Cloning charmhub-listing-review...
+Cloning charmcraft-profile-tools...
+Cloning charm-ubuntu...
+[1]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[2]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[3]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[4]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[5]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[6]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[7]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[8]   Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[9]-  Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+[10]+  Done                    echo &quot;Cloning $repo...&quot; &amp;&amp; git clone --quiet &quot;https://github.com/canonical/$repo.git&quot; 2&gt;&amp;1
+All clones complete</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-02-17-610Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-02-17-610Z" class="timestamp-link"><time datetime="2026-03-13T21:02:17.610Z" data-timestamp="2026-03-13T21:02:17.610Z">2026-03-13T21:02:17.610Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01AwXsKDR7rAuxg21YujhUS4">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Count commits and fix-related commits per repo</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">for repo in operator charmlibs jubilant pytest-jubilant pebble concierge operator-libs-linux charmhub-listing-review charmcraft-profile-tools charm-ubuntu; do total=$(git -C &#34;$repo&#34; rev-list --count HEAD 2&gt;/dev/null || echo &#34;?&#34;); conv_fixes=$(git -C &#34;$repo&#34; log --oneline --all | grep -ciE &#39;^[a-f0-9]+ fix[:(]&#39; 2&gt;/dev/null || echo 0); all_fix_kw=$(git -C &#34;$repo&#34; log --oneline --all | grep -ciE &#39;fix|bug|patch|correct|repair|resolve&#39; 2&gt;/dev/null || echo 0); echo &#34;$repo: $total total commits, ~$conv_fixes conventional fixes, ~$all_fix_kw fix-keyword commits&#34;; done</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-02-17-814Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-02-17-814Z" class="timestamp-link"><time datetime="2026-03-13T21:02:17.814Z" data-timestamp="2026-03-13T21:02:17.814Z">2026-03-13T21:02:17.814Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>operator: 2000 total commits, ~98 conventional fixes, ~379 fix-keyword commits
+charmlibs: 284 total commits, ~17 conventional fixes, ~55 fix-keyword commits
+jubilant: 177 total commits, ~12 conventional fixes, ~35 fix-keyword commits
+pytest-jubilant: 77 total commits, ~4 conventional fixes, ~15 fix-keyword commits
+pebble: 564 total commits, ~91 conventional fixes, ~137 fix-keyword commits
+concierge: 211 total commits, ~35 conventional fixes, ~47 fix-keyword commits
+operator-libs-linux: 230 total commits, ~6 conventional fixes, ~62 fix-keyword commits
+charmhub-listing-review: 33 total commits, ~5 conventional fixes, ~7 fix-keyword commits
+charmcraft-profile-tools: 59 total commits, ~0
+0 conventional fixes, ~9 fix-keyword commits
+charm-ubuntu: 58 total commits, ~0
+0 conventional fixes, ~10 fix-keyword commits</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-02-30-975Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-02-30-975Z" class="timestamp-link"><time datetime="2026-03-13T21:02:30.975Z" data-timestamp="2026-03-13T21:02:30.975Z">2026-03-13T21:02:30.975Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-02-34-173Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-02-34-173Z" class="timestamp-link"><time datetime="2026-03-13T21:02:34.173Z" data-timestamp="2026-03-13T21:02:34.173Z">2026-03-13T21:02:34.173Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Good overview. The scale:</p>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Total Commits</th>
+<th>Fix-keyword Commits</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>operator</td>
+<td>2,000</td>
+<td>~379</td>
+</tr>
+<tr>
+<td>pebble (Go)</td>
+<td>564</td>
+<td>~137</td>
+</tr>
+<tr>
+<td>charmlibs</td>
+<td>284</td>
+<td>~55</td>
+</tr>
+<tr>
+<td>concierge (Go)</td>
+<td>211</td>
+<td>~47</td>
+</tr>
+<tr>
+<td>operator-libs-linux</td>
+<td>230</td>
+<td>~62</td>
+</tr>
+<tr>
+<td>jubilant</td>
+<td>177</td>
+<td>~35</td>
+</tr>
+<tr>
+<td>pytest-jubilant</td>
+<td>77</td>
+<td>~15</td>
+</tr>
+<tr>
+<td>charmcraft-profile-tools</td>
+<td>59</td>
+<td>~9</td>
+</tr>
+<tr>
+<td>charm-ubuntu</td>
+<td>58</td>
+<td>~10</td>
+</tr>
+<tr>
+<td>charmhub-listing-review</td>
+<td>33</td>
+<td>~7</td>
+</tr>
+</tbody>
+</table>
+<p>~756 fix-keyword commits total. We already have operator's 235 classified fixes from the previous work. Let me extract and process the other 9 repos, then merge everything.</p>
+<p>I'll start with the extraction phase — pulling fix commits with full diffs from all repos.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-02-35-217Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-02-35-217Z" class="timestamp-link"><time datetime="2026-03-13T21:02:35.217Z" data-timestamp="2026-03-13T21:02:35.217Z">2026-03-13T21:02:35.217Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_011PfbN4tc4XzRQ37nRNWsaf">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Create project directory structure</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">mkdir -p /home/ubuntu/charm-tech-analysis/{scripts,data,commit-summaries}</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-02-35-249Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-02-35-249Z" class="timestamp-link"><time datetime="2026-03-13T21:02:35.249Z" data-timestamp="2026-03-13T21:02:35.249Z">2026-03-13T21:02:35.249Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>(Bash completed with no output)</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-10-140Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-10-140Z" class="timestamp-link"><time datetime="2026-03-13T21:03:10.140Z" data-timestamp="2026-03-13T21:03:10.140Z">2026-03-13T21:03:10.140Z</time></a></div><div class="message-content"><div class="file-tool write-tool" data-tool-id="toolu_01MjiGCaza6q3n8ozHKGcTP6">
+<div class="file-tool-header write-header"><span class="file-tool-icon">📝</span> Write <span class="file-tool-path">extract_fixes.py</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charm-tech-analysis/scripts/extract_fixes.py</div>
+<div class="truncatable"><div class="truncatable-content"><pre class="file-content">#!/usr/bin/env python3
+&#34;&#34;&#34;Extract bug-fix commits from all Charm Tech repositories.
+
+For each repo, identifies fix commits via:
+1. Conventional commits: messages starting with &#39;fix:&#39; or &#39;fix(...):&#39;
+2. Non-conventional commits: keyword scoring (fix, bug, patch, correct, etc.)
+
+Outputs a JSON file per repo in data/ with full commit metadata and diffs.
+&#34;&#34;&#34;
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+BASE_DIR = Path(&#34;/home/ubuntu/charm-tech-analysis&#34;)
+DATA_DIR = BASE_DIR / &#34;data&#34;
+DATA_DIR.mkdir(exist_ok=True)
+
+REPOS = {
+    &#34;operator&#34;: BASE_DIR / &#34;operator&#34;,
+    &#34;charmlibs&#34;: BASE_DIR / &#34;charmlibs&#34;,
+    &#34;jubilant&#34;: BASE_DIR / &#34;jubilant&#34;,
+    &#34;pytest-jubilant&#34;: BASE_DIR / &#34;pytest-jubilant&#34;,
+    &#34;pebble&#34;: BASE_DIR / &#34;pebble&#34;,
+    &#34;concierge&#34;: BASE_DIR / &#34;concierge&#34;,
+    &#34;operator-libs-linux&#34;: BASE_DIR / &#34;operator-libs-linux&#34;,
+    &#34;charmhub-listing-review&#34;: BASE_DIR / &#34;charmhub-listing-review&#34;,
+    &#34;charmcraft-profile-tools&#34;: BASE_DIR / &#34;charmcraft-profile-tools&#34;,
+    &#34;charm-ubuntu&#34;: BASE_DIR / &#34;charm-ubuntu&#34;,
+}
+
+# Conventional fix pattern
+CONV_FIX_RE = re.compile(r&#39;^fix[\s(:]&#39;, re.IGNORECASE)
+
+# Keyword scoring for non-conventional commits
+FIX_KEYWORDS = {
+    &#39;fix&#39;: 3, &#39;fixed&#39;: 3, &#39;fixes&#39;: 3, &#39;fixing&#39;: 3,
+    &#39;bug&#39;: 3, &#39;bugfix&#39;: 3,
+    &#39;patch&#39;: 2, &#39;patched&#39;: 2,
+    &#39;correct&#39;: 2, &#39;corrected&#39;: 2, &#39;correction&#39;: 2,
+    &#39;repair&#39;: 2, &#39;repaired&#39;: 2,
+    &#39;resolve&#39;: 2, &#39;resolved&#39;: 2, &#39;resolves&#39;: 2,
+    &#39;workaround&#39;: 2,
+    &#39;regression&#39;: 3,
+    &#39;crash&#39;: 2, &#39;crashes&#39;: 2,
+    &#39;broken&#39;: 2, &#39;break&#39;: 1,
+    &#39;error&#39;: 1, &#39;errors&#39;: 1,
+    &#39;issue&#39;: 1, &#39;issues&#39;: 1,
+    &#39;wrong&#39;: 2, &#39;incorrect&#39;: 2,
+    &#39;handle&#39;: 1, &#39;handling&#39;: 1,
+    &#39;missing&#39;: 2,
+    &#39;prevent&#39;: 1, &#39;avoid&#39;: 1,
+    &#39;fallback&#39;: 1,
+}
+
+# Negative keywords (less likely to be fixes)
+NEGATIVE_KEYWORDS = {
+    &#39;feat&#39;: -3, &#39;feature&#39;: -3,
+    &#39;add&#39;: -2, &#39;added&#39;: -2, &#39;adding&#39;: -2,
+    &#39;new&#39;: -2,
+    &#39;refactor&#39;: -2, &#39;refactored&#39;: -2,
+    &#39;docs&#39;: -3, &#39;doc&#39;: -3, &#39;documentation&#39;: -3,
+    &#39;chore&#39;: -3,
+    &#39;style&#39;: -3,
+    &#39;ci&#39;: -2,
+    &#39;test&#39;: -1, &#39;tests&#39;: -1,
+    &#39;bump&#39;: -3, &#39;version&#39;: -2,
+    &#39;merge&#39;: -3,
+    &#39;revert&#39;: -2,
+    &#39;update dependencies&#39;: -3,
+    &#39;readme&#39;: -3,
+    &#39;changelog&#39;: -3,
+    &#39;license&#39;: -3,
+}
+
+KEYWORD_THRESHOLD = 3
+
+
+def score_message(message: str) -&gt; int:
+    &#34;&#34;&#34;Score a commit message for likelihood of being a bug fix.&#34;&#34;&#34;
+    words = re.findall(r&#39;\w+&#39;, message.lower())
+    score = 0
+    for word in words:
+        score += FIX_KEYWORDS.get(word, 0)
+        score += NEGATIVE_KEYWORDS.get(word, 0)
+    # Boost if message contains issue/PR references with &#34;fix&#34;
+    if re.search(r&#39;fix(es|ed)?\s*#\d+&#39;, message, re.IGNORECASE):
+        score += 3
+    return score
+
+
+def get_commit_data(repo_path: Path, sha: str) -&gt; dict:
+    &#34;&#34;&#34;Get full commit data including diff.&#34;&#34;&#34;
+    fmt = &#39;%H%n%an%n%ae%n%aI%n%s%n%b%n---END_BODY---&#39;
+    result = subprocess.run(
+        [&#39;git&#39;, &#39;log&#39;, &#39;-1&#39;, f&#39;--format={fmt}&#39;, sha],
+        capture_output=True, text=True, cwd=repo_path, timeout=30
+    )
+    lines = result.stdout.split(&#39;\n&#39;)
+    body_lines = []
+    i = 5
+    while i &lt; len(lines) and lines[i] != &#39;---END_BODY---&#39;:
+        body_lines.append(lines[i])
+        i += 1
+    body = &#39;\n&#39;.join(body_lines).strip()
+
+    # Get diff (limit to 50KB to avoid huge diffs)
+    diff_result = subprocess.run(
+        [&#39;git&#39;, &#39;diff-tree&#39;, &#39;-p&#39;, &#39;--no-commit-id&#39;, sha],
+        capture_output=True, text=True, cwd=repo_path, timeout=30
+    )
+    diff = diff_result.stdout[:50000]
+    if len(diff_result.stdout) &gt; 50000:
+        diff += &#39;\n... [diff truncated at 50KB]&#39;
+
+    # Get changed files
+    files_result = subprocess.run(
+        [&#39;git&#39;, &#39;diff-tree&#39;, &#39;--no-commit-id&#39;, &#39;--name-status&#39;, &#39;-r&#39;, sha],
+        capture_output=True, text=True, cwd=repo_path, timeout=30
+    )
+    changed_files = files_result.stdout.strip().split(&#39;\n&#39;) if files_result.stdout.strip() else []
+
+    return {
+        &#39;sha&#39;: lines[0] if lines else sha,
+        &#39;author&#39;: lines[1] if len(lines) &gt; 1 else &#39;&#39;,
+        &#39;email&#39;: lines[2] if len(lines) &gt; 2 else &#39;&#39;,
+        &#39;date&#39;: lines[3] if len(lines) &gt; 3 else &#39;&#39;,
+        &#39;subject&#39;: lines[4] if len(lines) &gt; 4 else &#39;&#39;,
+        &#39;body&#39;: body,
+        &#39;diff&#39;: diff,
+        &#39;changed_files&#39;: changed_files,
+    }
+
+
+def extract_repo_fixes(repo_name: str, repo_path: Path) -&gt; list[dict]:
+    &#34;&#34;&#34;Extract all fix commits from a repository.&#34;&#34;&#34;
+    if not repo_path.exists():
+        print(f&#34;  SKIP: {repo_path} does not exist&#34;)
+        return []
+
+    # Get all commit SHAs and subjects
+    result = subprocess.run(
+        [&#39;git&#39;, &#39;log&#39;, &#39;--all&#39;, &#39;--format=%H %s&#39;],
+        capture_output=True, text=True, cwd=repo_path, timeout=60
+    )
+    commits = []
+    for line in result.stdout.strip().split(&#39;\n&#39;):
+        if not line.strip():
+            continue
+        parts = line.split(&#39; &#39;, 1)
+        if len(parts) == 2:
+            commits.append((parts[0], parts[1]))
+
+    fixes = []
+    seen_shas = set()
+
+    for sha, subject in commits:
+        if sha in seen_shas:
+            continue
+
+        is_conventional = bool(CONV_FIX_RE.match(subject))
+        keyword_score = score_message(subject)
+
+        if is_conventional or keyword_score &gt;= KEYWORD_THRESHOLD:
+            classification = &#39;conventional&#39; if is_conventional else &#39;keyword&#39;
+            commit_data = get_commit_data(repo_path, sha)
+            commit_data[&#39;repo&#39;] = repo_name
+            commit_data[&#39;classification_method&#39;] = classification
+            commit_data[&#39;keyword_score&#39;] = keyword_score
+            fixes.append(commit_data)
+            seen_shas.add(sha)
+
+    return fixes
+
+
+def main():
+    repo_filter = sys.argv[1] if len(sys.argv) &gt; 1 else None
+
+    all_fixes = []
+    for repo_name, repo_path in sorted(REPOS.items()):
+        if repo_filter and repo_name != repo_filter:
+            continue
+        print(f&#34;Processing {repo_name}...&#34;)
+        fixes = extract_repo_fixes(repo_name, repo_path)
+        print(f&#34;  Found {len(fixes)} fix candidates&#34;)
+        all_fixes.extend(fixes)
+
+        # Save per-repo file
+        repo_file = DATA_DIR / f&#34;{repo_name}_fixes.json&#34;
+        with open(repo_file, &#39;w&#39;) as f:
+            json.dump(fixes, f, indent=2, default=str)
+
+    # Save combined file
+    combined_file = DATA_DIR / &#34;all_fixes.json&#34;
+    with open(combined_file, &#39;w&#39;) as f:
+        json.dump(all_fixes, f, indent=2, default=str)
+
+    print(f&#34;\nTotal: {len(all_fixes)} fix candidates across all repos&#34;)
+
+    # Summary
+    by_repo = {}
+    for fix in all_fixes:
+        repo = fix[&#39;repo&#39;]
+        by_repo.setdefault(repo, {&#39;conventional&#39;: 0, &#39;keyword&#39;: 0})
+        by_repo[repo][fix[&#39;classification_method&#39;]] += 1
+
+    print(&#34;\nBreakdown:&#34;)
+    for repo, counts in sorted(by_repo.items()):
+        total = counts[&#39;conventional&#39;] + counts[&#39;keyword&#39;]
+        print(f&#34;  {repo}: {total} ({counts[&#39;conventional&#39;]} conventional, {counts[&#39;keyword&#39;]} keyword)&#34;)
+
+
+if __name__ == &#39;__main__&#39;:
+    main()
+</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-03-10-208Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-03-10-208Z" class="timestamp-link"><time datetime="2026-03-13T21:03:10.208Z" data-timestamp="2026-03-13T21:03:10.208Z">2026-03-13T21:03:10.208Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>File created successfully at: /home/ubuntu/charm-tech-analysis/scripts/extract_fixes.py</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-14-753Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-14-753Z" class="timestamp-link"><time datetime="2026-03-13T21:03:14.753Z" data-timestamp="2026-03-13T21:03:14.753Z">2026-03-13T21:03:14.753Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01PQPw6zNwytjHu6ChKENSJW">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Extract fix commits from all 10 repos</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">python3 scripts/extract_fixes.py</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-03-16-813Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-03-16-813Z" class="timestamp-link"><time datetime="2026-03-13T21:03:16.813Z" data-timestamp="2026-03-13T21:03:16.813Z">2026-03-13T21:03:16.813Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Processing charm-ubuntu...
+  Found 7 fix candidates
+Processing charmcraft-profile-tools...
+  Found 7 fix candidates
+Processing charmhub-listing-review...
+  Found 6 fix candidates
+Processing charmlibs...
+  Found 19 fix candidates
+Processing concierge...
+  Found 35 fix candidates
+Processing jubilant...
+  Found 18 fix candidates
+Processing operator...
+  Found 218 fix candidates
+Processing operator-libs-linux...
+  Found 29 fix candidates
+Processing pebble...
+  Found 108 fix candidates
+Processing pytest-jubilant...
+  Found 5 fix candidates
+
+Total: 452 fix candidates across all repos
+
+Breakdown:
+  charm-ubuntu: 7 (4 conventional, 3 keyword)
+  charmcraft-profile-tools: 7 (7 conventional, 0 keyword)
+  charmhub-listing-review: 6 (6 conventional, 0 keyword)
+  charmlibs: 19 (17 conventional, 2 keyword)
+  concierge: 35 (35 conventional, 0 keyword)
+  jubilant: 18 (12 conventional, 6 keyword)
+  operator: 218 (140 conventional, 78 keyword)
+  operator-libs-linux: 29 (17 conventional, 12 keyword)
+  pebble: 108 (105 conventional, 3 keyword)
+  pytest-jubilant: 5 (5 conventional, 0 keyword)</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-27-059Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-27-059Z" class="timestamp-link"><time datetime="2026-03-13T21:03:27.059Z" data-timestamp="2026-03-13T21:03:27.059Z">2026-03-13T21:03:27.059Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>452 fix candidates extracted. Now I need to classify and summarize them. This is the most intensive phase — I'll process them in parallel batches by repo. Let me also bring forward the existing operator analysis data since that was already deeply analyzed.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-28-721Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-28-721Z" class="timestamp-link"><time datetime="2026-03-13T21:03:28.721Z" data-timestamp="2026-03-13T21:03:28.721Z">2026-03-13T21:03:28.721Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01XboRt3J8Frf2wgEixuYqGF">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Check existing operator analysis artifacts</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">ls /home/ubuntu/operator-analysis/BUG_PATTERNS.md /home/ubuntu/operator-analysis/CURRENT_CODE_AUDIT.md /home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/*.md 2&gt;/dev/null</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-03-28-758Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-03-28-758Z" class="timestamp-link"><time datetime="2026-03-13T21:03:28.758Z" data-timestamp="2026-03-13T21:03:28.758Z">2026-03-13T21:03:28.758Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/anti-patterns.md
+/home/ubuntu/operator-analysis/.claude/skills/operator-find-bugs/references/bug-patterns.md
+/home/ubuntu/operator-analysis/BUG_PATTERNS.md
+/home/ubuntu/operator-analysis/CURRENT_CODE_AUDIT.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-33-786Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-33-786Z" class="timestamp-link"><time datetime="2026-03-13T21:03:33.786Z" data-timestamp="2026-03-13T21:03:33.786Z">2026-03-13T21:03:33.786Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_012G6kVjiUkuyEamPvsSXGas"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/operator-analysis/BUG_PATTERNS.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-03-33-798Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-03-33-798Z" class="timestamp-link"><time datetime="2026-03-13T21:03:33.798Z" data-timestamp="2026-03-13T21:03:33.798Z">2026-03-13T21:03:33.798Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# Bug Patterns in canonical/operator
+     2→
+     3→A systematic analysis of **235 bug fixes** in the [canonical/operator](https://github.com/canonical/operator) repository, identifying the most common and significant patterns of bugs. This document is intended for developers and AI agents working in this repository, to help them avoid known pitfalls.
+     4→
+     5→## Executive Summary
+     6→
+     7→The most impactful bug patterns fall into these categories:
+     8→
+     9→1. **Data mutability &amp; sharing** — Dicts and lists passed around without copying, leading to unexpected mutation side effects
+    10→2. **Missing guards for None/missing data** — KeyError, AttributeError, TypeError from unhandled optional values
+    11→3. **Testing framework / production divergence** — The Harness and Scenario testing tools behaving differently from real Juju
+    12→4. **Juju API interaction errors** — Wrong tool arguments, naming convention mismatches, version assumption failures
+    13→5. **Security issues** — Information leaks in error messages, insecure file permissions, CI injection risks
+    14→
+    15→The codebase has improved significantly over time: earlier bugs (2019-2022) tend to be more fundamental (missing features, wrong API usage), while later bugs (2023-2026) are more subtle (edge cases, test-production parity, type annotations).
+    16→
+    17→---
+    18→
+    19→## 1. Security Issues
+    20→
+    21→**Priority: CRITICAL — always review carefully**
+    22→
+    23→### 1.1 Information Leaks in Error Messages
+    24→
+    25→The `ExecError.__str__` method exposed full command lines, including potentially sensitive arguments like credentials or secrets passed to Pebble exec commands.
+    26→
+    27→**Example**: [`0ce8a0fd`](https://github.com/canonical/operator/commit/0ce8a0fd) — `ExecError.__str__` included the full command line. The fix changed it to only show the executable name, not arguments.
+    28→
+    29→**How to avoid**: Never include full command arguments, environment variables, or request bodies in error messages or logs. Use `repr()` on just the command name, not the full argument list.
+    30→
+    31→### 1.2 Insecure File Permissions
+    32→
+    33→The SQLite storage file was created with default permissions (0o644, world-readable), exposing charm state data to other processes on the system.
+    34→
+    35→**Example**: [`e4b0f9d4`](https://github.com/canonical/operator/commit/e4b0f9d4) — Changed SQLite storage file mode to 0o600.
+    36→
+    37→**How to avoid**: Always set explicit restrictive permissions when creating files that contain state, credentials, or configuration. Use `os.open()` with explicit mode rather than relying on umask.
+    38→
+    39→### 1.3 CI/Workflow Injection
+    40→
+    41→CI workflows used git references in ways that could be exploited for injection attacks.
+    42→
+    43→**Example**: [`85e677ef`](https://github.com/canonical/operator/commit/85e677ef) — Replaced git reference injection with wheel artifacts in charm test workflows.
+    44→
+    45→**How to avoid**: In CI workflows, never use git refs or PR data directly in shell commands. Use environment variables or intermediate artifacts.
+    46→
+    47→---
+    48→
+    49→## 2. Crash-Causing Bugs
+    50→
+    51→**Priority: HIGH — these cause charm failures at runtime**
+    52→
+    53→### 2.1 Missing None/Optional Guards
+    54→
+    55→Several crashes were caused by accessing attributes on values that could be `None` — particularly in code paths triggered by specific Juju versions or unusual charm configurations.
+    56→
+    57→**Examples**:
+    58→- [`a93d676`](https://github.com/canonical/operator/commit/a93d676) — `self.app` could be `None` due to an upstream Juju bug, causing AttributeError during event dispatch
+    59→- [`6fcda007`](https://github.com/canonical/operator/commit/6fcda007) — `FileInfo.permissions` could be `None`, causing `TypeError` in `__repr__`
+    60→- [`31091898`](https://github.com/canonical/operator/commit/31091898) — `JUJU_VERSION` env var not set during `meter-status-changed` events, causing KeyError
+    61→
+    62→**How to avoid**:
+    63→- Always handle the case where Juju-provided data may be missing or None
+    64→- Use `.get()` with defaults for environment variables and dict lookups
+    65→- Add None checks before attribute access on values from external sources
+    66→
+    67→### 2.2 KeyError from Naming Convention Mismatches
+    68→
+    69→Juju uses hyphens in identifiers (e.g., `auth-type`) while Python typically uses underscores. This mismatch has caused KeyErrors.
+    70→
+    71→**Example**: [`d7473832`](https://github.com/canonical/operator/commit/d7473832) — `CloudCredential` construction failed with KeyError because the code looked for `auth-type` but the data used underscores (or vice versa).
+    72→
+    73→**How to avoid**: When interacting with Juju API responses, be aware that field names may use hyphens. Always use `.get()` with a fallback, or normalize field names at the boundary.
+    74→
+    75→### 2.3 Event Dispatch Issues
+    76→
+    77→Wrong event ordering or incorrect remote unit injection can cause crashes when charms try to access data that isn&#x27;t yet available.
+    78→
+    79→**Example**: [`5a63e01e`](https://github.com/canonical/operator/commit/5a63e01e) — Remote units were added for all relation events, but should only be added for `departed` and `broken` events. The ordering was also wrong, causing inaccessible databags.
+    80→
+    81→**How to avoid**: Carefully model the lifecycle of Juju events. Only make data available that would actually be present at that point in the lifecycle.
+    82→
+    83→---
+    84→
+    85→## 3. Data Mutability &amp; Sharing Bugs
+    86→
+    87→**Priority: HIGH — subtle and often missed in code review**
+    88→
+    89→This is one of the most persistent bug patterns in the codebase. It occurs when dicts or lists are stored or returned by reference rather than by copy.
+    90→
+    91→### Pattern
+    92→
+    93→```python
+    94→# BUG: user&#x27;s dict is stored directly — mutations to either side leak
+    95→class Context:
+    96→    def __init__(self, meta: dict):
+    97→        self._meta = meta  # Should be: dict(meta) or meta.copy()
+    98→
+    99→# BUG: internal state returned without copy — caller can mutate internal state
+   100→def get_config(self):
+   101→    return self._config  # Should be: dict(self._config)
+   102→```
+   103→
+   104→### Examples
+   105→
+   106→- [`3f8fb9b9`](https://github.com/canonical/operator/commit/3f8fb9b9) — `testing.Context` held direct references to user-provided dicts for `meta`, `config`, and `actions`. Fix: copy on store.
+   107→- [`be09012`](https://github.com/canonical/operator/commit/be09012) — `_MockModelBackend.relation_get` returned the actual stored relation data dict. Callers could mutate it and corrupt the test state.
+   108→- [`4ffc1256`](https://github.com/canonical/operator/commit/4ffc1256) — Non-string keys could be used to write relation data because validation wasn&#x27;t applied.
+   109→- [`668701b4`](https://github.com/canonical/operator/commit/668701b4) — Databag access validation was not enabled during `__init__`, allowing invalid operations.
+   110→
+   111→### How to Avoid
+   112→
+   113→- **Copy on store**: When accepting dicts from users/callers, always copy them: `self._data = dict(data)` or `copy.deepcopy(data)` for nested structures
+   114→- **Copy on return**: When returning internal state, return a copy: `return dict(self._config)`
+   115→- **Use frozen/immutable types**: Where possible, use `MappingProxyType`, frozen dataclasses, or `tuple` instead of `dict`/`list`
+   116→- **Model.config was made immutable** in [`6cd5d6c`](https://github.com/canonical/operator/commit/6cd5d6c) — this is the gold standard approach
+   117→
+   118→---
+   119→
+   120→## 4. Relation Data Handling Bugs
+   121→
+   122→**Priority: HIGH — 25+ fixes in this area**
+   123→
+   124→Relations are one of the most complex parts of the Juju model, and a major source of bugs.
+   125→
+   126→### Common Issues
+   127→
+   128→1. **Accessing relation data after relation-broken**: Data bags are not available after a relation is broken, but code often tries to access them.
+   129→   - [`1b086258`](https://github.com/canonical/operator/commit/1b086258) — Better error message for relation data access in relation-broken events
+   130→
+   131→2. **Non-string keys/values in relation data**: Juju relation data is strictly `Dict[str, str]`, but Python code can accidentally write non-string types.
+   132→   - [`4ffc1256`](https://github.com/canonical/operator/commit/4ffc1256) — Fixed allowing non-string keys in relation data
+   133→
+   134→3. **Shell argument length limits with large relation data**: Using command-line arguments for relation-set can exceed shell limits.
+   135→   - [`9fe65c7c`](https://github.com/canonical/operator/commit/9fe65c7c) — Switched to `--file` for relation-set to avoid shell argument length limits
+   136→
+   137→4. **Incorrect relation ID handling**: Static method vs instance method confusion, wrong IDs in events.
+   138→   - [`49aaa0a0`](https://github.com/canonical/operator/commit/49aaa0a0) — Bug in `relation_ids` implementation
+   139→
+   140→5. **Relation data change detection**: Issuing relation_changed events when there&#x27;s no actual data delta.
+   141→   - [`16434141`](https://github.com/canonical/operator/commit/16434141) — Avoided issuing relation_changed events with no data delta
+   142→
+   143→### How to Avoid
+   144→
+   145→- Always validate that relation data keys and values are strings before writing
+   146→- Check if a relation still exists before accessing its data
+   147→- Use `--file` for large data transfers to Juju CLI tools
+   148→- In testing, ensure relation events include the correct relation ID and remote unit
+   149→
+   150→---
+   151→
+   152→## 5. Secrets Management Bugs
+   153→
+   154→**Priority: HIGH — 13+ fixes in this area**
+   155→
+   156→Secrets are a relatively new Juju feature, and their handling in ops has been a frequent source of bugs.
+   157→
+   158→### Common Issues
+   159→
+   160→1. **Secret ID canonicalization**: Juju uses `secret:&lt;id&gt;` format but code sometimes omits the prefix.
+   161→   - [`7670b59c`](https://github.com/canonical/operator/commit/7670b59c) — Made secret-get consistently use `secret:&lt;id&gt;` format
+   162→
+   163→2. **Secret info visibility**: Secret info not being properly exposed to charms in testing.
+   164→   - [`0fa4497`](https://github.com/canonical/operator/commit/0fa4497) — Made secret info description visible in ops[testing]
+   165→
+   166→3. **Caching issues**: Secrets were being cached in Ops, leading to stale data.
+   167→   - [`9323ead`](https://github.com/canonical/operator/commit/9323ead) — Don&#x27;t cache secrets in Ops
+   168→
+   169→4. **API argument conflicts**: `secret-info-get` cannot accept both ID and label simultaneously.
+   170→   - [`3ce1c7f`](https://github.com/canonical/operator/commit/3ce1c7f) — Prevent passing both ID and label to `secret-info-get`
+   171→   - [`5afc2842`](https://github.com/canonical/operator/commit/5afc2842) — Earlier fix for the same issue
+   172→
+   173→5. **Owner normalization**: Secret owner field inconsistencies between ops and testing.
+   174→   - [`e7e2c8d`](https://github.com/canonical/operator/commit/e7e2c8d) — Normalise Secret.owner to &#x27;app&#x27; for ops[testing]
+   175→
+   176→### How to Avoid
+   177→
+   178→- Always canonicalize secret IDs with the `secret:` prefix
+   179→- Never cache secret content — always fetch fresh from Juju
+   180→- Validate that API calls don&#x27;t include conflicting arguments
+   181→- Test with both app-owned and unit-owned secrets
+   182→
+   183→---
+   184→
+   185→## 6. Pebble / Container Interaction Bugs
+   186→
+   187→**Priority: MEDIUM — 16+ fixes**
+   188→
+   189→### Common Issues
+   190→
+   191→1. **Path handling**: Relative paths, empty directories, and path traversal issues in `push_path`/`pull_path`.
+   192→   - [`cbaec52e`](https://github.com/canonical/operator/commit/cbaec52e) — Fix issue with relative paths in Container.push_path
+   193→   - [`942bd23`](https://github.com/canonical/operator/commit/942bd23) — push_path and pull_path include empty directories
+   194→
+   195→2. **Binary file handling**: `push()` not correctly handling binary files.
+   196→   - [`5943a59c`](https://github.com/canonical/operator/commit/5943a59c) — Fix Pebble push() handling of binary files
+   197→
+   198→3. **Exec process stdout iteration**: The `for line in process.stdout` pattern didn&#x27;t work correctly.
+   199→   - [`91b6551a`](https://github.com/canonical/operator/commit/91b6551a) — Fix &quot;for line in process.stdout&quot; behavior
+   200→
+   201→4. **Temporary file cleanup**: `ops.Pebble.pull` not cleaning up temp files on error.
+   202→   - [`a1574f4`](https://github.com/canonical/operator/commit/a1574f4) — Ensure ops.Pebble.pull cleans up temporary files on error
+   203→
+   204→5. **Layer merging**: Incorrect merge semantics for Pebble layers in testing.
+   205→   - [`3dda5b5f`](https://github.com/canonical/operator/commit/3dda5b5f) — Assorted fixes for Pebble layer merging in Harness and Scenario
+   206→
+   207→6. **restart() operating on strings**: Container.restart() accidentally iterated over service name characters instead of treating it as a single service.
+   208→   - [`37fdcbaf`](https://github.com/canonical/operator/commit/37fdcbaf) — Fix Container.restart() accidentally operating on strings
+   209→
+   210→### How to Avoid
+   211→
+   212→- Always use `pathlib.Path` for path operations, and test with absolute, relative, and edge-case paths
+   213→- Handle both text and binary modes explicitly in file operations
+   214→- Use context managers for temporary files to ensure cleanup
+   215→- When accepting `str | list[str]` arguments, always normalize to list before iterating
+   216→
+   217→---
+   218→
+   219→## 7. Testing Framework / Production Divergence
+   220→
+   221→**Priority: MEDIUM — 32+ fixes (test-framework + test-fix patterns)**
+   222→
+   223→The Harness and Scenario testing frameworks must faithfully replicate Juju behavior. Divergences are a major bug source.
+   224→
+   225→### Common Issues
+   226→
+   227→1. **Event emission differences**: Testing frameworks emitting events in wrong order or with wrong data.
+   228→   - [`5a63e01e`](https://github.com/canonical/operator/commit/5a63e01e) — Wrong remote unit handling in relation events
+   229→
+   230→2. **Secret behavior divergence**: Harness secrets not matching Juju behavior.
+   231→   - [`79706f40`](https://github.com/canonical/operator/commit/79706f40) — Adjust Harness secret behaviour to align with Juju
+   232→
+   233→3. **Missing validation in tests**: Testing backends allowing operations that Juju would reject.
+   234→   - [`668701b4`](https://github.com/canonical/operator/commit/668701b4) — Turn on databag access validation in __init__
+   235→
+   236→4. **Incorrect storage/config mocking**: Testing backends not correctly simulating Juju storage or config behavior.
+   237→   - [`deccdd6f`](https://github.com/canonical/operator/commit/deccdd6f) — Fix incorrect kwarg handling in testing backend storage_list
+   238→
+   239→### How to Avoid
+   240→
+   241→- When fixing a bug in ops, always check if the same fix needs to apply to Harness and Scenario
+   242→- Add integration tests that verify testing framework behavior matches real Juju
+   243→- Keep a mapping of Juju CLI tool behavior to testing backend behavior
+   244→
+   245→---
+   246→
+   247→## 8. Juju Version Compatibility
+   248→
+   249→**Priority: MEDIUM — 13+ fixes**
+   250→
+   251→### Common Issues
+   252→
+   253→1. **Hardcoded version assumptions**: Code assuming a Juju feature is always available.
+   254→   - [`d6d1746b`](https://github.com/canonical/operator/commit/d6d1746b) — `credential-get` is available on k8s in newer Juju
+   255→   - [`5151a1e`](https://github.com/canonical/operator/commit/5151a1e) — Don&#x27;t use `--app` for relation-get/-set before Juju 2.7.0
+   256→
+   257→2. **Python version compatibility**: Using features not available in all supported Python versions.
+   258→   - [`8e94a4c9`](https://github.com/canonical/operator/commit/8e94a4c9) — Use parse_rfc3339 for datetime parsing to support Python 3.10
+   259→   - [`be1fdf06`](https://github.com/canonical/operator/commit/be1fdf06) — Fix model.py for Python 3.5.2 on Xenial
+   260→
+   261→### How to Avoid
+   262→
+   263→- Check `JujuVersion` before using version-dependent features
+   264→- Test on all supported Python versions
+   265→- Use `sys.version_info` checks for Python-version-specific code paths
+   266→
+   267→---
+   268→
+   269→## 9. Error Handling Gaps
+   270→
+   271→**Priority: MEDIUM — 16+ fixes**
+   272→
+   273→### Common Issues
+   274→
+   275→1. **Wrong exception types**: Catching or raising the wrong exception class.
+   276→   - [`97501fd7`](https://github.com/canonical/operator/commit/97501fd7) — Catch the correct error when a relation doesn&#x27;t exist
+   277→   - [`4fc4cfdb`](https://github.com/canonical/operator/commit/4fc4cfdb) — Use TypeError for invalid argument type errors
+   278→
+   279→2. **Missing error handling for edge cases**: Not handling unusual but valid states.
+   280→   - [`c1661cae`](https://github.com/canonical/operator/commit/c1661cae) — Allow for missing fields in network-get response
+   281→   - [`c9bba5b0`](https://github.com/canonical/operator/commit/c9bba5b0) — Raise error in wait_output if stdout is already being consumed
+   282→
+   283→3. **Poor error messages**: Error messages that don&#x27;t help diagnose the problem.
+   284→   - [`8df3d2f1`](https://github.com/canonical/operator/commit/8df3d2f1) — Improved error message for invalid storage key
+   285→   - [`1b086258`](https://github.com/canonical/operator/commit/1b086258) — Better error for relation data access in relation-broken events
+   286→
+   287→### How to Avoid
+   288→
+   289→- Test error paths, not just happy paths
+   290→- Include relevant context in error messages (what was expected, what was found)
+   291→- Use specific exception types, not generic Exception or bare except
+   292→
+   293→---
+   294→
+   295→## 10. Type Annotation Errors
+   296→
+   297→**Priority: LOW — 10+ fixes**
+   298→
+   299→### Common Issues
+   300→
+   301→1. **Wrong return type annotations**: Functions annotated with incorrect types.
+   302→   - [`3df8ae9`](https://github.com/canonical/operator/commit/3df8ae9) — Correct the `Model.get_binding()` return type
+   303→   - [`fad95d7d`](https://github.com/canonical/operator/commit/fad95d7d) — Fix type of StatusBase.name
+   304→
+   305→2. **Assignment vs annotation syntax**: Using `=` instead of `:` for type annotations.
+   306→   - [`aa06bf54`](https://github.com/canonical/operator/commit/aa06bf54) — StorageMeta.properties had `= list[str]` instead of `: list[str]`
+   307→
+   308→3. **Import compatibility with type checkers**: Type checkers like mypy not understanding conditional imports.
+   309→   - [`d6325d05`](https://github.com/canonical/operator/commit/d6325d05) — Move testing.Container import for mypy compatibility
+   310→
+   311→### How to Avoid
+   312→
+   313→- Run mypy and pyright in CI on all source files
+   314→- Review type annotations carefully — a typo can silently break type checking
+   315→
+   316→---
+   317→
+   318→## 11. Import and Module Issues
+   319→
+   320→**Priority: LOW — 6+ fixes**
+   321→
+   322→Circular imports, wrong import paths, and missing `__all__` entries.
+   323→
+   324→- [`14f3baf5`](https://github.com/canonical/operator/commit/14f3baf5) — Cyclic imports fixed
+   325→- [`9dbb6b66`](https://github.com/canonical/operator/commit/9dbb6b66) — Type error in `__init__.__all__`
+   326→- [`ac7b9f09`](https://github.com/canonical/operator/commit/ac7b9f09) — Fixed issue with pebble imports
+   327→
+   328→---
+   329→
+   330→## 12. Configuration Handling Bugs
+   331→
+   332→**Priority: MEDIUM — 7+ fixes**
+   333→
+   334→- [`1c0ff40d`](https://github.com/canonical/operator/commit/1c0ff40d) — Fix falsy config defaults (empty string, 0, False treated as missing)
+   335→- [`6cd5d6c`](https://github.com/canonical/operator/commit/6cd5d6c) — Make model.config immutable to prevent accidental mutation
+   336→
+   337→---
+   338→
+   339→## 13. Event Framework / Stored State Bugs
+   340→
+   341→**Priority: MEDIUM**
+   342→
+   343→- [`d0f9f501`](https://github.com/canonical/operator/commit/d0f9f501) — Event snapshot not available when one observer defers and another doesn&#x27;t
+   344→- [`d14c3033`](https://github.com/canonical/operator/commit/d14c3033) — Transaction integrity lost on first run
+   345→- [`f36e90b9`](https://github.com/canonical/operator/commit/f36e90b9) — Event count not persisted, causing reused event handles
+   346→
+   347→---
+   348→
+   349→## Summary Table
+   350→
+   351→| Pattern | Count | Severity | Key Risk |
+   352→|---------|-------|----------|----------|
+   353→| Relation data handling | 25+ | High | Data corruption, crashes |
+   354→| Testing/production divergence | 32+ | Medium | False test passes |
+   355→| Pebble/container bugs | 16+ | Medium | Container interaction failures |
+   356→| Error handling gaps | 16+ | Medium | Poor diagnostics, crashes |
+   357→| Secrets management | 13+ | High | Stale data, API errors |
+   358→| Juju version compat | 13+ | Medium | Crashes on specific versions |
+   359→| CI/build issues | 12+ | Low | Build failures |
+   360→| Configuration handling | 7+ | Medium | Wrong config values |
+   361→| Import/module issues | 6+ | Low | Import errors |
+   362→| Type annotations | 10+ | Low | Type checker failures |
+   363→| Data mutability | 6+ | High | Silent data corruption |
+   364→| Security | 3 | Critical | Info leaks, permissions |
+   365→| Crash on None/missing | 5+ | High | Runtime crashes |
+   366→
+   367→---
+   368→
+   369→## Key Takeaways for Developers
+   370→
+   371→1. **Always copy dicts/lists** at API boundaries — both when accepting and returning
+   372→2. **Use `.get()` with defaults** when reading Juju environment variables or API responses
+   373→3. **Check Juju version** before using version-specific features
+   374→4. **Test error paths** — most high-severity bugs were in untested edge cases
+   375→5. **Keep testing frameworks in sync** — every ops fix should be reflected in Harness/Scenario
+   376→6. **Never expose full commands or credentials** in error messages or logs
+   377→7. **Set explicit file permissions** for any files containing state or credentials
+   378→8. **Normalize naming conventions** (hyphens vs underscores) at boundaries with Juju
+   379→9. **Don&#x27;t cache secrets** — always fetch fresh from Juju
+   380→10. **Handle None everywhere** Juju might provide it — especially in newer/older version edge cases
+   381→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-44-996Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-44-996Z" class="timestamp-link"><time datetime="2026-03-13T21:03:44.996Z" data-timestamp="2026-03-13T21:03:44.996Z">2026-03-13T21:03:44.996Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-46-164Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-46-164Z" class="timestamp-link"><time datetime="2026-03-13T21:03:46.164Z" data-timestamp="2026-03-13T21:03:46.164Z">2026-03-13T21:03:46.164Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now I need to classify all the non-operator fixes. I'll process the larger repos in parallel using subagents. Let me launch classification agents for each repo.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-03-57-351Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-03-57-351Z" class="timestamp-link"><time datetime="2026-03-13T21:03:57.351Z" data-timestamp="2026-03-13T21:03:57.351Z">2026-03-13T21:03:57.351Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01EimdqvfMmbsUjEboC2j3ts"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Classify pebble fix commits</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are classifying bug-fix commits for the Pebble project (a Go-based lightweight Linux service manager). Read the file /home/ubuntu/charm-tech-analysis/data/pebble_fixes.json which contains 108 fix candidates.\n\nFor each commit, analyze the subject, body, and diff to classify it:\n\n1. **Bug area**: One of: service-management, layer-config, http-api, file-operations, exec, logging, checks, cli, testing, ci-build, docs, notices, identities, log-targets, plan-management, other\n2. **Bug type**: One of: logic-error, nil-pointer, race-condition, resource-leak, error-handling, config-parsing, type-error, security, api-contract, test-fix, edge-case, concurrency, state-management, data-validation, performance, other\n3. **Severity**: high (crashes, data loss, security), medium (incorrect behavior, edge cases), low (cosmetic, types, CI)\n4. **Fix category**: source-fix, test-fix, docs-fix, ci-fix, build-fix\n\nWrite the results to /home/ubuntu/charm-tech-analysis/data/pebble_classified.json as a JSON array where each entry has:\n- sha, repo, date, subject, bug_area, bug_type, severity, fix_category, one_line_summary\n\nAlso write a summary to /home/ubuntu/charm-tech-analysis/data/pebble_summary.md with:\n- Total fixes by severity\n- Top bug areas\n- Top bug types\n- Notable patterns you observe\n- Any interesting Go-specific patterns\n\nBe thorough but efficient. Focus on getting accurate classifications by reading the diffs carefully.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-03-57-353Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-03-57-353Z" class="timestamp-link"><time datetime="2026-03-13T21:03:57.353Z" data-timestamp="2026-03-13T21:03:57.353Z">2026-03-13T21:03:57.353Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a60df47465bbd47cf (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a60df47465bbd47cf.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-04-01-581Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-04-01-581Z" class="timestamp-link"><time datetime="2026-03-13T21:04:01.581Z" data-timestamp="2026-03-13T21:04:01.581Z">2026-03-13T21:04:01.581Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01JgEGFLkv9X7Dm656GgpMet"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Classify concierge fix commits</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are classifying bug-fix commits for the Concierge project (a Go-based utility for provisioning charm development and testing machines). Read the file /home/ubuntu/charm-tech-analysis/data/concierge_fixes.json which contains 35 fix candidates.\n\nFor each commit, analyze the subject, body, and diff to classify it:\n\n1. **Bug area**: One of: provisioning, lxd, multipass, cli, config, testing, ci-build, snap, dependencies, other\n2. **Bug type**: One of: logic-error, nil-pointer, race-condition, resource-leak, error-handling, config-parsing, type-error, security, api-contract, test-fix, edge-case, state-management, data-validation, other\n3. **Severity**: high (crashes, data loss, security), medium (incorrect behavior, edge cases), low (cosmetic, types, CI)\n4. **Fix category**: source-fix, test-fix, docs-fix, ci-fix, build-fix\n\nWrite the results to /home/ubuntu/charm-tech-analysis/data/concierge_classified.json as a JSON array where each entry has:\n- sha, repo, date, subject, bug_area, bug_type, severity, fix_category, one_line_summary\n\nAlso write a summary to /home/ubuntu/charm-tech-analysis/data/concierge_summary.md with:\n- Total fixes by severity\n- Top bug areas\n- Top bug types\n- Notable patterns\n- Any Go-specific patterns\n\nBe thorough but efficient.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-04-01-583Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-04-01-583Z" class="timestamp-link"><time datetime="2026-03-13T21:04:01.583Z" data-timestamp="2026-03-13T21:04:01.583Z">2026-03-13T21:04:01.583Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a5e0957af82d49362 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a5e0957af82d49362.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-04-06-124Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-04-06-124Z" class="timestamp-link"><time datetime="2026-03-13T21:04:06.124Z" data-timestamp="2026-03-13T21:04:06.124Z">2026-03-13T21:04:06.124Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01WkBpLntQzKn2eBv4PGNRW8"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Classify charmlibs fix commits</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are classifying bug-fix commits for the Charmlibs project (a Python monorepo for Canonical charmlibs - shared libraries for Juju charms). Read the file /home/ubuntu/charm-tech-analysis/data/charmlibs_fixes.json which contains 19 fix candidates.\n\nFor each commit, analyze the subject, body, and diff to classify it:\n\n1. **Bug area**: One of: relation-data, secrets, config, testing, typing, packaging, ci-build, docs, other\n2. **Bug type**: One of: logic-error, mutability, error-handling, type-error, api-contract, test-fix, edge-case, data-validation, import-error, security, other\n3. **Severity**: high (crashes, data loss, security), medium (incorrect behavior, edge cases), low (cosmetic, types, CI)\n4. **Fix category**: source-fix, test-fix, docs-fix, ci-fix, build-fix\n\nWrite the results to /home/ubuntu/charm-tech-analysis/data/charmlibs_classified.json as a JSON array where each entry has:\n- sha, repo, date, subject, bug_area, bug_type, severity, fix_category, one_line_summary\n\nAlso write a summary to /home/ubuntu/charm-tech-analysis/data/charmlibs_summary.md with:\n- Total fixes by severity\n- Top bug areas and types\n- Notable patterns\n\nBe thorough but efficient.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-04-06-126Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-04-06-126Z" class="timestamp-link"><time datetime="2026-03-13T21:04:06.126Z" data-timestamp="2026-03-13T21:04:06.126Z">2026-03-13T21:04:06.126Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a19478a2294537811 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a19478a2294537811.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-04-11-373Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-04-11-373Z" class="timestamp-link"><time datetime="2026-03-13T21:04:11.373Z" data-timestamp="2026-03-13T21:04:11.373Z">2026-03-13T21:04:11.373Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_017NgpFRkP7wdcffgvnSgWwd"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Classify jubilant fix commits</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are classifying bug-fix commits for the Jubilant and pytest-jubilant projects (Python testing tools for Juju charms). Read both files:\n- /home/ubuntu/charm-tech-analysis/data/jubilant_fixes.json (18 fixes)\n- /home/ubuntu/charm-tech-analysis/data/pytest-jubilant_fixes.json (5 fixes)\n\nFor each commit, analyze the subject, body, and diff to classify it:\n\n1. **Bug area**: One of: juju-cli-wrapper, model-management, charm-deployment, relation-handling, status-checking, config, testing, ci-build, packaging, docs, other\n2. **Bug type**: One of: logic-error, error-handling, type-error, api-contract, test-fix, edge-case, data-validation, parsing, race-condition, other\n3. **Severity**: high (crashes, data loss, security), medium (incorrect behavior, edge cases), low (cosmetic, types, CI)\n4. **Fix category**: source-fix, test-fix, docs-fix, ci-fix, build-fix\n\nWrite the results to:\n- /home/ubuntu/charm-tech-analysis/data/jubilant_classified.json\n- /home/ubuntu/charm-tech-analysis/data/pytest-jubilant_classified.json\n\nEach entry should have: sha, repo, date, subject, bug_area, bug_type, severity, fix_category, one_line_summary\n\nAlso write a combined summary to /home/ubuntu/charm-tech-analysis/data/jubilant_summary.md with:\n- Total fixes by severity\n- Top bug areas and types\n- Notable patterns\n\nBe thorough but efficient.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-04-11-375Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-04-11-375Z" class="timestamp-link"><time datetime="2026-03-13T21:04:11.375Z" data-timestamp="2026-03-13T21:04:11.375Z">2026-03-13T21:04:11.375Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a565ae0ed40f2c9b0 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a565ae0ed40f2c9b0.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-04-19-516Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-04-19-516Z" class="timestamp-link"><time datetime="2026-03-13T21:04:19.516Z" data-timestamp="2026-03-13T21:04:19.516Z">2026-03-13T21:04:19.516Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_015BJiVGTTtd1upu3xppyhp7"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Classify remaining repos fixes</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are classifying bug-fix commits for several smaller Canonical Charm Tech projects. Read these files:\n- /home/ubuntu/charm-tech-analysis/data/operator-libs-linux_fixes.json (29 fixes) - Python Linux helper libraries for Ops\n- /home/ubuntu/charm-tech-analysis/data/charmhub-listing-review_fixes.json (6 fixes) - Python automation for charmhub listings\n- /home/ubuntu/charm-tech-analysis/data/charmcraft-profile-tools_fixes.json (7 fixes) - Python dev tools for Charmcraft profiles\n- /home/ubuntu/charm-tech-analysis/data/charm-ubuntu_fixes.json (7 fixes) - Python Ubuntu charm\n\nFor each commit, analyze the subject, body, and diff to classify it:\n\n1. **Bug area**: One of: apt-package-management, systemd, grub, sysctl, kernel, networking, snap, ci-build, testing, packaging, automation, config, other\n2. **Bug type**: One of: logic-error, error-handling, type-error, api-contract, test-fix, edge-case, data-validation, parsing, security, state-management, resource-leak, other\n3. **Severity**: high (crashes, data loss, security), medium (incorrect behavior, edge cases), low (cosmetic, types, CI)\n4. **Fix category**: source-fix, test-fix, docs-fix, ci-fix, build-fix\n\nWrite the results to:\n- /home/ubuntu/charm-tech-analysis/data/operator-libs-linux_classified.json\n- /home/ubuntu/charm-tech-analysis/data/charmhub-listing-review_classified.json\n- /home/ubuntu/charm-tech-analysis/data/charmcraft-profile-tools_classified.json\n- /home/ubuntu/charm-tech-analysis/data/charm-ubuntu_classified.json\n\nEach entry should have: sha, repo, date, subject, bug_area, bug_type, severity, fix_category, one_line_summary\n\nAlso write a combined summary to /home/ubuntu/charm-tech-analysis/data/smaller_repos_summary.md with:\n- Breakdown per repo\n- Total fixes by severity\n- Top bug areas and types\n- Notable patterns\n\nBe thorough but efficient.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-04-19-518Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-04-19-518Z" class="timestamp-link"><time datetime="2026-03-13T21:04:19.518Z" data-timestamp="2026-03-13T21:04:19.518Z">2026-03-13T21:04:19.518Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: aff445bc18ad84546 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/aff445bc18ad84546.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-04-27-791Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-04-27-791Z" class="timestamp-link"><time datetime="2026-03-13T21:04:27.791Z" data-timestamp="2026-03-13T21:04:27.791Z">2026-03-13T21:04:27.791Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01MHNC1vcmAKJ76NuN1MqeRj"><div class="tool-header"><span class="tool-icon">⚙</span> Agent</div><div class="tool-description">Classify operator fix commits</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;prompt&#34;: &#34;You are classifying bug-fix commits for the Operator project (canonical/operator - the Python Ops framework for Juju charms). Read the file /home/ubuntu/charm-tech-analysis/data/operator_fixes.json which contains 218 fix candidates.\n\nNOTE: This repo was previously analyzed in /home/ubuntu/operator-analysis/. You can reference /home/ubuntu/operator-analysis/BUG_PATTERNS.md for the established pattern categories. Use those categories where they apply but also note any new patterns.\n\nFor each commit, analyze the subject, body, and diff to classify it:\n\n1. **Bug area**: One of: security, data-mutability, relation-data, secrets, pebble, testing-framework, juju-api, error-handling, event-framework, configuration, type-annotations, imports, ci-build, docs, storage, actions, resources, status, other\n2. **Bug type**: One of: mutability, none-guard, naming-mismatch, version-compat, exception-type, caching, parsing, file-permissions, info-leak, test-divergence, race-condition, type-error, logic-error, edge-case, api-contract, data-validation, security, other\n3. **Severity**: high (crashes, data loss, security), medium (incorrect behavior, edge cases), low (cosmetic, types, CI)\n4. **Fix category**: source-fix, test-fix, docs-fix, ci-fix, build-fix\n\nWrite the results to /home/ubuntu/charm-tech-analysis/data/operator_classified.json as a JSON array where each entry has:\n- sha, repo, date, subject, bug_area, bug_type, severity, fix_category, one_line_summary\n\nAlso write a summary to /home/ubuntu/charm-tech-analysis/data/operator_summary.md with:\n- Total fixes by severity\n- Top bug areas\n- Top bug types\n- How findings compare to the previous analysis in /home/ubuntu/operator-analysis/BUG_PATTERNS.md\n- Any new patterns not captured before\n\nBe thorough but efficient. This is the largest and most important repo.&#34;,
+  &#34;subagent_type&#34;: &#34;general-purpose&#34;,
+  &#34;run_in_background&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-13T21-04-27-794Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-13T21-04-27-794Z" class="timestamp-link"><time datetime="2026-03-13T21:04:27.794Z" data-timestamp="2026-03-13T21:04:27.794Z">2026-03-13T21:04:27.794Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Async agent launched successfully.
+agentId: a8671516412bf8464 (internal ID - do not mention to user. Use to resume later if needed.)
+The agent is working in the background. You will be notified automatically when it completes.
+Do not duplicate this agent&#x27;s work — avoid working with the same files or topics it is using. Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.
+output_file: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a8671516412bf8464.output
+If asked, you can check progress before completion by using Read or Bash tail on the output file.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-04-34-605Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-04-34-605Z" class="timestamp-link"><time datetime="2026-03-13T21:04:34.605Z" data-timestamp="2026-03-13T21:04:34.605Z">2026-03-13T21:04:34.605Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Six classification agents are running in parallel — one for each repo group:</p>
+<ol>
+<li><strong>Pebble</strong> (108 Go fixes) — the second largest dataset</li>
+<li><strong>Concierge</strong> (35 Go fixes)</li>
+<li><strong>Charmlibs</strong> (19 Python fixes)</li>
+<li><strong>Jubilant + pytest-jubilant</strong> (23 Python fixes)</li>
+<li><strong>Smaller repos</strong> (49 fixes across operator-libs-linux, charmhub-listing-review, charmcraft-profile-tools, charm-ubuntu)</li>
+<li><strong>Operator</strong> (218 Python fixes) — the largest, re-classifying with the established patterns</li>
+</ol>
+<p>This will take a few minutes. I'll synthesize the results once they all complete.</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T21-06-02-434Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T21-06-02-434Z" class="timestamp-link"><time datetime="2026-03-13T21:06:02.434Z" data-timestamp="2026-03-13T21:06:02.434Z">2026-03-13T21:06:02.434Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a5e0957af82d49362</task-id>
+<tool-use-id>toolu_01JgEGFLkv9X7Dm656GgpMet</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a5e0957af82d49362.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Classify concierge fix commits" completed</summary>
+<p><result>Both files are written and validated. Here is a summary of what was done:</p>
+<p><strong>Files created:</strong>
+- <code>/home/ubuntu/charm-tech-analysis/data/concierge_classified.json</code> -- 35 classified commit entries with sha, repo, date, subject, bug_area, bug_type, severity, fix_category, and one_line_summary.
+- <code>/home/ubuntu/charm-tech-analysis/data/concierge_summary.md</code> -- Summary report with statistics and pattern analysis.</p>
+<p><strong>Key findings across 35 fixes:</strong></p>
+<ul>
+<li><strong>Severity</strong>: 8 high, 17 medium, 10 low</li>
+<li><strong>Top bug areas</strong>: provisioning (37%), cli (20%), snap (17%)</li>
+<li><strong>Top bug types</strong>: error-handling and logic-error tied at 23% each, followed by edge-case (17%) and state-management (11%)</li>
+<li><strong>Fix categories</strong>: 33 source-fixes, 1 test-fix, 1 build-fix</li>
+</ul>
+<p><strong>Notable patterns</strong>: The dominant themes are (1) adding retry/backoff to unreliable external APIs (snapd, juju, k8s), (2) fixing idempotency gaps where re-running <code>concierge prepare</code> would break existing state, (3) fragile string-based error matching in Go, and (4) snap API flakiness as a recurring pain point. Go-specific issues include <code>os.Chown</code> vs <code>os.Lchown</code> symlink behavior, zero-value struct initialization bypassing constructors, and <code>exec.LookPath</code>/<code>SHELL</code> env var edge cases in constrained environments.</result>
+<usage><total_tokens>26405</total_tokens><tool_uses>8</tool_uses><duration_ms>120817</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a5e0957af82d49362.output</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-06-07-509Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-06-07-509Z" class="timestamp-link"><time datetime="2026-03-13T21:06:07.509Z" data-timestamp="2026-03-13T21:06:07.509Z">2026-03-13T21:06:07.509Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Concierge is done — 8 high, 17 medium, 10 low. Interesting Go-specific patterns around retry/backoff, idempotency, and snap API flakiness. Waiting on the other 5 agents.</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T21-06-07-576Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T21-06-07-576Z" class="timestamp-link"><time datetime="2026-03-13T21:06:07.576Z" data-timestamp="2026-03-13T21:06:07.576Z">2026-03-13T21:06:07.576Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a19478a2294537811</task-id>
+<tool-use-id>toolu_01WkBpLntQzKn2eBv4PGNRW8</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a19478a2294537811.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Classify charmlibs fix commits" completed</summary>
+<p><result>Both output files have been written:</p>
+<ul>
+<li><code>/home/ubuntu/charm-tech-analysis/data/charmlibs_classified.json</code> -- JSON array with 19 classified entries, each containing sha, repo, date, subject, bug_area, bug_type, severity, fix_category, and one_line_summary.</li>
+<li><code>/home/ubuntu/charm-tech-analysis/data/charmlibs_summary.md</code> -- Summary with breakdown tables and pattern analysis.</li>
+</ul>
+<p>Key findings:</p>
+<ul>
+<li><strong>2 high-severity bugs</strong>: missed certificate renewal (secrets/edge-case) and wrong secret ownership model in Mode.APP (secrets/api-contract). Both could cause production outages.</li>
+<li><strong>The TLS certificates library accounts for 10 of 19 fixes</strong>, making it the clear hotspot. Two separate hashability bugs suggest an incomplete dataclass migration.</li>
+<li><strong>CI masking real failures</strong> was a systemic issue -- the justfile lint target silently swallowed errors, hiding type-checking failures across multiple libraries.</li>
+<li><strong>Most fixes (12/19) are source-level</strong>, with 4 CI fixes, 2 build fixes, and 1 docs fix. Over half (10/19) are low severity, primarily typing and packaging corrections.</result>
+<usage><total_tokens>33912</total_tokens><tool_uses>9</tool_uses><duration_ms>119518</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a19478a2294537811.output</li>
+</ul></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-06-11-808Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-06-11-808Z" class="timestamp-link"><time datetime="2026-03-13T21:06:11.808Z" data-timestamp="2026-03-13T21:06:11.808Z">2026-03-13T21:06:11.808Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Charmlibs done — TLS certificates library is a clear hotspot (10/19 fixes). 2 high-severity bugs around secrets and certificate renewal. Still waiting on Pebble, Jubilant, smaller repos, and Operator.</p></div></div></div>
+<div class="message user" id="msg-2026-03-13T21-06-59-546Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-13T21-06-59-546Z" class="timestamp-link"><time datetime="2026-03-13T21:06:59.546Z" data-timestamp="2026-03-13T21:06:59.546Z">2026-03-13T21:06:59.546Z</time></a></div><div class="message-content">
+<div class="user-content"><p><task-notification>
+<task-id>a565ae0ed40f2c9b0</task-id>
+<tool-use-id>toolu_017NgpFRkP7wdcffgvnSgWwd</tool-use-id>
+<output-file>/tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a565ae0ed40f2c9b0.output</output-file>
+<status>completed</status></p>
+<summary>Agent "Classify jubilant fix commits" completed</summary>
+<p><result>All three output files have been written:</p>
+<ul>
+<li><code>/home/ubuntu/charm-tech-analysis/data/jubilant_classified.json</code> -- 18 classified commits from jubilant</li>
+<li><code>/home/ubuntu/charm-tech-analysis/data/pytest-jubilant_classified.json</code> -- 5 classified commits from pytest-jubilant</li>
+<li><code>/home/ubuntu/charm-tech-analysis/data/jubilant_summary.md</code> -- combined summary</li>
+</ul>
+<p>Key findings across all 23 fixes:</p>
+<p><strong>By severity:</strong> 7 high (30%), 11 medium (48%), 5 low (22%). High-severity issues include crashes from leader unit syntax, missing Juju 3.5 compat, microk8s hangs, wrong --bind format, and status-error exceptions.</p>
+<p><strong>Top bug areas:</strong> juju-cli-wrapper (6), status-checking (5), and charm-deployment (5) dominate. The most common bug type is api-contract (8), reflecting heavy API iteration during early development (six breaking changes in April 2025).</p>
+<p><strong>Notable patterns:</strong> (1) Rapid API churn stabilized after May 2025. (2) CLI argument formatting mismatches are the top recurring issue class. (3) pytest-jubilant had a rapid fix-revert-fix cycle for resource parsing on a single day. (4) All fixes are source-level with accompanying test updates -- no pure test/CI/docs-only fixes.</result>
+<usage><total_tokens>57624</total_tokens><tool_uses>20</tool_uses><duration_ms>168133</duration_ms></usage>
+</task-notification>
+Full transcript available at: /tmp/claude-1000/-home-ubuntu-charm-tech-analysis/e5e8aca0-600f-46b8-b456-dddcb9f328ee/tasks/a565ae0ed40f2c9b0.output</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-13T21-07-04-002Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-13T21-07-04-002Z" class="timestamp-link"><time datetime="2026-03-13T21:07:04.002Z" data-timestamp="2026-03-13T21:07:04.002Z">2026-03-13T21:07:04.002Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Jubilant done — 7 high, 11 medium, 5 low. CLI argument formatting mismatches are the top pattern, with heavy API churn in early development. 3 more agents still running (Pebble, smaller repos, Operator).</p></div></div></div>
+        
+
+<div class="pagination">
+<a href="index.html" class="index-link">Index</a>
+<span class="disabled">&larr; Prev</span>
+<span class="current">1</span>
+<a href="page-002.html">2</a>
+<a href="page-003.html">3</a>
+<a href="page-004.html">4</a>
+<a href="page-005.html">5</a>
+<a href="page-002.html">Next &rarr;</a>
+</div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>

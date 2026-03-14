@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Review Findings - Charm Bug Review{% endblock %}
+{% block content %}
+<div class="stats-bar">
+    {% include "partials/stats_bar.html" %}
+</div>
+
+<div class="filters">
+    <form hx-get="/findings" hx-target="#findings-list" hx-push-url="true">
+        <div class="grid">
+            <select name="severity" onchange="this.form.requestSubmit()">
+                <option value="">All Severities</option>
+                {% for s in ["Critical", "High", "Medium", "Low"] %}
+                <option value="{{ s }}" {{ "selected" if current_severity == s else "" }}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" onchange="this.form.requestSubmit()">
+                <option value="">All Statuses</option>
+                <option value="pending" {{ "selected" if current_status == "pending" else "" }}>Pending</option>
+                <option value="reviewed" {{ "selected" if current_status == "reviewed" else "" }}>Reviewed</option>
+                <option value="false_positive" {{ "selected" if current_status == "false_positive" else "" }}>False Positive</option>
+            </select>
+            <select name="repo" onchange="this.form.requestSubmit()">
+                <option value="">All Repos</option>
+                {% for r in repos %}
+                <option value="{{ r }}" {{ "selected" if current_repo == r else "" }}>{{ r }}</option>
+                {% endfor %}
+            </select>
+            <select name="round" onchange="this.form.requestSubmit()">
+                <option value="">All Rounds</option>
+                {% for r in rounds %}
+                <option value="{{ r }}" {{ "selected" if current_round == r|string else "" }}>Round {{ r }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<div class="two-panel">
+    <div class="findings-list-panel" id="findings-list">
+        {% include "partials/findings_list.html" %}
+    </div>
+    <div class="detail-panel" id="detail-panel">
+        <p class="empty-detail">Select a finding from the list to view details.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+    const rows = document.querySelectorAll('.finding-row');
+    const active = document.querySelector('.finding-row.active');
+    let idx = Array.from(rows).indexOf(active);
+
+    if (e.key === 'j' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        idx = Math.min(idx + 1, rows.length - 1);
+        rows[idx]?.click();
+    } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        idx = Math.max(idx - 1, 0);
+        rows[idx]?.click();
+    } else if (e.key === 'r') {
+        document.getElementById('btn-reviewed')?.click();
+    } else if (e.key === 'f') {
+        document.getElementById('btn-false-positive')?.click();
+    } else if (e.key === 'n') {
+        document.getElementById('reviewer-notes')?.focus();
+    } else if (e.key === ' ' || e.key === ']') {
+        e.preventDefault();
+        document.getElementById('btn-next')?.click();
+    }
+});
+
+// Scroll detail panel to top when navigating to a new finding
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target?.id === 'detail-panel') {
+        const trigger = e.detail.elt;
+        const isReviewBtn = trigger?.id === 'btn-reviewed' || trigger?.id === 'btn-false-positive';
+        if (!isReviewBtn) {
+            document.getElementById('detail-panel').scrollTop = 0;
+        }
+    }
+});
+
+// After ANY htmx settle, sync the active row to match the detail panel.
+// Uses afterSettle (not afterRequest) because content must be in the DOM.
+// Handles: row clicks, next-unreviewed, review buttons, save notes,
+// filter changes, and keyboard navigation.
+document.addEventListener('htmx:afterSettle', function() {
+    const detail = document.querySelector('#detail-panel article[data-finding-id]');
+    const activeId = detail?.dataset.findingId;
+    const currentActive = document.querySelector('.finding-row.active');
+    // Skip if already correct (avoid unnecessary DOM churn)
+    if (currentActive?.id === 'finding-row-' + activeId) return;
+    document.querySelectorAll('.finding-row.active').forEach(r => r.classList.remove('active'));
+    if (activeId) {
+        const row = document.getElementById('finding-row-' + activeId);
+        if (row) {
+            row.classList.add('active');
+            row.scrollIntoView({block: 'nearest'});
+        }
+    }
+});
+</script>
+{% endblock %}
