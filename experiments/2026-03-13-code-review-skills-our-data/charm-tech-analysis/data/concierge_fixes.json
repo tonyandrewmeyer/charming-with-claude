@@ -1,0 +1,584 @@
+[
+  {
+    "sha": "0ddf24c3f7ba9d35ea0364a803f0c3b7aa092cbd",
+    "author": "Tony Meyer",
+    "email": "tony.meyer@canonical.com",
+    "date": "2026-03-10T13:02:55+13:00",
+    "subject": "fix: only remove /run/containerd if we need to bootstrap k8s (#161)",
+    "body": "If there is an existing `/run/containerd` from something like Docker\n(like in the GitHub runner) then we need to remove that before we try to\ninstall and bootstrap k8s ourselves.\n\n*However*, if it exists because we already have a bootstrapped k8s, then\nwe should leave it alone. Concierge should be fairly idempotent, and\ncertainly should not break k8s if run twice.",
+    "diff": "diff --git a/internal/providers/k8s.go b/internal/providers/k8s.go\nindex bf4aac9..686d3eb 100644\n--- a/internal/providers/k8s.go\n+++ b/internal/providers/k8s.go\n@@ -180,9 +180,8 @@ func (k *K8s) install() error {\n \n // init ensures that K8s is installed, minimally configured, and ready.\n func (k *K8s) init() error {\n-\tk.handleExistingContainerd()\n-\n \tif k.needsBootstrap() {\n+\t\tk.handleExistingContainerd()\n \t\tcmd := system.NewCommand(\"k8s\", []string{\"bootstrap\"})\n \t\t_, err := system.RunWithRetries(k.system, cmd, 5*time.Minute)\n \t\tif err != nil {\ndiff --git a/internal/providers/k8s_test.go b/internal/providers/k8s_test.go\nindex 33a90df..64f8335 100644\n--- a/internal/providers/k8s_test.go\n+++ b/internal/providers/k8s_test.go\n@@ -126,7 +126,6 @@ func TestK8sPrepareCommandsAlreadyBootstrappedIptablesInstalled(t *testing.T) {\n \t\t\"which iptables\",\n \t\tfmt.Sprintf(\"snap install k8s --channel %s\", defaultK8sChannel),\n \t\t\"snap install kubectl --channel stable\",\n-\t\t\"systemctl is-active containerd.service\",\n \t\t\"k8s status\",\n \t\t\"k8s status --wait-ready --timeout 270s\",\n \t\t\"k8s set load-balancer.l2-mode=true\",\ndiff --git a/tests/k8s-pre-bootstrapped/concierge.yaml b/tests/k8s-pre-bootstrapped/concierge.yaml\nnew file mode 100644\nindex 0000000..0af0f8e\n--- /dev/null\n+++ b/tests/k8s-pre-bootstrapped/concierge.yaml\n@@ -0,0 +1,8 @@\n+juju:\n+  enable: false\n+providers:\n+  k8s:\n+    enable: true\n+    channel: 1.32-classic/stable\n+    features:\n+      local-storage:\ndiff --git a/tests/k8s-pre-bootstrapped/task.yaml b/tests/k8s-pre-bootstrapped/task.yaml\nnew file mode 100644\nindex 0000000..5a62cb6\n--- /dev/null\n+++ b/tests/k8s-pre-bootstrapped/task.yaml\n@@ -0,0 +1,32 @@\n+summary: Run concierge prepare on a K8s cluster that is already bootstrapped\n+\n+systems:\n+  - ubuntu-24.04\n+\n+execute: |\n+  pushd \"${SPREAD_PATH}/${SPREAD_TASK}\"\n+\n+  # Remove Docker/containerd from the runner so k8s can bootstrap cleanly.\n+  sudo apt-get remove -y docker-ce docker-ce-cli containerd.io\n+  sudo rm -rf /run/containerd\n+\n+  # Install and bootstrap k8s before concierge runs.\n+  sudo snap install k8s --channel 1.32-classic/stable --classic\n+  sudo k8s bootstrap\n+  sudo k8s status --wait-ready --timeout 120s\n+\n+  # Now run concierge prepare against the already-bootstrapped cluster.\n+  \"$SPREAD_PATH\"/concierge --trace prepare --extra-snaps=\"yq\"\n+\n+  # Verify the cluster is still healthy after concierge prepare.\n+  sudo k8s status --wait-ready --timeout 120s\n+\n+  sudo k8s status --output-format yaml | yq '.dns.enabled' | MATCH true\n+\n+  kubectl config current-context | MATCH \"k8s\"\n+\n+restore: |\n+  if [[ -z \"${CI:-}\" ]]; then\n+    \"$SPREAD_PATH\"/concierge --trace restore\n+    sudo snap remove k8s --purge\n+  fi\n",
+    "changed_files": [
+      "M\tinternal/providers/k8s.go",
+      "M\tinternal/providers/k8s_test.go",
+      "A\ttests/k8s-pre-bootstrapped/concierge.yaml",
+      "A\ttests/k8s-pre-bootstrapped/task.yaml"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "39a18ffcda54490203efa974d8433f8a7af253bc",
+    "author": "Dima Tisnek",
+    "email": "dimaqq@gmail.com",
+    "date": "2026-01-15T07:42:02+08:00",
+    "subject": "fix: don't dereference symlinks in recursive ownership change (#141)",
+    "body": "`ChownAll` is used for two purposes in the context of the calling user\n(user outside of `sudo`):\n- to fix `~/.local` directory permissions\n- to fix permissions of newly created or overwritten files\n(`~/.cache/concierge/concierge.yaml`, `~/.kube/config`,\n`~/.local/share/juju/credentials.yaml`)\n\nThe second use is unaffected by the change, because these files are\nsupposed to be regular files.\n\nThe first use is recursive (arguably a bad practice to potentially\nchange `~/.local/**/*`) and fails before this PR, if there's a dangling\nsymlink (from some other tool, possibly broken tool, happened with `uv\ntool` artefacts twice for me already). For entries in the subdir tree,\n`os.Chown` and `os.Lchown` are equivalent for regular files and\ndirectories, and for symlinks, we want to change the symlink itself and\nnot its target (which could be anywhere in the filesystem,\nhypothetically `~/.local/resolve.conf --> /etc/resolve.conf`)\n\nFixes #91",
+    "diff": "diff --git a/internal/system/runner.go b/internal/system/runner.go\nindex d07f080..56bcc3b 100644\n--- a/internal/system/runner.go\n+++ b/internal/system/runner.go\n@@ -179,7 +179,7 @@ func (s *System) ChownAll(path string, user *user.User) error {\n \t\t\treturn err\n \t\t}\n \n-\t\terr = os.Chown(path, uid, gid)\n+\t\terr = os.Lchown(path, uid, gid)\n \t\tif err != nil {\n \t\t\treturn err\n \t\t}\n",
+    "changed_files": [
+      "M\tinternal/system/runner.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "1dca9d2a9c749b7e9b09cadf8bbf3a68616d5a25",
+    "author": "Copilot",
+    "email": "198982749+Copilot@users.noreply.github.com",
+    "date": "2025-12-02T09:54:49+13:00",
+    "subject": "fix: avoid LXD stop to speed up subsequent \"prepare\" calls (#124)",
+    "body": "`concierge prepare` took ~90 seconds on every subsequent run because\n`workaroundRefresh()` unconditionally stopped LXD whenever installed,\ntriggering MicroK8s restarts even when no changes were needed.\n\n## Changes\n\n- **Extended `SnapInfo`** to include `TrackingChannel` field capturing\nthe snap's current channel\n- **Added `snapInstalledInfo()`** helper returning installation status\nand tracking channel in one call\n- **Modified `workaroundRefresh()`** to compare tracking vs target\nchannel:\n  - Channels match \u2192 skip stop (no-op path)\n  - Channels differ \u2192 stop before refresh (preserves workaround)\n  - No target channel \u2192 skip stop (no refresh occurs)\n\n```go\n// Before: always stopped LXD if installed\nif snapInfo.Installed {\n    args := []string{\"stop\", l.Name()}\n    cmd := system.NewCommand(\"snap\", args)\n    _, err = l.system.RunExclusive(cmd)\n    // ...\n}\n\n// After: only stop when channel will change\nif snapInfo.Installed {\n    if l.Channel == \"\" || snapInfo.TrackingChannel == l.Channel {\n        return false, nil  // Fast path: no refresh needed\n    }\n    // Stop only when refresh will actually happen\n    args := []string{\"stop\", l.Name()}\n    // ...\n}\n```\n\nSecond+ runs now complete in ~2s instead of ~90s when system is already\nconfigured correctly.\n\n- Fixes canonical/concierge#69\n\n---------\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: tonyandrewmeyer <826522+tonyandrewmeyer@users.noreply.github.com>\nCo-authored-by: Tony Meyer <tony.meyer@canonical.com>\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+    "diff": "diff --git a/internal/providers/lxd.go b/internal/providers/lxd.go\nindex 05dcbd7..2b45569 100644\n--- a/internal/providers/lxd.go\n+++ b/internal/providers/lxd.go\n@@ -169,7 +169,21 @@ func (l *LXD) workaroundRefresh() (bool, error) {\n \t\treturn false, fmt.Errorf(\"failed to lookup snap details: %w\", err)\n \t}\n \n+\t// Only stop LXD if it's installed AND needs to be refreshed (channel mismatch).\n \tif snapInfo.Installed {\n+\t\t// If no channel is specified, snapd will refresh on the current channel without changing it.\n+\t\t// If the tracking channel matches the target channel, the refresh won't change channels.\n+\t\t// In both cases, no stop is needed since the channel isn't changing.\n+        if l.Channel == \"\" || snapInfo.TrackingChannel == l.Channel {\n+\t\t    slog.Debug(\"Skipping LXD stop - no channel change required\",\n+\t\t\t\t\"tracking\", snapInfo.TrackingChannel, \"target\", l.Channel)\n+\t\t\treturn false, nil\n+\t\t}\n+\n+\t\t// Channel mismatch detected - LXD will be refreshed, so stop it first\n+\t\t// to work around a snap refresh issue with missing socket files.\n+\t\tslog.Debug(\"LXD channel mismatch, stopping for refresh\",\n+\t\t\t\"tracking\", snapInfo.TrackingChannel, \"target\", l.Channel)\n \t\targs := []string{\"stop\", l.Name()}\n \t\tcmd := system.NewCommand(\"snap\", args)\n \t\t_, err = l.system.RunExclusive(cmd)\ndiff --git a/internal/providers/lxd_test.go b/internal/providers/lxd_test.go\nindex 7ca2630..897657c 100644\n--- a/internal/providers/lxd_test.go\n+++ b/internal/providers/lxd_test.go\n@@ -72,10 +72,9 @@ func TestLXDPrepareCommands(t *testing.T) {\n func TestLXDPrepareCommandsLXDAlreadyInstalled(t *testing.T) {\n \tconfig := &config.Config{}\n \n+\t// When LXD is already installed on the same channel, it should not be stopped.\n \texpected := []string{\n-\t\t\"snap stop lxd\",\n \t\t\"snap refresh lxd\",\n-\t\t\"snap start lxd\",\n \t\t\"lxd waitready --timeout 270\",\n \t\t\"lxd init --minimal\",\n \t\t\"lxc network set lxdbr0 ipv6.address none\",\n@@ -96,6 +95,35 @@ func TestLXDPrepareCommandsLXDAlreadyInstalled(t *testing.T) {\n \t}\n }\n \n+func TestLXDPrepareCommandsLXDChannelChange(t *testing.T) {\n+\tconfig := &config.Config{}\n+\tconfig.Providers.LXD.Channel = \"latest/edge\"\n+\n+\t// When LXD is installed but on a different channel, it should be stopped before refresh.\n+\texpected := []string{\n+\t\t\"snap stop lxd\",\n+\t\t\"snap refresh lxd --channel latest/edge\",\n+\t\t\"snap start lxd\",\n+\t\t\"lxd waitready --timeout 270\",\n+\t\t\"lxd init --minimal\",\n+\t\t\"lxc network set lxdbr0 ipv6.address none\",\n+\t\t\"chmod a+wr /var/snap/lxd/common/lxd/unix.socket\",\n+\t\t\"usermod -a -G lxd test-user\",\n+\t\t\"iptables -F FORWARD\",\n+\t\t\"iptables -P FORWARD ACCEPT\",\n+\t}\n+\n+\tsystem := system.NewMockSystem()\n+\tsystem.MockSnapStoreLookup(\"lxd\", \"latest/stable\", false, true)\n+\n+\tlxd := NewLXD(system, config)\n+\tlxd.Prepare()\n+\n+\tif !reflect.DeepEqual(expected, system.ExecutedCommands) {\n+\t\tt.Fatalf(\"expected: %v, got: %v\", expected, system.ExecutedCommands)\n+\t}\n+}\n+\n func TestLXDRestore(t *testing.T) {\n \tconfig := &config.Config{}\n \ndiff --git a/internal/system/mock_system.go b/internal/system/mock_system.go\nindex 3770c23..b869a20 100644\n--- a/internal/system/mock_system.go\n+++ b/internal/system/mock_system.go\n@@ -53,9 +53,14 @@ func (r *MockSystem) MockFile(filePath string, contents []byte) {\n \n // MockSnapStoreLookup gets a new test snap and adds a mock snap into the mock test\n func (r *MockSystem) MockSnapStoreLookup(name, channel string, classic, installed bool) *Snap {\n+\ttrackingChannel := \"\"\n+\tif installed {\n+\t\ttrackingChannel = channel\n+\t}\n \tr.mockSnapInfo[name] = &SnapInfo{\n-\t\tInstalled: installed,\n-\t\tClassic:   classic,\n+\t\tInstalled:       installed,\n+\t\tClassic:         classic,\n+\t\tTrackingChannel: trackingChannel,\n \t}\n \treturn &Snap{Name: name, Channel: channel}\n }\ndiff --git a/internal/system/snap.go b/internal/system/snap.go\nindex c490757..6f89763 100644\n--- a/internal/system/snap.go\n+++ b/internal/system/snap.go\n@@ -16,8 +16,9 @@ import (\n \n // SnapInfo represents information about a snap fetched from the snapd API.\n type SnapInfo struct {\n-\tInstalled bool\n-\tClassic   bool\n+\tInstalled       bool\n+\tClassic         bool\n+\tTrackingChannel string\n }\n \n // Snap represents a given snap on a given channel.\n@@ -51,10 +52,10 @@ func (s *System) SnapInfo(snap string, channel string) (*SnapInfo, error) {\n \t\treturn nil, err\n \t}\n \n-\tinstalled := s.snapInstalled(snap)\n+\tinstalled, trackingChannel := s.snapInstalledInfo(snap)\n \n-\tslog.Debug(\"Queried snapd API\", \"snap\", snap, \"installed\", installed, \"classic\", classic)\n-\treturn &SnapInfo{Installed: installed, Classic: classic}, nil\n+\tslog.Debug(\"Queried snapd API\", \"snap\", snap, \"installed\", installed, \"classic\", classic, \"tracking\", trackingChannel)\n+\treturn &SnapInfo{Installed: installed, Classic: classic, TrackingChannel: trackingChannel}, nil\n }\n \n // SnapChannels returns the list of channels available for a given snap.\n@@ -93,8 +94,11 @@ func (s *System) SnapChannels(snap string) ([]string, error) {\n \treturn channels, nil\n }\n \n-// snapInstalled is a helper that reports if the snap is currently Installed.\n-func (s *System) snapInstalled(name string) bool {\n+// snapInstalledInfo is a helper that reports if the snap is currently installed\n+// and returns its tracking channel. The tracking channel is the channel the snap\n+// is currently following (e.g., \"latest/stable\"). Returns empty string if the\n+// snap is not installed or if the tracking channel cannot be determined.\n+func (s *System) snapInstalledInfo(name string) (bool, string) {\n \tsnap, err := s.withRetry(func(ctx context.Context) (*client.Snap, error) {\n \t\tsnap, _, err := s.snapd.Snap(name)\n \t\tif err != nil && strings.Contains(err.Error(), \"snap not installed\") {\n@@ -105,10 +109,18 @@ func (s *System) snapInstalled(name string) bool {\n \t\treturn snap, nil\n \t})\n \tif err != nil || snap == nil {\n-\t\treturn false\n+\t\treturn false, \"\"\n \t}\n \n-\treturn snap.Status == client.StatusActive\n+\tif snap.Status == client.StatusActive {\n+\t\ttrackingChannel := snap.TrackingChannel\n+\t\tif trackingChannel == \"\" {\n+\t\t\ttrackingChannel = snap.Channel\n+\t\t}\n+\t\treturn true, trackingChannel\n+\t}\n+\n+\treturn false, \"\"\n }\n \n // snapIsClassic reports whether or not the snap at the tip of the specified channel uses\n",
+    "changed_files": [
+      "M\tinternal/providers/lxd.go",
+      "M\tinternal/providers/lxd_test.go",
+      "M\tinternal/system/mock_system.go",
+      "M\tinternal/system/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 4
+  },
+  {
+    "sha": "6c6f2cb52d15a3c1dc44389eaf2ffd048f458b41",
+    "author": "Tony Meyer",
+    "email": "tony.meyer@canonical.com",
+    "date": "2025-09-26T16:26:04+12:00",
+    "subject": "fix: use a channel in the override test that is likely to stick around (#112)",
+    "body": "The `overrides-env` test currently tries to use the environment to\noverride the default `k8s` channel to be `1.31-classic/beta`. This\nchannel appears to have been removed at some point, which causes the\ntest to now fail.\n\nThe PR changes the override to `latest/edge`, which seems likely to be\naround for a long time (the default is currently \"1.32-classic/stable\").",
+    "diff": "diff --git a/tests/overrides-env/task.yaml b/tests/overrides-env/task.yaml\nindex 2a54ded..21dc5c7 100644\n--- a/tests/overrides-env/task.yaml\n+++ b/tests/overrides-env/task.yaml\n@@ -9,14 +9,14 @@ execute: |\n   export CONCIERGE_CHARMCRAFT_CHANNEL=latest/edge\n   export CONCIERGE_ROCKCRAFT_CHANNEL=latest/edge\n   export CONCIERGE_LXD_CHANNEL=latest/candidate\n-  export CONCIERGE_K8S_CHANNEL=1.31-classic/beta\n+  export CONCIERGE_K8S_CHANNEL=latest/edge\n \n   export CONCIERGE_EXTRA_SNAPS=\"node/22/stable\"\n   export CONCIERGE_EXTRA_DEBS=\"make\"\n \n   \"$SPREAD_PATH\"/concierge --trace prepare -p k8s\n \n-  for i in charmcraft rockcraft; do\n+  for i in charmcraft rockcraft k8s; do\n     list=\"$(snap list $i)\"\n     echo $list | MATCH $i\n     echo $list | MATCH latest/edge\n@@ -28,9 +28,6 @@ execute: |\n   list=\"$(snap list lxd)\"\n   echo $list | MATCH latest/candidate\n \n-  list=\"$(snap list k8s)\"\n-  echo $list | MATCH 1.31-classic/beta\n-\n   list=\"$(snap list node)\"\n   echo $list | MATCH 22/stable\n \n",
+    "changed_files": [
+      "M\ttests/overrides-env/task.yaml"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 2
+  },
+  {
+    "sha": "bce510174b10caf090d63a63527957bb7f2dae48",
+    "author": "Frode Nordahl",
+    "email": "frode.nordahl@gmail.com",
+    "date": "2025-07-09T23:10:06+02:00",
+    "subject": "fix: Avoid waiting indefinitely for providers. (#74)",
+    "body": "While there is code to retry commands up until a upper time limit, it\ndoes not catch the condition where the executed command never returns.\n\nProvider initialization may have external dependencies such as image\nregistries, and is subject to quotas, network connectivity among other\nthings.\n\nUse a timeout when waiting for a provider, with a value lower than the\nupper retry time limit.\n\nSigned-off-by: Frode Nordahl <fnordahl@ubuntu.com>",
+    "diff": "diff --git a/internal/providers/k8s.go b/internal/providers/k8s.go\nindex 04fea75..d0ca218 100644\n--- a/internal/providers/k8s.go\n+++ b/internal/providers/k8s.go\n@@ -176,7 +176,7 @@ func (k *K8s) init() error {\n \t\t}\n \t}\n \n-\tcmd := system.NewCommand(\"k8s\", []string{\"status\", \"--wait-ready\"})\n+\tcmd := system.NewCommand(\"k8s\", []string{\"status\", \"--wait-ready\", \"--timeout\", \"270s\"})\n \t_, err := k.system.RunWithRetries(cmd, (5 * time.Minute))\n \n \treturn err\ndiff --git a/internal/providers/k8s_test.go b/internal/providers/k8s_test.go\nindex b6bc4e3..338e66a 100644\n--- a/internal/providers/k8s_test.go\n+++ b/internal/providers/k8s_test.go\n@@ -80,7 +80,7 @@ func TestK8sPrepareCommands(t *testing.T) {\n \t\tfmt.Sprintf(\"snap install k8s --channel %s\", defaultK8sChannel),\n \t\t\"snap install kubectl --channel stable\",\n \t\t\"k8s bootstrap\",\n-\t\t\"k8s status --wait-ready\",\n+\t\t\"k8s status --wait-ready --timeout 270s\",\n \t\t\"k8s set load-balancer.l2-mode=true\",\n \t\t\"k8s status\",\n \t\t\"k8s set load-balancer.cidrs=10.43.45.1/32\",\n@@ -122,7 +122,7 @@ func TestK8sPrepareCommandsAlreadyBootstrappedIptablesInstalled(t *testing.T) {\n \t\t\"which iptables\",\n \t\tfmt.Sprintf(\"snap install k8s --channel %s\", defaultK8sChannel),\n \t\t\"snap install kubectl --channel stable\",\n-\t\t\"k8s status --wait-ready\",\n+\t\t\"k8s status --wait-ready --timeout 270s\",\n \t\t\"k8s set load-balancer.l2-mode=true\",\n \t\t\"k8s status\",\n \t\t\"k8s set load-balancer.cidrs=10.43.45.1/32\",\ndiff --git a/internal/providers/lxd.go b/internal/providers/lxd.go\nindex d5d6d70..05dcbd7 100644\n--- a/internal/providers/lxd.go\n+++ b/internal/providers/lxd.go\n@@ -134,7 +134,7 @@ func (l *LXD) install() error {\n // init ensures that LXD is minimally configured, and ready.\n func (l *LXD) init() error {\n \treturn l.system.RunMany(\n-\t\tsystem.NewCommand(\"lxd\", []string{\"waitready\"}),\n+\t\tsystem.NewCommand(\"lxd\", []string{\"waitready\", \"--timeout\", \"270\"}),\n \t\tsystem.NewCommand(\"lxd\", []string{\"init\", \"--minimal\"}),\n \t\tsystem.NewCommand(\"lxc\", []string{\"network\", \"set\", \"lxdbr0\", \"ipv6.address\", \"none\"}),\n \t)\ndiff --git a/internal/providers/lxd_test.go b/internal/providers/lxd_test.go\nindex fcbb5ff..7ca2630 100644\n--- a/internal/providers/lxd_test.go\n+++ b/internal/providers/lxd_test.go\n@@ -51,7 +51,7 @@ func TestLXDPrepareCommands(t *testing.T) {\n \n \texpected := []string{\n \t\t\"snap install lxd\",\n-\t\t\"lxd waitready\",\n+\t\t\"lxd waitready --timeout 270\",\n \t\t\"lxd init --minimal\",\n \t\t\"lxc network set lxdbr0 ipv6.address none\",\n \t\t\"chmod a+wr /var/snap/lxd/common/lxd/unix.socket\",\n@@ -76,7 +76,7 @@ func TestLXDPrepareCommandsLXDAlreadyInstalled(t *testing.T) {\n \t\t\"snap stop lxd\",\n \t\t\"snap refresh lxd\",\n \t\t\"snap start lxd\",\n-\t\t\"lxd waitready\",\n+\t\t\"lxd waitready --timeout 270\",\n \t\t\"lxd init --minimal\",\n \t\t\"lxc network set lxdbr0 ipv6.address none\",\n \t\t\"chmod a+wr /var/snap/lxd/common/lxd/unix.socket\",\ndiff --git a/internal/providers/microk8s.go b/internal/providers/microk8s.go\nindex 6595fbb..0bd53fb 100644\n--- a/internal/providers/microk8s.go\n+++ b/internal/providers/microk8s.go\n@@ -149,7 +149,7 @@ func (m *MicroK8s) install() error {\n \n // init ensures that MicroK8s is installed, minimally configured, and ready.\n func (m *MicroK8s) init() error {\n-\tcmd := system.NewCommand(\"microk8s\", []string{\"status\", \"--wait-ready\"})\n+\tcmd := system.NewCommand(\"microk8s\", []string{\"status\", \"--wait-ready\", \"--timeout\", \"270\"})\n \t_, err := m.system.RunWithRetries(cmd, (5 * time.Minute))\n \n \treturn err\ndiff --git a/internal/providers/microk8s_test.go b/internal/providers/microk8s_test.go\nindex 7074c96..7338fe1 100644\n--- a/internal/providers/microk8s_test.go\n+++ b/internal/providers/microk8s_test.go\n@@ -93,7 +93,7 @@ func TestMicroK8sPrepareCommands(t *testing.T) {\n \texpectedCommands := []string{\n \t\t\"snap install microk8s --channel 1.31-strict/stable\",\n \t\t\"snap install kubectl --channel stable\",\n-\t\t\"microk8s status --wait-ready\",\n+\t\t\"microk8s status --wait-ready --timeout 270\",\n \t\t\"microk8s enable hostpath-storage\",\n \t\t\"microk8s enable dns\",\n \t\t\"microk8s enable rbac\",\n",
+    "changed_files": [
+      "M\tinternal/providers/k8s.go",
+      "M\tinternal/providers/k8s_test.go",
+      "M\tinternal/providers/lxd.go",
+      "M\tinternal/providers/lxd_test.go",
+      "M\tinternal/providers/microk8s.go",
+      "M\tinternal/providers/microk8s_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 4
+  },
+  {
+    "sha": "63c74a37ad2d444deb902dcbe6f5739a95f4f4e0",
+    "author": "Ben Hoyt",
+    "email": "ben.hoyt@canonical.com",
+    "date": "2025-06-14T09:59:28+12:00",
+    "subject": "fix: look for more a specific error in checkBootstrapped (#65)",
+    "body": "Testing if the output contains just \"not found\" is too loose, as some\nintermittent errors include phrases like \"pod not found\", for example:\n\n```\nCommand: /snap/bin/juju show-controller concierge-microk8s Output:\n{}\nERROR opening API connection: starting proxy for api connection: \\\n    connecting k8s proxy: forwarding ports: error upgrading connection: \\\n    unable to upgrade connection: pod not found (\"controller-0_controller-concierge-microk8s\")\n```\nSo look for the specific `controller <name> not found` error. This might\nbe a bit *too* narrow, but at least it'll work.\n\nThis bug was causing concierge to think the controller wasn't there, and\nfalling through to do the bootstrap, which then failed with \"controller\n... already exists\" and kept retrying.\n\nThe PR branch is on my `benhoyt/concierge` fork, but I've also pushed\nthese changes to `canonical/concierge` under the same branch name, so\nthat you can test it using `go install`:\n\n```\n$ go install github.com/canonical/concierge@fix-not-found-handling\ngo: downloading github.com/canonical/concierge v1.0.3-0.20250613050548-f7a9a63cd62b\n```\n\nFixes #64",
+    "diff": "diff --git a/internal/juju/juju.go b/internal/juju/juju.go\nindex c58f067..437dbb2 100644\n--- a/internal/juju/juju.go\n+++ b/internal/juju/juju.go\n@@ -276,9 +276,13 @@ func (j *JujuHandler) checkBootstrapped(controllerName string) (bool, error) {\n \treturn retry.DoValue(context.Background(), backoff, func(ctx context.Context) (bool, error) {\n \t\toutput, err := j.system.Run(cmd)\n \t\tif err != nil {\n-\t\t\t// If the error message on checking contains \"not found\" then the controller\n-\t\t\t// is not actually there, so don't retry the check.\n-\t\t\tif strings.Contains(string(output), \"not found\") {\n+\t\t\t// If the error contains \"controller <name> not found\", it's not actually an error,\n+\t\t\t// so don't retry the check. It's important to not check just for \"not found\", as\n+\t\t\t// some intermittent errors include phrases like \"pod not found\", for example:\n+\t\t\t//\n+\t\t\t// ERROR opening API connection: ... unable to upgrade connection: pod not found ...\n+\t\t\tcontrollerNotFound := \"controller \" + controllerName + \" not found\"\n+\t\t\tif strings.Contains(string(output), controllerNotFound) {\n \t\t\t\treturn false, nil\n \t\t\t}\n \t\t\t// Otherwise, retry the check for a bootstrapped controller.\ndiff --git a/internal/juju/juju_test.go b/internal/juju/juju_test.go\nindex c6129e3..7fd276e 100644\n--- a/internal/juju/juju_test.go\n+++ b/internal/juju/juju_test.go\n@@ -26,9 +26,21 @@ func setupHandlerWithPreset(preset string) (*system.MockSystem, *JujuHandler, er\n \tvar provider providers.Provider\n \n \tsystem := system.NewMockSystem()\n-\tsystem.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-lxd\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n-\tsystem.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-microk8s\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n-\tsystem.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-k8s\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n+\tsystem.MockCommandReturn(\n+\t\t\"sudo -u test-user juju show-controller concierge-lxd\",\n+\t\t[]byte(\"ERROR controller concierge-lxd not found\"),\n+\t\tfmt.Errorf(\"Test error\"),\n+\t)\n+\tsystem.MockCommandReturn(\n+\t\t\"sudo -u test-user juju show-controller concierge-microk8s\",\n+\t\t[]byte(\"ERROR controller concierge-microk8s not found\"),\n+\t\tfmt.Errorf(\"Test error\"),\n+\t)\n+\tsystem.MockCommandReturn(\n+\t\t\"sudo -u test-user juju show-controller concierge-k8s\",\n+\t\t[]byte(\"ERROR controller concierge-k8s not found\"),\n+\t\tfmt.Errorf(\"Test error\"),\n+\t)\n \n \tcfg, err = config.Preset(preset)\n \tif err != nil {\n@@ -68,6 +80,7 @@ func setupHandlerWithGoogleProvider() (*system.MockSystem, *JujuHandler, error)\n \thandler := NewJujuHandler(cfg, system, []providers.Provider{provider})\n \treturn system, handler, nil\n }\n+\n func TestJujuHandlerCommandsPresets(t *testing.T) {\n \ttype test struct {\n \t\tpreset           string\n",
+    "changed_files": [
+      "M\tinternal/juju/juju.go",
+      "M\tinternal/juju/juju_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 4
+  },
+  {
+    "sha": "f7a9a63cd62bdb36849caa5a54d9a64011f37cf1",
+    "author": "Ben Hoyt",
+    "email": "ben.hoyt@canonical.com",
+    "date": "2025-06-13T17:05:48+12:00",
+    "subject": "fix: look for more a specific error in checkBootstrapped",
+    "body": "Testing if the output contains just \"not found\" is too loose, as some\nintermittent errors include phrases like \"pod not found\", for example:\n\nCommand: /snap/bin/juju show-controller concierge-microk8s\nOutput:\n{}\nERROR opening API connection: starting proxy for api connection: connecting k8s proxy: forwarding ports: error upgrading connection: unable to upgrade connection: pod not found (\"controller-0_controller-concierge-microk8s\")\n\nSo look for the specific \"controller <name> not found\" error.\n\nThis bug was causing concierge to think the controller wasn't there,\nand falling through to do the bootstrap, which then failed with\n\"controller ... already exists\" and kept retrying.\n\nFixes #64",
+    "diff": "diff --git a/internal/juju/juju.go b/internal/juju/juju.go\nindex c58f067..437dbb2 100644\n--- a/internal/juju/juju.go\n+++ b/internal/juju/juju.go\n@@ -276,9 +276,13 @@ func (j *JujuHandler) checkBootstrapped(controllerName string) (bool, error) {\n \treturn retry.DoValue(context.Background(), backoff, func(ctx context.Context) (bool, error) {\n \t\toutput, err := j.system.Run(cmd)\n \t\tif err != nil {\n-\t\t\t// If the error message on checking contains \"not found\" then the controller\n-\t\t\t// is not actually there, so don't retry the check.\n-\t\t\tif strings.Contains(string(output), \"not found\") {\n+\t\t\t// If the error contains \"controller <name> not found\", it's not actually an error,\n+\t\t\t// so don't retry the check. It's important to not check just for \"not found\", as\n+\t\t\t// some intermittent errors include phrases like \"pod not found\", for example:\n+\t\t\t//\n+\t\t\t// ERROR opening API connection: ... unable to upgrade connection: pod not found ...\n+\t\t\tcontrollerNotFound := \"controller \" + controllerName + \" not found\"\n+\t\t\tif strings.Contains(string(output), controllerNotFound) {\n \t\t\t\treturn false, nil\n \t\t\t}\n \t\t\t// Otherwise, retry the check for a bootstrapped controller.\ndiff --git a/internal/juju/juju_test.go b/internal/juju/juju_test.go\nindex c6129e3..7fd276e 100644\n--- a/internal/juju/juju_test.go\n+++ b/internal/juju/juju_test.go\n@@ -26,9 +26,21 @@ func setupHandlerWithPreset(preset string) (*system.MockSystem, *JujuHandler, er\n \tvar provider providers.Provider\n \n \tsystem := system.NewMockSystem()\n-\tsystem.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-lxd\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n-\tsystem.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-microk8s\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n-\tsystem.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-k8s\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n+\tsystem.MockCommandReturn(\n+\t\t\"sudo -u test-user juju show-controller concierge-lxd\",\n+\t\t[]byte(\"ERROR controller concierge-lxd not found\"),\n+\t\tfmt.Errorf(\"Test error\"),\n+\t)\n+\tsystem.MockCommandReturn(\n+\t\t\"sudo -u test-user juju show-controller concierge-microk8s\",\n+\t\t[]byte(\"ERROR controller concierge-microk8s not found\"),\n+\t\tfmt.Errorf(\"Test error\"),\n+\t)\n+\tsystem.MockCommandReturn(\n+\t\t\"sudo -u test-user juju show-controller concierge-k8s\",\n+\t\t[]byte(\"ERROR controller concierge-k8s not found\"),\n+\t\tfmt.Errorf(\"Test error\"),\n+\t)\n \n \tcfg, err = config.Preset(preset)\n \tif err != nil {\n@@ -68,6 +80,7 @@ func setupHandlerWithGoogleProvider() (*system.MockSystem, *JujuHandler, error)\n \thandler := NewJujuHandler(cfg, system, []providers.Provider{provider})\n \treturn system, handler, nil\n }\n+\n func TestJujuHandlerCommandsPresets(t *testing.T) {\n \ttype test struct {\n \t\tpreset           string\n",
+    "changed_files": [
+      "M\tinternal/juju/juju.go",
+      "M\tinternal/juju/juju_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 4
+  },
+  {
+    "sha": "a8143a89a4c2168a153a9260f18f455b966ad490",
+    "author": "Ben Hoyt",
+    "email": "ben.hoyt@canonical.com",
+    "date": "2025-05-08T11:11:07+02:00",
+    "subject": "fix: update import path to make it importable (#58)",
+    "body": "v1.0.0 and v1.0.1 are not `go install`able, due to the go.mod and import\npaths not matching the repo, for example:\n\n```\n$ go install github.com/canonical/concierge@v1.0.0\ngo: downloading github.com/canonical/concierge v1.0.0\ngo: github.com/canonical/concierge@v1.0.0: version constraints conflict:\n\tgithub.com/canonical/concierge@v1.0.0: parsing go.mod:\n\tmodule declares its path as: github.com/jnsgruk/concierge\n\t        but was required as: github.com/canonical/concierge\n```\n\nThis should fix that.",
+    "diff": "diff --git a/.goreleaser.yaml b/.goreleaser.yaml\nindex c25ef00..f67ee56 100644\n--- a/.goreleaser.yaml\n+++ b/.goreleaser.yaml\n@@ -15,7 +15,7 @@ builds:\n       - amd64\n       - arm64\n     ldflags:\n-      - -X github.com/jnsgruk/concierge/cmd.version={{ .Version }} -X github.com/jnsgruk/concierge/cmd.commit={{ .Commit }}\n+      - -X github.com/canonical/concierge/cmd.version={{ .Version }} -X github.com/canonical/concierge/cmd.commit={{ .Commit }}\n archives:\n   - builds:\n       - default\n@@ -48,7 +48,7 @@ snapcrafts:\n       Each of the override flags has an environment variable equivalent, such as\n       'CONCIERGE_JUJU_CHANNEL'.\n \n-      More information at https://github.com/jnsgruk/concierge.\n+      More information at https://github.com/canonical/concierge.\n     extra_files:\n       - source: .github/concierge.png\n         destination: concierge.png\ndiff --git a/README.md b/README.md\nindex 6966f72..26fd47a 100644\n--- a/README.md\n+++ b/README.md\n@@ -5,7 +5,7 @@\n <h1 align=\"center\">concierge</h1>\n <p align=\"center\">\n   <a href=\"https://snapcraft.io/concierge\"><img src=\"https://snapcraft.io/concierge/badge.svg\" alt=\"Snap Status\"></a>\n-  <a href=\"https://github.com/jnsgruk/concierge/actions/workflows/release.yaml\"><img src=\"https://github.com/jnsgruk/concierge/actions/workflows/release.yaml/badge.svg\"></a>\n+  <a href=\"https://github.com/canonical/concierge/actions/workflows/release.yaml\"><img src=\"https://github.com/canonical/concierge/actions/workflows/release.yaml/badge.svg\"></a>\n </p>\n \n `concierge` is an opinionated utility for provisioning charm development and testing machines.\n@@ -35,13 +35,13 @@ sudo snap install --classic concierge\n Or, you can install `concierge` with the `go install` command:\n \n ```shell\n-go install github.com/jnsgruk/concierge@latest\n+go install github.com/canonical/concierge@latest\n ```\n \n Or you can clone, build and run like so:\n \n ```shell\n-git clone https://github.com/jnsgruk/concierge\n+git clone https://github.com/canonical/concierge\n cd concierge\n go build\n sudo ./concierge -h\n@@ -363,7 +363,7 @@ You can get started by just using Go, or with `goreleaser`:\n \n ```shell\n # Clone the repository\n-git clone https://github.com/jnsgruk/concierge\n+git clone https://github.com/canonical/concierge\n cd concierge\n \n # Build/run with Go\ndiff --git a/cmd/prepare.go b/cmd/prepare.go\nindex 5dc4ce0..898dc7b 100644\n--- a/cmd/prepare.go\n+++ b/cmd/prepare.go\n@@ -3,8 +3,8 @@ package cmd\n import (\n \t\"fmt\"\n \n-\t\"github.com/jnsgruk/concierge/internal/concierge\"\n-\t\"github.com/jnsgruk/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/concierge\"\n+\t\"github.com/canonical/concierge/internal/config\"\n \t\"github.com/spf13/cobra\"\n )\n \n@@ -25,7 +25,7 @@ Some aspects of presets and config files can be overridden using flags such as '\n Each of the override flags has an environment variable equivalent, \n such as 'CONCIERGE_JUJU_CHANNEL'.\n \n-More information at https://github.com/jnsgruk/concierge.\n+More information at https://github.com/canonical/concierge.\n `,\n \t\tSilenceErrors: true,\n \t\tSilenceUsage:  true,\ndiff --git a/cmd/restore.go b/cmd/restore.go\nindex 68e8222..7bf06b6 100644\n--- a/cmd/restore.go\n+++ b/cmd/restore.go\n@@ -3,8 +3,8 @@ package cmd\n import (\n \t\"fmt\"\n \n-\t\"github.com/jnsgruk/concierge/internal/concierge\"\n-\t\"github.com/jnsgruk/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/concierge\"\n+\t\"github.com/canonical/concierge/internal/config\"\n \t\"github.com/spf13/cobra\"\n )\n \ndiff --git a/cmd/status.go b/cmd/status.go\nindex 8d460cb..9891e25 100644\n--- a/cmd/status.go\n+++ b/cmd/status.go\n@@ -3,8 +3,8 @@ package cmd\n import (\n \t\"fmt\"\n \n-\t\"github.com/jnsgruk/concierge/internal/concierge\"\n-\t\"github.com/jnsgruk/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/concierge\"\n+\t\"github.com/canonical/concierge/internal/config\"\n \t\"github.com/spf13/cobra\"\n )\n \ndiff --git a/go.mod b/go.mod\nindex 14a0484..a2cfc45 100644\n--- a/go.mod\n+++ b/go.mod\n@@ -1,4 +1,4 @@\n-module github.com/jnsgruk/concierge\n+module github.com/canonical/concierge\n \n go 1.23.0\n \ndiff --git a/internal/concierge/manager.go b/internal/concierge/manager.go\nindex 11d24ce..cd6d89b 100644\n--- a/internal/concierge/manager.go\n+++ b/internal/concierge/manager.go\n@@ -5,8 +5,8 @@ import (\n \t\"log/slog\"\n \t\"path\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n \t\"gopkg.in/yaml.v3\"\n )\n \ndiff --git a/internal/concierge/plan.go b/internal/concierge/plan.go\nindex 45d142e..b8464ea 100644\n--- a/internal/concierge/plan.go\n+++ b/internal/concierge/plan.go\n@@ -4,11 +4,11 @@ import (\n \t\"fmt\"\n \t\"log/slog\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/juju\"\n-\t\"github.com/jnsgruk/concierge/internal/packages\"\n-\t\"github.com/jnsgruk/concierge/internal/providers\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/juju\"\n+\t\"github.com/canonical/concierge/internal/packages\"\n+\t\"github.com/canonical/concierge/internal/providers\"\n+\t\"github.com/canonical/concierge/internal/system\"\n \t\"golang.org/x/sync/errgroup\"\n )\n \ndiff --git a/internal/concierge/plan_test.go b/internal/concierge/plan_test.go\nindex 65fefb5..35fa008 100644\n--- a/internal/concierge/plan_test.go\n+++ b/internal/concierge/plan_test.go\n@@ -4,7 +4,7 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/config\"\n )\n \n func TestGetSnapChannelOverride(t *testing.T) {\ndiff --git a/internal/concierge/plan_validators_test.go b/internal/concierge/plan_validators_test.go\nindex 246902f..b9489ee 100644\n--- a/internal/concierge/plan_validators_test.go\n+++ b/internal/concierge/plan_validators_test.go\n@@ -3,8 +3,8 @@ package concierge\n import (\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n func TestSingleK8sValidator(t *testing.T) {\ndiff --git a/internal/juju/juju.go b/internal/juju/juju.go\nindex 49dc341..c58f067 100644\n--- a/internal/juju/juju.go\n+++ b/internal/juju/juju.go\n@@ -9,10 +9,10 @@ import (\n \t\"strings\"\n \t\"time\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/packages\"\n-\t\"github.com/jnsgruk/concierge/internal/providers\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/packages\"\n+\t\"github.com/canonical/concierge/internal/providers\"\n+\t\"github.com/canonical/concierge/internal/system\"\n \t\"github.com/sethvargo/go-retry\"\n \t\"golang.org/x/sync/errgroup\"\n \t\"gopkg.in/yaml.v3\"\ndiff --git a/internal/juju/juju_test.go b/internal/juju/juju_test.go\nindex 859810b..c6129e3 100644\n--- a/internal/juju/juju_test.go\n+++ b/internal/juju/juju_test.go\n@@ -5,9 +5,9 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/providers\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/providers\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n var fakeGoogleCreds = []byte(`auth-type: oauth2\ndiff --git a/internal/packages/deb_handler.go b/internal/packages/deb_handler.go\nindex d30a6f2..73ce604 100644\n--- a/internal/packages/deb_handler.go\n+++ b/internal/packages/deb_handler.go\n@@ -4,7 +4,7 @@ import (\n \t\"fmt\"\n \t\"log/slog\"\n \n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n // NewDeb constructs a new Deb instance.\ndiff --git a/internal/packages/deb_handler_test.go b/internal/packages/deb_handler_test.go\nindex 9fb6f30..c36955a 100644\n--- a/internal/packages/deb_handler_test.go\n+++ b/internal/packages/deb_handler_test.go\n@@ -4,7 +4,7 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n func TestDebHandlerCommands(t *testing.T) {\ndiff --git a/internal/packages/snap_handler.go b/internal/packages/snap_handler.go\nindex 53693c8..ec70b42 100644\n--- a/internal/packages/snap_handler.go\n+++ b/internal/packages/snap_handler.go\n@@ -5,7 +5,7 @@ import (\n \t\"log/slog\"\n \t\"strings\"\n \n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n // NewSnapHandler constructs a new instance of a SnapHandler.\ndiff --git a/internal/packages/snap_handler_test.go b/internal/packages/snap_handler_test.go\nindex 9e2dcb6..8c095d8 100644\n--- a/internal/packages/snap_handler_test.go\n+++ b/internal/packages/snap_handler_test.go\n@@ -4,7 +4,7 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n func TestSnapHandlerCommands(t *testing.T) {\ndiff --git a/internal/providers/google.go b/internal/providers/google.go\nindex fa30de7..8676368 100644\n--- a/internal/providers/google.go\n+++ b/internal/providers/google.go\n@@ -4,8 +4,8 @@ import (\n \t\"fmt\"\n \t\"log/slog\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n \t\"gopkg.in/yaml.v3\"\n )\n \ndiff --git a/internal/providers/google_test.go b/internal/providers/google_test.go\nindex 5cdb373..854c491 100644\n--- a/internal/providers/google_test.go\n+++ b/internal/providers/google_test.go\n@@ -4,8 +4,8 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n \t\"gopkg.in/yaml.v3\"\n )\n \ndiff --git a/internal/providers/k8s.go b/internal/providers/k8s.go\nindex 52a5b03..04fea75 100644\n--- a/internal/providers/k8s.go\n+++ b/internal/providers/k8s.go\n@@ -9,9 +9,9 @@ import (\n \n \t\"golang.org/x/sync/errgroup\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/packages\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/packages\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n // Default channel from which K8s is installed.\ndiff --git a/internal/providers/k8s_test.go b/internal/providers/k8s_test.go\nindex 8f0ad07..b6bc4e3 100644\n--- a/internal/providers/k8s_test.go\n+++ b/internal/providers/k8s_test.go\n@@ -6,8 +6,8 @@ import (\n \t\"slices\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n var defaultFeatureConfig = map[string]map[string]string{\ndiff --git a/internal/providers/lxd.go b/internal/providers/lxd.go\nindex 469f52d..d5d6d70 100644\n--- a/internal/providers/lxd.go\n+++ b/internal/providers/lxd.go\n@@ -4,9 +4,9 @@ import (\n \t\"fmt\"\n \t\"log/slog\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/packages\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/packages\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n // NewLXD constructs a new LXD provider instance.\ndiff --git a/internal/providers/lxd_test.go b/internal/providers/lxd_test.go\nindex f870ab2..fcbb5ff 100644\n--- a/internal/providers/lxd_test.go\n+++ b/internal/providers/lxd_test.go\n@@ -4,8 +4,8 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n func TestNewLXD(t *testing.T) {\ndiff --git a/internal/providers/microk8s.go b/internal/providers/microk8s.go\nindex 5c244f5..6595fbb 100644\n--- a/internal/providers/microk8s.go\n+++ b/internal/providers/microk8s.go\n@@ -7,9 +7,9 @@ import (\n \t\"strings\"\n \t\"time\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/packages\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/packages\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n // Default channel from which MicroK8s is installed when the latest strict\ndiff --git a/internal/providers/microk8s_test.go b/internal/providers/microk8s_test.go\nindex b52297b..7074c96 100644\n--- a/internal/providers/microk8s_test.go\n+++ b/internal/providers/microk8s_test.go\n@@ -4,8 +4,8 @@ import (\n \t\"reflect\"\n \t\"testing\"\n \n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n var defaultAddons []string = []string{\ndiff --git a/internal/providers/providers.go b/internal/providers/providers.go\nindex f0a6bc7..7b7398e 100644\n--- a/internal/providers/providers.go\n+++ b/internal/providers/providers.go\n@@ -1,8 +1,8 @@\n package providers\n \n import (\n-\t\"github.com/jnsgruk/concierge/internal/config\"\n-\t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/canonical/concierge/internal/config\"\n+\t\"github.com/canonical/concierge/internal/system\"\n )\n \n // SupportedProviders is a list of stringified names of supported providers.\ndiff --git a/main.go b/main.go\nindex ba90ad8..11957a1 100644\n--- a/main.go\n+++ b/main.go\n@@ -1,7 +1,7 @@\n package main\n \n import (\n-\t\"github.com/jnsgruk/concierge/cmd\"\n+\t\"github.com/canonical/concierge/cmd\"\n )\n \n func main() {\n",
+    "changed_files": [
+      "M\t.goreleaser.yaml",
+      "M\tREADME.md",
+      "M\tcmd/prepare.go",
+      "M\tcmd/restore.go",
+      "M\tcmd/status.go",
+      "M\tgo.mod",
+      "M\tinternal/concierge/manager.go",
+      "M\tinternal/concierge/plan.go",
+      "M\tinternal/concierge/plan_test.go",
+      "M\tinternal/concierge/plan_validators_test.go",
+      "M\tinternal/juju/juju.go",
+      "M\tinternal/juju/juju_test.go",
+      "M\tinternal/packages/deb_handler.go",
+      "M\tinternal/packages/deb_handler_test.go",
+      "M\tinternal/packages/snap_handler.go",
+      "M\tinternal/packages/snap_handler_test.go",
+      "M\tinternal/providers/google.go",
+      "M\tinternal/providers/google_test.go",
+      "M\tinternal/providers/k8s.go",
+      "M\tinternal/providers/k8s_test.go",
+      "M\tinternal/providers/lxd.go",
+      "M\tinternal/providers/lxd_test.go",
+      "M\tinternal/providers/microk8s.go",
+      "M\tinternal/providers/microk8s_test.go",
+      "M\tinternal/providers/providers.go",
+      "M\tmain.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "00102fd0d311cebf659d0a75c6200173d0ae43f4",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-05-08T07:46:26+02:00",
+    "subject": "fix: install `iptables` for k8s provider if not present (#57)",
+    "body": "The k8s snap relies on `iptables` being present on the system, which is\nsome cases is not true.\n\nIn this change, the k8s provider is updated to first check if the\niptables command is present, and install it if not.\n\nIn a change from the norm, iptables is not then removed, as currently we\ndon't track state and removing the package if it was previously\ninstalled would be a bad outcome!\n\nFixes #56",
+    "diff": "diff --git a/internal/providers/k8s.go b/internal/providers/k8s.go\nindex 6ae753d..52a5b03 100644\n--- a/internal/providers/k8s.go\n+++ b/internal/providers/k8s.go\n@@ -7,6 +7,8 @@ import (\n \t\"strings\"\n \t\"time\"\n \n+\t\"golang.org/x/sync/errgroup\"\n+\n \t\"github.com/jnsgruk/concierge/internal/config\"\n \t\"github.com/jnsgruk/concierge/internal/packages\"\n \t\"github.com/jnsgruk/concierge/internal/system\"\n@@ -34,6 +36,9 @@ func NewK8s(r system.Worker, config *config.Config) *K8s {\n \t\tmodelDefaults:        config.Providers.K8s.ModelDefaults,\n \t\tbootstrapConstraints: config.Providers.K8s.BootstrapConstraints,\n \t\tsystem:               r,\n+\t\tdebs: []*packages.Deb{\n+\t\t\t{Name: \"iptables\"},\n+\t\t},\n \t\tsnaps: []*system.Snap{\n \t\t\t{Name: \"k8s\", Channel: channel},\n \t\t\t{Name: \"kubectl\", Channel: \"stable\"},\n@@ -51,6 +56,7 @@ type K8s struct {\n \tbootstrapConstraints map[string]string\n \n \tsystem system.Worker\n+\tdebs   []*packages.Deb\n \tsnaps  []*system.Snap\n }\n \n@@ -125,10 +131,35 @@ func (k *K8s) Restore() error {\n \n // install ensures that K8s is installed.\n func (k *K8s) install() error {\n+\tvar eg errgroup.Group\n+\n+\t// Prepare/restore package handlers concurrently\n+\tdebHandler := packages.NewDebHandler(k.system, k.debs)\n \tsnapHandler := packages.NewSnapHandler(k.system, k.snaps)\n \n-\terr := snapHandler.Prepare()\n-\tif err != nil {\n+\teg.Go(func() error {\n+\t\t// In some cases, iptables is not present on the system. In those cases,\n+\t\t// make sure it's installed.\n+\t\tcmd := system.NewCommand(\"which\", []string{\"iptables\"})\n+\t\t_, err := k.system.Run(cmd)\n+\t\tif err != nil {\n+\t\t\terr := debHandler.Prepare()\n+\t\t\tif err != nil {\n+\t\t\t\treturn err\n+\t\t\t}\n+\t\t}\n+\t\treturn nil\n+\t})\n+\n+\teg.Go(func() error {\n+\t\terr := snapHandler.Prepare()\n+\t\tif err != nil {\n+\t\t\treturn err\n+\t\t}\n+\t\treturn nil\n+\t})\n+\n+\tif err := eg.Wait(); err != nil {\n \t\treturn err\n \t}\n \ndiff --git a/internal/providers/k8s_test.go b/internal/providers/k8s_test.go\nindex 6ec5075..8f0ad07 100644\n--- a/internal/providers/k8s_test.go\n+++ b/internal/providers/k8s_test.go\n@@ -61,6 +61,7 @@ func TestNewK8s(t *testing.T) {\n \n \t\t// Remove the snaps so the rest of the object can be compared\n \t\tck8s.snaps = nil\n+\t\tck8s.debs = nil\n \t\tif !reflect.DeepEqual(tc.expected, ck8s) {\n \t\t\tt.Fatalf(\"expected: %v, got: %v\", tc.expected, ck8s)\n \t\t}\n@@ -73,6 +74,9 @@ func TestK8sPrepareCommands(t *testing.T) {\n \tconfig.Providers.K8s.Features = defaultFeatureConfig\n \n \texpectedCommands := []string{\n+\t\t\"which iptables\",\n+\t\t\"apt-get update\",\n+\t\t\"apt-get install -y iptables\",\n \t\tfmt.Sprintf(\"snap install k8s --channel %s\", defaultK8sChannel),\n \t\t\"snap install kubectl --channel stable\",\n \t\t\"k8s bootstrap\",\n@@ -92,6 +96,7 @@ func TestK8sPrepareCommands(t *testing.T) {\n \n \tsystem := system.NewMockSystem()\n \tsystem.MockCommandReturn(\"k8s status\", []byte(\"Error: The node is not part of a Kubernetes cluster.\"), fmt.Errorf(\"command error\"))\n+\tsystem.MockCommandReturn(\"which iptables\", []byte(\"\"), fmt.Errorf(\"command error\"))\n \n \tck8s := NewK8s(system, config)\n \tck8s.Prepare()\n@@ -108,12 +113,13 @@ func TestK8sPrepareCommands(t *testing.T) {\n \t}\n }\n \n-func TestK8sPrepareCommandsAlreadyBootstrapped(t *testing.T) {\n+func TestK8sPrepareCommandsAlreadyBootstrappedIptablesInstalled(t *testing.T) {\n \tconfig := &config.Config{}\n \tconfig.Providers.K8s.Channel = \"\"\n \tconfig.Providers.K8s.Features = defaultFeatureConfig\n \n \texpectedCommands := []string{\n+\t\t\"which iptables\",\n \t\tfmt.Sprintf(\"snap install k8s --channel %s\", defaultK8sChannel),\n \t\t\"snap install kubectl --channel stable\",\n \t\t\"k8s status --wait-ready\",\n@@ -131,6 +137,7 @@ func TestK8sPrepareCommandsAlreadyBootstrapped(t *testing.T) {\n \t}\n \n \tsystem := system.NewMockSystem()\n+\tsystem.MockCommandReturn(\"which iptables\", []byte(\"/usr/sbin/iptables\"), nil)\n \tck8s := NewK8s(system, config)\n \tck8s.Prepare()\n \ndiff --git a/internal/system/mock_system.go b/internal/system/mock_system.go\nindex 5041eb4..3770c23 100644\n--- a/internal/system/mock_system.go\n+++ b/internal/system/mock_system.go\n@@ -4,6 +4,7 @@ import (\n \t\"fmt\"\n \t\"os\"\n \t\"os/user\"\n+\t\"sync\"\n \t\"time\"\n )\n \n@@ -34,6 +35,9 @@ type MockSystem struct {\n \tmockReturns      map[string]MockCommandReturn\n \tmockSnapInfo     map[string]*SnapInfo\n \tmockSnapChannels map[string][]string\n+\n+\t// Used to guard access to the ExecutedCommands list\n+\tcmdMutex sync.Mutex\n }\n \n // MockCommandReturn sets a static return value representing command combined output,\n@@ -73,6 +77,7 @@ func (r *MockSystem) User() *user.User {\n \n // Run executes the command, returning the stdout/stderr where appropriate.\n func (r *MockSystem) Run(c *Command) ([]byte, error) {\n+\tr.cmdMutex.Lock()\n \t// Prevent the path of the test machine interfering with the test results.\n \tpath := os.Getenv(\"PATH\")\n \tdefer os.Setenv(\"PATH\", path)\n@@ -81,6 +86,7 @@ func (r *MockSystem) Run(c *Command) ([]byte, error) {\n \tcmd := c.CommandString()\n \n \tr.ExecutedCommands = append(r.ExecutedCommands, cmd)\n+\tr.cmdMutex.Unlock()\n \n \tval, ok := r.mockReturns[cmd]\n \tif ok {\n",
+    "changed_files": [
+      "M\tinternal/providers/k8s.go",
+      "M\tinternal/providers/k8s_test.go",
+      "M\tinternal/system/mock_system.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "1668e372c9f63bc1a57113af512cb000772569f6",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-02-24T12:06:28+00:00",
+    "subject": "fix: retry bootstrap check on on controllers when there are errors",
+    "body": "At the moment, when concierge checks for a bootstrapped controller, if\nthe command fails the check is considered a failure, and thus that the\ncontroller doesn't exist.\n\nIn some cases, that is correct, and we can tell that from the error\nmessage. In other cases, the check fails because the controller fails\nto respond.\n\nThis commit introduces a retry with backoff on that check.",
+    "diff": "diff --git a/internal/juju/juju.go b/internal/juju/juju.go\nindex 492d3d4..49dc341 100644\n--- a/internal/juju/juju.go\n+++ b/internal/juju/juju.go\n@@ -1,6 +1,7 @@\n package juju\n \n import (\n+\t\"context\"\n \t\"fmt\"\n \t\"log/slog\"\n \t\"path\"\n@@ -12,6 +13,7 @@ import (\n \t\"github.com/jnsgruk/concierge/internal/packages\"\n \t\"github.com/jnsgruk/concierge/internal/providers\"\n \t\"github.com/jnsgruk/concierge/internal/system\"\n+\t\"github.com/sethvargo/go-retry\"\n \t\"golang.org/x/sync/errgroup\"\n \t\"gopkg.in/yaml.v3\"\n )\n@@ -264,14 +266,27 @@ func (j *JujuHandler) checkBootstrapped(controllerName string) (bool, error) {\n \tuser := j.system.User().Username\n \tcmd := system.NewCommandAs(user, \"\", \"juju\", []string{\"show-controller\", controllerName})\n \n-\tresult, err := j.system.Run(cmd)\n-\tif err != nil && strings.Contains(string(result), \"not found\") {\n-\t\treturn false, nil\n-\t} else if err != nil {\n-\t\treturn false, err\n-\t}\n+\t// Configure a back-off for retrying the assessment of controller status.\n+\tbackoff := retry.WithMaxRetries(10, retry.NewExponential(1*time.Second))\n+\n+\t// Run a function, with retries/backoff, to assess whether the controller exists.\n+\t// This retry works around an issue where a given controller may not respond, causing the\n+\t// tool to conclude that the controller doesn't exist, rather than the controller simply\n+\t// not responding.\n+\treturn retry.DoValue(context.Background(), backoff, func(ctx context.Context) (bool, error) {\n+\t\toutput, err := j.system.Run(cmd)\n+\t\tif err != nil {\n+\t\t\t// If the error message on checking contains \"not found\" then the controller\n+\t\t\t// is not actually there, so don't retry the check.\n+\t\t\tif strings.Contains(string(output), \"not found\") {\n+\t\t\t\treturn false, nil\n+\t\t\t}\n+\t\t\t// Otherwise, retry the check for a bootstrapped controller.\n+\t\t\treturn false, retry.RetryableError(err)\n+\t\t}\n \n-\treturn true, nil\n+\t\treturn true, nil\n+\t})\n }\n \n // sortedKeys gets an alphabetically sorted list of keys from a map.\n",
+    "changed_files": [
+      "M\tinternal/juju/juju.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 4
+  },
+  {
+    "sha": "086520a698fd165cae5277cc9b4884ad61ffa2d0",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-02-20T13:48:38+00:00",
+    "subject": "fix: ensure disabled juju warning is shown",
+    "body": "",
+    "diff": "diff --git a/internal/concierge/plan.go b/internal/concierge/plan.go\nindex cdb3ac0..45d142e 100644\n--- a/internal/concierge/plan.go\n+++ b/internal/concierge/plan.go\n@@ -57,7 +57,7 @@ func NewPlan(cfg *config.Config, worker system.Worker) *Plan {\n \n \t\t\t// Warn if the configuration specifies to bootstrap the provider, but the config or\n \t\t\t// overrides disable Juju.\n-\t\t\tif plan.config.Juju.Disable && p.Bootstrap() {\n+\t\t\tif cfg.Overrides.DisableJuju && p.Bootstrap() {\n \t\t\t\tslog.Warn(\"provider will not be bootstrapped because juju is disabled\", \"provider\", providerName)\n \t\t\t}\n \t\t}\n",
+    "changed_files": [
+      "M\tinternal/concierge/plan.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "1ba95fa802870e56af634d79ecd8e682953b84c2",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-02-07T09:16:29+00:00",
+    "subject": "fix: add retry to Snap channel lookup",
+    "body": "",
+    "diff": "diff --git a/internal/system/snap.go b/internal/system/snap.go\nindex ae72ea9..c490757 100644\n--- a/internal/system/snap.go\n+++ b/internal/system/snap.go\n@@ -64,7 +64,17 @@ func (s *System) SnapChannels(snap string) ([]string, error) {\n \t\treturn nil, err\n \t}\n \n-\tstoreSnap, _, err := s.snapd.FindOne(snap)\n+\tstoreSnap, err := s.withRetry(func(ctx context.Context) (*client.Snap, error) {\n+\t\tsnap, _, err := s.snapd.FindOne(snap)\n+\t\tif err != nil {\n+\t\t\tif strings.Contains(err.Error(), \"snap not found\") {\n+\t\t\t\treturn nil, err\n+\t\t\t}\n+\t\t\treturn nil, retry.RetryableError(err)\n+\n+\t\t}\n+\t\treturn snap, nil\n+\t})\n \tif err != nil {\n \t\treturn nil, err\n \t}\n",
+    "changed_files": [
+      "M\tinternal/system/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 1
+  },
+  {
+    "sha": "c67671234929b42f52d6e279aa715aef2e480fa3",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-02-07T09:14:25+00:00",
+    "subject": "fix: lookup channels for correct snap in SnapChannels",
+    "body": "",
+    "diff": "diff --git a/internal/system/snap.go b/internal/system/snap.go\nindex 2a58a58..ae72ea9 100644\n--- a/internal/system/snap.go\n+++ b/internal/system/snap.go\n@@ -64,7 +64,7 @@ func (s *System) SnapChannels(snap string) ([]string, error) {\n \t\treturn nil, err\n \t}\n \n-\tstoreSnap, _, err := s.snapd.FindOne(\"microk8s\")\n+\tstoreSnap, _, err := s.snapd.FindOne(snap)\n \tif err != nil {\n \t\treturn nil, err\n \t}\n",
+    "changed_files": [
+      "M\tinternal/system/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 5
+  },
+  {
+    "sha": "20188c549be9fb1b4fcd877d5c86015250271dc8",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-02-07T09:13:56+00:00",
+    "subject": "fix: don't retry SnapInfo lookup if snap not found",
+    "body": "",
+    "diff": "diff --git a/internal/system/snap.go b/internal/system/snap.go\nindex 774b6bf..2a58a58 100644\n--- a/internal/system/snap.go\n+++ b/internal/system/snap.go\n@@ -107,6 +107,9 @@ func (s *System) snapIsClassic(name, channel string) (bool, error) {\n \tsnap, err := s.withRetry(func(ctx context.Context) (*client.Snap, error) {\n \t\tsnap, _, err := s.snapd.FindOne(name)\n \t\tif err != nil {\n+\t\t\tif strings.Contains(err.Error(), \"snap not found\") {\n+\t\t\t\treturn nil, err\n+\t\t\t}\n \t\t\treturn nil, retry.RetryableError(err)\n \t\t}\n \t\treturn snap, nil\n",
+    "changed_files": [
+      "M\tinternal/system/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "b418443ec6289f03bb369915a9359ab5cc7f0b52",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2025-02-03T16:50:21+00:00",
+    "subject": "fix: lookup snap in store and bail early if not exists in SnapInfo (#34)",
+    "body": "This is a simple fix that ensures that non-existent snaps don't get\nrepeatedly looked up with the retry mechanism used to establish more\ndetailed Snap information.\n\nThe primary motivation for this is failing fast rather than keeping\nthe user waiting if they specify a non-existent snap.",
+    "diff": "diff --git a/internal/system/snap.go b/internal/system/snap.go\nindex 774b6bf..998c194 100644\n--- a/internal/system/snap.go\n+++ b/internal/system/snap.go\n@@ -46,6 +46,12 @@ func NewSnapFromString(snap string) *Snap {\n // SnapInfo returns information about a given snap, looking up details in the snap\n // store using the snapd client API where necessary.\n func (s *System) SnapInfo(snap string, channel string) (*SnapInfo, error) {\n+\t// Simple check to see if the snap actually exists in the store.\n+\t_, _, err := s.snapd.FindOne(snap)\n+\tif err != nil {\n+\t\treturn nil, fmt.Errorf(\"unable to find snap '%s' in store: %w\", snap, err)\n+\t}\n+\n \tclassic, err := s.snapIsClassic(snap, channel)\n \tif err != nil {\n \t\treturn nil, err\n",
+    "changed_files": [
+      "M\tinternal/system/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "158c3a708b05f98b6f6e98e9fc98b1a816842373",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-11-20T17:16:36+00:00",
+    "subject": "fix: ensure that `lxd` is started again after refresh",
+    "body": "",
+    "diff": "diff --git a/internal/providers/lxd.go b/internal/providers/lxd.go\nindex fb62103..469f52d 100644\n--- a/internal/providers/lxd.go\n+++ b/internal/providers/lxd.go\n@@ -104,7 +104,8 @@ func (l *LXD) Restore() error {\n \n // install ensures that LXD is installed.\n func (l *LXD) install() error {\n-\terr := l.workaroundRefresh()\n+\t// Check if LXD is already installed, and stop the snap if it is.\n+\trestart, err := l.workaroundRefresh()\n \tif err != nil {\n \t\treturn err\n \t}\n@@ -116,6 +117,17 @@ func (l *LXD) install() error {\n \t\treturn err\n \t}\n \n+\t// If we stopped the LXD snap, make sure we start it again now the refresh\n+\t// has happened.\n+\tif restart {\n+\t\targs := []string{\"start\", l.Name()}\n+\t\tcmd := system.NewCommand(\"snap\", args)\n+\t\t_, err = l.system.RunExclusive(cmd)\n+\t\tif err != nil {\n+\t\t\treturn err\n+\t\t}\n+\t}\n+\n \treturn nil\n }\n \n@@ -151,10 +163,10 @@ func (l *LXD) deconflictFirewall() error {\n // workaroundRefresh checks if LXD will be refreshed and stops it first.\n // This is a workaround for an issue in the LXD snap sometimes failing\n // on refresh because of a missing snap socket file.\n-func (l *LXD) workaroundRefresh() error {\n+func (l *LXD) workaroundRefresh() (bool, error) {\n \tsnapInfo, err := l.system.SnapInfo(l.Name(), l.Channel)\n \tif err != nil {\n-\t\treturn fmt.Errorf(\"failed to lookup snap details: %w\", err)\n+\t\treturn false, fmt.Errorf(\"failed to lookup snap details: %w\", err)\n \t}\n \n \tif snapInfo.Installed {\n@@ -162,9 +174,10 @@ func (l *LXD) workaroundRefresh() error {\n \t\tcmd := system.NewCommand(\"snap\", args)\n \t\t_, err = l.system.RunExclusive(cmd)\n \t\tif err != nil {\n-\t\t\treturn fmt.Errorf(\"command failed: %w\", err)\n+\t\t\treturn false, fmt.Errorf(\"command failed: %w\", err)\n \t\t}\n+\t\treturn true, nil\n \t}\n \n-\treturn nil\n+\treturn false, nil\n }\ndiff --git a/internal/providers/lxd_test.go b/internal/providers/lxd_test.go\nindex 2eb5d1b..f870ab2 100644\n--- a/internal/providers/lxd_test.go\n+++ b/internal/providers/lxd_test.go\n@@ -75,6 +75,7 @@ func TestLXDPrepareCommandsLXDAlreadyInstalled(t *testing.T) {\n \texpected := []string{\n \t\t\"snap stop lxd\",\n \t\t\"snap refresh lxd\",\n+\t\t\"snap start lxd\",\n \t\t\"lxd waitready\",\n \t\t\"lxd init --minimal\",\n \t\t\"lxc network set lxdbr0 ipv6.address none\",\n",
+    "changed_files": [
+      "M\tinternal/providers/lxd.go",
+      "M\tinternal/providers/lxd_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "fea22ef23d1f57a05101bad44939c5149b74b98a",
+    "author": "Ghislain Bourgeois",
+    "email": "ghislain.bourgeois@canonical.com",
+    "date": "2024-11-20T09:25:42-05:00",
+    "subject": "fix: Workaround LXD refresh issue",
+    "body": "",
+    "diff": "diff --git a/internal/providers/lxd.go b/internal/providers/lxd.go\nindex b1a83fa..fb62103 100644\n--- a/internal/providers/lxd.go\n+++ b/internal/providers/lxd.go\n@@ -104,9 +104,14 @@ func (l *LXD) Restore() error {\n \n // install ensures that LXD is installed.\n func (l *LXD) install() error {\n+\terr := l.workaroundRefresh()\n+\tif err != nil {\n+\t\treturn err\n+\t}\n+\n \tsnapHandler := packages.NewSnapHandler(l.system, l.snaps)\n \n-\terr := snapHandler.Prepare()\n+\terr = snapHandler.Prepare()\n \tif err != nil {\n \t\treturn err\n \t}\n@@ -142,3 +147,24 @@ func (l *LXD) deconflictFirewall() error {\n \t\tsystem.NewCommand(\"iptables\", []string{\"-P\", \"FORWARD\", \"ACCEPT\"}),\n \t)\n }\n+\n+// workaroundRefresh checks if LXD will be refreshed and stops it first.\n+// This is a workaround for an issue in the LXD snap sometimes failing\n+// on refresh because of a missing snap socket file.\n+func (l *LXD) workaroundRefresh() error {\n+\tsnapInfo, err := l.system.SnapInfo(l.Name(), l.Channel)\n+\tif err != nil {\n+\t\treturn fmt.Errorf(\"failed to lookup snap details: %w\", err)\n+\t}\n+\n+\tif snapInfo.Installed {\n+\t\targs := []string{\"stop\", l.Name()}\n+\t\tcmd := system.NewCommand(\"snap\", args)\n+\t\t_, err = l.system.RunExclusive(cmd)\n+\t\tif err != nil {\n+\t\t\treturn fmt.Errorf(\"command failed: %w\", err)\n+\t\t}\n+\t}\n+\n+\treturn nil\n+}\n",
+    "changed_files": [
+      "M\tinternal/providers/lxd.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 6
+  },
+  {
+    "sha": "34d0cb2d126e44eb1784fb68dac3ffc6fe3797ad",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-11-20T09:11:59+00:00",
+    "subject": "fix: ensure `network` is enabled for k8s presets (#19)",
+    "body": "",
+    "diff": "diff --git a/internal/config/presets.go b/internal/config/presets.go\nindex b8c8b8b..2a2d635 100644\n--- a/internal/config/presets.go\n+++ b/internal/config/presets.go\n@@ -68,6 +68,7 @@ var defaultK8sConfig k8sConfig = k8sConfig{\n \t\t\t\"cidrs\":   \"10.43.45.0/28\",\n \t\t},\n \t\t\"local-storage\": {},\n+\t\t\"network\":       {},\n \t},\n }\n \ndiff --git a/internal/providers/k8s_test.go b/internal/providers/k8s_test.go\nindex a546428..591543b 100644\n--- a/internal/providers/k8s_test.go\n+++ b/internal/providers/k8s_test.go\n@@ -16,6 +16,7 @@ var defaultFeatureConfig = map[string]map[string]string{\n \t\t\"cidrs\":   \"10.43.45.1/32\",\n \t},\n \t\"local-storage\": {},\n+\t\"network\":       {},\n }\n \n func TestNewK8s(t *testing.T) {\n@@ -81,6 +82,7 @@ func TestK8sPrepareCommands(t *testing.T) {\n \t\t\"k8s set load-balancer.cidrs=10.43.45.1/32\",\n \t\t\"k8s enable load-balancer\",\n \t\t\"k8s enable local-storage\",\n+\t\t\"k8s enable network\",\n \t\t\"k8s kubectl config view --raw\",\n \t}\n \n@@ -120,6 +122,7 @@ func TestK8sPrepareCommandsAlreadyBootstrapped(t *testing.T) {\n \t\t\"k8s set load-balancer.cidrs=10.43.45.1/32\",\n \t\t\"k8s enable load-balancer\",\n \t\t\"k8s enable local-storage\",\n+\t\t\"k8s enable network\",\n \t\t\"k8s kubectl config view --raw\",\n \t}\n \n",
+    "changed_files": [
+      "M\tinternal/config/presets.go",
+      "M\tinternal/providers/k8s_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "baf4fffeb58c6b97b8610d04a07afa508568745f",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-11-19T15:58:00+00:00",
+    "subject": "fix: ensure `k8s bootstrap` is idempotent",
+    "body": "",
+    "diff": "diff --git a/internal/providers/k8s.go b/internal/providers/k8s.go\nindex d68960e..0368afc 100644\n--- a/internal/providers/k8s.go\n+++ b/internal/providers/k8s.go\n@@ -4,6 +4,7 @@ import (\n \t\"fmt\"\n \t\"log/slog\"\n \t\"path\"\n+\t\"strings\"\n \t\"time\"\n \n \t\"github.com/jnsgruk/concierge/internal/config\"\n@@ -136,14 +137,16 @@ func (k *K8s) install() error {\n \n // init ensures that K8s is installed, minimally configured, and ready.\n func (k *K8s) init() error {\n-\tcmd := system.NewCommand(\"k8s\", []string{\"bootstrap\"})\n-\t_, err := k.system.RunWithRetries(cmd, (5 * time.Minute))\n-\tif err != nil {\n-\t\treturn err\n+\tif k.needsBootstrap() {\n+\t\tcmd := system.NewCommand(\"k8s\", []string{\"bootstrap\"})\n+\t\t_, err := k.system.RunWithRetries(cmd, (5 * time.Minute))\n+\t\tif err != nil {\n+\t\t\treturn err\n+\t\t}\n \t}\n \n-\tcmd = system.NewCommand(\"k8s\", []string{\"status\", \"--wait-ready\"})\n-\t_, err = k.system.RunWithRetries(cmd, (5 * time.Minute))\n+\tcmd := system.NewCommand(\"k8s\", []string{\"status\", \"--wait-ready\"})\n+\t_, err := k.system.RunWithRetries(cmd, (5 * time.Minute))\n \n \treturn err\n }\n@@ -182,3 +185,14 @@ func (k *K8s) setupKubectl() error {\n \n \treturn k.system.WriteHomeDirFile(path.Join(\".kube\", \"config\"), result)\n }\n+\n+func (k *K8s) needsBootstrap() bool {\n+\tcmd := system.NewCommand(\"k8s\", []string{\"status\"})\n+\toutput, err := k.system.Run(cmd)\n+\n+\tif err != nil && strings.Contains(string(output), \"Error: The node is not part of a Kubernetes cluster.\") {\n+\t\treturn true\n+\t}\n+\n+\treturn false\n+}\n",
+    "changed_files": [
+      "M\tinternal/providers/k8s.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "e28f3b50e52d7aad40c17728625c3142332c6f85",
+    "author": "Ghislain Bourgeois",
+    "email": "ghislain.bourgeois@gmail.com",
+    "date": "2024-11-18T16:58:28-05:00",
+    "subject": "fix: log command output on failure (#16)",
+    "body": "",
+    "diff": "diff --git a/internal/system/runner.go b/internal/system/runner.go\nindex 621533c..bf4abf5 100644\n--- a/internal/system/runner.go\n+++ b/internal/system/runner.go\n@@ -68,7 +68,7 @@ func (s *System) Run(c *Command) ([]byte, error) {\n \n \toutput, err := cmd.CombinedOutput()\n \n-\tif s.trace {\n+\tif s.trace || err != nil {\n \t\tfmt.Print(generateTraceMessage(c.CommandString(), output))\n \t}\n \n",
+    "changed_files": [
+      "M\tinternal/system/runner.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "963063881b90158f12ff049b279109f2ecd06d06",
+    "author": "Pietro Pasotti",
+    "email": "starfire.daemon@gmail.com",
+    "date": "2024-11-08T10:04:19+01:00",
+    "subject": "fix: use 1.31-classic/candidate channel by default for k8s",
+    "body": "",
+    "diff": "diff --git a/README.md b/README.md\nindex 0c360e4..b2209d2 100644\n--- a/README.md\n+++ b/README.md\n@@ -308,7 +308,7 @@ providers:\n   k8s:\n     enable: true\n     bootstrap: true\n-    channel: 1.31/candidate\n+    channel: 1.31-classic/candidate\n     features:\n       local-storage:\n       load-balancer:\ndiff --git a/internal/providers/k8s.go b/internal/providers/k8s.go\nindex 9d8e969..d68960e 100644\n--- a/internal/providers/k8s.go\n+++ b/internal/providers/k8s.go\n@@ -12,7 +12,7 @@ import (\n )\n \n // Default channel from which K8s is installed.\n-const defaultK8sChannel = \"1.31/candidate\"\n+const defaultK8sChannel = \"1.31-classic/candidate\"\n \n // NewK8s constructs a new K8s provider instance.\n func NewK8s(r system.Worker, config *config.Config) *K8s {\ndiff --git a/internal/providers/k8s_test.go b/internal/providers/k8s_test.go\nindex a9f1adf..5d08dd6 100644\n--- a/internal/providers/k8s_test.go\n+++ b/internal/providers/k8s_test.go\n@@ -37,7 +37,7 @@ func TestNewK8s(t *testing.T) {\n \ttests := []test{\n \t\t{\n \t\t\tconfig:   noOverrides,\n-\t\t\texpected: &K8s{Channel: \"1.31/candidate\", system: system},\n+\t\t\texpected: &K8s{Channel: \"1.31-classic/candidate\", system: system},\n \t\t},\n \t\t{\n \t\t\tconfig:   channelInConfig,\n@@ -71,7 +71,7 @@ func TestK8sPrepareCommands(t *testing.T) {\n \tconfig.Providers.K8s.Features = defaultFeatureConfig\n \n \texpectedCommands := []string{\n-\t\t\"snap install k8s --channel 1.31/candidate\",\n+\t\t\"snap install k8s --channel 1.31-classic/candidate\",\n \t\t\"snap install kubectl --channel stable\",\n \t\t\"k8s bootstrap\",\n \t\t\"k8s status --wait-ready\",\ndiff --git a/tests/provider-k8s/concierge.yaml b/tests/provider-k8s/concierge.yaml\nindex b12d875..b9c72db 100644\n--- a/tests/provider-k8s/concierge.yaml\n+++ b/tests/provider-k8s/concierge.yaml\n@@ -2,7 +2,7 @@ providers:\n   k8s:\n     enable: true\n     bootstrap: true\n-    channel: 1.31/candidate\n+    channel: 1.31-classic/candidate\n     features:\n       local-storage:\n       load-balancer:\ndiff --git a/tests/provider-k8s/task.yaml b/tests/provider-k8s/task.yaml\nindex 4602f5e..ce9d60e 100644\n--- a/tests/provider-k8s/task.yaml\n+++ b/tests/provider-k8s/task.yaml\n@@ -9,7 +9,7 @@ execute: |\n \n   list=\"$(snap list k8s)\"\n   echo $list | MATCH k8s\n-  echo $list | MATCH 1.31/candidate\n+  echo $list | MATCH 1.31-classic/candidate\n \n   list=\"$(snap list)\"\n   echo $list | MATCH juju\n",
+    "changed_files": [
+      "M\tREADME.md",
+      "M\tinternal/providers/k8s.go",
+      "M\tinternal/providers/k8s_test.go",
+      "M\ttests/provider-k8s/concierge.yaml",
+      "M\ttests/provider-k8s/task.yaml"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "826d1821a15df5489e2e2ff51bfbf395f0feaf1c",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-30T23:19:36+00:00",
+    "subject": "fix: constrain juju controller volume with k8s snap",
+    "body": "The K8s snap allocates local storage differently to MicroK8s,\nit allocates persistent volumes using files which are presented\nas blocks - the default size of the PVC is 20GiB in Juju, which\nis too large on some Github Runners and prevents the controller\npod from starting.",
+    "diff": "diff --git a/internal/config/config_format.go b/internal/config/config_format.go\nindex 1bc9b06..6ca6de4 100644\n--- a/internal/config/config_format.go\n+++ b/internal/config/config_format.go\n@@ -18,6 +18,8 @@ type jujuConfig struct {\n \tChannel string `mapstructure:\"channel\"`\n \t// The set of model-defaults to be passed to Juju during bootstrap\n \tModelDefaults map[string]string `mapstructure:\"model-defaults\"`\n+\t// The set of bootstrap constraints to be passed to Juju\n+\tBootstrapConstraints map[string]string `mapstructure:\"bootstrap-constraints\"`\n }\n \n // providerConfig represents the set of providers to be configured and bootstrapped.\ndiff --git a/internal/config/presets.go b/internal/config/presets.go\nindex 095ef60..6c9f9fa 100644\n--- a/internal/config/presets.go\n+++ b/internal/config/presets.go\n@@ -18,7 +18,7 @@ func Preset(preset string) (*Config, error) {\n \t}\n }\n \n-// defaultPackages is the default Juju config for all presets.\n+// defaultJujuConfig is the default Juju config for all presets.\n var defaultJujuConfig jujuConfig = jujuConfig{\n \tModelDefaults: map[string]string{\n \t\t\"test-mode\":                 \"true\",\n@@ -86,7 +86,15 @@ var machinePreset *Config = &Config{\n // k8sPreset is a configuration preset designed to be used when testing\n // k8s charms.\n var k8sPreset *Config = &Config{\n-\tJuju: defaultJujuConfig,\n+\tJuju: jujuConfig{\n+\t\tModelDefaults: map[string]string{\n+\t\t\t\"test-mode\":                 \"true\",\n+\t\t\t\"automatically-retry-hooks\": \"false\",\n+\t\t},\n+\t\tBootstrapConstraints: map[string]string{\n+\t\t\t\"root-disk\": \"2G\",\n+\t\t},\n+\t},\n \tProviders: providerConfig{\n \t\t// Enable LXD so charms can be built, but don't bootstrap onto it.\n \t\tLXD: lxdConfig{Enable: true},\ndiff --git a/internal/juju/juju.go b/internal/juju/juju.go\nindex 694ba30..0efd59f 100644\n--- a/internal/juju/juju.go\n+++ b/internal/juju/juju.go\n@@ -26,21 +26,23 @@ func NewJujuHandler(config *config.Config, runner runner.CommandRunner, provider\n \t}\n \n \treturn &JujuHandler{\n-\t\tchannel:       channel,\n-\t\tmodelDefaults: config.Juju.ModelDefaults,\n-\t\tproviders:     providers,\n-\t\trunner:        runner,\n-\t\tsnaps:         []packages.SnapPackage{packages.NewSnap(\"juju\", channel)},\n+\t\tchannel:              channel,\n+\t\tbootstrapConstraints: config.Juju.BootstrapConstraints,\n+\t\tmodelDefaults:        config.Juju.ModelDefaults,\n+\t\tproviders:            providers,\n+\t\trunner:               runner,\n+\t\tsnaps:                []packages.SnapPackage{packages.NewSnap(\"juju\", channel)},\n \t}\n }\n \n // JujuHandler represents a Juju installation on the system.\n type JujuHandler struct {\n-\tchannel       string\n-\tmodelDefaults map[string]string\n-\tproviders     []providers.Provider\n-\trunner        runner.CommandRunner\n-\tsnaps         []packages.SnapPackage\n+\tchannel              string\n+\tbootstrapConstraints map[string]string\n+\tmodelDefaults        map[string]string\n+\tproviders            []providers.Provider\n+\trunner               runner.CommandRunner\n+\tsnaps                []packages.SnapPackage\n }\n \n // Prepare bootstraps Juju on the configured providers.\n@@ -197,18 +199,16 @@ func (j *JujuHandler) bootstrapProvider(provider providers.Provider) error {\n \t\t\"--verbose\",\n \t}\n \n-\t// Get a sorted list of the model-default keys\n-\tkeys := make([]string, 0, len(j.modelDefaults))\n-\tfor k := range j.modelDefaults {\n-\t\tkeys = append(keys, k)\n-\t}\n-\tslices.Sort(keys)\n-\n \t// Iterate over the model-defaults and append them to the bootstrapArgs\n-\tfor _, k := range keys {\n+\tfor _, k := range sortedKeys(j.modelDefaults) {\n \t\tbootstrapArgs = append(bootstrapArgs, \"--model-default\", fmt.Sprintf(\"%s=%s\", k, j.modelDefaults[k]))\n \t}\n \n+\t// Iterate over the bootstrap-constraints and append them to the bootstrapArgs\n+\tfor _, k := range sortedKeys(j.bootstrapConstraints) {\n+\t\tbootstrapArgs = append(bootstrapArgs, \"--bootstrap-constraints\", fmt.Sprintf(\"%s=%s\", k, j.bootstrapConstraints[k]))\n+\t}\n+\n \tuser := j.runner.User().Username\n \n \tcmd := runner.NewCommandAs(user, provider.GroupName(), \"juju\", bootstrapArgs)\n@@ -269,3 +269,13 @@ func (j *JujuHandler) checkBootstrapped(controllerName string) (bool, error) {\n \n \treturn true, nil\n }\n+\n+// sortedKeys gets an alphabetically sorted list of keys from a map.\n+func sortedKeys(m map[string]string) []string {\n+\tkeys := make([]string, 0, len(m))\n+\tfor k := range m {\n+\t\tkeys = append(keys, k)\n+\t}\n+\tslices.Sort(keys)\n+\treturn keys\n+}\ndiff --git a/internal/juju/juju_test.go b/internal/juju/juju_test.go\nindex 0072c73..46633db 100644\n--- a/internal/juju/juju_test.go\n+++ b/internal/juju/juju_test.go\n@@ -30,6 +30,7 @@ func setupHandlerWithPreset(preset string) (*runnertest.MockRunner, *JujuHandler\n \trunner := runnertest.NewMockRunner()\n \trunner.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-lxd\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n \trunner.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-microk8s\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n+\trunner.MockCommandReturn(\"sudo -u test-user juju show-controller concierge-k8s\", []byte(\"not found\"), fmt.Errorf(\"Test error\"))\n \n \tcfg, err = config.Preset(preset)\n \tif err != nil {\n@@ -41,6 +42,8 @@ func setupHandlerWithPreset(preset string) (*runnertest.MockRunner, *JujuHandler\n \t\tprovider = providers.NewLXD(runner, cfg)\n \tcase \"microk8s\":\n \t\tprovider = providers.NewMicroK8s(runner, cfg)\n+\tcase \"k8s\":\n+\t\tprovider = providers.NewK8s(runner, cfg)\n \t}\n \n \thandler := NewJujuHandler(cfg, runner, []providers.Provider{provider})\n@@ -101,6 +104,16 @@ func TestJujuHandlerCommandsPresets(t *testing.T) {\n \t\t\t},\n \t\t\texpectedDirs: []string{\".local/share/juju\"},\n \t\t},\n+\t\t{\n+\t\t\tpreset: \"k8s\",\n+\t\t\texpectedCommands: []string{\n+\t\t\t\t\"snap install juju\",\n+\t\t\t\t\"sudo -u test-user juju show-controller concierge-k8s\",\n+\t\t\t\t\"sudo -u test-user juju bootstrap k8s concierge-k8s --verbose --model-default automatically-retry-hooks=false --model-default test-mode=true --bootstrap-constraints root-disk=2G\",\n+\t\t\t\t\"sudo -u test-user juju add-model -c concierge-k8s testing\",\n+\t\t\t},\n+\t\t\texpectedDirs: []string{\".local/share/juju\"},\n+\t\t},\n \t}\n \n \tfor _, tc := range tests {\n",
+    "changed_files": [
+      "M\tinternal/config/config_format.go",
+      "M\tinternal/config/presets.go",
+      "M\tinternal/juju/juju.go",
+      "M\tinternal/juju/juju_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "5e751ecf3e9d47a9303402718af433aa1802b9e1",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-24T09:51:56+01:00",
+    "subject": "fix: add retry to snapd client requests",
+    "body": "In the spread tests, occasionally a test will fail due to the\nsnapd client responding with \"too many requests\". This change\nintroduces the ability for snapd client lookups to be retried\nwith an exponential backoff pattern to avoid those failures.",
+    "diff": "diff --git a/internal/packages/snap.go b/internal/packages/snap.go\nindex bcf8c4c..425c243 100644\n--- a/internal/packages/snap.go\n+++ b/internal/packages/snap.go\n@@ -1,10 +1,13 @@\n package packages\n \n import (\n+\t\"context\"\n \t\"fmt\"\n \t\"log/slog\"\n \t\"strings\"\n+\t\"time\"\n \n+\tretry \"github.com/sethvargo/go-retry\"\n \t\"github.com/snapcore/snapd/client\"\n )\n \n@@ -62,8 +65,16 @@ func (s *Snap) SetChannel(c string) { s.channel = c }\n func (s *Snap) Installed() bool {\n \tslog.Debug(\"Querying snap install status\", \"snap\", s.name)\n \n-\tsnap, _, err := s.client.Snap(s.name)\n-\tif err != nil {\n+\tsnap, err := s.withRetry(func(ctx context.Context) (*client.Snap, error) {\n+\t\tsnap, _, err := s.client.Snap(s.name)\n+\t\tif err != nil && strings.Contains(err.Error(), \"snap not installed\") {\n+\t\t\treturn snap, nil\n+\t\t} else if err != nil {\n+\t\t\treturn nil, retry.RetryableError(err)\n+\t\t}\n+\t\treturn snap, nil\n+\t})\n+\tif err != nil || snap == nil {\n \t\treturn false\n \t}\n \n@@ -75,7 +86,13 @@ func (s *Snap) Installed() bool {\n func (s *Snap) Classic() (bool, error) {\n \tslog.Debug(\"Querying snap confinement\", \"snap\", s.name)\n \n-\tsnap, _, err := s.client.FindOne(s.name)\n+\tsnap, err := s.withRetry(func(ctx context.Context) (*client.Snap, error) {\n+\t\tsnap, _, err := s.client.FindOne(s.name)\n+\t\tif err != nil {\n+\t\t\treturn nil, retry.RetryableError(err)\n+\t\t}\n+\t\treturn snap, nil\n+\t})\n \tif err != nil {\n \t\treturn false, fmt.Errorf(\"failed to find snap: %w\", err)\n \t}\n@@ -92,7 +109,13 @@ func (s *Snap) Classic() (bool, error) {\n func (s *Snap) Tracking() (string, error) {\n \tslog.Debug(\"Querying snap channel tracking\", \"snap\", s.name)\n \n-\tsnap, _, err := s.client.Snap(s.name)\n+\tsnap, err := s.withRetry(func(ctx context.Context) (*client.Snap, error) {\n+\t\tsnap, _, err := s.client.Snap(s.name)\n+\t\tif err != nil {\n+\t\t\treturn nil, retry.RetryableError(err)\n+\t\t}\n+\t\treturn snap, nil\n+\t})\n \tif err != nil {\n \t\treturn \"\", fmt.Errorf(\"failed to find snap: %w\", err)\n \t}\n@@ -103,3 +126,10 @@ func (s *Snap) Tracking() (string, error) {\n \t\treturn \"\", fmt.Errorf(\"snap '%s' is not installed\", s.name)\n \t}\n }\n+\n+func (s *Snap) withRetry(f func(ctx context.Context) (*client.Snap, error)) (*client.Snap, error) {\n+\tbackoff := retry.NewExponential(1 * time.Second)\n+\tbackoff = retry.WithMaxRetries(10, backoff)\n+\tctx := context.Background()\n+\treturn retry.DoValue(ctx, backoff, f)\n+}\n",
+    "changed_files": [
+      "M\tinternal/packages/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 1
+  },
+  {
+    "sha": "7ea26eafa9181a78dfe1c10bb93357c28b3598b1",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-24T09:07:13+01:00",
+    "subject": "fix: add cli flag to override Canonical K8s channel",
+    "body": "",
+    "diff": "diff --git a/cmd/prepare.go b/cmd/prepare.go\nindex 6bf7af3..9c26302 100644\n--- a/cmd/prepare.go\n+++ b/cmd/prepare.go\n@@ -62,6 +62,7 @@ More information at https://github.com/jnsgruk/concierge.\n \tflags.StringP(\"config\", \"c\", \"\", \"path to a specific config file to use\")\n \tflags.StringP(\"preset\", \"p\", \"\", \"config preset to use (k8s | machine | dev)\")\n \tflags.String(\"juju-channel\", \"\", \"override the snap channel for juju\")\n+\tflags.String(\"canonical-k8s-channel\", \"\", \"override snap channel for Canonical K8s\")\n \tflags.String(\"microk8s-channel\", \"\", \"override snap channel for microk8s\")\n \tflags.String(\"lxd-channel\", \"\", \"override snap channel for lxd\")\n \tflags.String(\"charmcraft-channel\", \"\", \"override snap channel for charmcraft\")\n",
+    "changed_files": [
+      "M\tcmd/prepare.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 1
+  },
+  {
+    "sha": "89522a66915f693928f98fc70b0904cb20ecb037",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-18T21:33:54+01:00",
+    "subject": "fix: remove explicit snap start for microk8s",
+    "body": "",
+    "diff": "diff --git a/internal/providers/microk8s.go b/internal/providers/microk8s.go\nindex dafa2cf..616e30c 100644\n--- a/internal/providers/microk8s.go\n+++ b/internal/providers/microk8s.go\n@@ -142,14 +142,8 @@ func (m *MicroK8s) install() error {\n \n // init ensures that MicroK8s is installed, minimally configured, and ready.\n func (m *MicroK8s) init() error {\n-\tcmd := runner.NewCommand(\"snap\", []string{\"start\", \"microk8s\"})\n-\t_, err := m.runner.Run(cmd)\n-\tif err != nil {\n-\t\treturn err\n-\t}\n-\n-\tcmd = runner.NewCommand(\"microk8s\", []string{\"status\", \"--wait-ready\"})\n-\t_, err = m.runner.RunWithRetries(cmd, (5 * time.Minute))\n+\tcmd := runner.NewCommand(\"microk8s\", []string{\"status\", \"--wait-ready\"})\n+\t_, err := m.runner.RunWithRetries(cmd, (5 * time.Minute))\n \n \treturn err\n }\ndiff --git a/internal/providers/microk8s_test.go b/internal/providers/microk8s_test.go\nindex ed36feb..507424b 100644\n--- a/internal/providers/microk8s_test.go\n+++ b/internal/providers/microk8s_test.go\n@@ -99,7 +99,6 @@ func TestMicroK8sPrepareCommands(t *testing.T) {\n \n \texpectedCommands := []string{\n \t\t\"snap install microk8s --channel 1.31-strict/stable\",\n-\t\t\"snap start microk8s\",\n \t\t\"microk8s status --wait-ready\",\n \t\t\"microk8s enable hostpath-storage\",\n \t\t\"microk8s enable dns\",\n",
+    "changed_files": [
+      "M\tinternal/providers/microk8s.go",
+      "M\tinternal/providers/microk8s_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "de223bc7bdeda90a823fb515d96931c9fd1d8736",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-18T20:26:29+01:00",
+    "subject": "fix: demote `$PATH` lookup logging to `DEBUG`",
+    "body": "",
+    "diff": "diff --git a/internal/runner/command.go b/internal/runner/command.go\nindex 6e91ae7..9c7a146 100644\n--- a/internal/runner/command.go\n+++ b/internal/runner/command.go\n@@ -52,7 +52,7 @@ func NewCommandAs(user string, group string, executable string, args []string) *\n func (c *Command) CommandString() string {\n \tpath, err := exec.LookPath(c.Executable)\n \tif err != nil {\n-\t\tslog.Warn(\"Failed to lookup command in path\", \"command\", c.Executable)\n+\t\tslog.Debug(\"Failed to lookup command in path\", \"command\", c.Executable)\n \t\tpath = c.Executable\n \t}\n \n",
+    "changed_files": [
+      "M\tinternal/runner/command.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "ca30333f0340f75cd83c0bd4219387bc3531d847",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-15T21:31:03+01:00",
+    "subject": "fix: retry microk8s wait-ready command",
+    "body": "",
+    "diff": "diff --git a/internal/providers/microk8s.go b/internal/providers/microk8s.go\nindex 0eeea14..98cb82e 100644\n--- a/internal/providers/microk8s.go\n+++ b/internal/providers/microk8s.go\n@@ -118,10 +118,16 @@ func (m *MicroK8s) Restore() error {\n \n // init ensures that MicroK8s is installed, minimally configured, and ready.\n func (m *MicroK8s) init() error {\n-\treturn m.runner.RunMany(\n-\t\trunner.NewCommand(\"snap\", []string{\"start\", \"microk8s\"}),\n-\t\trunner.NewCommand(\"microk8s\", []string{\"status\", \"--wait-ready\"}),\n-\t)\n+\tcmd := runner.NewCommand(\"snap\", []string{\"start\", \"microk8s\"})\n+\t_, err := m.runner.Run(cmd)\n+\tif err != nil {\n+\t\treturn err\n+\t}\n+\n+\tcmd = runner.NewCommand(\"microk8s\", []string{\"status\", \"--wait-ready\"})\n+\t_, err = m.runner.RunWithRetries(cmd, (5 * time.Minute))\n+\n+\treturn err\n }\n \n // enableAddons iterates over the specified addons, enabling and configuring them.\n",
+    "changed_files": [
+      "M\tinternal/providers/microk8s.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "1f7c0ec41ebb048298eae0b599ef28c69c74e650",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-15T21:22:08+01:00",
+    "subject": "fix: strip root user from `NewCommandAs` invocations",
+    "body": "",
+    "diff": "diff --git a/internal/runner/command.go b/internal/runner/command.go\nindex e0e8d4a..7a76d3c 100644\n--- a/internal/runner/command.go\n+++ b/internal/runner/command.go\n@@ -35,6 +35,10 @@ func NewCommand(executable string, args []string) *Command {\n \n // NewCommandAs constructs a command to be run as the specified user/group.\n func NewCommandAs(user string, group string, executable string, args []string) *Command {\n+\tif user == \"root\" {\n+\t\treturn NewCommand(executable, args)\n+\t}\n+\n \treturn &Command{\n \t\tExecutable: executable,\n \t\tArgs:       args,\ndiff --git a/internal/runner/runner_test.go b/internal/runner/runner_test.go\nindex a73ee3f..9515b93 100644\n--- a/internal/runner/runner_test.go\n+++ b/internal/runner/runner_test.go\n@@ -33,6 +33,20 @@ func TestNewCommandAs(t *testing.T) {\n \t}\n }\n \n+func TestNewCommandAsRoot(t *testing.T) {\n+\texpected := &Command{\n+\t\tExecutable: \"apt-get\",\n+\t\tArgs:       []string{\"install\", \"-y\", \"cowsay\"},\n+\t\tUser:       \"\",\n+\t\tGroup:      \"\",\n+\t}\n+\n+\tcommand := NewCommandAs(\"root\", \"foo\", \"apt-get\", []string{\"install\", \"-y\", \"cowsay\"})\n+\tif !reflect.DeepEqual(expected, command) {\n+\t\tt.Fatalf(\"expected: %+v, got: %+v\", expected, command)\n+\t}\n+}\n+\n func TestCommandString(t *testing.T) {\n \ttype test struct {\n \t\tcommand  *Command\n",
+    "changed_files": [
+      "M\tinternal/runner/command.go",
+      "M\tinternal/runner/runner_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "b220ba991d4e4e3b5dff68c298a72f1667637a05",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-15T12:55:14+01:00",
+    "subject": "fix: better logging for removal of packages during restore",
+    "body": "",
+    "diff": "diff --git a/internal/handlers/deb.go b/internal/handlers/deb.go\nindex 98add77..37b6044 100644\n--- a/internal/handlers/deb.go\n+++ b/internal/handlers/deb.go\n@@ -86,6 +86,7 @@ func (h *DebHandler) removeDeb(d *packages.Deb) error {\n \t\treturn fmt.Errorf(\"failed to remove apt package '%s': %w\", d.Name, err)\n \t}\n \n+\tslog.Info(\"Removed apt package\", \"package\", d.Name)\n \treturn nil\n }\n \ndiff --git a/internal/handlers/snap.go b/internal/handlers/snap.go\nindex 115de3a..06e78f6 100644\n--- a/internal/handlers/snap.go\n+++ b/internal/handlers/snap.go\n@@ -97,5 +97,6 @@ func (h *SnapHandler) removeSnap(s *packages.Snap) error {\n \t\treturn fmt.Errorf(\"failed to remove snap '%s': %w\", s.Name, err)\n \t}\n \n+\tslog.Info(\"Removed snap\", \"snap\", s.Name)\n \treturn nil\n }\n",
+    "changed_files": [
+      "M\tinternal/handlers/deb.go",
+      "M\tinternal/handlers/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "dd30fa88eb9faa5c68219bd4c941dde0d14de3a2",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-15T10:57:30+01:00",
+    "subject": "fix: show debug logs when either `-v` or `--trace` are used",
+    "body": "",
+    "diff": "diff --git a/cmd/main.go b/cmd/main.go\nindex b6bc94a..4934199 100644\n--- a/cmd/main.go\n+++ b/cmd/main.go\n@@ -31,7 +31,7 @@ func parseLoggingFlags(flags *pflag.FlagSet) {\n \n \t// Set the default log level to \"DEBUG\" if verbose is specified.\n \tlevel := slog.LevelInfo\n-\tif !verbose && trace {\n+\tif verbose || trace {\n \t\tlevel = slog.LevelDebug\n \t}\n \n",
+    "changed_files": [
+      "M\tcmd/main.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "b27b06bbbd17f72c6ccf16ac733f1dc8fd9aa8e7",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-14T11:13:53+01:00",
+    "subject": "fix: report confinement status for correct snap channel when specified",
+    "body": "",
+    "diff": "diff --git a/internal/packages/snap.go b/internal/packages/snap.go\nindex 8dd4ece..598e604 100644\n--- a/internal/packages/snap.go\n+++ b/internal/packages/snap.go\n@@ -52,6 +52,11 @@ func (s *Snap) Classic() (bool, error) {\n \t\treturn false, fmt.Errorf(\"failed to find snap: %w\", err)\n \t}\n \n+\tchannel, ok := snap.Channels[s.Channel]\n+\tif ok {\n+\t\treturn channel.Confinement == \"classic\", nil\n+\t}\n+\n \treturn snap.Confinement == \"classic\", nil\n }\n \n",
+    "changed_files": [
+      "M\tinternal/packages/snap.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 5
+  },
+  {
+    "sha": "c1dbdda5bc8606618fa29f566e79c469eb33ca91",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-14T09:48:30+01:00",
+    "subject": "fix: more robust shell path detection for command execution",
+    "body": "",
+    "diff": "diff --git a/internal/runner/runner.go b/internal/runner/runner.go\nindex 8513fc5..edde573 100644\n--- a/internal/runner/runner.go\n+++ b/internal/runner/runner.go\n@@ -2,6 +2,7 @@ package runner\n \n import (\n \t\"bytes\"\n+\t\"errors\"\n \t\"fmt\"\n \t\"log/slog\"\n \t\"os\"\n@@ -30,14 +31,19 @@ func (r *Runner) Run(c *Command) (*CommandResult, error) {\n \t\tlogger = slog.With(\"group\", c.Group)\n \t}\n \n-\tcmd := exec.Command(os.Getenv(\"SHELL\"), \"-c\", c.commandString())\n+\tshell, err := getShellPath()\n+\tif err != nil {\n+\t\treturn nil, fmt.Errorf(\"unable to determine shell path to run command\")\n+\t}\n+\n+\tcmd := exec.Command(shell, \"-c\", c.commandString())\n \n \tvar stdout, stderr bytes.Buffer\n \tcmd.Stdout = &stdout\n \tcmd.Stderr = &stderr\n \n \tlogger.Debug(\"Running command\", \"command\", c.commandString())\n-\terr := cmd.Run()\n+\terr = cmd.Run()\n \n \tif r.trace {\n \t\tfmt.Print(generateTraceMessage(c.commandString(), stdout.String(), stderr.String()))\n@@ -73,3 +79,30 @@ func generateTraceMessage(cmd, stdout, stderr string) string {\n \t}\n \treturn result\n }\n+\n+// getShellPath tries to find the path to the user's preferred shell, as per the `SHELL\u201c\n+// environment variable. If that cannot be found, it looks for a path to \"bash\", and to\n+// \"sh\" in that order. If no shell can be found, then an error is returned.\n+func getShellPath() (string, error) {\n+\t// If the `SHELL` var is set, return that.\n+\tshellVar := os.Getenv(\"SHELL\")\n+\tif len(shellVar) > 0 {\n+\t\treturn shellVar, nil\n+\t}\n+\n+\t// Try both the command name (to lookup in PATH), and common default paths.\n+\tfor _, shell := range []string{\"bash\", \"/bin/bash\", \"sh\", \"/bin/sh\"} {\n+\t\t// Check if the shell path exists\n+\t\tif _, err := os.Stat(shell); errors.Is(err, os.ErrNotExist) {\n+\t\t\t// If the path doesn't exist, the lookup the value in the `PATH` variable\n+\t\t\tpath, err := exec.LookPath(shell)\n+\t\t\tif err != nil {\n+\t\t\t\tcontinue\n+\t\t\t}\n+\t\t\treturn path, nil\n+\t\t}\n+\t\treturn shell, nil\n+\t}\n+\n+\treturn \"\", fmt.Errorf(\"could not find path to a shell\")\n+}\n",
+    "changed_files": [
+      "M\tinternal/runner/runner.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "e92db26c4587d3ef1c0d9ed860f4bcd8b015729b",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-12T09:28:39+01:00",
+    "subject": "fix: ensure command path is looked up in `Command.commandString`",
+    "body": "",
+    "diff": "diff --git a/internal/runner/command.go b/internal/runner/command.go\nindex 186a218..ff6ff98 100644\n--- a/internal/runner/command.go\n+++ b/internal/runner/command.go\n@@ -2,6 +2,8 @@ package runner\n \n import (\n \t\"bytes\"\n+\t\"log/slog\"\n+\t\"os/exec\"\n \t\"os/user\"\n \t\"strings\"\n )\n@@ -65,6 +67,12 @@ func NewCommandWithGroup(executable string, args []string, group string) *Comman\n // commandString puts together a command to be executed in a shell, including the `sudo`\n // command and its arguments where appropriate.\n func (c *Command) commandString() string {\n+\tpath, err := exec.LookPath(c.Executable)\n+\tif err != nil {\n+\t\tslog.Warn(\"Failed to lookup command in path\", \"command\", c.Executable)\n+\t\tpath = c.Executable\n+\t}\n+\n \tcmdArgs := []string{}\n \n \tif len(c.User) > 0 || len(c.Group) > 0 {\n@@ -79,7 +87,7 @@ func (c *Command) commandString() string {\n \t\tcmdArgs = append(cmdArgs, \"-g\", c.Group)\n \t}\n \n-\tcmdArgs = append(cmdArgs, c.Executable)\n+\tcmdArgs = append(cmdArgs, path)\n \tcmdArgs = append(cmdArgs, c.Args...)\n \n \treturn strings.Join(cmdArgs, \" \")\ndiff --git a/internal/runner/runner.go b/internal/runner/runner.go\nindex ecd7844..8513fc5 100644\n--- a/internal/runner/runner.go\n+++ b/internal/runner/runner.go\n@@ -6,7 +6,6 @@ import (\n \t\"log/slog\"\n \t\"os\"\n \t\"os/exec\"\n-\t\"strings\"\n \n \t\"github.com/fatih/color\"\n )\n@@ -23,11 +22,6 @@ type Runner struct {\n \n // Run executes the command, returning the stdout/stderr where appropriate.\n func (r *Runner) Run(c *Command) (*CommandResult, error) {\n-\tpath, err := exec.LookPath(c.Executable)\n-\tif err != nil {\n-\t\treturn nil, fmt.Errorf(\"could not find '%s' command in path: %w\", c.Executable, err)\n-\t}\n-\n \tlogger := slog.Default()\n \tif len(c.User) > 0 {\n \t\tlogger = slog.With(\"user\", c.User)\n@@ -42,8 +36,8 @@ func (r *Runner) Run(c *Command) (*CommandResult, error) {\n \tcmd.Stdout = &stdout\n \tcmd.Stderr = &stderr\n \n-\tlogger.Debug(\"Running command\", \"command\", fmt.Sprintf(\"%s %s\", path, strings.Join(c.Args, \" \")))\n-\terr = cmd.Run()\n+\tlogger.Debug(\"Running command\", \"command\", c.commandString())\n+\terr := cmd.Run()\n \n \tif r.trace {\n \t\tfmt.Print(generateTraceMessage(c.commandString(), stdout.String(), stderr.String()))\ndiff --git a/internal/runner/runner_test.go b/internal/runner/runner_test.go\nindex dc28731..394c0e6 100644\n--- a/internal/runner/runner_test.go\n+++ b/internal/runner/runner_test.go\n@@ -53,18 +53,19 @@ func TestCommandString(t *testing.T) {\n \t\texpected string\n \t}\n \n+\t// Use CONCIERGE_TEST_COMMAND to avoid $PATH lookups making tests flaky\n \ttests := []test{\n \t\t{\n-\t\t\tcommand:  NewCommand(\"juju\", []string{\"add-model\", \"testing\"}),\n-\t\t\texpected: \"juju add-model testing\",\n+\t\t\tcommand:  NewCommand(\"CONCIERGE_TEST_COMMAND\", []string{\"add-model\", \"testing\"}),\n+\t\t\texpected: \"CONCIERGE_TEST_COMMAND add-model testing\",\n \t\t},\n \t\t{\n-\t\t\tcommand:  NewCommandSudo(\"apt-get\", []string{\"install\", \"-y\", \"cowsay\"}),\n-\t\t\texpected: \"sudo -u root apt-get install -y cowsay\",\n+\t\t\tcommand:  NewCommandSudo(\"CONCIERGE_TEST_COMMAND\", []string{\"install\", \"-y\", \"cowsay\"}),\n+\t\t\texpected: \"sudo -u root CONCIERGE_TEST_COMMAND install -y cowsay\",\n \t\t},\n \t\t{\n-\t\t\tcommand:  NewCommandWithGroup(\"apt-get\", []string{\"install\", \"-y\", \"cowsay\"}, \"apters\"),\n-\t\t\texpected: \"sudo -g apters apt-get install -y cowsay\",\n+\t\t\tcommand:  NewCommandWithGroup(\"CONCIERGE_TEST_COMMAND\", []string{\"install\", \"-y\", \"cowsay\"}, \"apters\"),\n+\t\t\texpected: \"sudo -g apters CONCIERGE_TEST_COMMAND install -y cowsay\",\n \t\t},\n \t}\n \n",
+    "changed_files": [
+      "M\tinternal/runner/command.go",
+      "M\tinternal/runner/runner.go",
+      "M\tinternal/runner/runner_test.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "921fcc6c9481abf69c2143affd14f52a76e64919",
+    "author": "Jon Seager",
+    "email": "jon.seager@canonical.com",
+    "date": "2024-10-11T16:40:06+01:00",
+    "subject": "fix: ensure logging is consistently capitalised",
+    "body": "",
+    "diff": "diff --git a/internal/concierge/manager.go b/internal/concierge/manager.go\nindex 7376668..cde582c 100644\n--- a/internal/concierge/manager.go\n+++ b/internal/concierge/manager.go\n@@ -84,7 +84,7 @@ func (m *Manager) recordRuntimeConfig() error {\n \t\treturn fmt.Errorf(\"failed to write config record file: %w\", err)\n \t}\n \n-\tslog.Debug(\"merged runtime configuration saved\", \"path\", recordPath)\n+\tslog.Debug(\"Merged runtime configuration saved\", \"path\", recordPath)\n \n \treturn nil\n }\n@@ -115,7 +115,7 @@ func (m *Manager) loadRuntimeConfig() error {\n \n \tm.config = &config\n \n-\tslog.Debug(\"loaded previous runtime configuration\", \"path\", recordPath)\n+\tslog.Debug(\"Loaded previous runtime configuration\", \"path\", recordPath)\n \n \treturn nil\n }\ndiff --git a/internal/config/config.go b/internal/config/config.go\nindex d7b9699..718dd3a 100644\n--- a/internal/config/config.go\n+++ b/internal/config/config.go\n@@ -151,7 +151,7 @@ func bindFlags(cmd *cobra.Command) {\n \t\t// Apply the viper config value to the flag when the flag is not set and viper has a value\n \t\tif !f.Changed && viper.IsSet(f.Name) {\n \t\t\tval := viper.Get(f.Name)\n-\t\t\tslog.Debug(\"override detected in environment\", \"override\", f.Name, \"value\", fmt.Sprintf(\"%v\", val), \"env_var\", flagToEnvVar(f.Name))\n+\t\t\tslog.Debug(\"Override detected in environment\", \"override\", f.Name, \"value\", fmt.Sprintf(\"%v\", val), \"env_var\", flagToEnvVar(f.Name))\n \t\t\tcmd.Flags().Set(f.Name, fmt.Sprintf(\"%v\", val))\n \t\t}\n \t})\ndiff --git a/internal/packages/snap.go b/internal/packages/snap.go\nindex b7c1195..8dd4ece 100644\n--- a/internal/packages/snap.go\n+++ b/internal/packages/snap.go\n@@ -32,7 +32,7 @@ type Snap struct {\n \n // Installed is a helper that reports if the snap is currently Installed.\n func (s *Snap) Installed() bool {\n-\tslog.Debug(\"querying snap install status\", \"snap\", s.Name)\n+\tslog.Debug(\"Querying snap install status\", \"snap\", s.Name)\n \n \tsnap, _, err := snapdClient.New(nil).Snap(s.Name)\n \tif err != nil {\n@@ -45,7 +45,7 @@ func (s *Snap) Installed() bool {\n // Classic reports whether or not the snap at the tip of the specified channel uses\n // Classic confinement or not.\n func (s *Snap) Classic() (bool, error) {\n-\tslog.Debug(\"querying snap confinement\", \"snap\", s.Name)\n+\tslog.Debug(\"Querying snap confinement\", \"snap\", s.Name)\n \n \tsnap, _, err := snapdClient.New(nil).FindOne(s.Name)\n \tif err != nil {\n@@ -57,7 +57,7 @@ func (s *Snap) Classic() (bool, error) {\n \n // tracking reports which channel an installed snap is tracking.\n func (s *Snap) Tracking() (string, error) {\n-\tslog.Debug(\"querying snap channel tracking\", \"snap\", s.Name)\n+\tslog.Debug(\"Querying snap channel tracking\", \"snap\", s.Name)\n \n \tsnap, _, err := snapdClient.New(nil).Snap(s.Name)\n \tif err != nil {\ndiff --git a/internal/runner/runner.go b/internal/runner/runner.go\nindex 4810dd3..ecd7844 100644\n--- a/internal/runner/runner.go\n+++ b/internal/runner/runner.go\n@@ -42,7 +42,7 @@ func (r *Runner) Run(c *Command) (*CommandResult, error) {\n \tcmd.Stdout = &stdout\n \tcmd.Stderr = &stderr\n \n-\tlogger.Debug(\"running command\", \"command\", fmt.Sprintf(\"%s %s\", path, strings.Join(c.Args, \" \")))\n+\tlogger.Debug(\"Running command\", \"command\", fmt.Sprintf(\"%s %s\", path, strings.Join(c.Args, \" \")))\n \terr = cmd.Run()\n \n \tif r.trace {\n",
+    "changed_files": [
+      "M\tinternal/concierge/manager.go",
+      "M\tinternal/config/config.go",
+      "M\tinternal/packages/snap.go",
+      "M\tinternal/runner/runner.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  },
+  {
+    "sha": "34230b5927bcff28d7013b732897707e6e7703f2",
+    "author": "Jon Seager",
+    "email": "jon@sgrs.uk",
+    "date": "2024-10-11T16:10:26+01:00",
+    "subject": "fix: construct `Manager` correctly in `restore` subcommand",
+    "body": "",
+    "diff": "diff --git a/cmd/restore.go b/cmd/restore.go\nindex 401534b..4880d1c 100644\n--- a/cmd/restore.go\n+++ b/cmd/restore.go\n@@ -1,7 +1,10 @@\n package cmd\n \n import (\n+\t\"fmt\"\n+\n \t\"github.com/jnsgruk/concierge/internal/concierge\"\n+\t\"github.com/jnsgruk/concierge/internal/config\"\n \t\"github.com/spf13/cobra\"\n )\n \n@@ -22,7 +25,14 @@ var restoreCmd = &cobra.Command{\n \t\tsetupLogging(verbose)\n \t},\n \tRunE: func(cmd *cobra.Command, args []string) error {\n-\t\tmgr := &concierge.Manager{}\n+\t\tflags := cmd.Flags()\n+\n+\t\tconf, err := config.NewConfig(cmd, flags)\n+\t\tif err != nil {\n+\t\t\treturn fmt.Errorf(\"failed to configure concierge: %w\", err)\n+\t\t}\n+\n+\t\tmgr := concierge.NewManager(conf)\n \t\treturn mgr.Restore()\n \t},\n }\n",
+    "changed_files": [
+      "M\tcmd/restore.go"
+    ],
+    "repo": "concierge",
+    "classification_method": "conventional",
+    "keyword_score": 3
+  }
+]

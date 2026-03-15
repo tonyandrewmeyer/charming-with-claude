@@ -1,0 +1,86 @@
+# relation id staticmethod fix
+
+**Repository**: operator
+**Commit**: [7ad5df1f](https://github.com/canonical/operator/commit/7ad5df1fdd65a895febb98e7121b6ef275168cf6)
+**Date**: 2023-07-21
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | relation-data |
+| Bug Type | logic-error |
+| Severity | medium |
+| Fix Category | source-fix |
+
+## Summary
+
+relation id staticmethod fix
+
+## Changed Files
+
+- M	scenario/state.py
+- M	tests/test_e2e/test_relations.py
+
+## Diff
+
+```diff
+diff --git a/scenario/state.py b/scenario/state.py
+index 42ee70d..078ab77 100644
+--- a/scenario/state.py
++++ b/scenario/state.py
+@@ -206,6 +206,17 @@ class ParametrizedEvent:
+         return self().deferred(handler=handler, event_id=event_id)
+ 
+ 
++_next_relation_id_counter = 1
++
++
++def next_relation_id(update=True):
++    global _next_relation_id_counter
++    cur = _next_relation_id_counter
++    if update:
++        _next_relation_id_counter += 1
++    return cur
++
++
+ @dataclasses.dataclass(frozen=True)
+ class RelationBase(_DCBase):
+     endpoint: str
+@@ -213,20 +224,6 @@ class RelationBase(_DCBase):
+     # we can derive this from the charm's metadata
+     interface: str = None
+ 
+-    _next_relation_id_counter = 1
+-
+-    @staticmethod
+-    def next_relation_id(update=True):
+-        cur = RelationBase._next_relation_id_counter
+-        if update:
+-            RelationBase._next_relation_id_counter += 1
+-        logger.info(
+-            f"relation ID unset; automatically assigning "
+-            f"{cur}. "
+-            f"If there are problems, pass one manually.",
+-        )
+-        return cur
+-
+     # Every new Relation instance gets a new one, if there's trouble, override.
+     relation_id: int = dataclasses.field(default_factory=next_relation_id)
+ 
+diff --git a/tests/test_e2e/test_relations.py b/tests/test_e2e/test_relations.py
+index 7460e41..00f4926 100644
+--- a/tests/test_e2e/test_relations.py
++++ b/tests/test_e2e/test_relations.py
+@@ -306,7 +306,9 @@ def test_cannot_instantiate_relationbase():
+ 
+ 
+ def test_relation_ids():
+-    initial_id = RelationBase._next_relation_id_counter
++    from scenario.state import _next_relation_id_counter
++
++    initial_id = _next_relation_id_counter
+     for i in range(10):
+         rel = Relation("foo")
+         assert rel.relation_id == initial_id + i
+```
