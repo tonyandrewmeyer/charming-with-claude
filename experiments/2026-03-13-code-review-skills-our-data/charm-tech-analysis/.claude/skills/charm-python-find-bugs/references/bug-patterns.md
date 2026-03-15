@@ -78,10 +78,11 @@ def get_config(self):
 
 **Known instances**:
 - `_MockModelBackend.relation_get` returned stored dict directly — `be09012` (operator)
-- `Snap.apps` property returns `self._apps` list directly — current bug in operator-libs-linux + charmlibs
-- `Plan.services`/`checks`/`log_targets` return internal dicts — current bug in operator
-- Scenario `secret_get` returns internal dict without copy — current bug in operator
-- Scenario `action_get` returns internal params dict without copy — current bug in operator
+- Harness `relation_get` returned stored dict directly — fixed in [PR #2376](https://github.com/canonical/operator/pull/2376)
+- Scenario `secret_get` returned internal dict without copy — fixed in [PR #2379](https://github.com/canonical/operator/pull/2379)
+- Scenario `action_get` returned internal params dict without copy — fixed in [PR #2379](https://github.com/canonical/operator/pull/2379)
+- `Snap.apps` property returns `self._apps` list directly — current bug in operator-libs-linux + charmlibs (snap rewrite pending)
+- `Plan.services`/`checks`/`log_targets` return internal dicts — current bug in operator (low risk)
 
 ### Storing external input without copy
 
@@ -143,8 +144,8 @@ if uid is not None:
 Current bugs:
 - `add_user()` in passwd.py: `if uid` drops UID 0 — operator-libs-linux + charmlibs
 - `add_group()` in passwd.py: `if gid` drops GID 0 — operator-libs-linux + charmlibs
-- `Service.to_dict()` in pebble.py: `if value` drops `user-id: 0` and `group-id: 0` — operator
-- `Service._merge()` in pebble.py: `if not value` skips merging 0 values — operator
+- ~~`Service.to_dict()` in pebble.py: `if value` drops `user-id: 0` and `group-id: 0`~~ — not a real bug: Pebble runs as root, so `user-id: 0` means "run as the user Pebble is already running as" (the default when omitted). If Pebble runs as non-root, it can't set UID 0 anyway.
+- ~~`Service._merge()` in pebble.py: `if not value` skips merging 0 values~~ — same reasoning as above
 
 ### Numeric parameters
 
@@ -261,8 +262,8 @@ Precedents: `cbaec52e`, `942bd23`, `5943a59c` (operator)
 
 ### Layer merging mutation
 
-Scenario `_render_services()` mutates Layer Service objects in place. Calling `.plan` multiple times accumulates duplicates in list fields.
-Current bug in operator — variant of `3dda5b5f`
+Scenario `_render_services()` mutated Layer Service objects in place. Calling `.plan` multiple times accumulated duplicates in list fields.
+Fixed in [PR #2380](https://github.com/canonical/operator/pull/2380) — variant of `3dda5b5f`
 
 ### Temp file cleanup
 
@@ -281,9 +282,9 @@ The Harness and Scenario testing frameworks must replicate Juju behavior. Every 
 
 Production returns copies; testing returns references (or vice versa).
 
-Current bugs:
-- Scenario `secret_get()` returns internal dict — production returns `.copy()`
-- Scenario `action_get()` returns internal dict — production returns fresh data each call
+Fixed:
+- Scenario `secret_get()` and `action_get()` — fixed in [PR #2379](https://github.com/canonical/operator/pull/2379)
+- Harness `relation_get()` — fixed in [PR #2376](https://github.com/canonical/operator/pull/2376)
 
 ### Environment variable leakage
 
@@ -406,7 +407,7 @@ raise TypeError("specified argument '%r' should be a string or int", user)
 # Fix: use f-string
 raise TypeError(f"specified argument {user!r} should be a string or int")
 ```
-Current bug: `passwd.py` in operator-libs-linux + charmlibs
+Fixed in charmlibs: [PR #363](https://github.com/canonical/charmlibs/pull/363). Still present in operator-libs-linux.
 
 ### Wrong exception attribute access
 
@@ -418,7 +419,7 @@ except CLIError as e:
 # Fix: use the correct attribute
     if "error message" in (e.stderr or ""):
 ```
-Current bug: `pytest-jubilant/_main.py`
+Fixed in [PR #25](https://github.com/canonical/pytest-jubilant/pull/25).
 
 ---
 

@@ -139,3 +139,4 @@ Do NOT flag:
 | `make([]serviceInfo, 0, len(services))` | Initialized empty slice, marshals as `[]` |
 | `tomb.Go(func)` immediately after tomb creation | Goroutine started, `Wait()` won't block |
 | User lookup string matching with documented Go issue reference | Acknowledged workaround for Go #67912 |
+| `lxd init --minimal` on already-initialised system | Tested: `lxd init --minimal` is idempotent and succeeds on re-run |

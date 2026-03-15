@@ -142,3 +142,8 @@ Do NOT flag:
 | `return self._state.planned_units` in Scenario | Returns `int`, immutable |
 | `if channel` in snap install | Channel is always a non-empty string when provided |
 | `if name` for string parameters | Name strings are never empty when provided |
+| Secret temp files inside `TemporaryDirectory` | Parent dir has `0o700` perms; files are inaccessible to other users |
+| `--owner` passed to `secret-set` | `secret-set` does accept `--owner` per Juju docs |
+| `Service.to_dict()` dropping `user-id: 0` | Pebble runs as root; `user-id: 0` is the default when omitted |
+| `add_user(uid=0)` falsy check | UID 0 already exists (root); `useradd --uid 0` would fail anyway |
+| `add_group(gid=0)` falsy check | GID 0 already exists (root group); same reasoning as UID 0 |

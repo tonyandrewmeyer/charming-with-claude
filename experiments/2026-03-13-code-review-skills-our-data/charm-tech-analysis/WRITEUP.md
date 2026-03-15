@@ -143,3 +143,98 @@ For the skills, the directions from the [first writeup](../operator-analysis/WRI
 The Go skill also opens up something the Python-only analysis couldn't do: **architectural pattern detection**. The concurrency patterns in Pebble aren't individual bugs so much as symptoms of an architecture that makes certain classes of bugs easy to write. A skill that understands the lock ordering constraints could flag new code that acquires locks in a novel order, before it deadlocks in production. That's more of a linter than a bug finder, but the line between the two has always been blurry.
 
 The broader point is the same one from last time, just with more evidence behind it: domain-specific skills that encode your project's actual history of mistakes are more effective than generic code review prompts. Scaling from one repo to ten made the skills better — not dramatically better, but measurably better, with broader pattern coverage, cross-repo validation, and the ability to catch bugs that propagate between codebases. The effort of building the skills is itself largely automated, which means the main bottleneck is having a history of bugs to learn from. Fortunately, most projects have plenty!
+
+## Coda: Filing the bugs upstream
+
+After the analysis and skill development, I reviewed the audit findings in detail to determine which were genuine bugs worth fixing. Of the 39 findings across all repos, many turned out to be false positives, too minor, or in code that's being rewritten. The detailed review process for operator is documented in the [operator experiment coda](../operator-analysis/WRITEUP.md#coda-filing-the-bugs-upstream); this section covers the broader set.
+
+### Python repos
+
+#### operator (supplementary findings)
+
+The charm-tech analysis found 7 additional operator findings beyond the ones covered in the [operator experiment](../operator-analysis/WRITEUP.md). After review:
+
+**PRs opened:**
+
+- **[fix: return copies from Scenario secret_get and action_get (#2379)](https://github.com/canonical/operator/pull/2379)** — Findings M-1 and M-2. Both methods return direct references to internal state; production returns copies or fresh data. Same class as the `relation_get` copy bug fixed in commit `be090122`.
+- **[fix: deep-copy layer objects during Scenario plan rendering (#2380)](https://github.com/canonical/operator/pull/2380)** — Finding M-3. Calling `.plan` twice causes list fields (`after`, `before`, `requires`) to accumulate duplicates because `_merge()` mutates the original Layer's Service in place. Variant of the bug fixed in commit `3dda5b5f`.
+
+**Findings not worth a PR:**
+
+- **H-1** (not a real bug): `Service.to_dict()` and `_merge()` dropping `user-id: 0` and `group-id: 0`. Pebble generally runs as root, and the `user-id`/`group-id` fields exist for running services as a *different* user. `user-id: 0` means "run as the same user Pebble is already running as" — which is the default when the field is omitted. If Pebble runs as non-root, it can't set UID 0 anyway.
+- **H-2** (Harness-only): `_event_context()` lacks `try/finally`. In production the process exits on exception, making stale state irrelevant. The bug only matters in Harness, which is mostly unmaintained. Scenario has its own event dispatch mechanism and doesn't use `_event_context`.
+- **L-1, L-2** (too minor): `Plan` properties returning internal dicts, and `Check._merge` falsy value confusion on fields that are never numeric.
+
+#### charmlibs
+
+The audit found 7 findings in charmlibs (plus the critical security finding from the skill test). After review:
+
+**PRs opened:**
+
+- **[fix(passwd): use f-string formatting in TypeError messages (#363)](https://github.com/canonical/charmlibs/pull/363)** — Finding 8. `raise TypeError("specified argument '%r' should be a string or int", user)` — the `%r` is never expanded. Trivial fix to f-strings.
+
+**Findings not worth a PR:**
+
+- **Findings 1–3, 5** (snap rewrite coming): Spurious double quotes in snap CLI args, `Snap.logs()` falsy check on `num_lines=0`, `Snap.apps` returning internal list without copy. The snap library is being rewritten, so fixes would be throwaway work.
+- **Finding 4** (not a real bug): `add_user()` falsy check on `uid=0`. UID 0 already exists (it's root), so `useradd --uid 0` would fail anyway because the UID is taken. The existence check path would find root via `pwd.getpwnam(username)` instead. Same reasoning for **finding 5** (GID 0).
+- **Finding 6** (too minor): Falsy checks on `home_dir` and `password` empty strings — neither value is meaningful as an empty string.
+- **Finding 7 / BUG-007** (low risk): Password passed as CLI arg to `useradd`, visible in `/proc`. The `useradd --password` flag expects a *hashed* password (crypt format), not plaintext. Leaking the hash briefly via `/proc` is not ideal but is not a critical security vulnerability.
+
+#### pytest-jubilant
+
+**PR opened:**
+
+- **[fix: check e.stderr instead of e.args[1] for model exists error (#25)](https://github.com/canonical/pytest-jubilant/pull/25)** — Finding 13. `e.args[1]` is the command list, not the error message. The `"already exists on this k8s cluster"` substring check against a command list almost never matches, making the `_check_models_unique` guard effectively dead code. Fix: check `e.stderr` instead.
+
+#### jubilant
+
+- **Finding 14** (too minor): `temp_model` context manager has `add_model()` outside the `try/finally`. `add_model` is atomic at the Juju CLI level, so partial success leaving an orphaned model is not a realistic scenario.
+
+### Go repos
+
+#### concierge
+
+The audit found 12 findings in concierge. After review:
+
+**PRs opened:**
+
+- **[fix: use MicroK8s config for model defaults and bootstrap constraints (#166)](https://github.com/canonical/concierge/pull/166)** — Finding 1. Copy-paste bug: `NewMicroK8s` reads `config.Providers.Google.ModelDefaults` and `config.Providers.Google.BootstrapConstraints` instead of `config.Providers.MicroK8s`. Every other provider (K8s, LXD) correctly references its own config section.
+- **[fix: merge provider credentials instead of overwriting (#163)](https://github.com/canonical/concierge/pull/163)** — Finding 4. `writeCredentials` replaces the entire `credentials["credentials"]` map on each loop iteration, so only the last provider's credentials survive. Currently latent (only Google has credentials), but clearly wrong.
+- **[fix: don't retry permanent errors in RunWithRetries (#164)](https://github.com/canonical/concierge/pull/164)** — Finding 7. `RunWithRetries` marks all errors as retryable, meaning permanent failures (e.g., "snap not found in store") are retried for the full 5-minute timeout before finally failing. Fix adds `ErrNotInstalled` as a known permanent error and accepts a variadic predicate for callers to specify additional permanent error patterns.
+- **[fix: treat non-active installed snaps as installed (#165)](https://github.com/canonical/concierge/pull/165)** — Finding 9. `snapInstalledInfo` only considers snaps with `StatusActive` as installed. A snap that is installed but disabled (e.g., during a refresh) is reported as uninstalled, causing `snap install` instead of `snap refresh`.
+
+**Findings not worth a PR:**
+
+- **Finding 2** (existing issue): String-based error matching on snapd errors. Fragile, but the snapd client doesn't expose sentinel errors, so there's no clean alternative right now.
+- **Finding 3** (false positive): `LXD.init()` not idempotent. Tested directly — `lxd init --minimal` succeeds on re-run. It is idempotent.
+- **Finding 5** (minor): Error discarded in `checkBootstrapped` wrapper — `err` not included in the `fmt.Errorf`.
+- **Finding 6** (by design): `CommandString` silently ignores `LookPath` errors. Intentional for dry-run mode.
+- **Finding 8** (mitigated): `realUser()` hard-codes "root" fallback. `checkUser()` already requires `uid == 0`, so this only applies when running as root.
+- **Finding 10** (minor): `needsBootstrap` returns false on transient errors.
+- **Finding 11** (minor): `envOrFlagSlice` produces duplicates when both flag and env var are set.
+- **Finding 12** (design decision): `deconflictFirewall` unconditionally flushes iptables FORWARD chain. Destructive but intentional workaround for Docker's default DROP policy.
+
+#### pebble
+
+The audit found 5 findings in pebble. After review, none warranted PRs or issues:
+
+- **Finding 1** (narrow edge case): File descriptor and temp file leak in `NewAtomicFile` on `Chmod` failure. Only triggers on filesystems that don't support `chmod` (some FUSE mounts, FAT). Too narrow to be worth fixing.
+- **Finding 2** (documented workaround): String-based error matching for user/group lookup. The code explicitly references Go issue #67912 as the reason — `user.Lookup` doesn't return `UnknownUserError` when it should. Not an undiscovered bug.
+- **Finding 3** (dead code): A loop in `Replan` whose condition is always false. The slice modification pattern inside would be buggy if it could execute, but it can't. Harmless.
+- **Finding 4** (design-level): TOCTOU race between `getPlan()` releasing `planLock` and subsequent `servicesLock` acquisition. Mitigated by treating plans as immutable snapshots. A design concern, not a bug.
+- **Finding 5** (fragile but harmless): Services removed from the plan are marked as `needsRestart` in `Replan`, but the `start` list is built separately from `currentPlan.Services`, so removed services are never actually restarted. The map has incorrect entries but nothing reads them incorrectly.
+
+### Summary
+
+Of the 39 findings across all repos, detailed human review produced **10 PRs** across 4 repositories:
+
+| Repo | PRs | Findings addressed |
+|------|-----|-------------------|
+| operator | 4 ([#2376](https://github.com/canonical/operator/pull/2376), [#2378](https://github.com/canonical/operator/pull/2378), [#2379](https://github.com/canonical/operator/pull/2379), [#2380](https://github.com/canonical/operator/pull/2380)) | Harness relation_get copy, timezone-aware datetimes, Scenario secret/action copy, Scenario render deep-copy |
+| concierge | 4 ([#163](https://github.com/canonical/concierge/pull/163), [#164](https://github.com/canonical/concierge/pull/164), [#165](https://github.com/canonical/concierge/pull/165), [#166](https://github.com/canonical/concierge/pull/166)) | Credentials map merge, RunWithRetries permanent errors, snap disabled-installed handling, MicroK8s copy-paste config |
+| charmlibs | 1 ([#363](https://github.com/canonical/charmlibs/pull/363)) | passwd TypeError formatting |
+| pytest-jubilant | 1 ([#25](https://github.com/canonical/pytest-jubilant/pull/25)) | Wrong exception attribute in model exists check |
+
+One additional PR ([#2377](https://github.com/canonical/operator/pull/2377) — secret temp file permissions) was opened and closed after review revealed `TemporaryDirectory` already provides directory-level protection.
+
+The remaining 28 findings were skipped as false positives, too minor, in code being rewritten, or design-level concerns that don't warrant individual fixes.

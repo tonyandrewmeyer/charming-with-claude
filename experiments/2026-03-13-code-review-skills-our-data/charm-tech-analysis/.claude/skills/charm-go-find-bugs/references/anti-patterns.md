@@ -134,8 +134,8 @@ Concrete code patterns to grep for when auditing Charm Tech Go codebases. Each p
 
 **Search**: `init()`, `bootstrap()`, `install()`, `prepare()` functions in provisioning code
 **What to check**: Does the operation check existing state before acting?
-**True bug**: `lxd init --minimal` without checking if LXD is already initialized.
-**False positive**: Operation followed by `if alreadyExists` guard.
+**True bug**: Bootstrap commands that fail on re-run (e.g., `k8s bootstrap` before [commit `baf4fffe`](https://github.com/canonical/concierge/commit/baf4fffe)).
+**False positive**: `lxd init --minimal` — tested and confirmed idempotent (succeeds on re-run). Operations followed by `if alreadyExists` guard.
 
 ---
 
@@ -143,8 +143,9 @@ Concrete code patterns to grep for when auditing Charm Tech Go codebases. Each p
 
 **Search**: `retry.RetryableError(err)` or `RetryableError` in Go files
 **What to check**: Are ALL errors marked as retryable, or only transient ones?
-**True bug**: `return nil, retry.RetryableError(err)` for every error — permanent failures retried for minutes.
-**Fix**: Check for permanent errors (ErrNotFound, permission denied) before wrapping.
+**Historical bug**: `RunWithRetries` marked all errors as retryable — fixed in [PR #164](https://github.com/canonical/concierge/pull/164).
+**Still relevant**: Check other retry call sites for the same pattern.
+**Fix**: Check for permanent errors (ErrNotInstalled, permission denied) before wrapping.
 
 ---
 
@@ -152,7 +153,8 @@ Concrete code patterns to grep for when auditing Charm Tech Go codebases. Each p
 
 **Search**: `StatusActive` or `snap.Status` in Go files
 **What to check**: Does the code handle all snap status states, or only `Active`?
-**True bug**: Non-active but installed snaps treated as "not installed".
+**Historical bug**: Non-active but installed snaps treated as "not installed" — fixed in [PR #165](https://github.com/canonical/concierge/pull/165). Also requires enabling disabled snaps before refreshing.
+**Still relevant**: Check for other code that only checks `StatusActive`.
 
 ---
 

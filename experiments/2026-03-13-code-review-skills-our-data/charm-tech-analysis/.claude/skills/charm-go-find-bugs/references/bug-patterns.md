@@ -198,7 +198,7 @@ if err := fd.Chmod(perm); err != nil {
 }
 ```
 
-Current bug: `NewAtomicFile` in pebble osutil/io.go
+Known issue (not fixed — narrow edge case, only triggers on filesystems that don't support chmod): `NewAtomicFile` in pebble osutil/io.go
 
 ### Child process FD inheritance
 
@@ -236,8 +236,7 @@ func (l *LXD) init() error {
 }
 ```
 
-Current bug: `LXD.init()` in concierge lxd.go — no idempotency check.
-Compare with `K8s` which has `needsBootstrap()`.
+~~Current bug: `LXD.init()` in concierge lxd.go~~ — false positive. Tested directly: `lxd init --minimal` is idempotent and succeeds on re-run.
 
 Precedent: `baf4fffe` (concierge — k8s bootstrap was not idempotent)
 
@@ -276,7 +275,7 @@ if errors.Is(err, ErrNotFound) || errors.Is(err, ErrPermissionDenied) {
 return nil, retry.RetryableError(err)  // Transient — retry
 ```
 
-Current bug: `RunWithRetries` in concierge helpers.go
+Fixed in [PR #164](https://github.com/canonical/concierge/pull/164) — `ErrNotInstalled` is now returned immediately without retrying.
 
 Precedents: `b418443e` (no pre-check before retry loop), `20188c54` (short-circuit on definitive "not found")
 
@@ -305,7 +304,7 @@ if snap.Status != "" {
 }
 ```
 
-Current bug: `snapInstalledInfo` in concierge snap.go
+Fixed in [PR #165](https://github.com/canonical/concierge/pull/165) — now checks for `StatusInstalled` in addition to `StatusActive`, and enables disabled snaps before refreshing.
 
 ### Revision type
 
@@ -333,7 +332,7 @@ return &MicroK8s{
 }
 ```
 
-Current bug: `NewMicroK8s` in concierge microk8s.go lines 36-37.
+Fixed in [PR #166](https://github.com/canonical/concierge/pull/166).
 
 **Detection**: When reviewing provider code, compare field initialization across all providers. Each should reference its own `config.Providers.X` section.
 
@@ -470,7 +469,7 @@ credMap := credentials["credentials"].(map[string]any)
 credMap[p.CloudName()] = map[string]any{"concierge": p.Credentials()}
 ```
 
-Current bug: `writeCredentials` in concierge juju.go
+Fixed in [PR #163](https://github.com/canonical/concierge/pull/163).
 
 ### Unconditional firewall flush
 

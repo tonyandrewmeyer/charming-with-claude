@@ -103,8 +103,8 @@ if uid is not None:
 
 **Search**: `open(` in files that handle secrets, credentials, or state
 **What to check**: Are files created with restrictive permissions (0o600)?
-**True bug**: `open(path, 'w')` for files containing secret content.
-**False positive**: Opening files for reading.
+**True bug**: `open(path, 'w')` for files containing secret content in a persistent or shared directory.
+**False positive**: Opening files for reading, or files inside `tempfile.TemporaryDirectory()` (parent dir has `0o700` permissions, making files inaccessible to other users regardless of individual file permissions — confirmed via [PR #2377](https://github.com/canonical/operator/pull/2377), closed as false positive).
 
 ---
 
@@ -116,10 +116,12 @@ if uid is not None:
 
 ---
 
-## Secrets: invalid flags
+## ~~Secrets: invalid flags~~ (retracted — false positive)
 
-**Search**: `--owner` in secret-related code
-**What to check**: Is `--owner` passed to `secret-set`? Only valid for `secret-add`.
+~~**Search**: `--owner` in secret-related code~~
+~~**What to check**: Is `--owner` passed to `secret-set`? Only valid for `secret-add`.~~
+
+This anti-pattern was incorrect: `secret-set` does accept `--owner` per the [Juju documentation](https://documentation.ubuntu.com/juju/latest/reference/hook-command/list-of-hook-commands/secret-set/). Do not flag `--owner` usage in `secret-set` as a bug.
 
 ---
 
@@ -141,8 +143,9 @@ if uid is not None:
 
 **Search**: `datetime.now()` or `datetime.fromtimestamp(` without `tz=`
 **What to check**: Is the result sent to Juju or serialized?
-**True bug**: `datetime.datetime.now()` — naive datetime misinterpreted.
+**Historical bug**: `datetime.datetime.now()` — naive datetime misinterpreted. Fixed in [PR #2378](https://github.com/canonical/operator/pull/2378).
 **Fix**: `datetime.datetime.now(tz=datetime.timezone.utc)`
+**Still relevant**: Check for other uses of naive `datetime.now()` or `datetime.fromtimestamp()` in new code.
 
 ---
 
@@ -188,7 +191,8 @@ if uid is not None:
 
 **Search**: `return self\._` in harness.py, mocking.py, or testing backend files
 **What to check**: Does the testing backend return a copy where production code does?
-**True bug**: Scenario `secret_get` returns direct reference; production returns `.copy()`.
+**Historical bugs**: Harness `relation_get` ([PR #2376](https://github.com/canonical/operator/pull/2376)), Scenario `secret_get` and `action_get` ([PR #2379](https://github.com/canonical/operator/pull/2379)) — all fixed to return copies.
+**Still relevant**: Check other methods for the same pattern.
 
 ---
 
