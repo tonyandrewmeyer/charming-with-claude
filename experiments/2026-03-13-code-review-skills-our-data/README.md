@@ -82,6 +82,41 @@ It's not a complicated tool, but it closed the feedback loop that made rounds 6�
 
 **The iteration story is the real story.** The skill at the end of round ten is substantially different from the one at the end of round one. Anti-patterns were added, removed, and refined. False-positive controls were tightened. Domain knowledge captured in reviewer notes shaped the skill's evolution. Without a structured iteration process (and the review tool to support it), the skill would likely have plateaued much earlier.
 
+## Filing Bugs Upstream
+
+After completing the analysis and building the skills, I went back through the audit findings and reviewed them in detail to determine which were genuine bugs worth fixing. This turned out to be a significant filtering step — of the 52 findings across the operator and charm-tech analyses, only 11 survived human review as worth PRing (plus one that was opened and closed after closer inspection).
+
+### operator (stages 1 and 2 combined)
+
+From the operator-specific analysis (13 findings) and the charm-tech supplementary analysis (7 more), detailed review produced **4 merged-worthy PRs** and closed 1:
+
+| PR | Description |
+|----|-------------|
+| [#2376](https://github.com/canonical/operator/pull/2376) | Harness `relation_get()` returns copy instead of direct reference |
+| [#2378](https://github.com/canonical/operator/pull/2378) | Timezone-aware datetimes in expiry calculation and file info |
+| [#2379](https://github.com/canonical/operator/pull/2379) | Scenario `secret_get()` and `action_get()` return copies |
+| [#2380](https://github.com/canonical/operator/pull/2380) | Scenario deep-copies layer objects during plan rendering |
+| [#2377](https://github.com/canonical/operator/pull/2377) | *(Closed)* Secret temp file permissions — false positive (`TemporaryDirectory` already provides `0o700` protection) |
+
+Key false positives caught during review: `secret-set` does accept `--owner` (retracted), `Service.to_dict()` dropping `user-id: 0` is not a real bug (Pebble runs as root), `_event_context()` missing `try/finally` only affects Harness (mostly unmaintained, Scenario has its own mechanism).
+
+### charm-tech (stage 2)
+
+From the broader team analysis, review produced **5 PRs** across 3 repos:
+
+| Repo | PR | Description |
+|------|-----|-------------|
+| charmlibs | [#363](https://github.com/canonical/charmlibs/pull/363) | passwd `TypeError` with printf-style formatting |
+| pytest-jubilant | [#25](https://github.com/canonical/pytest-jubilant/pull/25) | Wrong exception attribute in model-exists check |
+| concierge | [#166](https://github.com/canonical/concierge/pull/166) | MicroK8s copy-paste bug using Google's config |
+| concierge | [#163](https://github.com/canonical/concierge/pull/163) | `writeCredentials` overwrites map instead of merging |
+| concierge | [#164](https://github.com/canonical/concierge/pull/164) | `RunWithRetries` retries permanent errors for 5 minutes |
+| concierge | [#165](https://github.com/canonical/concierge/pull/165) | Disabled snaps treated as uninstalled |
+
+Key false positives caught: `lxd init --minimal` is idempotent (tested directly — it succeeds on re-run), UID/GID 0 falsy checks in passwd are not real bugs (UID 0 already exists as root), all snap library findings skipped (rewrite pending). All 5 pebble findings skipped as too narrow, documented workarounds, or design-level concerns.
+
+Full details in the coda sections of [operator-analysis/WRITEUP.md](operator-analysis/WRITEUP.md#coda-filing-the-bugs-upstream) and [charm-tech-analysis/WRITEUP.md](charm-tech-analysis/WRITEUP.md#coda-filing-the-bugs-upstream).
+
 ## Files
 
 Each stage has its own directory with a detailed write-up:
