@@ -70,15 +70,17 @@ self._config = dict(config)
 
 **Search**: `open(` in files that handle secrets, credentials, or state
 **What to check**: Are files created with restrictive permissions (0o600)?
-**True bug**: `open(path, 'w')` for files containing secret content — uses default 0o644.
-**False positive**: Opening files for reading, or files that contain only non-sensitive data.
+**True bug**: `open(path, 'w')` for files containing secret content in a shared or persistent directory — uses default 0o644.
+**False positive**: Opening files for reading, files that contain only non-sensitive data, or files inside a `tempfile.TemporaryDirectory()` (which creates the parent directory with `0o700` permissions, making the files inaccessible to other users regardless of individual file permissions).
 
-**Correct pattern:**
+**Correct pattern (for persistent or shared directories):**
 ```python
 fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=0o600)
 with os.fdopen(fd, 'w', encoding='utf-8') as f:
     f.write(secret_value)
 ```
+
+**Note**: The `secret_add()` and `secret_set()` functions in `ops/hookcmds/_secret.py` write secret content to temp files, but these are inside a `TemporaryDirectory` (directory permissions `0o700`) and are deleted when the block exits. This was investigated and confirmed as a false positive — see [PR #2377](https://github.com/canonical/operator/pull/2377) (closed without merging).
 
 ---
 
@@ -110,8 +112,9 @@ This anti-pattern was incorrect: `secret-set` does accept `--owner` per the [Juj
 
 **Search**: `datetime.now()` or `datetime.fromtimestamp(` without `tz=`
 **What to check**: Is the result sent to Juju or serialized to RFC 3339?
-**True bug**: `datetime.datetime.now() + expire` — naive datetime may be misinterpreted.
+**Historical bug**: `datetime.datetime.now() + expire` — naive datetime may be misinterpreted. Fixed in [PR #2378](https://github.com/canonical/operator/pull/2378).
 **Correct pattern**: `datetime.datetime.now(tz=datetime.timezone.utc)`
+**Still relevant**: Check for other uses of naive `datetime.now()` or `datetime.fromtimestamp()` in new code.
 
 ---
 
@@ -144,7 +147,8 @@ This anti-pattern was incorrect: `secret-set` does accept `--owner` per the [Juj
 
 **Search**: `return self\._` in harness.py, mocking.py, or testing backend files
 **What to check**: Same as "returning internal state" above, but specifically in testing backends.
-**True bug**: Harness `relation_get()` returns direct reference while Scenario returns `.copy()`.
+**Historical bug**: Harness `relation_get()` returned direct reference while Scenario returned `.copy()`. Fixed in [PR #2376](https://github.com/canonical/operator/pull/2376).
+**Still relevant**: Check other methods (e.g., `config_get`, `secret_get`) for the same pattern.
 
 ---
 

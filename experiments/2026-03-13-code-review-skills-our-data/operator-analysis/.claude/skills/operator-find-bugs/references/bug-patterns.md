@@ -33,7 +33,9 @@ Precedent: `0ce8a0fd`
 
 SQLite storage file was created with 0o644 (world-readable). Fix: use 0o600.
 
-Rule: always use `os.open(path, flags, mode=0o600)` and `os.fdopen()` for files containing state, credentials, or secrets. Do not rely on umask.
+Rule: always use `os.open(path, flags, mode=0o600)` and `os.fdopen()` for files containing state, credentials, or secrets in persistent or shared directories. Do not rely on umask.
+
+**Caveat**: files inside `tempfile.TemporaryDirectory()` are already protected by the directory's `0o700` permissions — other users cannot traverse into the directory to read the files. This was confirmed when investigating secret temp files in `hookcmds._secret` — see [PR #2377](https://github.com/canonical/operator/pull/2377) (closed as false positive).
 
 Precedent: `e4b0f9d4`
 
@@ -241,8 +243,8 @@ When fixing a bug in ops, always check if the same fix needs to apply to Harness
 4. **Storage/config mocking**: Incorrect kwarg handling in testing backend.
    Precedent: `deccdd6f`
 
-5. **Return references vs copies**: Scenario fixed to return `data.copy()` but Harness still returns direct reference.
-   Current finding: `Harness.relation_get()` returns direct dict reference.
+5. **Return references vs copies**: Scenario fixed to return `data.copy()` but Harness still returned direct reference.
+   Fixed: `Harness.relation_get()` now returns `.copy()` — see [PR #2376](https://github.com/canonical/operator/pull/2376).
 
 6. **Config mutation**: `_TestingConfig` inherits from `dict` — `__setitem__` raises but `update()`, `pop()`, `clear()` bypass the guard.
    Current finding: `config_get()` returns `_TestingConfig` directly.
@@ -275,7 +277,7 @@ Precedents: `8e94a4c9`, `be1fdf06`
 
 Rule: always use `datetime.datetime.now(tz=datetime.timezone.utc)` and `datetime.fromtimestamp(ts, tz=datetime.timezone.utc)`.
 
-Current findings: `_calculate_expiry()` at `model.py:539`, `Container._build_fileinfo()` at `model.py:3047`.
+Fixed: `_calculate_expiry()` and `Container._build_fileinfo()` now use UTC-aware datetimes — see [PR #2378](https://github.com/canonical/operator/pull/2378).
 
 ---
 

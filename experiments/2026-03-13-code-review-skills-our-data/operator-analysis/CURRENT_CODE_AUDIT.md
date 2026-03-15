@@ -319,11 +319,11 @@ def __getitem__(self, key: str) -> _LazyValueType:
 | ID | Severity | Pattern | File | Line(s) | Status |
 |----|----------|---------|------|---------|--------|
 | H-1 | ~~High~~ | ~~API mismatch~~ | `ops/hookcmds/_secret.py` | 297 | **False positive**: `secret-set` does accept `--owner` |
-| H-2 | **High** | Mutability | `ops/_private/harness.py` | 2453-2458 | Bug: relation_get returns reference |
-| H-3 | **High** | File permissions | `ops/hookcmds/_secret.py` | 64-68, 303-307 | Risk: secret files world-readable |
+| H-2 | **High** | Mutability | `ops/_private/harness.py` | 2453-2458 | **Fixed**: [PR #2376](https://github.com/canonical/operator/pull/2376) |
+| H-3 | ~~**High**~~ | ~~File permissions~~ | `ops/hookcmds/_secret.py` | 64-68, 303-307 | **False positive**: `TemporaryDirectory` has `0o700` perms; [PR #2377](https://github.com/canonical/operator/pull/2377) closed |
 | M-1 | Medium | Naming mismatch | `ops/model.py` | 1906 | Risk: nested dataclass aliasing |
-| M-2 | Medium | Timezone | `ops/model.py` | 539 | Risk: naive datetime expiry |
-| M-3 | Medium | Timezone | `ops/model.py` | 3047 | Risk: naive file timestamps |
+| M-2 | Medium | Timezone | `ops/model.py` | 539 | **Fixed**: [PR #2378](https://github.com/canonical/operator/pull/2378) |
+| M-3 | Medium | Timezone | `ops/model.py` | 3047 | **Fixed**: [PR #2378](https://github.com/canonical/operator/pull/2378) |
 | M-4 | Medium | Mutability | `ops/_private/harness.py` | 2496-2497 | Risk: config state corruption |
 | M-5 | Medium | Test mismatch | `testing/src/scenario/mocking.py` | 394-417 | Known: documented limitation |
 | M-6 | Medium | Shared state | `ops/model.py` | 336 | Risk: meta mutation |
@@ -339,11 +339,11 @@ def __getitem__(self, key: str) -> _LazyValueType:
 |-------------|-------|---------------|
 | Mutability / shared dict no copy | 4 | High-Low |
 | API / naming mismatch | 1 | Medium |
-| File permission issues | 1 | High |
-| Missing timezone awareness | 2 | Medium |
+| File permission issues | ~~1~~ 0 | ~~High~~ (false positive — `TemporaryDirectory` provides protection) |
+| Missing timezone awareness | 2 (fixed) | Medium |
 | Test-production mismatch | 2 | Medium |
 | Resource cleanup | 1 | Low |
-| False positives (confirmed safe) | 4 | High-Low |
+| False positives (confirmed safe) | 5 | High-Low |
 
 ### Notable Patterns Already Fixed
 
