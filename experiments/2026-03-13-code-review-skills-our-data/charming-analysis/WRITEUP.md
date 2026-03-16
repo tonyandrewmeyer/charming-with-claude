@@ -400,6 +400,12 @@ The skill now catalogues **69 anti-patterns** (AP-001 through AP-069, minus AP-0
 | AP-055 (None in f-string URL) | 3/41 | Moderate |
 | AP-057 (os.path.join for URLs) | 3/41 | Moderate |
 
+### Note on AP-005 (non-string Pebble environment values)
+
+AP-005 is the most pervasive pattern found, appearing in 14 of 41 validation repos. Follow-up research into how Pebble actually handles non-string environment values (documented in [pebble-non-string-env.md](pebble-non-string-env.md)) revealed that **non-string values do not cause runtime errors**. Pebble's Go YAML decoder (`gopkg.in/yaml.v3`) silently coerces non-string scalars to strings using the raw YAML text (`n.Value`), so `8000` becomes `"8000"` and `true` becomes `"true"` without error. None values still cause layer rejection.
+
+This means the severity of AP-005 for non-None cases is lower than originally assessed. It remains a legitimate finding because: (1) Python `bool` values become `"True"`/`"False"` (capital, via `yaml.safe_dump`) which may not match Go/shell expectations of `"true"`/`"false"`, (2) the `ServiceDict` TypedDict declares `environment: dict[str, str]` so static type checkers (pyright/mypy) will flag these, and (3) relying on implicit coercion is fragile. The skill has been updated to reflect the reduced severity — Low for int values, Medium for bools, High only for None values.
+
 ---
 
 ## Review Tool

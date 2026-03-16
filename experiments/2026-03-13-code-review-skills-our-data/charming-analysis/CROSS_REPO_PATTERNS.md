@@ -959,11 +959,11 @@ Teams with lower adoption (K8s at 35%, Commercial Systems at 62%) use freeform m
 - **False positive:** When type is correctly matched in config.yaml
 - **Fix:** Ensure config.yaml type matches code usage; add explicit casts
 
-#### AP-005: None Values in Environment Dicts
-- **Search:** `grep -rn "Dict\[str, Optional\[str\]\]" --include="*.py"`
-- **Bug:** `{key: value for key, value in data.items()}` passes None values to Pebble env
-- **False positive:** When None values are filtered before use
-- **Fix:** `{k: v for k, v in data.items() if v is not None}`
+#### AP-005: None or Non-String Values in Environment Dicts
+- **Search:** `grep -rn "Dict\[str, Optional\[str\]\]" --include="*.py"` and trace `environment` values in Layer definitions
+- **Bug:** `{key: value for key, value in data.items()}` passes None or non-string values to Pebble env. None values cause layer rejection. Non-string values (int, bool) are silently coerced to strings by Pebble's Go YAML decoder (see [pebble-non-string-env.md](pebble-non-string-env.md)), so they do not cause runtime errors. However, Python `True` becomes `"True"` (capital T) via `yaml.safe_dump`, which may not match Go/shell expectations (`"true"` lowercase). Static type checkers will flag this since `ServiceDict` declares `environment: dict[str, str]`.
+- **False positive:** When None values are filtered before use and non-strings are explicitly cast
+- **Fix:** `{k: str(v) for k, v in data.items() if v is not None}` or use explicit lowercase string booleans
 
 ### 7.2. Pebble and Container Management
 

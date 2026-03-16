@@ -50,7 +50,7 @@ The most pervasive patterns, by how many of the 41 validation repos they appeare
 
 | Pattern | Repos | What It Is |
 |---------|-------|-----------|
-| Non-string Pebble env values | 14/41 | Pebble expects string environment variables |
+| Non-string Pebble env values | 14/41 | Pebble environment dicts should contain only strings (see [research note](charming-analysis/pebble-non-string-env.md)) |
 | Restart without ChangeError handling | 8/41 | Pebble restart can raise ChangeError if the service is already stopped |
 | Missing `can_connect()` guard | 7/41 | Pebble operations before the container is ready (mixed feelings on this one) |
 | Missing return/fail in actions | 7/41 | Action handler runs to completion without calling `event.fail()` on error paths |
@@ -58,7 +58,9 @@ The most pervasive patterns, by how many of the 41 validation repos they appeare
 | Missing `relation_broken` handler | 5/41 | Cleanup logic defined but never wired up with `framework.observe()` |
 | Truthiness on config values | 4/41 | `if self.config['key']:` treats 0 as "not configured" |
 
-Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But "Pebble environment variables must be strings" or "you need a `can_connect()` guard" are things you only know from experience with the charm ecosystem. That's the whole point of mining the history rather than starting from general principles.
+Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But "Pebble environment variables should be strings" or "you need a `can_connect()` guard" are things you only know from experience with the charm ecosystem. That's the whole point of mining the history rather than starting from general principles.
+
+(A note on the most pervasive pattern: [follow-up research](charming-analysis/pebble-non-string-env.md) into how Pebble actually handles non-string environment values revealed that Pebble's Go YAML decoder silently coerces them to strings, so non-string values don't cause runtime errors. It's still best practice to use explicit strings — Python `True` becomes `"True"` not `"true"`, and static type checkers flag it — but the severity is lower than originally assessed. The skill has been updated accordingly.)
 
 Each team also has its own distinctive patterns. The Data team hits TLS toggle race conditions because coordinating TLS state between charm and database requires a two-phase handshake. The Observability team repeatedly fixes wrong datasource variable names in Grafana dashboards (`${DS_PROMETHEUS}` vs `${prometheusds}`). The IS team gets bitten by Pebble lifecycle ordering because web app charms need config files pushed before the service starts. These are patterns that emerge when you look at enough repos and fixes from the same team.
 

@@ -110,7 +110,7 @@ except ChangeError as e:
 
 ### None or non-string values in Pebble environment dicts
 
-Pebble rejects None values and may mishandle non-string values in service environment dictionaries. Python `bool` values become `"True"`/`"False"` (capital) which may not match what Go expects (`"true"`/`"false"` lowercase).
+Pebble rejects None values in service environment dictionaries. Non-string values (int, bool) are silently coerced to strings by Pebble's Go YAML decoder — Go's `yaml.v3` uses the raw YAML text (`n.Value`) when unmarshalling into a `string` target, so `8000` becomes `"8000"` and `true` becomes `"true"` without error (see [pebble-non-string-env.md](../../../../pebble-non-string-env.md)). This means non-string values do not cause runtime failures, but they are still incorrect: Python `bool` values become `"True"`/`"False"` (capital, via `yaml.safe_dump`) which may not match what Go expects (`"true"`/`"false"` lowercase), the `ServiceDict` TypedDict declares `environment: dict[str, str]` so static type checkers will flag these, and relying on implicit coercion is fragile.
 
 **Before (buggy):**
 ```python

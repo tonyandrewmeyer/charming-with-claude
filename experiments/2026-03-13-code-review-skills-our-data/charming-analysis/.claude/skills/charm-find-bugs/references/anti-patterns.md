@@ -45,7 +45,8 @@ Concrete grep patterns to find bugs in charm code. For each pattern: what to sea
 
 ### AP-005: None or non-string values in environment dicts
 - **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
-- **Bug:** `{key: value}` where value can be None or is a Python bool/int causes Pebble to reject the layer or produce wrong values. `True` becomes `"True"` (capital T) which may not match what Go/shell expects.
+- **Bug:** `{key: value}` where value can be None or is a Python bool/int. None values cause Pebble to reject the layer. Non-string values (int, bool) are silently coerced to strings by Pebble's Go YAML decoder (see [pebble-non-string-env.md](../../../../pebble-non-string-env.md)), so they do not cause runtime errors. However, Python `True` becomes `"True"` (capital T) via `yaml.safe_dump`, which may not match what Go/shell expects (`"true"` lowercase). This is a type correctness issue that static type checking (pyright/mypy) will flag, since `ServiceDict` declares `environment: dict[str, str]`.
+- **Severity:** Low for int values (coerced correctly), Medium for bool values (capitalisation mismatch risk), High for None values (layer rejection).
 - **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
 - **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `"true"` / `"false"`
 
