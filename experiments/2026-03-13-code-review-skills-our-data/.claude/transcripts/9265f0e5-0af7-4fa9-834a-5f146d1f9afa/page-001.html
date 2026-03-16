@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code transcript - page 1</title>
+    <style>
+:root { --bg-color: #f5f5f5; --card-bg: #ffffff; --user-bg: #e3f2fd; --user-border: #1976d2; --assistant-bg: #f5f5f5; --assistant-border: #9e9e9e; --thinking-bg: #fff8e1; --thinking-border: #ffc107; --thinking-text: #666; --tool-bg: #f3e5f5; --tool-border: #9c27b0; --tool-result-bg: #e8f5e9; --tool-error-bg: #ffebee; --text-color: #212121; --text-muted: #757575; --code-bg: #263238; --code-text: #aed581; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 16px; line-height: 1.6; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin-bottom: 24px; padding-bottom: 8px; border-bottom: 2px solid var(--user-border); }
+.header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 2px solid var(--user-border); padding-bottom: 8px; margin-bottom: 24px; }
+.header-row h1 { border-bottom: none; padding-bottom: 0; margin-bottom: 0; flex: 1; min-width: 200px; }
+.message { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.message.user { background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.message.assistant { background: var(--card-bg); border-left: 4px solid var(--assistant-border); }
+.message.tool-reply { background: #fff8e1; border-left: 4px solid #ff9800; }
+.tool-reply .role-label { color: #e65100; }
+.tool-reply .tool-result { background: transparent; padding: 0; margin: 0; }
+.tool-reply .tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.message-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.role-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.user .role-label { color: var(--user-border); }
+time { color: var(--text-muted); font-size: 0.8rem; }
+.timestamp-link { color: inherit; text-decoration: none; }
+.timestamp-link:hover { text-decoration: underline; }
+.message:target { animation: highlight 2s ease-out; }
+@keyframes highlight { 0% { background-color: rgba(25, 118, 210, 0.2); } 100% { background-color: transparent; } }
+.message-content { padding: 16px; }
+.message-content p { margin: 0 0 12px 0; }
+.message-content p:last-child { margin-bottom: 0; }
+.thinking { background: var(--thinking-bg); border: 1px solid var(--thinking-border); border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 0.9rem; color: var(--thinking-text); }
+.thinking-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #f57c00; margin-bottom: 8px; }
+.thinking p { margin: 8px 0; }
+.assistant-text { margin: 8px 0; }
+.tool-use { background: var(--tool-bg); border: 1px solid var(--tool-border); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-header { font-weight: 600; color: var(--tool-border); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.tool-icon { font-size: 1.1rem; }
+.tool-description { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; font-style: italic; }
+.tool-result { background: var(--tool-result-bg); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tool-result.tool-error { background: var(--tool-error-bg); }
+.file-tool { border-radius: 8px; padding: 12px; margin: 12px 0; }
+.write-tool { background: linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%); border: 1px solid #4caf50; }
+.edit-tool { background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%); border: 1px solid #ff9800; }
+.file-tool-header { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.write-header { color: #2e7d32; }
+.edit-header { color: #e65100; }
+.file-tool-icon { font-size: 1rem; }
+.file-tool-path { font-family: monospace; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 4px; }
+.file-tool-fullpath { font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; word-break: break-all; }
+.file-content { margin: 0; }
+.edit-section { display: flex; margin: 4px 0; border-radius: 4px; overflow: hidden; }
+.edit-label { padding: 8px 12px; font-weight: bold; font-family: monospace; display: flex; align-items: flex-start; }
+.edit-old { background: #fce4ec; }
+.edit-old .edit-label { color: #b71c1c; background: #f8bbd9; }
+.edit-old .edit-content { color: #880e4f; }
+.edit-new { background: #e8f5e9; }
+.edit-new .edit-label { color: #1b5e20; background: #a5d6a7; }
+.edit-new .edit-content { color: #1b5e20; }
+.edit-content { margin: 0; flex: 1; background: transparent; font-size: 0.85rem; }
+.edit-replace-all { font-size: 0.75rem; font-weight: normal; color: var(--text-muted); }
+.write-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #e6f4ea); }
+.edit-tool .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff0e5); }
+.todo-list { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border: 1px solid #81c784; border-radius: 8px; padding: 12px; margin: 12px 0; }
+.todo-header { font-weight: 600; color: #2e7d32; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.todo-items { list-style: none; margin: 0; padding: 0; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 0.9rem; }
+.todo-item:last-child { border-bottom: none; }
+.todo-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; border-radius: 50%; }
+.todo-completed .todo-icon { color: #2e7d32; background: rgba(46, 125, 50, 0.15); }
+.todo-completed .todo-content { color: #558b2f; text-decoration: line-through; }
+.todo-in-progress .todo-icon { color: #f57c00; background: rgba(245, 124, 0, 0.15); }
+.todo-in-progress .todo-content { color: #e65100; font-weight: 500; }
+.todo-pending .todo-icon { color: #757575; background: rgba(0,0,0,0.05); }
+.todo-pending .todo-content { color: #616161; }
+pre { background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; margin: 8px 0; white-space: pre-wrap; word-wrap: break-word; }
+pre.json { color: #e0e0e0; }
+code { background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+.user-content { margin: 0; }
+.truncatable { position: relative; }
+.truncatable.truncated .truncatable-content { max-height: 200px; overflow: hidden; }
+.truncatable.truncated::after { content: ''; position: absolute; bottom: 32px; left: 0; right: 0; height: 60px; background: linear-gradient(to bottom, transparent, var(--card-bg)); pointer-events: none; }
+.message.user .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--user-bg)); }
+.message.tool-reply .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, #fff8e1); }
+.tool-use .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-bg)); }
+.tool-result .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--tool-result-bg)); }
+.expand-btn { display: none; width: 100%; padding: 8px 16px; margin-top: 4px; background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.expand-btn:hover { background: rgba(0,0,0,0.1); }
+.truncatable.truncated .expand-btn, .truncatable.expanded .expand-btn { display: block; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; }
+.pagination a { background: var(--card-bg); color: var(--user-border); border: 1px solid var(--user-border); }
+.pagination a:hover { background: var(--user-bg); }
+.pagination .current { background: var(--user-border); color: white; }
+.pagination .disabled { color: var(--text-muted); border: 1px solid #ddd; }
+.pagination .index-link { background: var(--user-border); color: white; }
+details.continuation { margin-bottom: 16px; }
+details.continuation summary { cursor: pointer; padding: 12px 16px; background: var(--user-bg); border-left: 4px solid var(--user-border); border-radius: 12px; font-weight: 500; color: var(--text-muted); }
+details.continuation summary:hover { background: rgba(25, 118, 210, 0.15); }
+details.continuation[open] summary { border-radius: 12px 12px 0 0; margin-bottom: 0; }
+.index-item { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); background: var(--user-bg); border-left: 4px solid var(--user-border); }
+.index-item a { display: block; text-decoration: none; color: inherit; }
+.index-item a:hover { background: rgba(25, 118, 210, 0.1); }
+.index-item-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.03); font-size: 0.85rem; }
+.index-item-number { font-weight: 600; color: var(--user-border); }
+.index-item-content { padding: 16px; }
+.index-item-stats { padding: 8px 16px 12px 32px; font-size: 0.85rem; color: var(--text-muted); border-top: 1px solid rgba(0,0,0,0.06); }
+.index-item-commit { margin-top: 6px; padding: 4px 8px; background: #fff3e0; border-radius: 4px; font-size: 0.85rem; color: #e65100; }
+.index-item-commit code { background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; font-size: 0.8rem; margin-right: 6px; }
+.commit-card { margin: 8px 0; padding: 10px 14px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; }
+.commit-card a { text-decoration: none; color: #5d4037; display: block; }
+.commit-card a:hover { color: #e65100; }
+.commit-card-hash { font-family: monospace; color: #e65100; font-weight: 600; margin-right: 8px; }
+.index-commit { margin-bottom: 12px; padding: 10px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.index-commit a { display: block; text-decoration: none; color: inherit; }
+.index-commit a:hover { background: rgba(255, 152, 0, 0.1); margin: -10px -16px; padding: 10px 16px; border-radius: 8px; }
+.index-commit-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 4px; }
+.index-commit-hash { font-family: monospace; color: #e65100; font-weight: 600; }
+.index-commit-msg { color: #5d4037; }
+.index-item-long-text { margin-top: 8px; padding: 12px; background: var(--card-bg); border-radius: 8px; border-left: 3px solid var(--assistant-border); }
+.index-item-long-text .truncatable.truncated::after { background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+.index-item-long-text-content { color: var(--text-color); }
+#search-box { display: none; align-items: center; gap: 8px; }
+#search-box input { padding: 6px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; width: 180px; }
+#search-box button, #modal-search-btn, #modal-close-btn { background: var(--user-border); color: white; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#search-box button:hover, #modal-search-btn:hover { background: #1565c0; }
+#modal-close-btn { background: var(--text-muted); margin-left: 8px; }
+#modal-close-btn:hover { background: #616161; }
+#search-modal[open] { border: none; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); padding: 0; width: 90vw; max-width: 900px; height: 80vh; max-height: 80vh; display: flex; flex-direction: column; }
+#search-modal::backdrop { background: rgba(0,0,0,0.5); }
+.search-modal-header { display: flex; align-items: center; gap: 8px; padding: 16px; border-bottom: 1px solid var(--assistant-border); background: var(--bg-color); border-radius: 12px 12px 0 0; }
+.search-modal-header input { flex: 1; padding: 8px 12px; border: 1px solid var(--assistant-border); border-radius: 6px; font-size: 16px; }
+#search-status { padding: 8px 16px; font-size: 0.85rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+#search-results { flex: 1; overflow-y: auto; padding: 16px; }
+.search-result { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.search-result a { display: block; text-decoration: none; color: inherit; }
+.search-result a:hover { background: rgba(25, 118, 210, 0.05); }
+.search-result-page { padding: 6px 12px; background: rgba(0,0,0,0.03); font-size: 0.8rem; color: var(--text-muted); border-bottom: 1px solid rgba(0,0,0,0.06); }
+.search-result-content { padding: 12px; }
+.search-result mark { background: #fff59d; padding: 1px 2px; border-radius: 2px; }
+@media (max-width: 600px) { body { padding: 8px; } .message, .index-item { border-radius: 8px; } .message-content, .index-item-content { padding: 12px; } pre { font-size: 0.8rem; padding: 8px; } #search-box input { width: 120px; } #search-modal[open] { width: 95vw; height: 90vh; } }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1><a href="index.html" style="color: inherit; text-decoration: none;">Claude Code transcript</a> - page 1/1</h1>
+        
+
+<div class="pagination"><a href="index.html" class="index-link">Index</a></div>
+
+        
+<div class="message user" id="msg-2026-03-16T08-29-19-584Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-16T08-29-19-584Z" class="timestamp-link"><time datetime="2026-03-16T08:29:19.584Z" data-timestamp="2026-03-16T08:29:19.584Z">2026-03-16T08:29:19.584Z</time></a></div><div class="message-content">
+<div class="user-content"><p>read the markdown in charming-analysis for context. i did some research on the bug we commonly found where non-str values are in pebble layer env values. this is a bug, but it's handled by pebble and thst won't change so it actually causes no problems. it's still best to change it and static type checking should find it. let's update the skill and also add a note to both the charming-analysis write up and the overall README.md in this folder. you can link to the pebble md i wrote up in this folder. don't touch the <code>charming-analysis/writeups</code> folder, i will do thst myself.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-22-145Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-22-145Z" class="timestamp-link"><time datetime="2026-03-16T08:29:22.145Z" data-timestamp="2026-03-16T08:29:22.145Z">2026-03-16T08:29:22.145Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me start by reading the relevant files to understand the context.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-23-407Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-23-407Z" class="timestamp-link"><time datetime="2026-03-16T08:29:23.407Z" data-timestamp="2026-03-16T08:29:23.407Z">2026-03-16T08:29:23.407Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01Q3NDfyCagtqwHzwZedd8Y7"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/pebble-non-string-env.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-23-427Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-23-427Z" class="timestamp-link"><time datetime="2026-03-16T08:29:23.427Z" data-timestamp="2026-03-16T08:29:23.427Z">2026-03-16T08:29:23.427Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# Pebble: non-string environment values in layers
+     2→
+     3→## Question
+     4→
+     5→What happens if you pass a Pebble layer with non-string environment values
+     6→(e.g. `{&#x27;PORT&#x27;: 8000}` instead of `{&#x27;PORT&#x27;: &#x27;8000&#x27;}`) via the Python
+     7→`ops/pebble` client?
+     8→
+     9→## Answer
+    10→
+    11→It works. Pebble silently coerces the values to strings. The coercion is done
+    12→by Go&#x27;s `gopkg.in/yaml.v3` library on the Pebble (server) side, not by the
+    13→Python `ops/pebble` client.
+    14→
+    15→## How the data flows
+    16→
+    17→### 1. Python `ops/pebble` — no validation
+    18→
+    19→`Service.__init__` (`operator/ops/pebble.py`) stores environment as a plain
+    20→dict with no type checking:
+    21→
+    22→```python
+    23→self.environment = dict(dct.get(&#x27;environment&#x27;, {}))
+    24→```
+    25→
+    26→The `ServiceDict` TypedDict declares `&#x27;environment&#x27;: dict[str, str]`, but
+    27→Python does not enforce TypedDict annotations at runtime. An integer value
+    28→passes through silently.
+    29→
+    30→### 2. YAML serialization preserves native types
+    31→
+    32→`Layer.to_yaml()` calls `yaml.safe_dump()`, which serializes Python ints and
+    33→bools as unquoted YAML scalars:
+    34→
+    35→```yaml
+    36→# From {&#x27;PORT&#x27;: 8000, &#x27;DEBUG&#x27;: True}
+    37→environment:
+    38→  PORT: 8000     # YAML integer
+    39→  DEBUG: true    # YAML boolean
+    40→
+    41→# From {&#x27;PORT&#x27;: &#x27;8000&#x27;, &#x27;DEBUG&#x27;: &#x27;true&#x27;}
+    42→environment:
+    43→  PORT: &#x27;8000&#x27;   # YAML string (quoted)
+    44→  DEBUG: &#x27;true&#x27;  # YAML string (quoted)
+    45→```
+    46→
+    47→### 3. Pebble receives the YAML and parses into `map[string]string`
+    48→
+    49→The Go struct in `pebble/internals/plan/plan.go:229` is:
+    50→
+    51→```go
+    52→Environment map[string]string `yaml:&quot;environment,omitempty&quot;`
+    53→```
+    54→
+    55→When the YAML decoder encounters a scalar like `8000` (an integer) but the
+    56→target type is `string`, it uses the **raw text** of the YAML node rather than
+    57→the resolved typed value.
+    58→
+    59→The relevant code is in `gopkg.in/yaml.v3@v3.0.1/decode.go:610-617`:
+    60→
+    61→```go
+    62→switch out.Kind() {
+    63→case reflect.String:
+    64→    if tag == binaryTag {
+    65→        out.SetString(resolved.(string))
+    66→        return true
+    67→    }
+    68→    out.SetString(n.Value)  // uses raw YAML text, not resolved type
+    69→    return true
+    70→```
+    71→
+    72→`n.Value` is always the original string representation from the YAML source
+    73→(e.g. `&quot;8000&quot;`, `&quot;true&quot;`, `&quot;3.14&quot;`), regardless of what YAML type the resolver
+    74→determined it to be. So unmarshalling into a `string` target never fails for
+    75→any scalar.
+    76→
+    77→The yaml.v3 test suite confirms this explicitly (`decode_test.go:50-54`):
+    78→
+    79→```go
+    80→// Same YAML, different Go target types:
+    81→{&quot;v: true&quot;, map[string]string{&quot;v&quot;: &quot;true&quot;}},       // -&gt; string &quot;true&quot;
+    82→{&quot;v: true&quot;, map[string]interface{}{&quot;v&quot;: true}},     // -&gt; bool true
+    83→```
+    84→
+    85→## Verification
+    86→
+    87→Running a live Pebble instance and sending a layer with mixed non-string
+    88→environment values:
+    89→
+    90→```python
+    91→layer = Layer({
+    92→    &#x27;services&#x27;: {
+    93→        &#x27;myapp&#x27;: {
+    94→            &#x27;command&#x27;: &#x27;/bin/echo hello&#x27;,
+    95→            &#x27;override&#x27;: &#x27;replace&#x27;,
+    96→            &#x27;environment&#x27;: {&#x27;PORT&#x27;: 8000, &#x27;DEBUG&#x27;: True, &#x27;COUNT&#x27;: 0, &#x27;RATIO&#x27;: 3.14},
+    97→        }
+    98→    }
+    99→})
+   100→client.add_layer(&#x27;test&#x27;, layer)
+   101→plan = client.get_plan()
+   102→for k, v in plan.services[&#x27;myapp&#x27;].environment.items():
+   103→    print(f&quot;  {k}: {v!r} (type={type(v).__name__})&quot;)
+   104→```
+   105→
+   106→Output:
+   107→
+   108→```
+   109→  COUNT: &#x27;0&#x27; (type=str)
+   110→  DEBUG: &#x27;true&#x27; (type=str)
+   111→  PORT: &#x27;8000&#x27; (type=str)
+   112→  RATIO: &#x27;3.14&#x27; (type=str)
+   113→```
+   114→
+   115→All values are accepted and returned as strings. No error.
+   116→
+   117→## Summary
+   118→
+   119→| Step | Component | What happens |
+   120→|------|-----------|-------------|
+   121→| Construction | `ops/pebble.py` `Service.__init__` | Stores `{&#x27;PORT&#x27;: 8000}` as-is, no type check |
+   122→| Serialization | `ops/pebble.py` `Layer.to_yaml()` → `yaml.safe_dump` | Emits `PORT: 8000` (unquoted YAML int) |
+   123→| Transport | `ops/pebble.py` `Client.add_layer()` | Sends YAML string over HTTP to Pebble |
+   124→| Parsing | Pebble `plan.ParseLayer()` → `yaml.v3` decoder | Coerces `8000` to `&quot;8000&quot;` via `n.Value` into `map[string]string` |
+   125→
+   126→The coercion is entirely on the Pebble/Go side. The Python client does nothing
+   127→to convert or validate environment value types.
+   128→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-24-360Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-24-360Z" class="timestamp-link"><time datetime="2026-03-16T08:29:24.360Z" data-timestamp="2026-03-16T08:29:24.360Z">2026-03-16T08:29:24.360Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01WZXrd42PnpGmYD2xHpFS9s"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;charming-analysis/*.md&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-25-231Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-25-231Z" class="timestamp-link"><time datetime="2026-03-16T08:29:25.231Z" data-timestamp="2026-03-16T08:29:25.231Z">2026-03-16T08:29:25.231Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01HVFsjmegv6bAEtgPbPAcwo"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;charming-analysis/data/*&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-25-293Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-25-293Z" class="timestamp-link"><time datetime="2026-03-16T08:29:25.293Z" data-timestamp="2026-03-16T08:29:25.293Z">2026-03-16T08:29:25.293Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01XKDSsSw89P6Nm8fcZiBcts"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/README.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-25-296Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-25-296Z" class="timestamp-link"><time datetime="2026-03-16T08:29:25.296Z" data-timestamp="2026-03-16T08:29:25.296Z">2026-03-16T08:29:25.296Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# I read ~7000 charming bug fixes so you didn&#x27;t have to
+     2→
+     3→Ok, not really, Claude Code read them. And even then, it was actually a sample of 15-20%.
+     4→
+     5→In this experiment, I took [David Cramer&#x27;s skill synthesis idea](https://cra.mr/skill-synthesis) — mine your project&#x27;s actual bug history instead of relying on generic guidelines — and applied it to charm development. Rather than one repository, I progressively scaled from a single repo (canonical/operator: 235 fixes) through the Charm Tech team&#x27;s 10 repos (452 fixes) to 134 charm repositories across 10 Canonical teams (6,116 fixes). The end product is a [bug-finding skill](charming-analysis/.claude/skills/charm-find-bugs/) that found 166 confirmed bugs (of varying severity) across 41 test repos, built entirely from our ecosystem&#x27;s own mistakes.
+     6→
+     7→The work happened in three stages, each its own directory with a detailed write-up. This README covers the arc and the interesting bits; the write-ups have all the methodology and data.
+     8→
+     9→## Goals
+    10→
+    11→* Test whether skill synthesis — learning bug patterns from a project&#x27;s own history — works for charm development.
+    12→* Scale the approach from one repo to an entire ecosystem and see what changes.
+    13→* Produce a reusable bug-finding skill that catches real bugs with a low false-positive rate.
+    14→* Understand what kinds of bugs recur across charm teams and where the patterns differ. Even if the AI piece is not useful, perhaps this would show where Charm Tech can help, with improved documentation, charm libraries, helper functions, and so on.
+    15→
+    16→## The Three Stages
+    17→
+    18→### Stage 1: [Operator Framework](operator-analysis/) (1 repo, 235 fixes)
+    19→
+    20→The [operator](https://github.com/canonical/operator) repository has ~2,000 commits. Of those, ~235 are bug fixes. Claude classified them all (leaning heavily on the use of conventional commits in recent years), produced a pattern catalogue of 13 categories, and built an initial skill. Running it against the current HEAD found 10 real bugs, including data mutability issues that had been fixed six separate times already but kept recurring.
+    21→
+    22→A takeaway was that false-positive controls matter as much as the patterns themselves. Without them, every `return self._data[key]` gets flagged as a mutability bug even when the values are immutable primitives.
+    23→
+    24→### Stage 2: [Charm Tech Team](charm-tech-analysis/) (10 repos, 452 fixes)
+    25→
+    26→Scaling to the whole team revealed that (for us) **Python and Go bug patterns have almost zero overlap**. The Go repos (Pebble and Concierge) are dominated by concurrency bugs — deadlocks, nil maps, error wrapping — while the Python repos share patterns around data mutability, falsy values, and relation data handling. This meant splitting into two separate skills.
+    27→
+    28→Validation against four held-out repos found six novel bugs with no false positives, including a password exposure in charmlibs where CLI arguments were visible in the process list.
+    29→
+    30→### Stage 3: [Full Ecosystem](charming-analysis/) (134 repos, 6,116 fixes)
+    31→
+    32→This was the big one. 134 charm repositories (from a list Charm Tech maintains internally, used to evaluate the impact of changes and make data-driven decisions), spanning Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, and BootStack. The extraction used both conventional commit parsing and keyword scoring, which was important, as expected — the K8s team has only 35% conventional commit adoption, so keyword scoring recovered 37% of their fixes that would otherwise have been missed entirely.
+    33→
+    34→The skill was validated over 10 rounds against 41 repos:
+    35→
+    36→| Rounds | Repos | Confirmed Bugs | False Positives | FP Rate |
+    37→|--------|-------|---------------|-----------------|---------|
+    38→| 1–4 (automated) | 14 | 59 | 0 | 0% |
+    39→| 5 (first human review) | 8 | 28 | 10 | 26.3% |
+    40→| 6–10 (human-reviewed) | 16 | 63 | 2 | 1.6% |
+    41→| **Total** | **41** | **166** | **12** | **6.7%** |
+    42→
+    43→Round 5 was where the interesting learning happened. Adding human (unfortunately, only me) review for the first time caught ten false positives that the automated rounds had missed, and they fell into just three systematic categories: `relation.app` is never `None` in modern `ops` (5 FPs), unconditional `container.replan()` is fine because Pebble handles idempotency (3 FPs), and `ExecError` on workload binaries is sometimes acceptable (1 FP). Fixing those three categories dropped the FP rate to 1.6% for the remaining rounds.
+    44→
+    45→The final skill catalogues **69 anti-patterns** (AP-001 through AP-069, minus AP-008 and AP-014 which were removed as false positives) and **25 cross-cutting concerns**.
+    46→
+    47→## What Bugs Look Like at (Current) Ecosystem Scale
+    48→
+    49→The most pervasive patterns, by how many of the 41 validation repos they appeared in:
+    50→
+    51→| Pattern | Repos | What It Is |
+    52→|---------|-------|-----------|
+    53→| Non-string Pebble env values | 14/41 | Pebble expects string environment variables |
+    54→| Restart without ChangeError handling | 8/41 | Pebble restart can raise ChangeError if the service is already stopped |
+    55→| Missing `can_connect()` guard | 7/41 | Pebble operations before the container is ready (mixed feelings on this one) |
+    56→| Missing return/fail in actions | 7/41 | Action handler runs to completion without calling `event.fail()` on error paths |
+    57→| Credential exposure | 7/41 | Passwords in log messages, Pebble CLI args, or exception tracebacks |
+    58→| Missing `relation_broken` handler | 5/41 | Cleanup logic defined but never wired up with `framework.observe()` |
+    59→| Truthiness on config values | 4/41 | `if self.config[&#x27;key&#x27;]:` treats 0 as &quot;not configured&quot; |
+    60→
+    61→Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But &quot;Pebble environment variables must be strings&quot; or &quot;you need a `can_connect()` guard&quot; are things you only know from experience with the charm ecosystem. That&#x27;s the whole point of mining the history rather than starting from general principles.
+    62→
+    63→Each team also has its own distinctive patterns. The Data team hits TLS toggle race conditions because coordinating TLS state between charm and database requires a two-phase handshake. The Observability team repeatedly fixes wrong datasource variable names in Grafana dashboards (`${DS_PROMETHEUS}` vs `${prometheusds}`). The IS team gets bitten by Pebble lifecycle ordering because web app charms need config files pushed before the service starts. These are patterns that emerge when you look at enough repos and fixes from the same team.
+    64→
+    65→## The Review Tool
+    66→
+    67→By round 5, reviewing findings in markdown files wasn&#x27;t scaling. I needed to track which findings were true positives, record domain knowledge from each review, and feed that back into the skill. So I had Claude built a [review tool](charming-analysis/review-tool/) — a SQLite-backed web/TUI/CLI (I thought web would be nice, then figured out TUI is actually more convenient) app for triaging findings. FastAPI + htmx for the web interface, Textual for the terminal, keyboard shortcuts for rapid review (`j`/`k` navigate, `r` reviewed, `f` false positive). The export feeds directly back into skill improvement.
+    68→
+    69→(Despite multiple attempts at Claude fixing it, there&#x27;s still an annoying bug in the TUI version where it will sometimes show the first item&#x27;s findings instead of the selected one, but I gave up trying to get that solved for now.)
+    70→
+    71→It&#x27;s not a complicated tool, but it closed the feedback loop that made rounds 6–10 much more efficient than the earlier rounds.
+    72→
+    73→## What I Learned
+    74→
+    75→**Skills built from real data are probably better than generic ones.** This isn&#x27;t thst surprising -- Cramer&#x27;s team found the same thing at Sentry -- but the margin is larger than I expected. A generic &quot;check for bugs&quot; prompt would likely miss things in the top patterns list above.
+    76→
+    77→**Scale changes what you see.** At single-repo scale, data mutability was the most significant pattern. At team scale, the Python/Go split was the story. At ecosystem scale, per-team patterns and the sheer pervasiveness of things like non-string Pebble env values became visible. The methodology works at all these scales, but you get qualitatively different insights at each level.
+    78→
+    79→**Human review is essential but doesn&#x27;t need to be exhaustive.** The automated rounds were valuable for building the initial catalogue, but the first human review round caught systematic FP categories that automated validation couldn&#x27;t. After fixing those, the remaining rounds were mostly clean. The investment was a few hours over a few days of reviewing findings, not weeks.
+    80→
+    81→**Conventional commit adoption is very convenient for this kind of analysis.** Teams with high adoption (Identity at 96%) are trivial to collect data from. Teams with low adoption (K8s at 35%) need keyword scoring to avoid missing many of their fixes. This might be worth evangelising independently of the skill synthesis work - I see three conventional commit specs; we could add one to cover charming engineering.
+    82→
+    83→**The iteration story is the real story.** The skill at the end of round ten is substantially different from the one at the end of round one. Anti-patterns were added, removed, and refined. False-positive controls were tightened. Domain knowledge captured in reviewer notes shaped the skill&#x27;s evolution. Without a structured iteration process (and the review tool to support it), the skill would likely have plateaued much earlier.
+    84→
+    85→## Filing Bugs Upstream
+    86→
+    87→After completing the analysis and building the skills, I went back through the audit findings and reviewed them in detail to determine which were genuine bugs worth fixing. This turned out to be a significant filtering step — of the 52 findings across the operator and charm-tech analyses, only 11 survived human review as worth PRing (plus one that was opened and closed after closer inspection).
+    88→
+    89→### operator (stages 1 and 2 combined)
+    90→
+    91→From the operator-specific analysis (13 findings) and the charm-tech supplementary analysis (7 more), detailed review produced **4 merged-worthy PRs** and closed 1:
+    92→
+    93→| PR | Description |
+    94→|----|-------------|
+    95→| [#2376](https://github.com/canonical/operator/pull/2376) | Harness `relation_get()` returns copy instead of direct reference |
+    96→| [#2378](https://github.com/canonical/operator/pull/2378) | Timezone-aware datetimes in expiry calculation and file info |
+    97→| [#2379](https://github.com/canonical/operator/pull/2379) | Scenario `secret_get()` and `action_get()` return copies |
+    98→| [#2380](https://github.com/canonical/operator/pull/2380) | Scenario deep-copies layer objects during plan rendering |
+    99→| [#2377](https://github.com/canonical/operator/pull/2377) | *(Closed)* Secret temp file permissions — false positive (`TemporaryDirectory` already provides `0o700` protection) |
+   100→
+   101→Key false positives caught during review: `secret-set` does accept `--owner` (retracted), `Service.to_dict()` dropping `user-id: 0` is not a real bug (Pebble runs as root), `_event_context()` missing `try/finally` only affects Harness (mostly unmaintained, Scenario has its own mechanism).
+   102→
+   103→### charm-tech (stage 2)
+   104→
+   105→From the broader team analysis, review produced **5 PRs** across 3 repos:
+   106→
+   107→| Repo | PR | Description |
+   108→|------|-----|-------------|
+   109→| charmlibs | [#363](https://github.com/canonical/charmlibs/pull/363) | passwd `TypeError` with printf-style formatting |
+   110→| pytest-jubilant | [#25](https://github.com/canonical/pytest-jubilant/pull/25) | Wrong exception attribute in model-exists check |
+   111→| concierge | [#166](https://github.com/canonical/concierge/pull/166) | MicroK8s copy-paste bug using Google&#x27;s config |
+   112→| concierge | [#163](https://github.com/canonical/concierge/pull/163) | `writeCredentials` overwrites map instead of merging |
+   113→| concierge | [#164](https://github.com/canonical/concierge/pull/164) | `RunWithRetries` retries permanent errors for 5 minutes |
+   114→| concierge | [#165](https://github.com/canonical/concierge/pull/165) | Disabled snaps treated as uninstalled |
+   115→
+   116→Key false positives caught: `lxd init --minimal` is idempotent (tested directly — it succeeds on re-run), UID/GID 0 falsy checks in passwd are not real bugs (UID 0 already exists as root), all snap library findings skipped (rewrite pending). All 5 pebble findings skipped as too narrow, documented workarounds, or design-level concerns.
+   117→
+   118→Full details in the coda sections of [operator-analysis/WRITEUP.md](operator-analysis/WRITEUP.md#coda-filing-the-bugs-upstream) and [charm-tech-analysis/WRITEUP.md](charm-tech-analysis/WRITEUP.md#coda-filing-the-bugs-upstream).
+   119→
+   120→## Files
+   121→
+   122→Each stage has its own directory with a detailed write-up:
+   123→
+   124→* **[operator-analysis/](operator-analysis/)** — Single-repo analysis, initial skill, methodology proof. Start here for the approach (I didn&#x27;t know I would go further than this when starting it).
+   125→* **[charm-tech-analysis/](charm-tech-analysis/)** — Team-scale analysis, Python/Go split, cross-repo patterns.
+   126→* **[charming-analysis/](charming-analysis/)** — Full ecosystem analysis, 10 validation rounds, review tool, final skill. The bulk of the data and findings are here.
+   127→
+   128→The final skill itself is at [`charming-analysis/.claude/skills/charm-find-bugs/`](charming-analysis/.claude/skills/charm-find-bugs/). I might put it in [copilot-collections](https://github.com/canonical/copilot-collections) or some other more visible place later.
+   129→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-33-167Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-33-167Z" class="timestamp-link"><time datetime="2026-03-16T08:29:33.167Z" data-timestamp="2026-03-16T08:29:33.167Z">2026-03-16T08:29:33.167Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/vault-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/manual-tls-certificates-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/self-signed-certificates-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/tls-certificates-requirer-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/route53-acme-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/namecheap-acme-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/httpreq-acme-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-amf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-ausf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-nrf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-nssf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-pcf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-smf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-udm-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-udr-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-upf-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-gnbsim-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-nms-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-router-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sdcore-webui-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/oathkeeper-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/openfga-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/identity-platform-login-ui-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/hydra-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kratos-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kratos-external-idp-integrator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/glauth-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/avalanche-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/alertmanager-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/blackbox-exporter-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/catalogue-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/cos-configuration-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/cos-proxy-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/grafana-agent-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/grafana-cloud-integrator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/grafana-agent-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/grafana-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/karma-alertmanager-proxy-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/karma-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/loki-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mimir-worker-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mimir-coordinator-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mimir-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/prometheus-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/prometheus-scrape-target-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/prometheus-scrape-config-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/prometheus-pushgateway-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/tempo-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/tempo-coordinator-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/tempo-worker-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/traefik-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/traefik-route-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/pvcviewer-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kubeflow-dashboard-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kubeflow-profiles-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/notebook-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/oidc-gatekeeper-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/namespace-node-affinity-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mlmd-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/minio-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/metacontroller-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kubeflow-volumes-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kubeflow-roles-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kserve-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/knative-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/envoy-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/dex-auth-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/argo-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/katib-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mlflow-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kfp-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/seldon-core-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/istio-operators_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/admission-webhook-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/training-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kubeflow-tensorboards-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/identity-platform-admin-ui-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/glauth-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/sssd-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/cinder-csi-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/charm-microk8s_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/etcd-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/temporal-admin-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/temporal-ui-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/ranger-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/superset-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/trino-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/temporal-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/timescaledb-charm_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/temporal-worker-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/certbot-charm_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/pgbouncer-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/postgresql-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/postgresql-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kafka-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/kafka-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mysql-router-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mongodb-k8s-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mongodb-operator_fixes.json
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/data/mysql-router-k8s-operator_fixes.json
+(Results are truncated. Consider using a more specific path or pattern.)</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-33-169Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-33-169Z" class="timestamp-link"><time datetime="2026-03-16T08:29:33.169Z" data-timestamp="2026-03-16T08:29:33.169Z">2026-03-16T08:29:33.169Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/TEAM_WRITEUP_TEMPLATE.md
+/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/pebble-non-string-env.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-37-555Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-37-555Z" class="timestamp-link"><time datetime="2026-03-16T08:29:37.555Z" data-timestamp="2026-03-16T08:29:37.555Z">2026-03-16T08:29:37.555Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-38-032Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-38-032Z" class="timestamp-link"><time datetime="2026-03-16T08:29:38.032Z" data-timestamp="2026-03-16T08:29:38.032Z">2026-03-16T08:29:38.032Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now let me read the remaining files I need to update.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-38-562Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-38-562Z" class="timestamp-link"><time datetime="2026-03-16T08:29:38.562Z" data-timestamp="2026-03-16T08:29:38.562Z">2026-03-16T08:29:38.562Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01StMy4rosBWaCRH3JrJctxe"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-38-917Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-38-917Z" class="timestamp-link"><time datetime="2026-03-16T08:29:38.917Z" data-timestamp="2026-03-16T08:29:38.917Z">2026-03-16T08:29:38.917Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# Charm Bug Pattern Analysis: 6,116 Fixes Across 134 Repositories
+     2→
+     3→## Overview
+     4→
+     5→This analysis systematically examined bug fix commits across the entire Juju charm ecosystem to identify recurring bug patterns and build an automated bug-finding skill. The work follows the methodology established in the [operator-analysis](../operator-analysis/) (single-repo, 235 fixes) and [charm-tech-analysis](../charm-tech-analysis/) (10 repos, 452 fixes) projects, but at ecosystem scale.
+     6→
+     7→### Scope
+     8→
+     9→- **134 charm repositories** cloned from `charms.csv`
+    10→- **10 teams**: Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, BootStack, Charm-Tech
+    11→- **6,116 bug fix commits** identified via conventional commit parsing and keyword scoring
+    12→- **2,519 source-code fixes** sampled for deep analysis (excluding CI-only, docs-only, test-only changes)
+    13→
+    14→### Key Outputs
+    15→
+    16→1. **CROSS_REPO_PATTERNS.md** -- 15 universal patterns, 58 searchable anti-patterns
+    17→2. **charm-find-bugs skill** -- Domain expert skill with SKILL.md + 2 reference files
+    18→3. **Per-repo fix data** -- JSON files for each of 134 repos in `data/`
+    19→4. **Validation results** -- 59 real bugs found across 14 test repos, 0 false positives (4 iteration rounds)
+    20→
+    21→---
+    22→
+    23→## Methodology
+    24→
+    25→### Phase 1: Data Collection
+    26→
+    27→All 144 unique GitHub repositories from `charms.csv` were cloned (2 failed -- personal repos not publicly accessible). For each repo, bug fix commits were identified using two methods:
+    28→
+    29→1. **Conventional commits**: Messages matching `^fix[\s(:]` (case-insensitive)
+    30→2. **Keyword scoring**: Commit messages scored against 30+ fix-related keywords (fix, bug, crash, broken, missing, etc.) minus negative keywords (feat, refactor, docs, bump, etc.), threshold &gt;= 3
+    31→
+    32→This dual approach was critical because conventional commit adoption varies widely:
+    33→- Identity team: 96% conventional
+    34→- K8s team: 35% conventional
+    35→
+    36→Without keyword scoring, 37% of the K8s team&#x27;s fixes would have been missed entirely.
+    37→
+    38→### Phase 2: Classification
+    39→
+    40→Fixes were classified in two passes:
+    41→
+    42→1. **Automated heuristic classification** of all 6,116 fixes by bug area (19 categories), bug type (12 categories), and severity (high/medium/low) using regex pattern matching against commit messages, changed files, and diff content.
+    43→
+    44→2. **Deep agent analysis** of 18 representative batches (2 per team, ~40 fixes each) by Claude agents that read actual diffs and identified recurring patterns with concrete code examples.
+    45→
+    46→### Phase 3: Pattern Synthesis
+    47→
+    48→Team-level patterns were synthesized into cross-repo patterns by a synthesis agent that read all 8 team analysis reports plus aggregate statistics. The synthesis identified 15 universal patterns (appearing across 3+ teams) and team-specific patterns.
+    49→
+    50→### Phase 4: Skill Construction
+    51→
+    52→A `charm-find-bugs` skill was built following the Domain Expert pattern:
+    53→- `SKILL.md` -- 6-step workflow with code area routing table
+    54→- `references/bug-patterns.md` -- 13 pattern categories with before/after code examples
+    55→- `references/anti-patterns.md` -- 43 searchable patterns with grep commands and false-positive controls
+    56→
+    57→### Phase 5: Validation
+    58→
+    59→The skill was tested against 2 charm repos not used in synthesis:
+    60→
+    61→| Repo | Findings | High | Medium | Low | False Positives |
+    62→|------|----------|------|--------|-----|----------------|
+    63→| grafana-k8s-operator | 3 | 1 | 2 | 0 | 0 |
+    64→| kafka-k8s-operator | 3 | 1 | 1 | 1 | 0 |
+    65→| **Total** | **6** | **2** | **3** | **1** | **0** |
+    66→
+    67→Notable finds:
+    68→- **grafana-k8s**: Profiling feature silently broken due to unused constructor parameter (High)
+    69→- **kafka-k8s**: `event.relation.app` accessed without None guard in relation_broken handler (High)
+    70→- **kafka-k8s**: Typo &quot;controller-passwrod&quot; in requested_secrets silently prevents secret retrieval (Low)
+    71→- Both repos had dead code: relation_broken handlers defined but never registered with `framework.observe()`
+    72→
+    73→---
+    74→
+    75→## Findings
+    76→
+    77→### Severity Distribution
+    78→
+    79→| Severity | Count | Percentage |
+    80→|----------|-------|------------|
+    81→| Low | 3,047 | 49.8% |
+    82→| Medium | 2,840 | 46.4% |
+    83→| High | 229 | 3.7% |
+    84→
+    85→Nearly half of all fixes are low severity (docs, formatting, test-only, trivial config). The 229 high-severity fixes concentrate in two areas: **observability** (44) and **database** (41), accounting for 37% of all critical bugs.
+    86→
+    87→### Where Bugs Live
+    88→
+    89→The top bug areas by fix count, excluding CI/build and test-only fixes:
+    90→
+    91→| Area | Fixes | Repos | Teams | Why |
+    92→|------|-------|-------|-------|-----|
+    93→| Observability | 648 | 88 | 10 | Dashboard wiring, alert rules, scrape config, metric labels |
+    94→| Database | 546 | 41 | 7 | Connection handling, TLS, replication, backup safety |
+    95→| Packaging | 446 | 83 | 8 | Requirements pinning, dependency management |
+    96→| Juju interaction | 314 | 92 | 9 | Leader guards, secrets, model API, peer data |
+    97→| TLS/certificates | 299 | 67 | 9 | Certificate lifecycle, CA chain format, renewal |
+    98→| Ingress/networking | 278 | 46 | 9 | URL construction, scheme detection, external hostname |
+    99→| Status management | 243 | 79 | 10 | Status coherence, blocked vs waiting, early returns |
+   100→| Config handling | 210 | 79 | 9 | Truthiness, type mismatches, f-string omission |
+   101→| Pebble | 199 | 61 | 8 | Readiness, replanning, plan mutation, ChangeError |
+   102→| Auth/identity | 204 | 45 | 9 | Credential logging, permissions, method/property confusion |
+   103→
+   104→### The Most Pervasive Patterns
+   105→
+   106→**1. Missing exception handling** (15+ repos, 60% high severity)
+   107→External calls to K8s APIs, Pebble, databases, or Juju secrets without adequate try/except. The narrow-except variant (catching only one type when multiple are possible) is especially common.
+   108→
+   109→**2. Truthiness vs explicit comparison** (virtually every team)
+   110→`if self.config[&#x27;port&#x27;]:` treats 0 as &quot;not configured&quot;. This is the single most pervasive bug pattern. The Observability team alone fixed this 12+ times.
+   111→
+   112→**3. Unregistered event handlers** (found in 2/2 validation repos)
+   113→Methods defined for relation_broken but never wired up with `framework.observe()`. The handler exists, the cleanup logic is correct, but the event never reaches it. This suggests a systematic issue with how event registration is organised.
+   114→
+   115→**4. event.relation.app is None** (39+ repos)
+   116→During relation teardown, `event.relation.app` can be None. Code that accesses `.name` or `.data[app]` without a guard crashes.
+   117→
+   118→**5. Stale TLS flags** (67 repos)
+   119→Storing `tls_enabled: true` in relation data instead of checking relation existence. When leadership changes, the flag becomes stale.
+   120→
+   121→### Team-Specific Patterns
+   122→
+   123→| Team | Distinctive Pattern | Why |
+   124→|------|-------------------|-----|
+   125→| Data | TLS toggle race conditions | Coordinating TLS state between charm and database requires two-phase handshake |
+   126→| Observability | Wrong datasource variables in dashboards | Importing dashboards from standalone Grafana uses `${DS_PROMETHEUS}` instead of COS `${prometheusds}` |
+   127→| MLOps | K8s resource cleanup on removal | CRDs and PVCs not cleaned up when charm is removed |
+   128→| Identity | Method vs property confusion | Auth library APIs changed signatures across versions |
+   129→| Telco | K8s API idempotency | Create-or-update patterns not handling &quot;already exists&quot; errors |
+   130→| IS | Pebble lifecycle ordering | Web app charms need config files pushed before service starts |
+   131→| K8s | Subprocess error handling | Missing `CalledProcessError` handling on snap/kubectl commands |
+   132→| BootStack | Hardware detection edge cases | BIOS/BMC queries failing on non-standard hardware |
+   133→
+   134→### Temporal Trends
+   135→
+   136→Bug fix volume grew from 101 (2020) to 1,563 (2023), then stabilised:
+   137→- **Config bugs dominate and grow**: From 45 (2020) to 539 (2024), reflecting increasing charm complexity
+   138→- **Security awareness increased in 2025**: Security fixes jumped from 7 (2024) to 26 (2025)
+   139→- **Race conditions emerged in 2023**: Correlates with multi-unit and multi-relation patterns in Data team charms
+   140→- **Edge cases are persistent**: High since 2022, reflecting diverse deployment environments
+   141→
+   142→### Conventional Commit Adoption
+   143→
+   144→| Team | Adoption | Impact |
+   145→|------|----------|--------|
+   146→| Identity | 96% | Easy to track fixes automatically |
+   147→| MLOps | 88% | Good coverage |
+   148→| Telco | 84% | Good coverage |
+   149→| IS | 83% | Good coverage |
+   150→| BootStack | 85% | Good coverage |
+   151→| Data | 69% | Many fixes found only via keyword scoring |
+   152→| Observability | 69% | Same |
+   153→| Charm-Tech | 65% | Small sample |
+   154→| Commercial Systems | 62% | Significant gap |
+   155→| K8s | 35% | Most fixes found via keyword scoring only |
+   156→
+   157→---
+   158→
+   159→## Skill Validation Analysis
+   160→
+   161→### What Worked Well
+   162→
+   163→1. **Anti-pattern catalogue produces high-signal matches.** All 6 bugs found by the skill were real, actionable issues. Zero false positives.
+   164→
+   165→2. **Cross-cutting concern checklist catches systematic issues.** The &quot;unregistered event handler&quot; pattern was found in both validation repos independently, confirming it&#x27;s a systematic issue not caught by existing reviews.
+   166→
+   167→3. **False-positive controls prevent noise.** The skill correctly dismissed 7 patterns in grafana-k8s and 5 patterns in kafka-k8s that looked suspicious but were verified as correct (e.g., truthiness checks on genuinely boolean configs, credentials in container-internal Kafka config files).
+   168→
+   169→4. **Novel bug detection works.** 2 of 6 bugs were &quot;novel&quot; (not matching any catalogued anti-pattern): the profiling parameter never passed in grafana-k8s, and the typo in kafka-k8s. The step 3 &quot;hunt for novel bugs&quot; methodology (end-to-end reading, tracing call chains) found these.
+   170→
+   171→### Limitations
+   172→
+   173→1. **Coverage depth vs breadth tradeoff.** With 134 repos, deep analysis of every repo was not feasible. The heuristic classification provides aggregate statistics but may miss nuanced patterns. The deep analysis covered ~18 batches (representative, not exhaustive).
+   174→
+   175→2. **Keyword scoring has noise.** Some &quot;fixes&quot; identified by keyword scoring are actually features, refactors, or CI changes that happened to use fix-related words. The sampling step (filtering to source-code fixes) mitigated this.
+   176→
+   177→3. **Heuristic severity classification is approximate.** The auto-classifier uses keyword matching on commit messages and diff size, which is a rough proxy. Some medium-severity bugs may actually be high-severity, and vice versa.
+   178→
+   179→4. **No VM charm coverage.** The Launchpad and OpenDev repos in charms.csv (17 repos) were excluded because they require different cloning mechanisms. These include older machine charms that may have different bug patterns.
+   180→
+   181→### Comparison to Prior Analyses
+   182→
+   183→| Metric | operator-analysis | charm-tech-analysis | This analysis |
+   184→|--------|------------------|--------------------|-|
+   185→| Repos | 1 | 10 | 134 |
+   186→| Fixes analysed | 235 | 452 | 6,116 |
+   187→| Pattern categories | 13 | 16 (Python) + 14 (Go) | 15 + 58 anti-patterns |
+   188→| Bugs found in validation | 11 | 33 | 59 (14 repos tested) |
+   189→| False positive rate | 0% | 0% | 0% |
+   190→| Languages | Python | Python + Go | Python |
+   191→
+   192→The scaling from 10 to 134 repos revealed patterns not visible at smaller scale:
+   193→- **Unregistered event handlers** -- only detectable as a systematic issue when seen across multiple repos
+   194→- **Team-specific patterns** -- TLS race conditions are a Data team problem; datasource variables are an Observability problem
+   195→- **Convention adoption variance** -- the 35-96% range in conventional commit adoption significantly affects automated analysis
+   196→
+   197→---
+   198→
+   199→## Iteration
+   200→
+   201→After the initial skill build and validation (6 bugs, 0 FP across 2 repos), the skill was tested against 4 additional repos covering teams not in the initial validation:
+   202→
+   203→| Repo | Team | Findings | High | Medium | Low | FP |
+   204→|------|------|----------|------|--------|-----|----|
+   205→| discourse-k8s | IS | 4 | 2 | 2 | 0 | 0 |
+   206→| hydra | Identity | 4 | 2 | 1 | 1 | 0 |
+   207→| opensearch | Data (VM) | 4 | 3 | 1 | 0 | 0 |
+   208→| sdcore-amf | Telco | 4 | 1 | 3 | 0 | 0 |
+   209→
+   210→This iteration revealed 5 new anti-patterns not in the original catalogue:
+   211→
+   212→1. **AP-044: Missing return after event.fail()** -- `event.fail()` doesn&#x27;t stop execution; without `return`, the success path runs with None values. Found in hydra-operator.
+   213→2. **AP-045: next() without default** -- `next(gen)` raises `StopIteration` when no match. Especially dangerous in generator contexts where it silently terminates. Found in discourse-k8s.
+   214→3. **AP-046: Shell-style $VAR in f-strings** -- `f&quot;${self.path}/logs&quot;` includes a literal `$` because Python f-strings only interpolate `{...}`. Found in opensearch-operator.
+   215→4. **AP-047: Contradictory unit vs app status** -- Unit shows BlockedStatus while app shows WaitingStatus for the same condition. Found in sdcore-amf.
+   216→5. **AP-005 expanded** -- Boolean values (not just None) in Pebble environment dicts. Python `True` becomes `&quot;True&quot;` (capital T), which may not match Go expectations. Found in hydra-operator.
+   217→
+   218→The false-positive controls were also expanded with 8 new known-safe patterns observed during validation (e.g., library-internal leader guards, `datetime.utcnow()` paired with naive-UTC cert expiry, `shell=True` with controlled inputs).
+   219→
+   220→### Cumulative Validation Results (Rounds 1-2)
+   221→
+   222→| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+   223→|-------|-------------|------------|------|--------|-----|----------------|
+   224→| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+   225→| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+   226→| **Total** | **6 repos** | **22** | **10** | **10** | **2** | **0** |
+   227→
+   228→Notable findings across both rounds:
+   229→- **Unregistered event handlers** found in 3 of 6 repos (grafana-k8s, kafka-k8s, discourse-k8s dead SAML handler)
+   230→- **None guard missing** found in 3 of 6 repos (kafka-k8s, hydra, opensearch)
+   231→- **Unconditional replan** found in 2 of 6 repos (discourse-k8s, sdcore-amf)
+   232→- **Novel bugs** (not matching any catalogued pattern) found in 4 of 6 repos
+   233→
+   234→### Round 3
+   235→
+   236→The skill was tested against 4 more repos covering ingress, secrets management, workflow orchestration, and database delegation patterns:
+   237→
+   238→| Repo | Team | Findings | High | Medium | Low | FP |
+   239→|------|------|----------|------|--------|-----|----|
+   240→| traefik-k8s | Observability | 5 | 1 | 2 | 2 | 0 |
+   241→| temporal-k8s | Commercial Systems | 6 | 0 | 4 | 2 | 0 |
+   242→| vault-k8s | Identity | 5 | 0 | 2 | 3 | 0 |
+   243→| mongodb-k8s | Data | 0* | 0 | 0 | 0 | 0 |
+   244→
+   245→\* mongodb-k8s delegates all charm logic to the external `mongo-charms-single-kernel` package. The in-repo `src/charm.py` is a 36-line wrapper. 7 bugs were found in test helpers, but no charm-runtime bugs can be assessed without the external package. This revealed a limitation: **charms that vendor logic into external packages cannot be fully audited from their repo alone**.
+   246→
+   247→This iteration revealed 6 new anti-patterns not in the previous catalogue:
+   248→
+   249→1. **AP-048: exec() without wait()** -- `container.exec([&quot;find&quot;, dir, &quot;-delete&quot;])` runs asynchronously; discarding the Process object means subsequent file pushes race with the still-running command. Found in traefik-k8s-operator.
+   250→2. **AP-049: Hardcoded string slicing for file extensions** -- `path.name[:5]` to strip `.cert` only works for 5-character basenames. Found in traefik-k8s-operator (cert cleanup deletes valid certs / retains stale ones).
+   251→3. **AP-050: Status set by helper overwritten by caller** -- `_handle_frontend_tls()` sets `BlockedStatus` and returns, but the calling `_update()` continues and overwrites with `MaintenanceStatus`. Found in temporal-k8s-operator.
+   252→4. **AP-051: Inverted boolean condition** -- `if skip_verify is False: logger.warning(&quot;configured to skip verification&quot;)` fires on the safe path. Found in vault-k8s-operator.
+   253→5. **AP-052: Wrong config key name** -- `self.config.get(&quot;pki_ca_allowed_domains&quot;)` when the actual key is `pki_allowed_domains`. `.get()` silently returns None, bypassing validation. Found in vault-k8s-operator.
+   254→6. **AP-053: Missing return after event.set_results()** -- Similar to AP-044 but for `set_results()`. Execution falls through to a second API call with invalid parameters. Found in temporal-k8s-operator.
+   255→
+   256→Notable findings from round 3:
+   257→- **traefik-k8s cert cleanup** uses `path.name[:5]`, `path.name[:4]`, and `path.name[:18]` to extract hostnames from filenames -- all broken for any hostname not matching the assumed length (High severity)
+   258→- **vault-k8s hardcoded PKI mount path** -- ACME issuing cert and CRL URLs use `/v1/pki/` instead of the actual mount point (`charm-acme`), causing certificate chain validation failures for clients that follow AIA/CRL URLs (Medium)
+   259→- **temporal-k8s proxy env None values** -- when only one of HTTP_PROXY/HTTPS_PROXY is set, the other is None in the Pebble environment dict, causing `add_layer` to fail (Medium, AP-005)
+   260→- **Missing can_connect() guard** found in traefik-k8s (cert-removed handler) and temporal-k8s (restart action), confirming this remains one of the most pervasive patterns (AP-006)
+   261→
+   262→The false-positive controls were expanded with 3 new known-safe patterns (exec without wait for read-only commands, intentionally disabled TLS in remove handlers, test helper code type issues).
+   263→
+   264→### Round 4
+   265→
+   266→The skill was tested against 4 more repos, including core COS infrastructure and a complex database charm:
+   267→
+   268→| Repo | Team | Findings | High | Medium | Low | FP |
+   269→|------|------|----------|------|--------|-----|----|
+   270→| postgresql-k8s | Data | 6 | 0 | 2 | 4 | 0 |
+   271→| indico | IS | 10 | 2 | 5 | 3 | 0 |
+   272→| prometheus-k8s | Observability | 2 | 0 | 2 | 0 | 0 |
+   273→| kratos | Identity | 3 | 0 | 0 | 3 | 0 |
+   274→
+   275→This iteration revealed 5 new anti-patterns:
+   276→
+   277→1. **AP-054: String comparison of numeric counter values** -- `&quot;9&quot; &gt; &quot;10&quot;` is True lexicographically. Relation data is always strings, so counter comparisons need `int()` conversion. Found in postgresql-k8s async replication primary selection.
+   278→2. **AP-055: None value in f-string URL interpolation** -- `f&quot;{self.external_url}/path&quot;` produces `&quot;None/path&quot;` when external_url is None. Found in prometheus-k8s catalogue API endpoints.
+   279→3. **AP-056: Action handler missing event.fail() on error path** -- Action catches exception, logs error, but doesn&#x27;t call `event.fail()`. Action silently succeeds with empty results. Found in postgresql-k8s and indico.
+   280→4. **AP-057: os.path.join for URL construction** -- Works on Linux by coincidence but discards base URL if second arg starts with `/`. Found in kratos-operator.
+   281→5. **AP-058: model.get_secret(id=None)** -- `peer_data.get(&quot;secret-id&quot;)` returns None before leader sets it, then `model.get_secret(id=None)` crashes. Found in indico-operator.
+   282→
+   283→Notable findings from round 4:
+   284→- **postgresql-k8s** has a subtle bug in `get_primary_cluster()` that uses string comparison for promotion counters while its sibling method correctly uses `int()` -- only triggers after 10+ async replication promotions
+   285→- **indico** has pervasive non-string values in Pebble environment dicts (booleans, ints, and potential Nones from 11+ sources in `_get_indico_env_config`)
+   286→- **prometheus-k8s** uses `self.external_url` (which can be None) in f-strings for catalogue API endpoints but correctly uses `self.most_external_url` for the main URL -- likely a copy-paste error
+   287→- **indico** calls `container.exec()` via `_get_installed_plugins()` BEFORE checking `can_connect()` in action handlers (AP-006 ordering variant)
+   288→- **AP-005 (non-string Pebble env)** continues to be the most pervasive pattern, found in 3 of 4 repos this round (postgresql-k8s LDAP port, indico multiple values, kratos boolean)
+   289→
+   290→### Cumulative Validation Results (Rounds 1-4)
+   291→
+   292→| Round | Repos Tested | Bugs Found | High | Medium | Low | False Positives |
+   293→|-------|-------------|------------|------|--------|-----|----------------|
+   294→| 1 | grafana-k8s, kafka-k8s | 6 | 2 | 3 | 1 | 0 |
+   295→| 2 | discourse-k8s, hydra, opensearch, sdcore-amf | 16 | 8 | 7 | 1 | 0 |
+   296→| 3 | traefik-k8s, temporal-k8s, vault-k8s, mongodb-k8s* | 16 | 1 | 8 | 7 | 0 |
+   297→| 4 | postgresql-k8s, indico, prometheus-k8s, kratos | 21 | 2 | 9 | 10 | 0 |
+   298→| **Total** | **14 repos** | **59** | **13** | **27** | **19** | **0** |
+   299→
+   300→\* mongodb-k8s excluded from bug count (external package delegation).
+   301→
+   302→---
+   303→
+   304→## Rounds 5-10: Human-Reviewed Iteration
+   305→
+   306→After building the review tool (see below), the skill was iterated through 6 further rounds with human review of every finding. An `iterate-bugs` skill was created to automate the cycle: run `charm-find-bugs` against untested repos → import results into the review tool → human reviews each finding → export reviewed data → update the skill.
+   307→
+   308→### Round 5
+   309→
+   310→| Repo | Team | Findings | High | Medium | Low | FP |
+   311→|------|------|----------|------|--------|-----|----|
+   312→| pgbouncer-k8s | Data | 7 | 3 | 3 | 0 | 0 |
+   313→| redis-k8s | Data | 6 | 3 | 3 | 0 | 0 |
+   314→| synapse | IS | 6 | 2 | 3 | 0 | 0 |
+   315→| loki-k8s | Observability | 5 | 1 | 3 | 1 | 0 |
+   316→| wordpress-k8s | IS | 5 | 1 | 2 | 1 | 0 |
+   317→| oathkeeper | Identity | 4 | 2 | 2 | 0 | 0 |
+   318→| tempo-coordinator-k8s | Observability | 3 | 2 | 0 | 1 | 0 |
+   319→| alertmanager-k8s | Observability | 2 | 1 | 1 | 0 | 0 |
+   320→
+   321→Notable findings:
+   322→- **wordpress-k8s Critical**: Unescaped DB password interpolated into PHP code -- potential code injection
+   323→- **pgbouncer-k8s Critical**: Monitoring password exposed in Pebble CLI arguments
+   324→- **redis-k8s**: `==` instead of `=` for status assignment (novel pattern, now AP-059)
+   325→- **loki-k8s**: Operator precedence bug with ternary expression (now AP-060)
+   326→- **synapse**: Glob pattern in exec without shell (now AP-061); `DeepDiff is not None` always True (now AP-062)
+   327→- **AP-005 (non-string Pebble env)** found in 2/8 repos, confirming it as the most pervasive pattern
+   328→
+   329→This round&#x27;s human review identified **10 false positives** across rounds 1-5, revealing three systematic FP categories:
+   330→
+   331→1. **`relation.app` is never None with modern ops** (5 FPs) -- AP-014 removed from catalogue
+   332→2. **Unconditional `container.replan()` is fine** (3 FPs) -- AP-008 removed; Pebble handles idempotency
+   333→3. **ExecError on workload binary is acceptable** (1 FP) -- added to FP controls
+   334→
+   335→### Rounds 6-10
+   336→
+   337→After incorporating the FP corrections, the skill achieved 0% false positive rate across the remaining rounds:
+   338→
+   339→| Round | Repos Tested | Confirmed | FP | FP Rate |
+   340→|-------|-------------|-----------|-----|---------|
+   341→| 6 | postgresql-vm, grafana-agent, zookeeper-k8s, seldon-core | 17 | 0 | 0% |
+   342→| 7 | pgbouncer-vm, trino-k8s, cos-proxy, mlflow | 17 | 1 | 5.6% |
+   343→| 8 | identity-platform-admin-ui, cos-configuration-k8s, superset-k8s, sdcore-nms | 19 | 0 | 0% |
+   344→| 9 | self-signed-certificates, gunicorn-k8s, openfga, mimir-coordinator-k8s | 11 | 0 | 0% |
+   345→| 10 | hardware-observer, kubeflow-profiles, nginx-ingress-integrator, content-cache-k8s | 15 | 1 | 6.3% |
+   346→
+   347→New anti-patterns added from rounds 5-10: AP-059 through AP-065 (comparison operator as assignment, operator precedence with ternary, glob in exec without shell, DeepDiff truthiness, unescaped data in config language, missing None guard on version field, implicit None return).
+   348→
+   349→Additional false-positive controls added from reviewer notes:
+   350→- `@cached_property` on charm instances is safe (ops reinitialises per hook)
+   351→- Short busy-wait loops are acceptable (Juju lacks retry facilities)
+   352→
+   353→### Historical Batch Analysis
+   354→
+   355→After 10 validation rounds showed diminishing returns, 4 of the 50 unanalysed historical fix batches were examined to check for patterns missed during the initial 18-batch deep analysis:
+   356→
+   357→- **Batch 9** (Data: mysql-k8s, mysql-operator, 40 fixes)
+   358→- **Batch 22** (IS: jenkins-k8s, mattermost, nginx-ingress, 40 fixes)
+   359→- **Batch 39** (MLOps: knative, kserve, kubeflow-dashboard, 40 fixes)
+   360→- **Batch 53** (Observability: loki-k8s, mimir-coordinator, 40 fixes)
+   361→
+   362→Results: The existing catalogue covered the majority of recurring patterns. Most fixes were test-only, dependency bumps, or linting. The substantive source-code fixes mapped to existing APs (AP-006, AP-018, AP-020, AP-027, AP-028, AP-029, AP-033, AP-036, AP-041, AP-052, AP-055). Four new patterns were identified and added:
+   363→
+   364→- **AP-066**: `lstrip()`/`rstrip()` used as `removeprefix()`/`removesuffix()` -- classic Python footgun
+   365→- **AP-067**: Missing initialisation guard in early-lifecycle event handlers (4 commits across 2 repos)
+   366→- **AP-068**: Config-derived relation data not re-sent on `config_changed`
+   367→- **AP-069**: Exception message or traceback leaks credentials
+   368→
+   369→### Cumulative Validation Results (All Rounds)
+   370→
+   371→| Round | Repos Tested | Confirmed | FP | FP Rate |
+   372→|-------|-------------|-----------|-----|---------|
+   373→| 1-4 | 14 | 59 | 0 | 0% |
+   374→| 5 | 8 | 28 | 10 | 26.3%* |
+   375→| 6 | 4 | 17 | 0 | 0% |
+   376→| 7 | 4 | 17 | 1 | 5.6% |
+   377→| 8 | 4 | 19 | 0 | 0% |
+   378→| 9 | 4 | 11 | 0 | 0% |
+   379→| 10 | 4 | 15 | 1 | 6.3% |
+   380→| **Total** | **41 repos** | **166** | **12** | **6.7%** |
+   381→
+   382→\* Round 5 FPs were from systematic categories (relation.app None, unconditional replan) that were corrected in the skill. After correction, FP rate dropped to 1.6% across rounds 6-10.
+   383→
+   384→The skill now catalogues **69 anti-patterns** (AP-001 through AP-069, minus AP-008 and AP-014) and **25 cross-cutting concerns**.
+   385→
+   386→### Pattern frequency across all validation repos
+   387→
+   388→| Pattern | Repos found in | Frequency |
+   389→|---------|---------------|-----------|
+   390→| AP-005 (non-string Pebble env) | 14/41 | Most pervasive |
+   391→| AP-010 (restart without ChangeError) | 8/41 | Very common |
+   392→| AP-006 (missing can_connect) | 7/41 | Very common |
+   393→| AP-044/056 (missing return/fail in actions) | 7/41 | Very common |
+   394→| AP-012 (missing relation_broken) | 5/41 | Common |
+   395→| AP-018/020 (credential exposure) | 7/41 | Common |
+   396→| AP-045 (next without default) | 5/41 | Common |
+   397→| AP-050 (status overwritten by caller) | 4/41 | Common |
+   398→| AP-001 (truthiness on config) | 4/41 | Common |
+   399→| AP-054 (string comparison of counters) | 3/41 | Moderate |
+   400→| AP-055 (None in f-string URL) | 3/41 | Moderate |
+   401→| AP-057 (os.path.join for URLs) | 3/41 | Moderate |
+   402→
+   403→---
+   404→
+   405→## Review Tool
+   406→
+   407→To support the iterative validation workflow, a local review tool was built for triaging and tracking bug findings. The `charm-find-bugs` skill produces structured markdown reports (`skill_validation_*.md`), but reviewing dozens of findings across multiple rounds required more than reading files -- it needed filtering, status tracking, and a way to record reviewer judgements that could feed back into skill improvement.
+   408→
+   409→### What It Does
+   410→
+   411→The tool implements a four-stage loop:
+   412→
+   413→1. **Import** -- Parses structured markdown validation reports and loads findings into a local SQLite database, keyed by `(repo, bug_id)` for deduplication.
+   414→2. **Review** -- Presents each finding in a two-panel interface where a reviewer reads the issue, evidence, and recommended fix, then marks it as **reviewed** (true positive) or **false positive**.
+   415→3. **Track** -- Maintains review progress, statistics by severity/repo/round, and reviewer notes.
+   416→4. **Export** -- Dumps all findings and their review status as JSON for feeding back into skill improvement.
+   417→
+   418→### Stack and Design
+   419→
+   420→The tool provides three interfaces -- a web UI, a terminal UI (TUI), and a CLI -- all backed by the same SQLite database:
+   421→
+   422→- **Web UI** (FastAPI + htmx + Pico CSS): A dashboard with progress bars and breakdowns, plus a two-panel findings page with filter dropdowns and keyboard shortcuts (`j`/`k` navigate, `r` reviewed, `f` false positive, `n` notes).
+   423→- **TUI** (Textual): The same two-panel review workflow in the terminal, useful for SSH sessions or when a browser is inconvenient.
+   424→- **CLI** (Click): `import`, `import-all`, `list`, `show`, `review`, `stats`, `export`, `serve`, and `tui` subcommands.
+   425→
+   426→Key design choices:
+   427→- **Dual sync/async DB layer** -- the CLI and TUI use synchronous SQLite; the web server uses `aiosqlite`. Both share the same schema.
+   428→- **htmx-driven UI** -- partial HTML responses keep the UI responsive without a JavaScript framework. Filters, row selection, and review actions all use htmx swaps.
+   429→- **Markdown parser** -- `parser.py` extracts structured fields from the `#### [BUG-NNN]` format used by the skill&#x27;s validation reports, handling code blocks, severity levels, and confirmed-safe sections.
+   430→- **Deduplication on import** -- `UNIQUE(repo, bug_id)` constraint means re-imports are safe.
+   431→
+   432→### Why It Matters
+   433→
+   434→The review tool closed the feedback loop between skill validation and skill improvement. Without it, tracking which findings were true positives across 41 repos and 10 rounds would have been error-prone and tedious. The export capability meant that after each review round, confirmed true positives could be fed back to expand the anti-pattern catalogue, while false positives informed tightening of the false-positive controls. Reviewer notes captured domain knowledge (e.g., &quot;modern ops guarantees `.app` is non-None&quot;, &quot;Pebble handles replan idempotency&quot;) that directly shaped the skill&#x27;s evolution. The tool lives at `review-tool/` in this experiment directory.
+   435→
+   436→---
+   437→
+   438→## Files Produced
+   439→
+   440→```
+   441→charm-analysis/
+   442→├── WRITEUP.md                          # This document
+   443→├── CROSS_REPO_PATTERNS.md              # 15 universal patterns
+   444→├── .claude/skills/charm-find-bugs/     # Bug-finding skill (iterated x10)
+   445→│   ├── SKILL.md                        # 6-step workflow + 25 cross-cutting concerns
+   446→│   └── references/
+   447→│       ├── bug-patterns.md             # 15 pattern categories with examples
+   448→│       └── anti-patterns.md            # 69 searchable anti-patterns
+   449→├── .claude/skills/iterate-bugs/        # Iteration workflow skill
+   450→│   └── SKILL.md                        # 8-step cycle: audit → import → review → update
+   451→├── scripts/
+   452→│   ├── extract_fixes.py                # Clone repos and extract fix commits
+   453→│   ├── auto_classify.py                # Heuristic classification
+   454→│   ├── sample_for_analysis.py          # Sample representative fixes
+   455→│   ├── prepare_batches.py              # Batch fixes for agent analysis
+   456→│   └── aggregate_patterns.py           # Cross-repo aggregate analysis
+   457→├── data/
+   458→│   ├── all_fixes.json                  # 6,116 raw fix commits
+   459→│   ├── all_classified.json             # Heuristic classification of all fixes
+   460→│   ├── classification_stats.json       # Aggregate statistics
+   461→│   ├── aggregate_analysis.json         # Cross-repo analysis
+   462→│   ├── analysis_*.json                 # Per-team deep analysis (8 files)
+   463→│   ├── skill_validation_*.md           # Validation reports (41 repos, rounds 1-10)
+   464→│   ├── all_rounds_reviewed.json        # Full reviewed dataset (178 findings)
+   465→│   ├── reviewer_notes.md               # Human reviewer domain knowledge
+   466→│   ├── batches/                        # 68 batch files for agent analysis
+   467→│   └── *_fixes.json                    # Per-repo fix data (134 files)
+   468→├── review-tool/                        # Finding review and triage tool
+   469→│   ├── review_tool/
+   470→│   │   ├── app.py                      # FastAPI app factory
+   471→│   │   ├── cli.py                      # Click CLI (import, review, stats, export, serve, tui)
+   472→│   │   ├── config.py                   # Paths, round/repo mappings
+   473→│   │   ├── db.py                       # Schema, sync + async DB helpers
+   474→│   │   ├── models.py                   # Pydantic models
+   475→│   │   ├── parser.py                   # Markdown parser for validation reports
+   476→│   │   ├── tui.py                      # Textual TUI (two-panel review)
+   477→│   │   ├── routes/                     # API and page routes
+   478→│   │   ├── templates/                  # Jinja2 + htmx templates
+   479→│   │   └── static/                     # CSS
+   480→│   ├── review.db                       # SQLite database (178 findings, fully reviewed)
+   481→│   └── pyproject.toml
+   482→└── repos/                              # 142 cloned charm repos (not committed)
+   483→```
+   484→
+   485→Note: The `repos/` directory contains 142 cloned charm repositories and is excluded from the committed version of this experiment due to size. To reproduce, use the `get-charms` tool from [github.com/tonyandrewmeyer/charm-analysis](https://github.com/tonyandrewmeyer/charm-analysis), which efficiently clones all repositories listed in `charms.csv`.
+   486→
+   487→---
+   488→
+   489→## Future Work
+   490→
+   491→### CI, Documentation, and Test Fix Analysis
+   492→
+   493→This analysis deliberately filtered to source-code fixes, excluding CI-only (GitHub Actions, tox), docs-only, and test-only changes from deep analysis. Of the 6,116 fix commits, 1,732 (28%) fell into these categories. Repeating the methodology on these excluded fixes could yield:
+   494→
+   495→- **CI/GHA anti-patterns** -- recurring workflow bugs, insecure action pinning, flaky test handling
+   496→- **Test anti-patterns** -- common testing mistakes in Juju charm test suites (mock vs integration, fixture patterns, scenario testing pitfalls)
+   497→- **Documentation anti-patterns** -- stale docs, wrong API references, missing examples
+   498→
+   499→A `charm-find-test-bugs` or `charm-find-ci-bugs` skill built from this data could complement `charm-find-bugs` for full-spectrum code review.
+   500→
+   501→### Remaining Historical Batches
+   502→
+   503→Of the 68 historical fix batches, 22 were deeply analysed (18 during initial skill construction + 4 during the historical batch analysis). The remaining 46 batches could be examined to find further patterns, though the historical batch analysis suggests diminishing returns -- the 4 batches examined confirmed existing patterns and yielded only 4 new anti-patterns (AP-066 to AP-069).
+   504→
+   505→### Scaling to More Repos
+   506→
+   507→41 of 142 repos (29%) have been validated. The remaining 101 repos include many smaller charms, multi-charm repos without `src/charm.py`, and SD-Core network functions. Running the skill against more repos would further validate its coverage, particularly for under-represented archetypes (VM/machine charms, Kubeflow multi-charm repos, ACME certificate automation).
+   508→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-39-517Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-39-517Z" class="timestamp-link"><time datetime="2026-03-16T08:29:39.517Z" data-timestamp="2026-03-16T08:29:39.517Z">2026-03-16T08:29:39.517Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_018sSHsK43F3w5YmNAr88qPv"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-39-856Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-39-856Z" class="timestamp-link"><time datetime="2026-03-16T08:29:39.856Z" data-timestamp="2026-03-16T08:29:39.856Z">2026-03-16T08:29:39.856Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>&lt;persisted-output&gt;
+Output too large (60.5KB). Full output saved to: /home/ubuntu/.claude/projects/-home-ubuntu-charming-with-claude-experiments-2026-03-13-code-review-skills-our-data/9265f0e5-0af7-4fa9-834a-5f146d1f9afa/tool-results/toolu_018sSHsK43F3w5YmNAr88qPv.txt
+
+Preview (first 2KB):
+     1→# Cross-Repository Bug Patterns in Juju Charm Operators
+     2→
+     3→## 1. Executive Summary
+     4→
+     5→This analysis covers **6,116 bug fix commits** across **134 Juju charm repositories** maintained by **10 teams** (MLOps, Data, Observability, IS, Telco, Identity, Commercial Systems, K8s, BootStack, Charm-Tech).
+     6→
+     7→### Severity Distribution
+     8→| Severity | Count | Percentage |
+     9→|----------|-------|------------|
+    10→| Low      | 3,047 | 49.8%      |
+    11→| Medium   | 2,840 | 46.4%      |
+    12→| High     | 229   | 3.7%       |
+    13→
+    14→### Fix Type Distribution
+    15→| Type           | Count | Percentage |
+    16→|----------------|-------|------------|
+    17→| config         | 2,240 | 36.6%      |
+    18→| test-fix       | 1,575 | 25.7%      |
+    19→| api-contract   | 540   | 8.8%       |
+    20→| edge-case      | 535   | 8.7%       |
+    21→| other          | 439   | 7.2%       |
+    22→| docs-fix       | 308   | 5.0%       |
+    23→| logic-error    | 195   | 3.2%       |
+    24→| type-error     | 74    | 1.2%       |
+    25→| performance    | 72    | 1.2%       |
+    26→| security       | 69    | 1.1%       |
+    27→| race-condition | 39    | 0.6%       |
+    28→| crash          | 25    | 0.4%       |
+    29→| data-loss      | 5     | 0.1%       |
+    30→
+    31→### Top Bug Areas (by fix count)
+    32→1. CI/Build (1,111 fixes, 128 repos)
+    33→2. Testing (1,062 fixes, 123 repos)
+    34→3. Observability (648 fixes, 88 repos)
+    35→4. Database (546 fixes, 41 repos)
+    36→5. Packaging (446 fixes, 83 repos)
+    37→6. Juju Interaction (314 fixes, 92 repos)
+    38→7. TLS/Certificates (299 fixes, 67 repos)
+    39→8. Ingress/Networking (278 fixes, 46 repos)
+    40→9. Status Management (243 fixes, 79 repos)
+    41→10. Config Handling (210 fixes, 79 repos)
+    42→
+    43→### Key Finding
+...
+&lt;/persisted-output&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-40-027Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-40-027Z" class="timestamp-link"><time datetime="2026-03-16T08:29:40.027Z" data-timestamp="2026-03-16T08:29:40.027Z">2026-03-16T08:29:40.027Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01M9M9pQjpb2dmK5HWncHSU3"><div class="tool-header"><span class="tool-icon">⚙</span> Glob</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;charming-analysis/.claude/skills/charm-find-bugs/*&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-47-534Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-47-534Z" class="timestamp-link"><time datetime="2026-03-16T08:29:47.534Z" data-timestamp="2026-03-16T08:29:47.534Z">2026-03-16T08:29:47.534Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-50-760Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-50-760Z" class="timestamp-link"><time datetime="2026-03-16T08:29:50.760Z" data-timestamp="2026-03-16T08:29:50.760Z">2026-03-16T08:29:50.760Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-51-302Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-51-302Z" class="timestamp-link"><time datetime="2026-03-16T08:29:51.302Z" data-timestamp="2026-03-16T08:29:51.302Z">2026-03-16T08:29:51.302Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me read the skill file and find AP-005 in the anti-patterns reference.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-52-710Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-52-710Z" class="timestamp-link"><time datetime="2026-03-16T08:29:52.710Z" data-timestamp="2026-03-16T08:29:52.710Z">2026-03-16T08:29:52.710Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_015RcLzrD6nffyAqcJWPQDxe"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;AP-005&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs&#34;,
+  &#34;output_mode&#34;: &#34;files_with_matches&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-52-747Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-52-747Z" class="timestamp-link"><time datetime="2026-03-16T08:29:52.747Z" data-timestamp="2026-03-16T08:29:52.747Z">2026-03-16T08:29:52.747Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>Found 1 file
+charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-54-011Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-54-011Z" class="timestamp-link"><time datetime="2026-03-16T08:29:54.011Z" data-timestamp="2026-03-16T08:29:54.011Z">2026-03-16T08:29:54.011Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_013EtZYMPv5VfucvL2niedob"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;non-string|Non-string|AP-005&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-54-023Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-54-023Z" class="timestamp-link"><time datetime="2026-03-16T08:29:54.023Z" data-timestamp="2026-03-16T08:29:54.023Z">2026-03-16T08:29:54.023Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>962:#### AP-005: None Values in Environment Dicts</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-57-377Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-57-377Z" class="timestamp-link"><time datetime="2026-03-16T08:29:57.377Z" data-timestamp="2026-03-16T08:29:57.377Z">2026-03-16T08:29:57.377Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01VN93tcbRG2NtdpXVbPiWGJ"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;AP-005&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;-C&#34;: 30
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-57-389Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-57-389Z" class="timestamp-link"><time datetime="2026-03-16T08:29:57.389Z" data-timestamp="2026-03-16T08:29:57.389Z">2026-03-16T08:29:57.389Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>1-# Charm Anti-Patterns: Searchable Patterns
+2-
+3-Concrete grep patterns to find bugs in charm code. For each pattern: what to search for, how to distinguish bugs from false positives, and the correct fix.
+4-
+5-## Contents
+6:- Configuration and Types (AP-001 to AP-005)
+7-- Pebble and Container Management (AP-006 to AP-010)
+8-- Relations and Events (AP-011 to AP-015)
+9-- TLS and Security (AP-016 to AP-021)
+10-- Grafana and Observability (AP-022 to AP-025)
+11-- URL and Network (AP-026 to AP-028)
+12-- Status Management (AP-029 to AP-032)
+13-- Database (AP-033 to AP-035)
+14-- Error Handling (AP-036 to AP-039, AP-044 to AP-046)
+15-- Build and Packaging (AP-040 to AP-043)
+16-- Logic and Data Flow (AP-048 to AP-069)
+17-
+18----
+19-
+20-## Configuration and Types
+21-
+22-### AP-001: Truthiness check on config values
+23-- **Search:** `if self\.config\[` or `if self\.config\.get\(`
+24-- **Bug:** `if self.config[&#x27;port&#x27;]:` treats port 0 as &quot;not set&quot;
+25-- **False positive:** When the value genuinely cannot be 0, empty, or False (e.g., required name field)
+26-- **Fix:** `if self.config[&#x27;port&#x27;] is not None:`
+27-
+28-### AP-002: Missing f-string prefix
+29-- **Search:** Look for strings containing `{self.` or `{event.` or `{model.` without `f` prefix
+30-- **Bug:** `&#x27;value={self.name}&#x27;` produces literal text
+31-- **False positive:** Regex patterns, `.format()` strings, log format strings with `%s`
+32-- **Fix:** Add `f` prefix: `f&#x27;value={self.name}&#x27;`
+33-
+34-### AP-003: Boolean from environment variable
+35-- **Search:** `bool(os.getenv` or `bool(os.environ`
+36-- **Bug:** `bool(os.getenv(&#x27;FLAG&#x27;, &#x27;&#x27;))` returns True for &quot;false&quot;, &quot;0&quot;, &quot;no&quot;
+37-- **False positive:** None
+38-- **Fix:** `os.getenv(&#x27;FLAG&#x27;, &#x27;&#x27;).lower() in (&#x27;true&#x27;, &#x27;1&#x27;, &#x27;yes&#x27;)`
+39-
+40-### AP-004: Config type mismatch
+41-- **Search:** Compare `config.yaml` type declarations with usage in `src/charm.py`
+42-- **Bug:** Config declared as `string` but `int()` cast missing in code, or declared as `int` but compared as string
+43-- **False positive:** When type is correctly matched
+44-- **Fix:** Ensure `config.yaml` type matches code usage; add explicit casts
+45-
+46:### AP-005: None or non-string values in environment dicts
+47-- **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
+48-- **Bug:** `{key: value}` where value can be None or is a Python bool/int causes Pebble to reject the layer or produce wrong values. `True` becomes `&quot;True&quot;` (capital T) which may not match what Go/shell expects.
+49-- **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
+50-- **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `&quot;true&quot;` / `&quot;false&quot;`
+51-
+52----
+53-
+54-## Pebble and Container Management
+55-
+56-### AP-006: Missing can_connect() check
+57-- **Search:** `container.push` or `container.restart` or `container.replan` or `container.exec`
+58-- **Bug:** Pebble operations without checking container readiness
+59-- **False positive:** When wrapped in `try/except ConnectionError` or preceded by `can_connect()`
+60-- **Fix:** Add `if not container.can_connect(): event.defer(); return`
+61-
+62-### AP-007: Direct plan mutation
+63-- **Search:** `plan.services[` followed by assignment
+64-- **Bug:** Modifying plan object in-place does not persist
+65-- **False positive:** When used read-only for comparison
+66-- **Fix:** Create new Layer and use `container.add_layer(..., combine=True)`
+67-
+68-### ~~AP-008: Unconditional replan~~ (REMOVED)
+69-&gt; Removed after human review (rounds 5-6). Pebble internally compares plans before restarting services during `replan()`. The charm-side plan comparison is unnecessary overhead. It is better to let Pebble handle idempotency than have the charm pull the plan and compare.
+70-
+71-### AP-009: Container name assumption
+72-- **Search:** `self.meta.name` used as container name, or `container_name = self.app.name`
+73-- **Bug:** Container name may differ from charm/app name
+74-- **False positive:** When they genuinely match per metadata.yaml
+75-- **Fix:** Read from `self.meta.containers` dynamically
+76-</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-29-58-373Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-29-58-373Z" class="timestamp-link"><time datetime="2026-03-16T08:29:58.373Z" data-timestamp="2026-03-16T08:29:58.373Z">2026-03-16T08:29:58.373Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_0156hpCLSRC93Sdryxg6s6Cw"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;,
+  &#34;offset&#34;: 950,
+  &#34;limit&#34;: 60
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-29-58-378Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-29-58-378Z" class="timestamp-link"><time datetime="2026-03-16T08:29:58.378Z" data-timestamp="2026-03-16T08:29:58.378Z">2026-03-16T08:29:58.378Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   950→#### AP-003: Boolean from Environment Variable
+   951→- **Search:** `grep -rn &quot;bool(os\.getenv&quot; --include=&quot;*.py&quot;`
+   952→- **Bug:** `bool(os.getenv(&#x27;FLAG&#x27;, &#x27;&#x27;))` returns True for &quot;false&quot;, &quot;0&quot;, &quot;no&quot;
+   953→- **False positive:** None
+   954→- **Fix:** `os.getenv(&#x27;FLAG&#x27;, &#x27;&#x27;).lower() in (&#x27;true&#x27;, &#x27;1&#x27;, &#x27;yes&#x27;)`
+   955→
+   956→#### AP-004: Config Type Mismatch
+   957→- **Search:** `grep -rn &quot;model\.config\.get\|model\.config\[&quot; --include=&quot;*.py&quot;`
+   958→- **Bug:** Using config value as int when declared as string, or vice versa
+   959→- **False positive:** When type is correctly matched in config.yaml
+   960→- **Fix:** Ensure config.yaml type matches code usage; add explicit casts
+   961→
+   962→#### AP-005: None Values in Environment Dicts
+   963→- **Search:** `grep -rn &quot;Dict\[str, Optional\[str\]\]&quot; --include=&quot;*.py&quot;`
+   964→- **Bug:** `{key: value for key, value in data.items()}` passes None values to Pebble env
+   965→- **False positive:** When None values are filtered before use
+   966→- **Fix:** `{k: v for k, v in data.items() if v is not None}`
+   967→
+   968→### 7.2. Pebble and Container Management
+   969→
+   970→#### AP-006: Missing can_connect() Check
+   971→- **Search:** `grep -rn &quot;container\.push\|container\.restart\|container\.replan\|container\.exec&quot; --include=&quot;*.py&quot;`
+   972→- **Bug:** Pebble operations without checking container readiness
+   973→- **False positive:** When wrapped in try/except or preceded by can_connect()
+   974→- **Fix:** Add `if not container.can_connect(): event.defer(); return`
+   975→
+   976→#### AP-007: Direct Plan Mutation
+   977→- **Search:** `grep -rn &quot;plan\.services\[.*\]\.environment&quot; --include=&quot;*.py&quot;`
+   978→- **Bug:** Modifying plan object in-place does not persist changes
+   979→- **False positive:** When used read-only (e.g., for comparison)
+   980→- **Fix:** Create new layer dict and use `container.add_layer(..., combine=True)`
+   981→
+   982→#### AP-008: Unconditional Replan
+   983→- **Search:** `grep -rn &quot;container\.replan()&quot; --include=&quot;*.py&quot;`
+   984→- **Bug:** Replan on every event causes unnecessary service restarts
+   985→- **False positive:** When preceded by a plan comparison check
+   986→- **Fix:** Compare `plan.services` to new layer before replanning
+   987→
+   988→#### AP-009: Container Name Assumption
+   989→- **Search:** `grep -rn &quot;self\.meta\.name.*container\|container_name.*=.*self\.app\.name&quot; --include=&quot;*.py&quot;`
+   990→- **Bug:** Assuming container name equals charm name
+   991→- **False positive:** When they genuinely match
+   992→- **Fix:** Read from `self.meta.containers` dynamically
+   993→
+   994→#### AP-010: Missing ChangeError Handling on Restart
+   995→- **Search:** `grep -rn &quot;container\.restart(&quot; --include=&quot;*.py&quot; | grep -v &quot;except.*ChangeError&quot;`
+   996→- **Bug:** Unhandled ChangeError (e.g., HTTP 429) crashes the charm
+   997→- **False positive:** When wrapped in try/except
+   998→- **Fix:** `try: container.restart(...) except ChangeError as e: ...`
+   999→
+  1000→### 7.3. Relations and Events
+  1001→
+  1002→#### AP-011: relation-departed vs relation-broken
+  1003→- **Search:** `grep -rn &quot;relation_departed&quot; --include=&quot;*.py&quot; | grep -v test`
+  1004→- **Bug:** Using departed for cleanup that should happen on broken
+  1005→- **False positive:** When departed is intentionally used (e.g., scaling logic)
+  1006→- **Fix:** Use `relation_broken` for full relation teardown cleanup
+  1007→
+  1008→#### AP-012: Missing relation-broken Handler
+  1009→- **Search:** Compare `grep -rn &quot;relation_joined\|relation_changed&quot; --include=&quot;*.py&quot;` against `grep -rn &quot;relation_broken&quot; --include=&quot;*.py&quot;` for each relation</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-01-618Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-01-618Z" class="timestamp-link"><time datetime="2026-03-16T08:30:01.618Z" data-timestamp="2026-03-16T08:30:01.618Z">2026-03-16T08:30:01.618Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now let me also read the SKILL.md to find where AP-005 is referenced there.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-01-920Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-01-920Z" class="timestamp-link"><time datetime="2026-03-16T08:30:01.920Z" data-timestamp="2026-03-16T08:30:01.920Z">2026-03-16T08:30:01.920Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01KPX89UkyLvoxK7GeeLrDWi"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md&#34;
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-01-938Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-01-938Z" class="timestamp-link"><time datetime="2026-03-16T08:30:01.938Z" data-timestamp="2026-03-16T08:30:01.938Z">2026-03-16T08:30:01.938Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→---
+     2→name: charm-find-bugs
+     3→description: Find bugs in Juju charm operator repositories. Use when asked to &quot;find bugs&quot;, &quot;audit code&quot;, &quot;review for bugs&quot;, &quot;check for issues&quot;, &quot;security review&quot;, or review Python code in any Juju charm. Specialized for charm-specific bug patterns including Pebble container management, relation data handling, TLS certificate lifecycle, status management, config handling, ingress/networking, Grafana dashboard wiring, and Juju interaction. Built from analysis of 6,116 historical bug fixes across 134 charm repositories spanning 10 teams (Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, BootStack, Charm-Tech).
+     4→---
+     5→
+     6→# Charm Bug Finder
+     7→
+     8→Find bugs in Juju charm codebases using domain-specific knowledge from 6,116 historical bug fixes across 134 repositories.
+     9→
+    10→## Scope
+    11→
+    12→Report on: only the files or diff the user specifies.
+    13→Research: the entire codebase to build confidence before reporting.
+    14→
+    15→Do not report issues based solely on pattern matching. Investigate data flow and confirm the bug is real before reporting.
+    16→
+    17→## Step 1: Determine review scope
+    18→
+    19→Identify what code areas are being reviewed and load the relevant reference sections:
+    20→
+    21→| Code Area | Indicators | Reference Section |
+    22→|-----------|-----------|-------------------|
+    23→| Pebble / containers | `Container`, `Layer`, `can_connect`, `replan`, `push`, `pull`, `exec` | `references/bug-patterns.md` -- Pebble |
+    24→| Relation data | `relation_get`, `relation_set`, `RelationData`, `relation_joined`, `relation_changed`, `relation_broken` | `references/bug-patterns.md` -- Relations |
+    25→| TLS / certificates | `tls`, `certificate`, `csr`, `ca_chain`, `private_key`, `x509` | `references/bug-patterns.md` -- TLS |
+    26→| Config handling | `self.config`, `config_changed`, `config.yaml` | `references/bug-patterns.md` -- Configuration |
+    27→| Status management | `ActiveStatus`, `BlockedStatus`, `WaitingStatus`, `MaintenanceStatus`, `collect_unit_status` | `references/bug-patterns.md` -- Status |
+    28→| Ingress / networking | `ingress`, `traefik`, `nginx`, `external_url`, `proxy` | `references/bug-patterns.md` -- Ingress |
+    29→| Grafana / observability | dashboard JSON, `datasource`, `prometheusds`, alert rules, `scrape_jobs` | `references/bug-patterns.md` -- Observability |
+    30→| Database interaction | connection strings, `postgresql`, `mysql`, `mongodb`, `kafka`, `dsn` | `references/bug-patterns.md` -- Database |
+    31→| Auth / identity | `oauth`, `oidc`, `saml`, `ldap`, `credentials`, `password`, `token` | `references/bug-patterns.md` -- Auth |
+    32→| Upgrade / migration | `upgrade`, `rollback`, `pre-upgrade-check` | `references/bug-patterns.md` -- Upgrade |
+    33→| Juju interaction | `model.`, `unit.`, `app.`, `leader`, `peer`, secrets, actions | `references/bug-patterns.md` -- Juju |
+    34→| Broad review / full audit | Multiple areas or unspecified | Read full `references/bug-patterns.md` |
+    35→
+    36→Always read `references/anti-patterns.md` for concrete code patterns to search for.
+    37→
+    38→## Step 2: Search for known bug patterns
+    39→
+    40→For each relevant code area, search the codebase for the anti-patterns listed in `references/anti-patterns.md`. Use Grep with the provided search patterns.
+    41→
+    42→For each match:
+    43→1. Read surrounding context (at least 20 lines around the match).
+    44→2. Trace data flow to determine if the pattern is actually buggy.
+    45→3. Check if there is an existing fix, test, or guard.
+    46→4. Only report if the bug is confirmed after investigation.
+    47→
+    48→## Step 3: Hunt for novel bugs
+    49→
+    50→After searching for known patterns, actively look for new bugs:
+    51→
+    52→1. **Read each file in scope end-to-end** -- do not rely solely on grep matches.
+    53→2. **Trace data through call chains**: pick 3-5 public API methods and trace inputs from caller to callee. Look for:
+    54→   - Assumptions about input types that callers can violate
+    55→   - Missing validation at API boundaries
+    56→   - State changes not rolled back on error
+    57→3. **Compare parallel implementations**: for operations with both K8s and VM variants, or with multiple relation providers, diff the logic side by side. Divergences are likely bugs.
+    58→4. **Check recent commits** (`git log --oneline -20 -- &lt;file&gt;`): recently changed code is more likely to contain bugs.
+    59→5. **Look for incomplete fixes**: when a bug was fixed in one place, search for the same pattern in analogous code. Charms commonly share patterns across handlers -- a fix in `_on_config_changed` may be missing from `_on_upgrade_charm`.
+    60→
+    61→## Step 4: Check cross-cutting concerns
+    62→
+    63→Always check these regardless of code area:
+    64→
+    65→1. **Pebble readiness**: Are `container.push()`, `container.restart()`, `container.replan()`, or `container.exec()` calls guarded by `container.can_connect()`?
+    66→2. **Truthiness vs explicit comparison**: Are `if value` or `if not value` checks used where `value is not None` is needed? Especially for config values that can be 0, empty string, or False.
+    67→3. **None guards on relation data**: Are relation data values checked for None before access? Check `model.get_relation()` return values. Note: `event.relation.app` and `relation.app` are always non-None in modern ops -- do NOT flag missing None guards on `.app`.
+    68→4. **Leader guards**: Are leader-only operations (app relation data writes, peer data writes) guarded by `self.unit.is_leader()`?
+    69→5. **Missing relation-broken handler**: If `relation_joined`/`relation_changed` is handled, is there a corresponding `relation_broken` handler for cleanup? Also check if the handler is *registered* with `framework.observe()` -- dead code handlers are a common bug.
+    70→6. **Status coherence**: Does every exit path from event handlers set an appropriate status? Are unit and app statuses consistent (not contradicting each other with Blocked vs Waiting for the same condition)?
+    71→7. **Credential exposure**: Are passwords, tokens, or secrets logged, written to world-readable files, or passed as CLI arguments?
+    72→8. **Operator precedence in ternary expressions**: Are `or ... if ... else` expressions on a single line missing parentheses? `value or 443 if tls else 80` parses as `(value or 443) if tls else 80`, not `value or (443 if tls else 80)`.
+    73→9. **URL construction**: Are URLs built with string concatenation instead of `urllib.parse.urljoin`? Does `urljoin` lose path segments?
+    74→10. **f-string omission**: Are format strings missing the `f` prefix, producing literal `{variable}` in output? Also check for shell-style `$VAR` mixed with Python f-strings.
+    75→11. **Missing return after event.fail()**: Do action handlers `return` after calling `event.fail()`? Falling through executes the success path.
+    76→12. **next() without default**: Are `next()` calls on generators over relation data, config, or parsed output protected with a default value? Unprotected `next()` raises `StopIteration`.
+    77→13. **Non-string Pebble environment values**: Are Python `bool` or `int` values used directly in Pebble environment dicts? Pebble expects all values to be strings.
+    78→14. **exec() without wait()**: Are `container.exec()` return values discarded without calling `.wait()` or `.wait_output()`? The command runs asynchronously and may race with subsequent file operations.
+    79→15. **Status set by helper overwritten by caller**: Do helper methods set `BlockedStatus` or `WaitingStatus` and return, only for the calling `_update()` method to overwrite the status and continue processing?
+    80→16. **Wrong config key name**: Do `self.config.get()` or `self.config[]` calls use key names that don&#x27;t match `config.yaml` / `charmcraft.yaml`? `.get()` silently returns None for nonexistent keys, bypassing validation.
+    81→17. **Inverted boolean condition**: Do boolean checks (`if flag is False:`, `if not flag:`) match their associated log messages and actions? Inverted conditions produce warnings when the safe path is taken and silence when the dangerous path is taken.
+    82→18. **String comparison of numeric relation data**: Are counter/sequence values from relation data compared with `&gt;` / `&lt;` without `int()` conversion? All relation data is strings, so `&quot;9&quot; &gt; &quot;10&quot;` is True lexicographically.
+    83→19. **None in f-string URL construction**: Do f-strings like `f&quot;{self.external_url}/path&quot;` use properties that can return `None`? This produces `&quot;None/path&quot;` -- a valid-looking but broken URL.
+    84→20. **Action handler missing event.fail()**: Do action error paths only `logger.error()` without calling `event.fail()`? The action silently succeeds with empty results.
+    85→21. **os.path.join for URLs**: Is `os.path.join()` used to construct URLs? It works on Linux by coincidence but is semantically wrong and breaks if the second arg starts with `/`.
+    86→22. **lstrip/rstrip as removeprefix/removesuffix**: Are `lstrip()` or `rstrip()` called with multi-character strings to strip path prefixes or suffixes? `lstrip(&quot;s3://bucket/&quot;)` removes individual characters, not the prefix string.
+    87→23. **Missing initialisation guard in early-lifecycle handlers**: Do `leader_elected`, `relation_created`, or `relation_joined` handlers call workload methods without checking that the workload/cluster is fully initialised?
+    88→24. **Config-derived relation data not re-sent on config_changed**: Are relation data providers that set data from config values also called from `_on_config_changed`? Config changes may silently leave related apps with stale data.
+    89→25. **Exception messages leaking credentials**: Does `logger.exception()` or `exc_info=` log tracebacks from external tool calls that may contain credentials in command lines or connection strings?
+    90→
+    91→## Step 5: Verify each finding
+    92→
+    93→For each potential bug:
+    94→- Confirm the input is actually reachable (trace callers).
+    95→- Check if another code path already handles the case.
+    96→- Search for existing tests that cover the scenario.
+    97→- Check git blame to see if the code was recently changed.
+    98→- Look for comments or documentation explaining the design choice.
+    99→
+   100→## Step 6: Report findings
+   101→
+   102→### Severity classification
+   103→
+   104→| Severity | Criteria | Examples |
+   105→|----------|----------|----------|
+   106→| **Critical** | Security issue or data corruption | Credential leak, world-readable credential files, TLS bypass, data loss |
+   107→| **High** | Runtime crash or silent wrong behavior | Unhandled exception crashing charm, missing leader guard causing split-brain, stale TLS flags |
+   108→| **Medium** | Edge case, config error, or operational issue | Truthiness check on rare zero value, unnecessary restarts, missing relation-broken handler |
+   109→| **Low** | Code quality or unlikely edge case | Missing f-string prefix in debug log, container name assumption, cosmetic status message |
+   110→
+   111→### Output format
+   112→
+   113→```markdown
+   114→## Bug Review: [Scope Description]
+   115→
+   116→### Summary
+   117→- **Findings**: X (Y Critical, Z High, ...)
+   118→- **Code areas reviewed**: [list]
+   119→- **Charm name**: [name]
+   120→
+   121→### Findings
+   122→
+   123→#### [BUG-001] [Category] -- [Brief description] (Severity)
+   124→- **Location**: `file.py:123`
+   125→- **Pattern**: [Which known pattern this matches, or &quot;novel&quot;]
+   126→- **Issue**: [What the bug is]
+   127→- **Impact**: [What goes wrong at runtime]
+   128→- **Evidence**:
+   129→  ```python
+   130→  [Buggy code snippet]
+   131→  ```
+   132→- **Recommended fix**:
+   133→  ```python
+   134→  [Fixed code snippet]
+   135→  ```
+   136→- **Historical precedent**: [Similar bugs found in other charms, if applicable]
+   137→
+   138→### Confirmed Safe
+   139→[Patterns that looked suspicious but were verified as correct]
+   140→```
+   141→
+   142→### False-positive controls
+   143→
+   144→Do NOT flag:
+   145→- Pebble operations inside `try/except (ConnectionError, ChangeError)`
+   146→- `if value` checks where the value genuinely cannot be 0, empty string, or False
+   147→- `event.relation.app` or `relation.app` without None guard -- modern ops guarantees non-None
+   148→- Status-setting code that is part of a `collect_unit_status` handler (reconciles all subsystems)
+   149→- Config values with explicit type declarations in `config.yaml` that match code usage
+   150→- `container.replan()` without preceding plan comparison -- Pebble only restarts services when the plan has actually changed; charm-side comparison is unnecessary
+   151→- Dashboard JSON from upstream projects that uses non-COS conventions intentionally
+   152→- `container.exec()` on the workload binary crashing the hook -- it is acceptable to expect the workload is running
+   153→
+   154→### Known false-positive patterns
+   155→
+   156→| Pattern | Why it&#x27;s safe |
+   157→|---------|--------------|
+   158→| `if not self.unit.is_leader(): return` at handler start | Correct leader guard |
+   159→| `container.can_connect()` check before Pebble ops | Correct readiness guard |
+   160→| `self.model.get_relation(name)` returning None, checked | Correct None guard |
+   161→| `event.relation.data[self.app]` in leader-guarded block | Leader verified, app data access is safe |
+   162→| `try: container.restart(...) except ChangeError` | Handles Pebble restart failures |
+   163→| Config `.get()` with explicit default value | Default prevents None issues |
+   164→| `relation_broken` handler that only sets BlockedStatus | Minimal but correct cleanup |
+   165→| `container.exec()` called from action handler that checks `can_connect()` at entry | Guard is in the caller |
+   166→| `if self.config[&quot;string_field&quot;]` truthiness check | Valid when field is type: string and empty means &quot;not configured&quot; |
+   167→| `except Exception` in best-effort existence checks (e.g., `is_created()`) | Intentional broad catch for resilience |
+   168→| `collect_unit_status` handler reconciling statuses from multiple subsystems | Centralized status is the correct pattern |
+   169→| Library method with internal leader guard called without caller guard | Guard is in the library |
+   170→| `datetime.utcnow()` paired with naive-UTC `not_valid_after` | Both are naive UTC, subtraction is consistent |
+   171→| `shell=True` with internally generated inputs (no user data flows in) | No injection risk when inputs are controlled |
+   172→| Passwords in `keytool`/`openssl` CLI args inside containers with `mask_sensitive_information()` in logging | Mitigated by short command lifetime and log masking |
+   173→| `exec()` without `wait()` for read-only / diagnostic commands (e.g., `cat`, `ls`) | No side effects to race with |
+   174→| `VaultClient(ca_cert_path=None)` in remove handlers | TLS certs may be unavailable during removal; intentional |
+   175→| Test helper code (in `tests/`) with type mismatches or missing guards | Test code has different reliability requirements |
+   176→| `event.relation.app` or `relation.app` accessed without None guard | Modern ops guarantees `.app` is always non-None, even during relation teardown |
+   177→| `container.replan()` without preceding plan comparison | Pebble internally compares plans and only restarts when something has changed |
+   178→| `container.exec([&quot;workload-binary&quot;, ...])` without ExecError handling | Acceptable to let the hook crash if the workload is expected to be running |
+   179→| `@cached_property` on charm instance attributes | Ops creates a fresh charm instance per hook invocation, so the cache never persists across events |
+   180→| Short busy-wait loops waiting for external resources (e.g. ingress IP, K8s readiness) | Juju lacks built-in retry/backoff for non-event-driven waiting; loops under ~100s are acceptable |
+   181→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-09-353Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-09-353Z" class="timestamp-link"><time datetime="2026-03-16T08:30:09.353Z" data-timestamp="2026-03-16T08:30:09.353Z">2026-03-16T08:30:09.353Z</time></a></div><div class="message-content">
+<div class="thinking"><div class="thinking-label">Thinking</div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-09-922Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-09-922Z" class="timestamp-link"><time datetime="2026-03-16T08:30:09.922Z" data-timestamp="2026-03-16T08:30:09.922Z">2026-03-16T08:30:09.922Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me also check the bug-patterns reference file.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-13-750Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-13-750Z" class="timestamp-link"><time datetime="2026-03-16T08:30:13.750Z" data-timestamp="2026-03-16T08:30:13.750Z">2026-03-16T08:30:13.750Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01NiZsNPqG7ymandnpgM1iHn"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;non-string|Non-string|environment.*string|AP-005|Pebble expects string&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/bug-patterns.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;-C&#34;: 5
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-13-767Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-13-767Z" class="timestamp-link"><time datetime="2026-03-16T08:30:13.767Z" data-timestamp="2026-03-16T08:30:13.767Z">2026-03-16T08:30:13.767Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>106-except ChangeError as e:
+107-    logger.warning(&quot;Failed to restart: %s&quot;, e)
+108-    event.defer()
+109-```
+110-
+111:### None or non-string values in Pebble environment dicts
+112-
+113:Pebble rejects None values and may mishandle non-string values in service environment dictionaries. Python `bool` values become `&quot;True&quot;`/`&quot;False&quot;` (capital) which may not match what Go expects (`&quot;true&quot;`/`&quot;false&quot;` lowercase).
+114-
+115-**Before (buggy):**
+116-```python
+117-env = {
+118-    &quot;DB_HOST&quot;: self._get_db_host(),  # May return None</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-19-491Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-19-491Z" class="timestamp-link"><time datetime="2026-03-16T08:30:19.491Z" data-timestamp="2026-03-16T08:30:19.491Z">2026-03-16T08:30:19.491Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01JEaJnFpDijZ7dGkfr5jZxL"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/bug-patterns.md&#34;,
+  &#34;offset&#34;: 111,
+  &#34;limit&#34;: 30
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-19-499Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-19-499Z" class="timestamp-link"><time datetime="2026-03-16T08:30:19.499Z" data-timestamp="2026-03-16T08:30:19.499Z">2026-03-16T08:30:19.499Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   111→### None or non-string values in Pebble environment dicts
+   112→
+   113→Pebble rejects None values and may mishandle non-string values in service environment dictionaries. Python `bool` values become `&quot;True&quot;`/`&quot;False&quot;` (capital) which may not match what Go expects (`&quot;true&quot;`/`&quot;false&quot;` lowercase).
+   114→
+   115→**Before (buggy):**
+   116→```python
+   117→env = {
+   118→    &quot;DB_HOST&quot;: self._get_db_host(),  # May return None
+   119→    &quot;TRACING_ENABLED&quot;: True,  # Python bool, becomes &quot;True&quot; not &quot;true&quot;
+   120→}
+   121→layer = Layer({&quot;services&quot;: {&quot;app&quot;: {&quot;environment&quot;: env}}})
+   122→```
+   123→
+   124→**After (fixed):**
+   125→```python
+   126→env = {k: v for k, v in {
+   127→    &quot;DB_HOST&quot;: self._get_db_host(),
+   128→    &quot;TRACING_ENABLED&quot;: &quot;true&quot;,  # Explicit lowercase string
+   129→}.items() if v is not None}
+   130→```
+   131→
+   132→**Repos affected:** hydra-operator (bool in env dict), many SD-Core charms (None from _get_pod_ip()).
+   133→
+   134→---
+   135→
+   136→## Relations and Events
+   137→
+   138→59 fixes across 39 repos. 4 high severity.
+   139→
+   140→### relation_departed vs relation_broken confusion</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-25-823Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-25-823Z" class="timestamp-link"><time datetime="2026-03-16T08:30:25.823Z" data-timestamp="2026-03-16T08:30:25.823Z">2026-03-16T08:30:25.823Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now I have a complete picture. Let me make all the edits. There are several places to update:</p>
+<ol>
+<li><strong>Skill <code>anti-patterns.md</code></strong> — AP-005 description (both the skill reference copy and the CROSS_REPO_PATTERNS.md copy)</li>
+<li><strong>Skill <code>bug-patterns.md</code></strong> — the narrative description</li>
+<li><strong>Skill <code>SKILL.md</code></strong> — cross-cutting concern #13</li>
+<li><strong><code>CROSS_REPO_PATTERNS.md</code></strong> — AP-005</li>
+<li><strong><code>WRITEUP.md</code></strong> — add a note about the pebble research</li>
+<li><strong><code>README.md</code></strong> — update the table entry</li>
+</ol>
+<p>Let me make all the edits now.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-36-450Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-36-450Z" class="timestamp-link"><time datetime="2026-03-16T08:30:36.450Z" data-timestamp="2026-03-16T08:30:36.450Z">2026-03-16T08:30:36.450Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01CW6zAQ1PSdBZcGKhCs7rzU">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">anti-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">### AP-005: None or non-string values in environment dicts
+- **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
+- **Bug:** `{key: value}` where value can be None or is a Python bool/int causes Pebble to reject the layer or produce wrong values. `True` becomes `&#34;True&#34;` (capital T) which may not match what Go/shell expects.
+- **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
+- **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `&#34;true&#34;` / `&#34;false&#34;`</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">### AP-005: None or non-string values in environment dicts
+- **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
+- **Bug:** `{key: value}` where value can be None or is a Python bool/int. None values cause Pebble to reject the layer. Non-string values (int, bool) are silently coerced to strings by Pebble&#39;s Go YAML decoder (see [pebble-non-string-env.md](../../../../pebble-non-string-env.md)), so they do not cause runtime errors. However, Python `True` becomes `&#34;True&#34;` (capital T) via `yaml.safe_dump`, which may not match what Go/shell expects (`&#34;true&#34;` lowercase). This is a type correctness issue that static type checking (pyright/mypy) will flag, since `ServiceDict` declares `environment: dict[str, str]`.
+- **Severity:** Low for int values (coerced correctly), Medium for bool values (capitalisation mismatch risk), High for None values (layer rejection).
+- **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
+- **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `&#34;true&#34;` / `&#34;false&#34;`</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-36-454Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-36-454Z" class="timestamp-link"><time datetime="2026-03-16T08:30:36.454Z" data-timestamp="2026-03-16T08:30:36.454Z">2026-03-16T08:30:36.454Z</time></a></div><div class="message-content"><div class="tool-result tool-error"><div class="truncatable"><div class="truncatable-content"><pre>&lt;tool_use_error&gt;File has not been read yet. Read it first before writing to it.&lt;/tool_use_error&gt;</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-41-847Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-41-847Z" class="timestamp-link"><time datetime="2026-03-16T08:30:41.847Z" data-timestamp="2026-03-16T08:30:41.847Z">2026-03-16T08:30:41.847Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01PHEGtU1uqD5XLpsZFgF39n">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">bug-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/bug-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">Pebble rejects None values and may mishandle non-string values in service environment dictionaries. Python `bool` values become `&#34;True&#34;`/`&#34;False&#34;` (capital) which may not match what Go expects (`&#34;true&#34;`/`&#34;false&#34;` lowercase).</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">Pebble rejects None values in service environment dictionaries. Non-string values (int, bool) are silently coerced to strings by Pebble&#39;s Go YAML decoder — Go&#39;s `yaml.v3` uses the raw YAML text (`n.Value`) when unmarshalling into a `string` target, so `8000` becomes `&#34;8000&#34;` and `true` becomes `&#34;true&#34;` without error (see [pebble-non-string-env.md](../../../../pebble-non-string-env.md)). This means non-string values do not cause runtime failures, but they are still incorrect: Python `bool` values become `&#34;True&#34;`/`&#34;False&#34;` (capital, via `yaml.safe_dump`) which may not match what Go expects (`&#34;true&#34;`/`&#34;false&#34;` lowercase), the `ServiceDict` TypedDict declares `environment: dict[str, str]` so static type checkers will flag these, and relying on implicit coercion is fragile.</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-41-883Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-41-883Z" class="timestamp-link"><time datetime="2026-03-16T08:30:41.883Z" data-timestamp="2026-03-16T08:30:41.883Z">2026-03-16T08:30:41.883Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/bug-patterns.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-44-735Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-44-735Z" class="timestamp-link"><time datetime="2026-03-16T08:30:44.735Z" data-timestamp="2026-03-16T08:30:44.735Z">2026-03-16T08:30:44.735Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_013TnoYN5fP1VHFs9UxsUNQA">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">SKILL.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">13. **Non-string Pebble environment values**: Are Python `bool` or `int` values used directly in Pebble environment dicts? Pebble expects all values to be strings.</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">13. **Non-string Pebble environment values**: Are Python `bool` or `int` values used directly in Pebble environment dicts? Pebble silently coerces non-string values to strings (the Go YAML decoder handles this), so this does not cause runtime errors. However, it is still a type correctness issue: `ServiceDict` declares `environment: dict[str, str]`, static type checkers will flag it, and Python `True` becomes `&#34;True&#34;` (capital T) which may not match Go/shell expectations of `&#34;true&#34;`. Flag as Low severity for int values, Medium for bools.</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-44-765Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-44-765Z" class="timestamp-link"><time datetime="2026-03-16T08:30:44.765Z" data-timestamp="2026-03-16T08:30:44.765Z">2026-03-16T08:30:44.765Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/SKILL.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-51-548Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-51-548Z" class="timestamp-link"><time datetime="2026-03-16T08:30:51.548Z" data-timestamp="2026-03-16T08:30:51.548Z">2026-03-16T08:30:51.548Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_017avajE2kLL5H4A95FgXYwj"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md&#34;,
+  &#34;limit&#34;: 55
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-51-562Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-51-562Z" class="timestamp-link"><time datetime="2026-03-16T08:30:51.562Z" data-timestamp="2026-03-16T08:30:51.562Z">2026-03-16T08:30:51.562Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>     1→# Charm Anti-Patterns: Searchable Patterns
+     2→
+     3→Concrete grep patterns to find bugs in charm code. For each pattern: what to search for, how to distinguish bugs from false positives, and the correct fix.
+     4→
+     5→## Contents
+     6→- Configuration and Types (AP-001 to AP-005)
+     7→- Pebble and Container Management (AP-006 to AP-010)
+     8→- Relations and Events (AP-011 to AP-015)
+     9→- TLS and Security (AP-016 to AP-021)
+    10→- Grafana and Observability (AP-022 to AP-025)
+    11→- URL and Network (AP-026 to AP-028)
+    12→- Status Management (AP-029 to AP-032)
+    13→- Database (AP-033 to AP-035)
+    14→- Error Handling (AP-036 to AP-039, AP-044 to AP-046)
+    15→- Build and Packaging (AP-040 to AP-043)
+    16→- Logic and Data Flow (AP-048 to AP-069)
+    17→
+    18→---
+    19→
+    20→## Configuration and Types
+    21→
+    22→### AP-001: Truthiness check on config values
+    23→- **Search:** `if self\.config\[` or `if self\.config\.get\(`
+    24→- **Bug:** `if self.config[&#x27;port&#x27;]:` treats port 0 as &quot;not set&quot;
+    25→- **False positive:** When the value genuinely cannot be 0, empty, or False (e.g., required name field)
+    26→- **Fix:** `if self.config[&#x27;port&#x27;] is not None:`
+    27→
+    28→### AP-002: Missing f-string prefix
+    29→- **Search:** Look for strings containing `{self.` or `{event.` or `{model.` without `f` prefix
+    30→- **Bug:** `&#x27;value={self.name}&#x27;` produces literal text
+    31→- **False positive:** Regex patterns, `.format()` strings, log format strings with `%s`
+    32→- **Fix:** Add `f` prefix: `f&#x27;value={self.name}&#x27;`
+    33→
+    34→### AP-003: Boolean from environment variable
+    35→- **Search:** `bool(os.getenv` or `bool(os.environ`
+    36→- **Bug:** `bool(os.getenv(&#x27;FLAG&#x27;, &#x27;&#x27;))` returns True for &quot;false&quot;, &quot;0&quot;, &quot;no&quot;
+    37→- **False positive:** None
+    38→- **Fix:** `os.getenv(&#x27;FLAG&#x27;, &#x27;&#x27;).lower() in (&#x27;true&#x27;, &#x27;1&#x27;, &#x27;yes&#x27;)`
+    39→
+    40→### AP-004: Config type mismatch
+    41→- **Search:** Compare `config.yaml` type declarations with usage in `src/charm.py`
+    42→- **Bug:** Config declared as `string` but `int()` cast missing in code, or declared as `int` but compared as string
+    43→- **False positive:** When type is correctly matched
+    44→- **Fix:** Ensure `config.yaml` type matches code usage; add explicit casts
+    45→
+    46→### AP-005: None or non-string values in environment dicts
+    47→- **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
+    48→- **Bug:** `{key: value}` where value can be None or is a Python bool/int causes Pebble to reject the layer or produce wrong values. `True` becomes `&quot;True&quot;` (capital T) which may not match what Go/shell expects.
+    49→- **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
+    50→- **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `&quot;true&quot;` / `&quot;false&quot;`
+    51→
+    52→---
+    53→
+    54→## Pebble and Container Management
+    55→</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-30-58-854Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-30-58-854Z" class="timestamp-link"><time datetime="2026-03-16T08:30:58.854Z" data-timestamp="2026-03-16T08:30:58.854Z">2026-03-16T08:30:58.854Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_0136acnVG5TZPopC5J5rxbEJ">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">anti-patterns.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">### AP-005: None or non-string values in environment dicts
+- **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
+- **Bug:** `{key: value}` where value can be None or is a Python bool/int causes Pebble to reject the layer or produce wrong values. `True` becomes `&#34;True&#34;` (capital T) which may not match what Go/shell expects.
+- **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
+- **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `&#34;true&#34;` / `&#34;false&#34;`</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">### AP-005: None or non-string values in environment dicts
+- **Search:** `environment` in Layer definitions, trace dict values for possible None or non-string types (bool, int)
+- **Bug:** `{key: value}` where value can be None or is a Python bool/int. None values cause Pebble to reject the layer. Non-string values (int, bool) are silently coerced to strings by Pebble&#39;s Go YAML decoder (see [pebble-non-string-env.md](../../../../pebble-non-string-env.md)), so they do not cause runtime errors. However, Python `True` becomes `&#34;True&#34;` (capital T) via `yaml.safe_dump`, which may not match what Go/shell expects (`&#34;true&#34;` lowercase). This is a type correctness issue that static type checking (pyright/mypy) will flag, since `ServiceDict` declares `environment: dict[str, str]`.
+- **Severity:** Low for int values (coerced correctly), Medium for bool values (capitalisation mismatch risk), High for None values (layer rejection).
+- **False positive:** When None values are filtered with `if v is not None` and non-strings are explicitly cast
+- **Fix:** `{k: str(v) if v is not None else None for k, v in env.items() if v is not None}` or use lowercase string booleans: `&#34;true&#34;` / `&#34;false&#34;`</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-30-58-876Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-30-58-876Z" class="timestamp-link"><time datetime="2026-03-16T08:30:58.876Z" data-timestamp="2026-03-16T08:30:58.876Z">2026-03-16T08:30:58.876Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/references/anti-patterns.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-03-933Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-03-933Z" class="timestamp-link"><time datetime="2026-03-16T08:31:03.933Z" data-timestamp="2026-03-16T08:31:03.933Z">2026-03-16T08:31:03.933Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now update CROSS_REPO_PATTERNS.md AP-005:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-08-951Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-08-951Z" class="timestamp-link"><time datetime="2026-03-16T08:31:08.951Z" data-timestamp="2026-03-16T08:31:08.951Z">2026-03-16T08:31:08.951Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01U3bBGMNLJFfKHBJpGFMZTr">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">CROSS_REPO_PATTERNS.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">#### AP-005: None Values in Environment Dicts
+- **Search:** `grep -rn &#34;Dict\[str, Optional\[str\]\]&#34; --include=&#34;*.py&#34;`
+- **Bug:** `{key: value for key, value in data.items()}` passes None values to Pebble env
+- **False positive:** When None values are filtered before use
+- **Fix:** `{k: v for k, v in data.items() if v is not None}`</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">#### AP-005: None or Non-String Values in Environment Dicts
+- **Search:** `grep -rn &#34;Dict\[str, Optional\[str\]\]&#34; --include=&#34;*.py&#34;` and trace `environment` values in Layer definitions
+- **Bug:** `{key: value for key, value in data.items()}` passes None or non-string values to Pebble env. None values cause layer rejection. Non-string values (int, bool) are silently coerced to strings by Pebble&#39;s Go YAML decoder (see [pebble-non-string-env.md](pebble-non-string-env.md)), so they do not cause runtime errors. However, Python `True` becomes `&#34;True&#34;` (capital T) via `yaml.safe_dump`, which may not match Go/shell expectations (`&#34;true&#34;` lowercase). Static type checkers will flag this since `ServiceDict` declares `environment: dict[str, str]`.
+- **False positive:** When None values are filtered before use and non-strings are explicitly cast
+- **Fix:** `{k: str(v) for k, v in data.items() if v is not None}` or use explicit lowercase string booleans</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-08-982Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-08-982Z" class="timestamp-link"><time datetime="2026-03-16T08:31:08.982Z" data-timestamp="2026-03-16T08:31:08.982Z">2026-03-16T08:31:08.982Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-13-090Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-13-090Z" class="timestamp-link"><time datetime="2026-03-16T08:31:13.090Z" data-timestamp="2026-03-16T08:31:13.090Z">2026-03-16T08:31:13.090Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now update the WRITEUP.md — I'll add a note about the pebble research. Let me find a good spot, probably near the AP-005 mentions or at the end of the iteration section.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-14-309Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-14-309Z" class="timestamp-link"><time datetime="2026-03-16T08:31:14.309Z" data-timestamp="2026-03-16T08:31:14.309Z">2026-03-16T08:31:14.309Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_012HHMc5wt2m15KMNu99muiQ"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;AP-005.*non-string|non-string Pebble env&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-14-322Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-14-322Z" class="timestamp-link"><time datetime="2026-03-16T08:31:14.322Z" data-timestamp="2026-03-16T08:31:14.322Z">2026-03-16T08:31:14.322Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>288:- **AP-005 (non-string Pebble env)** continues to be the most pervasive pattern, found in 3 of 4 repos this round (postgresql-k8s LDAP port, indico multiple values, kratos boolean)
+327:- **AP-005 (non-string Pebble env)** found in 2/8 repos, confirming it as the most pervasive pattern
+390:| AP-005 (non-string Pebble env) | 14/41 | Most pervasive |</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-17-541Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-17-541Z" class="timestamp-link"><time datetime="2026-03-16T08:31:17.541Z" data-timestamp="2026-03-16T08:31:17.541Z">2026-03-16T08:31:17.541Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>I'll add a note after the pattern frequency table, which is the natural place to discuss the most pervasive pattern in more detail.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-18-385Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-18-385Z" class="timestamp-link"><time datetime="2026-03-16T08:31:18.385Z" data-timestamp="2026-03-16T08:31:18.385Z">2026-03-16T08:31:18.385Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01HYyExWQUPuzMKnnBzqjfMJ"><div class="tool-header"><span class="tool-icon">⚙</span> Read</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;file_path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md&#34;,
+  &#34;offset&#34;: 395,
+  &#34;limit&#34;: 15
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-18-391Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-18-391Z" class="timestamp-link"><time datetime="2026-03-16T08:31:18.391Z" data-timestamp="2026-03-16T08:31:18.391Z">2026-03-16T08:31:18.391Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>   395→| AP-018/020 (credential exposure) | 7/41 | Common |
+   396→| AP-045 (next without default) | 5/41 | Common |
+   397→| AP-050 (status overwritten by caller) | 4/41 | Common |
+   398→| AP-001 (truthiness on config) | 4/41 | Common |
+   399→| AP-054 (string comparison of counters) | 3/41 | Moderate |
+   400→| AP-055 (None in f-string URL) | 3/41 | Moderate |
+   401→| AP-057 (os.path.join for URLs) | 3/41 | Moderate |
+   402→
+   403→---
+   404→
+   405→## Review Tool
+   406→
+   407→To support the iterative validation workflow, a local review tool was built for triaging and tracking bug findings. The `charm-find-bugs` skill produces structured markdown reports (`skill_validation_*.md`), but reviewing dozens of findings across multiple rounds required more than reading files -- it needed filtering, status tracking, and a way to record reviewer judgements that could feed back into skill improvement.
+   408→
+   409→### What It Does</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-30-263Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-30-263Z" class="timestamp-link"><time datetime="2026-03-16T08:31:30.263Z" data-timestamp="2026-03-16T08:31:30.263Z">2026-03-16T08:31:30.263Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01HfitRMZsaaL2F2Ub6Pxdyh">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">WRITEUP.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">| AP-057 (os.path.join for URLs) | 3/41 | Moderate |
+
+---
+
+## Review Tool</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">| AP-057 (os.path.join for URLs) | 3/41 | Moderate |
+
+### Note on AP-005 (non-string Pebble environment values)
+
+AP-005 is the most pervasive pattern found, appearing in 14 of 41 validation repos. Follow-up research into how Pebble actually handles non-string environment values (documented in [pebble-non-string-env.md](pebble-non-string-env.md)) revealed that **non-string values do not cause runtime errors**. Pebble&#39;s Go YAML decoder (`gopkg.in/yaml.v3`) silently coerces non-string scalars to strings using the raw YAML text (`n.Value`), so `8000` becomes `&#34;8000&#34;` and `true` becomes `&#34;true&#34;` without error. None values still cause layer rejection.
+
+This means the severity of AP-005 for non-None cases is lower than originally assessed. It remains a legitimate finding because: (1) Python `bool` values become `&#34;True&#34;`/`&#34;False&#34;` (capital, via `yaml.safe_dump`) which may not match Go/shell expectations of `&#34;true&#34;`/`&#34;false&#34;`, (2) the `ServiceDict` TypedDict declares `environment: dict[str, str]` so static type checkers (pyright/mypy) will flag these, and (3) relying on implicit coercion is fragile. The skill has been updated to reflect the reduced severity — Low for int values, Medium for bools, High only for None values.
+
+---
+
+## Review Tool</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-30-297Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-30-297Z" class="timestamp-link"><time datetime="2026-03-16T08:31:30.297Z" data-timestamp="2026-03-16T08:31:30.297Z">2026-03-16T08:31:30.297Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/WRITEUP.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-33-212Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-33-212Z" class="timestamp-link"><time datetime="2026-03-16T08:31:33.212Z" data-timestamp="2026-03-16T08:31:33.212Z">2026-03-16T08:31:33.212Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now update the README.md table entry and add a link to the pebble write-up:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-35-164Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-35-164Z" class="timestamp-link"><time datetime="2026-03-16T08:31:35.164Z" data-timestamp="2026-03-16T08:31:35.164Z">2026-03-16T08:31:35.164Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_01Ho7JaRHiKPwwBg5vXpUgfQ">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">README.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/README.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">| Non-string Pebble env values | 14/41 | Pebble expects string environment variables |</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">| Non-string Pebble env values | 14/41 | Pebble environment dicts should contain only strings (see [research note](charming-analysis/pebble-non-string-env.md)) |</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-35-187Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-35-187Z" class="timestamp-link"><time datetime="2026-03-16T08:31:35.187Z" data-timestamp="2026-03-16T08:31:35.187Z">2026-03-16T08:31:35.187Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/README.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-42-293Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-42-293Z" class="timestamp-link"><time datetime="2026-03-16T08:31:42.293Z" data-timestamp="2026-03-16T08:31:42.293Z">2026-03-16T08:31:42.293Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now let me find the paragraph in the README that discusses this pattern in more detail and add a note there too:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-44-264Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-44-264Z" class="timestamp-link"><time datetime="2026-03-16T08:31:44.264Z" data-timestamp="2026-03-16T08:31:44.264Z">2026-03-16T08:31:44.264Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01UFxXUo7UaSCXVDuYaUaoPt"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;Pebble environment variables must be strings&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/README.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;-C&#34;: 3
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-44-283Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-44-283Z" class="timestamp-link"><time datetime="2026-03-16T08:31:44.283Z" data-timestamp="2026-03-16T08:31:44.283Z">2026-03-16T08:31:44.283Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>58-| Missing `relation_broken` handler | 5/41 | Cleanup logic defined but never wired up with `framework.observe()` |
+59-| Truthiness on config values | 4/41 | `if self.config[&#x27;key&#x27;]:` treats 0 as &quot;not configured&quot; |
+60-
+61:Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But &quot;Pebble environment variables must be strings&quot; or &quot;you need a `can_connect()` guard&quot; are things you only know from experience with the charm ecosystem. That&#x27;s the whole point of mining the history rather than starting from general principles.
+62-
+63-[Omitted long context line]
+64-</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-51-971Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-51-971Z" class="timestamp-link"><time datetime="2026-03-16T08:31:51.971Z" data-timestamp="2026-03-16T08:31:51.971Z">2026-03-16T08:31:51.971Z</time></a></div><div class="message-content"><div class="file-tool edit-tool" data-tool-id="toolu_0169sy2gM3bxm1L4kWaohYNP">
+<div class="file-tool-header edit-header"><span class="file-tool-icon">✏️</span> Edit <span class="file-tool-path">README.md</span></div>
+<div class="file-tool-fullpath">/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/README.md</div>
+<div class="truncatable"><div class="truncatable-content">
+<div class="edit-section edit-old"><div class="edit-label">−</div><pre class="edit-content">Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But &#34;Pebble environment variables must be strings&#34; or &#34;you need a `can_connect()` guard&#34; are things you only know from experience with the charm ecosystem. That&#39;s the whole point of mining the history rather than starting from general principles.</pre></div>
+<div class="edit-section edit-new"><div class="edit-label">+</div><pre class="edit-content">Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But &#34;Pebble environment variables should be strings&#34; or &#34;you need a `can_connect()` guard&#34; are things you only know from experience with the charm ecosystem. That&#39;s the whole point of mining the history rather than starting from general principles.
+
+(A note on the most pervasive pattern: [follow-up research](charming-analysis/pebble-non-string-env.md) into how Pebble actually handles non-string environment values revealed that Pebble&#39;s Go YAML decoder silently coerces them to strings, so non-string values don&#39;t cause runtime errors. It&#39;s still best practice to use explicit strings — Python `True` becomes `&#34;True&#34;` not `&#34;true&#34;`, and static type checkers flag it — but the severity is lower than originally assessed. The skill has been updated accordingly.)</pre></div>
+</div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-51-985Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-51-985Z" class="timestamp-link"><time datetime="2026-03-16T08:31:51.985Z" data-timestamp="2026-03-16T08:31:51.985Z">2026-03-16T08:31:51.985Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>The file /home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/README.md has been updated successfully.</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-57-406Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-57-406Z" class="timestamp-link"><time datetime="2026-03-16T08:31:57.406Z" data-timestamp="2026-03-16T08:31:57.406Z">2026-03-16T08:31:57.406Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Now let me also update the CROSS_REPO_PATTERNS.md AP-008 reference — actually, let me check whether it has the same outdated claim about AP-005 elsewhere.</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-31-59-122Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-31-59-122Z" class="timestamp-link"><time datetime="2026-03-16T08:31:59.122Z" data-timestamp="2026-03-16T08:31:59.122Z">2026-03-16T08:31:59.122Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01JjL3e172jNTqT1i9eXaSJU"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;Pebble expects string|Pebble rejects.*non-string|non-string.*runtime|causes Pebble to reject&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;-C&#34;: 3
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-31-59-140Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-31-59-140Z" class="timestamp-link"><time datetime="2026-03-16T08:31:59.140Z" data-timestamp="2026-03-16T08:31:59.140Z">2026-03-16T08:31:59.140Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>961-
+962-#### AP-005: None or Non-String Values in Environment Dicts
+963-- **Search:** `grep -rn &quot;Dict\[str, Optional\[str\]\]&quot; --include=&quot;*.py&quot;` and trace `environment` values in Layer definitions
+964:[Omitted long matching line]
+965-- **False positive:** When None values are filtered before use and non-strings are explicitly cast
+966-- **Fix:** `{k: str(v) for k, v in data.items() if v is not None}` or use explicit lowercase string booleans
+967-</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-04-386Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-04-386Z" class="timestamp-link"><time datetime="2026-03-16T08:32:04.386Z" data-timestamp="2026-03-16T08:32:04.386Z">2026-03-16T08:32:04.386Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Good, that's already updated. Let me check if there are references elsewhere in CROSS_REPO_PATTERNS.md to the old claim:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-05-465Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-05-465Z" class="timestamp-link"><time datetime="2026-03-16T08:32:05.465Z" data-timestamp="2026-03-16T08:32:05.465Z">2026-03-16T08:32:05.465Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01LTnC76ddipQH2YC9P3GVX9"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;Pebble expects string|non-string.*Pebble|Pebble.*non-string&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;-C&#34;: 2
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-32-05-482Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-32-05-482Z" class="timestamp-link"><time datetime="2026-03-16T08:32:05.482Z" data-timestamp="2026-03-16T08:32:05.482Z">2026-03-16T08:32:05.482Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>962-#### AP-005: None or Non-String Values in Environment Dicts
+963-- **Search:** `grep -rn &quot;Dict\[str, Optional\[str\]\]&quot; --include=&quot;*.py&quot;` and trace `environment` values in Layer definitions
+964:[Omitted long matching line]
+965-- **False positive:** When None values are filtered before use and non-strings are explicitly cast
+966-- **Fix:** `{k: str(v) for k, v in data.items() if v is not None}` or use explicit lowercase string booleans</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-08-412Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-08-412Z" class="timestamp-link"><time datetime="2026-03-16T08:32:08.412Z" data-timestamp="2026-03-16T08:32:08.412Z">2026-03-16T08:32:08.412Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me also check the main body of CROSS_REPO_PATTERNS.md for the Pebble patterns section:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-09-635Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-09-635Z" class="timestamp-link"><time datetime="2026-03-16T08:32:09.635Z" data-timestamp="2026-03-16T08:32:09.635Z">2026-03-16T08:32:09.635Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_01DWUR8KoEeYf3hZ9wfVoayp"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;non-string|Non-string|environment.*type&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;-C&#34;: 5
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-32-09-648Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-32-09-648Z" class="timestamp-link"><time datetime="2026-03-16T08:32:09.648Z" data-timestamp="2026-03-16T08:32:09.648Z">2026-03-16T08:32:09.648Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>959-- **False positive:** When type is correctly matched in config.yaml
+960-- **Fix:** Ensure config.yaml type matches code usage; add explicit casts
+961-
+962-#### AP-005: None or Non-String Values in Environment Dicts
+963-- **Search:** `grep -rn &quot;Dict\[str, Optional\[str\]\]&quot; --include=&quot;*.py&quot;` and trace `environment` values in Layer definitions
+964:[Omitted long matching line]
+965:- **False positive:** When None values are filtered before use and non-strings are explicitly cast
+966-- **Fix:** `{k: str(v) for k, v in data.items() if v is not None}` or use explicit lowercase string booleans
+967-
+968-### 7.2. Pebble and Container Management
+969-
+970-#### AP-006: Missing can_connect() Check</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-12-652Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-12-652Z" class="timestamp-link"><time datetime="2026-03-16T08:32:12.652Z" data-timestamp="2026-03-16T08:32:12.652Z">2026-03-16T08:32:12.652Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>Let me also check the narrative section earlier in CROSS_REPO_PATTERNS.md where Pebble patterns are discussed:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-13-872Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-13-872Z" class="timestamp-link"><time datetime="2026-03-16T08:32:13.872Z" data-timestamp="2026-03-16T08:32:13.872Z">2026-03-16T08:32:13.872Z</time></a></div><div class="message-content">
+<div class="tool-use" data-tool-id="toolu_012cgR3EF1g1KKhNH1uxuQME"><div class="tool-header"><span class="tool-icon">⚙</span> Grep</div><div class="truncatable"><div class="truncatable-content"><pre class="json">{
+  &#34;pattern&#34;: &#34;environment|env.*values|Pebble.*type&#34;,
+  &#34;path&#34;: &#34;/home/ubuntu/charming-with-claude/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/CROSS_REPO_PATTERNS.md&#34;,
+  &#34;output_mode&#34;: &#34;content&#34;,
+  &#34;-n&#34;: true,
+  &#34;head_limit&#34;: 20
+}</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-32-13-891Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-32-13-891Z" class="timestamp-link"><time datetime="2026-03-16T08:32:13.891Z" data-timestamp="2026-03-16T08:32:13.891Z">2026-03-16T08:32:13.891Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre>52:**Description:** Calls to external services, K8s APIs, Pebble containers, or Juju secrets lack adequate try/except blocks. The charm crashes or enters error state when the remote resource is unavailable, returns unexpected data, or raises an exception type not covered by the except clause.
+142:# String truthiness in environment check
+169:**Root cause:** Python&#x27;s truthiness semantics are a footgun for configuration values. Developers use idiomatic `if value:` checks without considering that 0, &quot;&quot;, and False are legitimate config values. String-encoded booleans from relation data and environment variables compound the problem.
+539:**Description:** Typos in string constants used as relation data keys, service names, K8s resource keys, environment variable names, or config property names. These are silent errors that only manifest at runtime when the wrong key is read/written.
+579:**Root cause:** String-keyed APIs provide no compile-time validation. Typos in dictionary keys, relation data fields, and environment variable names are only caught when the specific code path is exercised at runtime.
+665:plan.services[&quot;flask&quot;].environment.update({&quot;DB_URI&quot;: db_uri})
+673:service_dict[&quot;environment&quot;][&quot;DB_URI&quot;] = db_uri
+681:grep -rn &quot;plan\.services\[.*\]\.environment&quot; --include=&quot;*.py&quot;
+926:4. **Edge cases are persistent:** Edge-case fixes have been consistently high since 2022, reflecting the variety of deployment environments (VM vs K8s, with/without ingress, with/without TLS, etc.).
+963:- **Search:** `grep -rn &quot;Dict\[str, Optional\[str\]\]&quot; --include=&quot;*.py&quot;` and trace `environment` values in Layer definitions
+964:[Omitted long matching line]
+977:- **Search:** `grep -rn &quot;plan\.services\[.*\]\.environment&quot; --include=&quot;*.py&quot;`
+1172:- **Bug:** `charmcraft pack` fails in clean environment when Python packages need C/Rust compilation
+
+[Showing results with pagination = limit: 20, offset: 0]</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-18-066Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-18-066Z" class="timestamp-link"><time datetime="2026-03-16T08:32:18.066Z" data-timestamp="2026-03-16T08:32:18.066Z">2026-03-16T08:32:18.066Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>The main narrative sections in CROSS_REPO_PATTERNS.md don't have a dedicated section about non-string env values that needs updating — only the AP-005 entry which is already done.</p>
+<p>Let me verify all the edits look correct:</p></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-18-806Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-18-806Z" class="timestamp-link"><time datetime="2026-03-16T08:32:18.806Z" data-timestamp="2026-03-16T08:32:18.806Z">2026-03-16T08:32:18.806Z</time></a></div><div class="message-content">
+<div class="tool-use bash-tool" data-tool-id="toolu_01J3e191Ntsh6ufAJmsyPTpA">
+<div class="tool-header"><span class="tool-icon">$</span> Bash</div>
+<div class="tool-description">Check what files were modified</div><div class="truncatable"><div class="truncatable-content"><pre class="bash-command">git diff --stat</pre></div><button class="expand-btn">Show more</button></div>
+</div></div></div>
+<div class="message tool-reply" id="msg-2026-03-16T08-32-21-419Z"><div class="message-header"><span class="role-label">Tool reply</span><a href="#msg-2026-03-16T08-32-21-419Z" class="timestamp-link"><time datetime="2026-03-16T08:32:21.419Z" data-timestamp="2026-03-16T08:32:21.419Z">2026-03-16T08:32:21.419Z</time></a></div><div class="message-content"><div class="tool-result"><div class="truncatable"><div class="truncatable-content"><pre> .../2026-01-25-ops-upgrade/changes/index.md        |  51 ++++--
+ .../results/experiment-metadata.json               |  38 ++++-
+ .../skills/ops-upgrade/SKILL.md                    | 185 ++++++++++++++++++++-
+ .../README.md                                      |   6 +-
+ .../.claude/skills/charm-find-bugs/SKILL.md        |   2 +-
+ .../charm-find-bugs/references/anti-patterns.md    |   3 +-
+ .../charm-find-bugs/references/bug-patterns.md     |   2 +-
+ .../charming-analysis/CROSS_REPO_PATTERNS.md       |  10 +-
+ .../charming-analysis/WRITEUP.md                   |   6 +
+ 9 files changed, 270 insertions(+), 33 deletions(-)</pre></div><button class="expand-btn">Show more</button></div></div></div></div>
+<div class="message assistant" id="msg-2026-03-16T08-32-30-528Z"><div class="message-header"><span class="role-label">Assistant</span><a href="#msg-2026-03-16T08-32-30-528Z" class="timestamp-link"><time datetime="2026-03-16T08:32:30.528Z" data-timestamp="2026-03-16T08:32:30.528Z">2026-03-16T08:32:30.528Z</time></a></div><div class="message-content">
+<div class="assistant-text"><p>The right files are modified. Here's a summary of what was updated:</p>
+<ol>
+<li>
+<p><strong>Skill <code>references/anti-patterns.md</code></strong> (AP-005) — Updated to explain that non-string values are silently coerced by Pebble's Go YAML decoder, added severity breakdown (Low/Medium/High), linked to the research note.</p>
+</li>
+<li>
+<p><strong>Skill <code>references/bug-patterns.md</code></strong> — Updated the narrative description to explain the coercion mechanism and why it's still worth flagging.</p>
+</li>
+<li>
+<p><strong>Skill <code>SKILL.md</code></strong> (cross-cutting concern #13) — Updated to note that non-string values don't cause runtime errors, and to flag as Low/Medium severity rather than implying a hard failure.</p>
+</li>
+<li>
+<p><strong><code>charming-analysis/CROSS_REPO_PATTERNS.md</code></strong> (AP-005) — Same updates as the skill anti-patterns, with a relative link to the research note.</p>
+</li>
+<li>
+<p><strong><code>charming-analysis/WRITEUP.md</code></strong> — Added a "Note on AP-005" section after the pattern frequency table, explaining the research findings and the reduced severity.</p>
+</li>
+<li>
+<p><strong><code>README.md</code></strong> — Updated the table description to link to the research note, and added a parenthetical note in the discussion paragraph explaining the follow-up finding.</p>
+</li>
+</ol>
+<p>All links point to <code>pebble-non-string-env.md</code> with appropriate relative paths. The <code>charming-analysis/writeups/</code> folder was not touched.</p></div></div></div>
+<div class="message user" id="msg-2026-03-16T08-32-36-408Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-16T08-32-36-408Z" class="timestamp-link"><time datetime="2026-03-16T08:32:36.408Z" data-timestamp="2026-03-16T08:32:36.408Z">2026-03-16T08:32:36.408Z</time></a></div><div class="message-content">
+<div class="user-content"><p><local-command-caveat>Caveat: The messages below were generated by the user while running local commands. DO NOT respond to these messages or otherwise consider them in your response unless the user explicitly asks you to.</local-command-caveat></p></div></div></div>
+<div class="message user" id="msg-2026-03-16T08-32-36-407Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-16T08-32-36-407Z" class="timestamp-link"><time datetime="2026-03-16T08:32:36.407Z" data-timestamp="2026-03-16T08:32:36.407Z">2026-03-16T08:32:36.407Z</time></a></div><div class="message-content">
+<div class="user-content"><p><command-name>/exit</command-name>
+            <command-message>exit</command-message>
+            <command-args></command-args></p></div></div></div>
+<div class="message user" id="msg-2026-03-16T08-32-36-407Z"><div class="message-header"><span class="role-label">User</span><a href="#msg-2026-03-16T08-32-36-407Z" class="timestamp-link"><time datetime="2026-03-16T08:32:36.407Z" data-timestamp="2026-03-16T08:32:36.407Z">2026-03-16T08:32:36.407Z</time></a></div><div class="message-content">
+<div class="user-content"><p><local-command-stdout>Catch you later!</local-command-stdout></p></div></div></div>
+        
+
+<div class="pagination"><a href="index.html" class="index-link">Index</a></div>
+
+    </div>
+    <script>
+document.querySelectorAll('time[data-timestamp]').forEach(function(el) {
+    const timestamp = el.getAttribute('data-timestamp');
+    const date = new Date(timestamp);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    if (isToday) { el.textContent = timeStr; }
+    else { el.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + timeStr; }
+});
+document.querySelectorAll('pre.json').forEach(function(el) {
+    let text = el.textContent;
+    text = text.replace(/"([^"]+)":/g, '<span style="color: #ce93d8">"$1"</span>:');
+    text = text.replace(/: "([^"]*)"/g, ': <span style="color: #81d4fa">"$1"</span>');
+    text = text.replace(/: (\d+)/g, ': <span style="color: #ffcc80">$1</span>');
+    text = text.replace(/: (true|false|null)/g, ': <span style="color: #f48fb1">$1</span>');
+    el.innerHTML = text;
+});
+document.querySelectorAll('.truncatable').forEach(function(wrapper) {
+    const content = wrapper.querySelector('.truncatable-content');
+    const btn = wrapper.querySelector('.expand-btn');
+    if (content.scrollHeight > 250) {
+        wrapper.classList.add('truncated');
+        btn.addEventListener('click', function() {
+            if (wrapper.classList.contains('truncated')) { wrapper.classList.remove('truncated'); wrapper.classList.add('expanded'); btn.textContent = 'Show less'; }
+            else { wrapper.classList.remove('expanded'); wrapper.classList.add('truncated'); btn.textContent = 'Show more'; }
+        });
+    }
+});
+</script>
+</body>
+</html>
