@@ -6,6 +6,7 @@
 * [Copilot docs and a distribution system](https://github.com/canonical/copilot-collections).
 * [charmkeeper](https://github.com/seb4stien/charmkeeper/)
 * [orc](https://github.com/PietroPasotti/orc)
+* [JujuMate](https://abuelodelanada.github.io/jujumate/)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
 
 ## Read everything from
