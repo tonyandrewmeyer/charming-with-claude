@@ -1,6 +1,6 @@
-# Go Standards — Full Examples Catalog
+# Go Standards — Full Examples Catalogue
 
-Complete do/don't code examples for every rule in the Go standards skill.
+Illustrative do/don't code snippets for every rule in the Go standards skill. These are not always complete, runnable programs.
 
 ---
 
@@ -93,6 +93,7 @@ check := func(x any) any {
     if x == nil {
         panic("internal error: got nil!")
     }
+    return x
 }
 y := bar()
 z := x + check(baz())
@@ -112,15 +113,17 @@ func checkUrl(url string) error {
     if len(url) > 256 {
         return fmt.Errorf("url %q is too long", url)
     }
+    return nil
 }
 func checkRequest(url, username, password string) error {
     if err := checkUrl(url); err != nil {
         return fmt.Errorf("request invalid: %v", err)
     }
+    return nil
 }
 // Result: "foo setup failed: request invalid: url "ubuntu.com" does not use https"
 
-// ⚠️ Avoid: capitalized, verbose, redundant context
+// ⚠️ Avoid: capitalised, verbose, redundant context
 func checkUrl(url string) error {
     if !strings.HasPrefix(url, "https://") {
         return errors.New("The given url does not use https which is insecure")
@@ -160,7 +163,7 @@ func foo() error {
 // ✅ Foo/MustFoo pair + internal error prefix
 func Foo(name string) (string, error) {
     if len(name) > 10 {
-        return nil, fmt.Errorf("name too long (%d bytes)", len(name))
+        return "", fmt.Errorf("name too long (%d bytes)", len(name))
     }
     return fmt.Sprintf("%q", name), nil
 }
@@ -197,6 +200,7 @@ result, err := foo()
 if err != nil {
     return nil, err
 }
+loop:
 for {
     select {
     case msg := <-chan1:
@@ -204,7 +208,7 @@ for {
     case msg := <-chan2:
         onChan2Msg(msg)
     case <-done:
-        break
+        break loop
     }
 }
 
@@ -388,6 +392,7 @@ func measureExecution(fn func() error) (*executionStats, error) {
     if err := fn(); err != nil {
         return nil, err  // clear: no valid result
     }
+    return &executionStats{}, nil
 }
 
 // ⚠️ Avoid: value return with empty struct on error
