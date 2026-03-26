@@ -597,11 +597,11 @@ peers:
   friend:
     interface: life
     limit: 150
-    optional: true
     scope: container
 provides:
   self:
     interface: identity
+    optional: true
 requires:
   parent:
     interface: birth
@@ -616,7 +616,7 @@ requires:
 |---|---|---|---|
 | `interface` | **Required** | String | Interface name; cannot be `juju` or start with `juju-`; only `a-z` and `-` |
 | `limit` | Optional | Integer | Maximum number of connections |
-| `optional` | Optional | Boolean | Whether the relation is required; defaults to `false` |
+| `optional` | Optional | Boolean | Whether the relation is required; defaults to `false` but should **always** be explicitly included other than for peers |
 | `scope` | Optional | String | `global` (default) or `container`; subordinates need at least one `requires` with `container` scope |
 
 **Source:** charmcraft reference — "charmcraft.yaml file".
@@ -728,7 +728,7 @@ class MinimalCharm(ops.CharmBase):
         framework.observe(self.on.collect_unit_status, self._on_collect_status)
 
     def _on_collect_status(self, event: ops.CollectStatusEvent):
-        if not self.model.config.get('name'):
+        if not self.config.get('name'):
             event.add_status(ops.WaitingStatus('waiting for name config'))
             return
         event.add_status(ops.ActiveStatus())
@@ -767,7 +767,7 @@ config:
 ```
 
 **Scoring notes:**
-- Must use `CollectStatusEvent` pattern (modern) rather than direct `self.unit.status =` (legacy but still valid).
+- Should use `CollectStatusEvent` pattern (modern) rather than direct `self.unit.status =` (legacy but still valid).
 - Both approaches are acceptable, but `CollectStatusEvent` is current best practice.
 - Must have `containers` + `resources` for K8s charm.
 - Config option must be declared in `charmcraft.yaml`.
@@ -781,7 +781,7 @@ def _on_pebble_ready(self, event: ops.PebbleReadyEvent):
     container = event.workload
 
     # Get command from config
-    command = self.model.config.get('command', '/usr/bin/app')
+    command = self.config.get('command', '/usr/bin/app')
 
     # Get database connection details from relation
     env = {}
@@ -825,7 +825,7 @@ def _on_pebble_ready(self, event: ops.PebbleReadyEvent):
 - Must use `event.workload` to get the container.
 - Must use `add_layer` with a valid layer dict.
 - Must call `container.replan()` after adding the layer.
-- Must access config via `self.model.config`.
+- Must access config via `self.config` (best) or `self.model.config`.
 - Must access relation data via `relation.data[relation.app]`.
 - Health check must use `http` with a `url` field.
 - `override: replace` is important.
@@ -837,6 +837,8 @@ def _on_pebble_ready(self, event: ops.PebbleReadyEvent):
 ```python
 #!/usr/bin/env python3
 
+import socket
+
 import ops
 
 
@@ -844,7 +846,7 @@ class ProviderCharm(ops.CharmBase):
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
         framework.observe(
-            self.on.my_service_relation_joined,
+            self.on['my_service'].relation_joined,
             self._on_relation_joined,
         )
 
@@ -854,7 +856,6 @@ class ProviderCharm(ops.CharmBase):
         event.relation.data[self.unit]['endpoint'] = self._get_fqdn()
 
     def _get_fqdn(self) -> str:
-        import socket
         return socket.getfqdn()
 
 
@@ -871,7 +872,9 @@ provides:
 
 **Scoring notes:**
 - Must observe `relation_joined` (or `relation_changed`) — `relation_joined` is most appropriate for "when a remote app joins".
+- Observe using `self.on['endpoint-name'].relation_*` (best) or `self.on.endpoint_name_relation_*`
 - Must write to `event.relation.data[self.unit]` (unit databag) since the task says "the unit's FQDN" — this is per-unit data.
 - If writing app-level data, must check `self.unit.is_leader()` before writing to `event.relation.data[self.app]`.
 - Getting the FQDN via `socket.getfqdn()` or `socket.getfqdn(self.unit.name)` are both valid.
 - The `provides` endpoint must be declared in `charmcraft.yaml`.
+- All imports must be module level, not in methods (lazy).
