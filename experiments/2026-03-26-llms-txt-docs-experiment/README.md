@@ -391,25 +391,72 @@ Regardless of the main result, we'll learn:
 - ✅ Token usage is a first-class metric (markdown vs HTML efficiency)
 - ✅ Model dimension: Sonnet + Opus, with checkpoint after run 1
 
-## Next Steps
+## Running the Experiment
 
-1. **Review this plan** — align on any remaining questions
-2. **Fork setup** — ensure tonyandrewmeyer forks are up to date, record commit SHAs
-3. **Build enhanced docs** — install sphinx-llm, test with each repo, resolve any build issues
-4. **Set up infrastructure** — nginx, mkcert, /etc/hosts toggle script
-5. **Write gold-standard answers** — Q1–Q20 + S1–S3, sourced from actual current docs
-6. **Build the runner** — session runner, judge script, analysis script
-7. **Pilot run** — 2-3 questions × 4 conditions × 1 run to validate the setup
-8. **Full run** — all 276 sessions
-9. **Score and analyse** — automated + human spot-check
-10. **Write up results** — findings, recommendations, artefacts for the community
+### 1. Run sessions
 
-### Review Tooling
+```bash
+cd ~/charming-with-claude
 
-For the 33% human spot-check (~90 sessions to review), we may need a review tool that:
-- Presents the question, agent response, gold standard, and judge scores side by side
-- Lets the reviewer confirm or override each dimension score
-- Tracks inter-rater agreement (judge vs human)
-- Produces a calibration report
+# Full run (552 sessions, ~9-10 hours)
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/run_experiment.py
 
-This could be a simple CLI tool, a local web app, or a Jupyter notebook. Decision deferred until after the pilot run — the right tool depends on what the judge output looks like in practice.
+# Pilot run (subset)
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/run_experiment.py \
+    --runs 1 --questions Q1,Q5,Q10,Q17,S1 --models sonnet
+
+# Resume after interruption (skips existing results)
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/run_experiment.py --resume
+```
+
+### 2. Score with the judge
+
+```bash
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/score_responses.py
+
+# Resume (skip already-scored)
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/score_responses.py --resume
+```
+
+### 3. Human review (33% spot-check)
+
+```bash
+# Set up (one-time)
+uv venv /tmp/llms-experiment-venv
+source /tmp/llms-experiment-venv/bin/activate
+uv pip install textual
+
+# Review 33% random sample
+cd ~/charming-with-claude/experiments/2026-03-26-llms-txt-docs-experiment
+python scripts/review_tool.py
+
+# Resume where you left off
+python scripts/review_tool.py --resume
+
+# Filter by condition or model
+python scripts/review_tool.py --condition C
+python scripts/review_tool.py --model opus
+
+# Check judge/human agreement stats
+python scripts/review_tool.py --summary
+```
+
+**Review tool key bindings:**
+- **n / p** — next / previous item
+- **1-4** — cycle the score for that dimension (0→1→2→0)
+- **a** — accept all judge scores and advance (fast path when you agree)
+- **s** — save current review
+- **q** — quit
+
+The left panel shows the agent response with metadata (question ID, condition, model). The right panel shows the gold standard. Scores are at the bottom with `✓` for agreed and `✎` for overridden.
+
+### 4. Analyse results
+
+```bash
+# Print to stdout
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/analyse_results.py
+
+# Save to file
+python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/analyse_results.py \
+    --output results/analysis.md
+```
