@@ -1,0 +1,2408 @@
+diff --git a/.github/copilot-instructions.md b/.github/copilot-instructions.md
+new file mode 100644
+index 0000000..0644798
+--- /dev/null
++++ b/.github/copilot-instructions.md
+@@ -0,0 +1,175 @@
++# Skill: Adopt ops[tracing]
++
++Add first-party charm tracing via `ops[tracing]`, or migrate from the community `charm_tracing` library.
++
++## When to Use
++
++Use this when:
++- A charm uses the community `charm_tracing` / `charms.tempo_k8s.v2.tracing` library and should migrate to the first-party `ops[tracing]`.
++- A charm participates in the observability stack and should add tracing support.
++
++## Prerequisites
++
++- ops >= 2.21.0
++- The charm has (or should have) a `tracing` relation providing an OTLP endpoint (typically backed by Tempo)
++
++## Step 1: Assess Current State
++
++Determine which scenario applies:
++
++### Scenario A: Migrating from community `charm_tracing`
++
++Search for:
++- `from charms.tempo_k8s` imports
++- `charm_tracing` or `trace_charm` decorators
++- `TracingEndpointRequirer` or similar classes
++- Charm library files in `lib/charms/tempo_k8s/`
++
++### Scenario B: Adding tracing to a charm that doesn't have it
++
++Check:
++- Does the charm have a `tracing` relation in `charmcraft.yaml` / `metadata.yaml`? If not, one needs adding.
++- Is the charm in the observability ecosystem or would it benefit from tracing?
++
++## Step 2: Update Dependencies
++
++### Add ops[tracing]
++
++In `pyproject.toml`:
++```toml
++[project]
++dependencies = [
++    "ops[tracing]>=2.21",
++]
++```
++
++Or in `requirements.txt`:
++```
++ops[tracing]>=2.21
++```
++
++### Remove community library (Scenario A only)
++
++1. Delete the charm library files: `lib/charms/tempo_k8s/`
++2. Remove any `charmcraft fetch-lib` configuration for the tracing library
++3. Remove the library from `tox.ini` fetch commands if present
++
++## Step 3: Update charmcraft.yaml (if needed)
++
++Ensure the charm declares the tracing relation. The relation name must match what you pass to `ops.tracing.setup()`.
++
++```yaml
++requires:
++  tracing:
++    interface: tracing
++```
++
++If the charm already has this relation from the community library, no change is needed — just verify the relation name.
++
++## Step 4: Update the Charm Code
++
++### Scenario A: Migration from charm_tracing
++
++```python
++# Before:
++from charms.tempo_k8s.v2.tracing import charm_tracing, trace_charm
++
++@trace_charm(
++    tracing_endpoint="tracing_endpoint",
++    extra_types=[SomeHelper, AnotherClass],
++)
++class MyCharm(ops.CharmBase):
++    def __init__(self, *args):
++        super().__init__(*args)
++        self.tracing = TracingEndpointRequirer(self, relation_name="tracing")
++        # ...
++```
++
++```python
++# After:
++import ops.tracing
++
++class MyCharm(ops.CharmBase):
++    def __init__(self, *args):
++        super().__init__(*args)
++        ops.tracing.setup(self, relation_name="tracing")
++        # ...
++```
++
++Key differences:
++- No decorator on the charm class.
++- No `TracingEndpointRequirer` — `ops.tracing.setup()` handles relation watching internally.
++- No `extra_types` parameter — `ops[tracing]` traces at the charm level.
++- The `relation_name` must match the relation in `charmcraft.yaml`.
++
++### Scenario B: Adding tracing from scratch
++
++```python
++import ops
++import ops.tracing
++
++
++class MyCharm(ops.CharmBase):
++    def __init__(self, *args):
++        super().__init__(*args)
++        ops.tracing.setup(self, relation_name="tracing")
++        # ... rest of __init__ ...
++```
++
++That's it. `ops.tracing.setup()` registers the necessary event observers and handles OTLP export when a tracing relation is established.
++
++## Step 5: Clean Up
++
++### Remove community library remnants (Scenario A)
++
++- Delete `lib/charms/tempo_k8s/` directory
++- Remove any `fetch-lib` entries for `charms.tempo_k8s.v2.tracing` from CI or `charmcraft.yaml`
++- Remove `charm_tracing` / `trace_charm` imports from all files
++- Remove any `@trace_charm` decorators
++- Remove `TracingEndpointRequirer` instantiation
++
++### Check for manual span creation
++
++If the charm creates custom OpenTelemetry spans, those continue to work with `ops[tracing]` — the underlying instrumentation is compatible. No changes needed for custom spans.
++
++## Step 6: Update Tests
++
++### Unit tests
++
++If tests mock or patch `charm_tracing` components, update them:
++
++```python
++# Before:
++@patch("charm.TracingEndpointRequirer")
++def test_something(mock_tracing):
++    ...
++
++# After — ops.tracing.setup() doesn't need mocking in most cases.
++# If the test needs to avoid tracing overhead:
++def test_something():
++    ctx = testing.Context(MyCharm)
++    # ops.testing handles tracing setup automatically
++    ...
++```
++
++### Integration tests
++
++If integration tests check tracing output, verify they still work. The trace format from `ops[tracing]` should be compatible, but endpoint configuration may differ.
++
++## Step 7: Verify
++
++1. Run `tox -e lint` — ensure no remaining imports from the community library.
++2. Run `tox -e unit` — all tests should pass.
++3. Search for any remaining references to `charm_tracing`, `trace_charm`, `TracingEndpointRequirer`, or `charms.tempo_k8s`.
++4. Review the diff:
++   - Community library files should be deleted.
++   - Charm code should be simpler (fewer imports, no decorator, no manual requirer).
++   - `charmcraft.yaml` should be unchanged or minimally changed.
++
++## Common Mistakes
++
++- **Forgetting to remove the charm library directory** (`lib/charms/tempo_k8s/`): the old library will still be importable and may conflict.
++- **Mismatched relation names**: the `relation_name` in `ops.tracing.setup()` must exactly match the relation name in `charmcraft.yaml`.
++- **Not updating test dependencies**: ensure `ops[tracing]` is in the test dependency group too, not just the main dependencies.
++- **Removing custom spans**: if the charm creates custom OpenTelemetry spans for specific operations, keep those — they're orthogonal to the charm-level tracing setup.
++- **Confusing charms that *provide* tracing with charms that *use* tracing**: Tempo itself provides the tracing endpoint. Most charms *require* it. Don't add `ops.tracing.setup()` to a charm that provides the OTLP endpoint.
+diff --git a/lib/charms/tempo_coordinator_k8s/v0/charm_tracing.py b/lib/charms/tempo_coordinator_k8s/v0/charm_tracing.py
+deleted file mode 100644
+index ef76712..0000000
+--- a/lib/charms/tempo_coordinator_k8s/v0/charm_tracing.py
++++ /dev/null
+@@ -1,971 +0,0 @@
+-#!/usr/bin/env python3
+-# Copyright 2022 Canonical Ltd.
+-# See LICENSE file for licensing details.
+-
+-"""This charm library contains utilities to instrument your Charm with opentelemetry tracing data collection.
+-
+-WARNING this library is deprecated and will be discontinued in 27.04.
+-Instead, please use the new `ops[tracing]` library.
+-
+-See this migration guide: https://discourse.charmhub.io/t/18076
+-See this deprecation announcement: https://discourse.charmhub.io/t/19669
+-"""
+-
+-
+-def _remove_stale_otel_sdk_packages():
+-    """Hack to remove stale opentelemetry sdk packages from the charm's python venv.
+-
+-    See https://github.com/canonical/grafana-agent-operator/issues/146 and
+-    https://bugs.launchpad.net/juju/+bug/2058335 for more context. This patch can be removed after
+-    this juju issue is resolved and sufficient time has passed to expect most users of this library
+-    have migrated to the patched version of juju.  When this patch is removed, un-ignore rule E402 for this file in the pyproject.toml (see setting
+-    [tool.ruff.lint.per-file-ignores] in pyproject.toml).
+-
+-    This only has an effect if executed on an upgrade-charm event.
+-    """
+-    # all imports are local to keep this function standalone, side-effect-free, and easy to revert later
+-    import os
+-
+-    if os.getenv("JUJU_DISPATCH_PATH") != "hooks/upgrade-charm":
+-        return
+-
+-    import logging
+-    import shutil
+-    from collections import defaultdict
+-
+-    from importlib_metadata import distributions
+-
+-    otel_logger = logging.getLogger("charm_tracing_otel_patcher")
+-    otel_logger.debug("Applying _remove_stale_otel_sdk_packages patch on charm upgrade")
+-    # group by name all distributions starting with "opentelemetry_"
+-    otel_distributions = defaultdict(list)
+-    for distribution in distributions():
+-        name = distribution._normalized_name  # type: ignore
+-        if name.startswith("opentelemetry_"):
+-            otel_distributions[name].append(distribution)
+-
+-    otel_logger.debug("Found %d opentelemetry distributions", len(otel_distributions))
+-
+-    # If we have multiple distributions with the same name, remove any that have 0 associated files
+-    for name, distributions_ in otel_distributions.items():
+-        if len(distributions_) <= 1:
+-            continue
+-
+-        otel_logger.debug(
+-            "Package %s has multiple (%d) distributions.", name, len(distributions_)
+-        )
+-        for distribution in distributions_:
+-            if not distribution.files:  # Not None or empty list
+-                path = distribution._path  # type: ignore
+-                otel_logger.info("Removing empty distribution of %s at %s.", name, path)
+-                shutil.rmtree(path)
+-
+-    otel_logger.debug("Successfully applied _remove_stale_otel_sdk_packages patch. ")
+-
+-
+-# apply hacky patch to remove stale opentelemetry sdk packages on upgrade-charm.
+-# it could be trouble if someone ever decides to implement their own tracer parallel to
+-# ours and before the charm has inited. We assume they won't.
+-# !!IMPORTANT!! keep all otlp imports UNDER this call.
+-_remove_stale_otel_sdk_packages()
+-
+-import functools
+-import inspect
+-import logging
+-import os
+-import typing
+-from collections import deque
+-from contextlib import contextmanager
+-from contextvars import Context, ContextVar, copy_context
+-from pathlib import Path
+-from typing import (
+-    Any,
+-    Callable,
+-    Generator,
+-    List,
+-    Optional,
+-    Sequence,
+-    Type,
+-    TypeVar,
+-    Union,
+-    cast,
+-)
+-
+-import opentelemetry
+-import ops
+-from opentelemetry.exporter.otlp.proto.common._internal.trace_encoder import (  # type: ignore
+-    encode_spans,  # type: ignore
+-)
+-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # type: ignore
+-from opentelemetry.sdk.resources import Resource
+-from opentelemetry.sdk.trace import ReadableSpan, Span, TracerProvider
+-from opentelemetry.sdk.trace.export import (
+-    BatchSpanProcessor,
+-    SpanExporter,
+-    SpanExportResult,
+-)
+-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+-from opentelemetry.trace import (
+-    INVALID_SPAN,
+-    Tracer,
+-)
+-from opentelemetry.trace import get_current_span as otlp_get_current_span
+-from opentelemetry.trace import (
+-    get_tracer,
+-    get_tracer_provider,
+-    set_span_in_context,
+-    set_tracer_provider,
+-)
+-from ops.charm import CharmBase
+-from ops.framework import Framework
+-
+-
+-if os.getenv("CHARM_TRACING_DEPRECATION_NOTICE_DISABLED"):
+-    import warnings
+-
+-    warnings.warn(
+-        "The `charm_tracing` library is deprecated and will be discontinued in 27.04. "
+-        "Please migrate to the new `ops[tracing]` library. "
+-        "See this migration guide: https://discourse.charmhub.io/t/18076 "
+-        "See this deprecation announcement: https://discourse.charmhub.io/t/19669 "
+-        "To disable this warning, set the CHARM_TRACING_DEPRECATION_NOTICE_DISABLED "
+-        "environment variable. ",
+-        DeprecationWarning,
+-    )
+-
+-
+-# The unique Charmhub library identifier, never change it
+-LIBID = "01780f1e588c42c3976d26780fdf9b89"
+-
+-# Increment this major API version when introducing breaking changes
+-LIBAPI = 0
+-
+-# Increment this PATCH version before using `charmcraft publish-lib` or reset
+-# to 0 if you are raising the major API version
+-
+-LIBPATCH = 12
+-
+-PYDEPS = ["opentelemetry-exporter-otlp-proto-http==1.21.0"]
+-
+-logger = logging.getLogger("tracing")
+-dev_logger = logging.getLogger("tracing-dev")
+-
+-# set this to 0 if you are debugging/developing this library source
+-dev_logger.setLevel(logging.ERROR)
+-
+-_CharmType = Type[CharmBase]  # the type CharmBase and any subclass thereof
+-_C = TypeVar("_C", bound=_CharmType)
+-_T = TypeVar("_T", bound=type)
+-_F = TypeVar("_F", bound=Type[Callable])
+-tracer: ContextVar[Tracer] = ContextVar("tracer")
+-_GetterType = Union[Callable[[_CharmType], Optional[str]], property]
+-
+-CHARM_TRACING_ENABLED = "CHARM_TRACING_ENABLED"
+-BUFFER_DEFAULT_CACHE_FILE_NAME = ".charm_tracing_buffer.raw"
+-# we store the buffer as raw otlp-native protobuf (bytes) since it's hard to serialize/deserialize it in
+-# any portable format. Json dumping is supported, but loading isn't.
+-# cfr: https://github.com/open-telemetry/opentelemetry-python/issues/1003
+-
+-BUFFER_DEFAULT_CACHE_FILE_SIZE_LIMIT_MiB = 10
+-_BUFFER_CACHE_FILE_SIZE_LIMIT_MiB_MIN = 10
+-BUFFER_DEFAULT_MAX_EVENT_HISTORY_LENGTH = 100
+-_MiB_TO_B = 2**20  # megabyte to byte conversion rate
+-_OTLP_SPAN_EXPORTER_TIMEOUT = 1
+-
+-
+-# Timeout in seconds that the OTLP span exporter has to push traces to the backend.
+-
+-
+-class _Buffer:
+-    """Handles buffering for spans emitted while no tracing backend is configured or available.
+-
+-    Use the max_event_history_length_buffering param of @trace_charm to tune
+-    the amount of memory that this will hog on your units.
+-
+-    The buffer is formatted as a bespoke byte dump (protobuf limitation).
+-    We cannot store them as json because that is not well-supported by the sdk
+-    (see https://github.com/open-telemetry/opentelemetry-python/issues/3364).
+-    """
+-
+-    _SPANSEP = b"__CHARM_TRACING_BUFFER_SPAN_SEP__"
+-
+-    def __init__(
+-        self, db_file: Path, max_event_history_length: int, max_buffer_size_mib: int
+-    ):
+-        self._db_file = db_file
+-        self._max_event_history_length = max_event_history_length
+-        self._max_buffer_size_mib = max(
+-            max_buffer_size_mib, _BUFFER_CACHE_FILE_SIZE_LIMIT_MiB_MIN
+-        )
+-
+-        # set by caller
+-        self.exporter: Optional[OTLPSpanExporter] = None
+-
+-    def save(self, spans: typing.Sequence[ReadableSpan]):
+-        """Save the spans collected by this exporter to the cache file.
+-
+-        This method should be as fail-safe as possible.
+-        """
+-        if self._max_event_history_length < 1:
+-            dev_logger.debug("buffer disabled: max history length < 1")
+-            return
+-        self._save(spans)
+-
+-    def _serialize(self, spans: Sequence[ReadableSpan]) -> bytes:
+-        # encode because otherwise we can't json-dump them
+-        return encode_spans(spans).SerializeToString()
+-
+-    def _prune(self, queue: Sequence[bytes]) -> Sequence[bytes]:
+-        """Prune the queue until it fits in our constraints."""
+-        n_dropped_spans = 0
+-        # drop older events if we are past the max history length
+-        overflow = len(queue) - self._max_event_history_length
+-        if overflow > 0:
+-            n_dropped_spans += overflow
+-            logger.warning(
+-                "charm tracing buffer exceeds max history length (%d events)",
+-                self._max_event_history_length,
+-            )
+-
+-        new_spans = deque(queue[-self._max_event_history_length :])
+-
+-        # drop older events if the buffer is too big; all units are bytes
+-        logged_drop = False
+-        target_size = self._max_buffer_size_mib * _MiB_TO_B
+-        current_size = sum(len(span) for span in new_spans)
+-        while current_size > target_size:
+-            current_size -= len(new_spans.popleft())
+-            n_dropped_spans += 1
+-
+-            # only do this once
+-            if not logged_drop:
+-                logger.warning(
+-                    "charm tracing buffer exceeds size limit (%dMiB).",
+-                    self._max_buffer_size_mib,
+-                )
+-            logged_drop = True
+-
+-        if n_dropped_spans > 0:
+-            dev_logger.debug(
+-                "charm tracing buffer overflow: dropped %d older spans. "
+-                "Please increase the buffer limits, or ensure the spans can be flushed.",
+-                n_dropped_spans,
+-            )
+-        return new_spans
+-
+-    def _save(self, spans: Sequence[ReadableSpan], replace: bool = False):
+-        dev_logger.debug("saving %d new spans to buffer", len(spans))
+-        old = [] if replace else self.load()
+-        queue = old + [self._serialize(spans)]
+-        new_buffer = self._prune(queue)
+-
+-        if queue and not new_buffer:
+-            # this means that, given our constraints, we are pruning so much that there are no events left.
+-            logger.error(
+-                "No charm events could be buffered into charm traces buffer. Please increase the memory or history size limits."
+-            )
+-            return
+-
+-        try:
+-            self._write(new_buffer)
+-        except Exception:
+-            logger.exception("error buffering spans")
+-
+-    def _write(self, spans: Sequence[bytes]):
+-        """Write the spans to the db file."""
+-        # ensure the destination folder exists
+-        db_file_dir = self._db_file.parent
+-        if not db_file_dir.exists():
+-            dev_logger.info("creating buffer dir: %s", db_file_dir)
+-            db_file_dir.mkdir(parents=True)
+-
+-        self._db_file.write_bytes(self._SPANSEP.join(spans))
+-
+-    def load(self) -> List[bytes]:
+-        """Load currently buffered spans from the cache file.
+-
+-        This method should be as fail-safe as possible.
+-        """
+-        if not self._db_file.exists():
+-            dev_logger.debug("buffer file not found. buffer empty.")
+-            return []
+-        try:
+-            spans = self._db_file.read_bytes().split(self._SPANSEP)
+-        except Exception:
+-            logger.exception("error parsing %s", self._db_file)
+-            return []
+-        return spans
+-
+-    def drop(self, n_spans: Optional[int] = None):
+-        """Drop some currently buffered spans from the cache file."""
+-        current = self.load()
+-        if n_spans:
+-            dev_logger.debug("dropping %d spans from buffer", n_spans)
+-            new = current[n_spans:]
+-        else:
+-            dev_logger.debug("emptying buffer")
+-            new = []
+-        try:
+-            self._write(new)
+-        except Exception:
+-            logger.exception("error writing charm traces buffer")
+-
+-    def flush(self) -> Optional[bool]:
+-        """Export all buffered spans to the given exporter, then clear the buffer.
+-
+-        Returns whether the flush was successful, and None if there was nothing to flush.
+-        """
+-        if not self.exporter:
+-            dev_logger.debug("no exporter set; skipping buffer flush")
+-            return False
+-
+-        buffered_spans = self.load()
+-        if not buffered_spans:
+-            dev_logger.debug("nothing to flush; buffer empty")
+-            return None
+-
+-        errors = False
+-        for span in buffered_spans:
+-            try:
+-                out = self.exporter._export(span)  # type: ignore
+-                if not (200 <= out.status_code < 300):
+-                    # take any 2xx status code as a success
+-                    errors = True
+-            except ConnectionError:
+-                dev_logger.debug(
+-                    "failed exporting buffered span; backend might be down or still starting"
+-                )
+-                errors = True
+-            except Exception:
+-                logger.exception(
+-                    "unexpected error while flushing span batch from buffer"
+-                )
+-                errors = True
+-
+-        if not errors:
+-            self.drop()
+-        else:
+-            logger.error("failed flushing spans; buffer preserved")
+-        return not errors
+-
+-    @property
+-    def is_empty(self):
+-        """Utility to check whether the buffer has any stored spans.
+-
+-        This is more efficient than attempting a load() given how large the buffer might be.
+-        """
+-        return (not self._db_file.exists()) or (self._db_file.stat().st_size == 0)
+-
+-
+-class _OTLPSpanExporter(OTLPSpanExporter):
+-    """Subclass of OTLPSpanExporter to configure the max retry timeout, so that it fails a bit faster."""
+-
+-    # The issue we're trying to solve is that the model takes AGES to settle if e.g. tls is misconfigured,
+-    # as every hook of a charm_tracing-instrumented charm takes about a minute to exit, as the charm can't
+-    # flush the traces and keeps retrying for 'too long'
+-
+-    _MAX_RETRY_TIMEOUT = 4
+-    # we give the exporter 4 seconds in total to succeed pushing the traces to tempo
+-    # if it fails, we'll be caching the data in the buffer and flush it the next time, so there's no data loss risk.
+-    # this means 2/3 retries (hard to guess from the implementation) and up to ~7 seconds total wait
+-
+-
+-class _BufferedExporter(InMemorySpanExporter):
+-    def __init__(self, buffer: _Buffer) -> None:
+-        super().__init__()
+-        self._buffer = buffer
+-
+-    def export(self, spans: typing.Sequence[ReadableSpan]) -> SpanExportResult:
+-        self._buffer.save(spans)
+-        return super().export(spans)
+-
+-    def force_flush(self, timeout_millis: int = 0) -> bool:
+-        # parent implementation is fake, so the timeout_millis arg is not doing anything.
+-        result = super().force_flush(timeout_millis)
+-        self._buffer.save(self.get_finished_spans())
+-        return result
+-
+-
+-def is_enabled() -> bool:
+-    """Whether charm tracing is enabled."""
+-    return os.getenv(CHARM_TRACING_ENABLED, "1") == "1"
+-
+-
+-@contextmanager
+-def charm_tracing_disabled():
+-    """Contextmanager to temporarily disable charm tracing.
+-
+-    For usage in tests.
+-    """
+-    previous = os.getenv(CHARM_TRACING_ENABLED, "1")
+-    os.environ[CHARM_TRACING_ENABLED] = "0"
+-    yield
+-    os.environ[CHARM_TRACING_ENABLED] = previous
+-
+-
+-def get_current_span() -> Union[Span, None]:
+-    """Return the currently active Span, if there is one, else None.
+-
+-    If you'd rather keep your logic unconditional, you can use opentelemetry.trace.get_current_span,
+-    which will return an object that behaves like a span but records no data.
+-    """
+-    span = otlp_get_current_span()
+-    if span is INVALID_SPAN:
+-        return None
+-    return cast(Span, span)
+-
+-
+-def _get_tracer_from_context(ctx: Context) -> Optional[ContextVar]:
+-    tracers = [v for v in ctx if v is not None and v.name == "tracer"]
+-    if tracers:
+-        return tracers[0]
+-    return None
+-
+-
+-def _get_tracer() -> Optional[Tracer]:
+-    """Find tracer in context variable and as a fallback locate it in the full context."""
+-    try:
+-        return tracer.get()
+-    except LookupError:
+-        # fallback: this course-corrects for a user error where charm_tracing symbols are imported
+-        # from different paths (typically charms.tempo_coordinator_k8s... and lib.charms.tempo_coordinator_k8s...)
+-        try:
+-            ctx: Context = copy_context()
+-            if context_tracer := _get_tracer_from_context(ctx):
+-                logger.warning(
+-                    "Tracer not found in `tracer` context var. "
+-                    "Verify that you're importing all `charm_tracing` symbols from the same module path. \n"
+-                    "For example, DO"
+-                    ": `from charms.lib...charm_tracing import foo, bar`. \n"
+-                    "DONT: \n"
+-                    " \t - `from charms.lib...charm_tracing import foo` \n"
+-                    " \t - `from lib...charm_tracing import bar` \n"
+-                    "For more info: https://python-notes.curiousefficiency.org/en/latest/python"
+-                    "_concepts/import_traps.html#the-double-import-trap"
+-                )
+-                return context_tracer.get()
+-            else:
+-                return None
+-        except LookupError:
+-            return None
+-
+-
+-@contextmanager
+-def _span(name: str) -> Generator[Optional[Span], Any, Any]:
+-    """Context to create a span if there is a tracer, otherwise do nothing."""
+-    if tracer := _get_tracer():
+-        with tracer.start_as_current_span(name) as span:
+-            yield cast(Span, span)
+-    else:
+-        yield None
+-
+-
+-class TracingError(RuntimeError):
+-    """Base class for errors raised by this module."""
+-
+-
+-class UntraceableObjectError(TracingError):
+-    """Raised when an object you're attempting to instrument cannot be autoinstrumented."""
+-
+-
+-def _get_tracing_endpoint(
+-    tracing_endpoint_attr: str,
+-    charm_instance: object,
+-    charm_type: type,
+-):
+-    _tracing_endpoint = getattr(charm_instance, tracing_endpoint_attr)
+-    if callable(_tracing_endpoint):
+-        tracing_endpoint = _tracing_endpoint()
+-    else:
+-        tracing_endpoint = _tracing_endpoint
+-
+-    if tracing_endpoint is None:
+-        return
+-
+-    elif not isinstance(tracing_endpoint, str):
+-        raise TypeError(
+-            f"{charm_type.__name__}.{tracing_endpoint_attr} should resolve to a tempo endpoint (string); "
+-            f"got {tracing_endpoint} instead."
+-        )
+-
+-    dev_logger.debug(
+-        "Setting up span exporter to endpoint: %s/v1/traces", tracing_endpoint
+-    )
+-    return f"{tracing_endpoint}/v1/traces"
+-
+-
+-def _get_server_cert(
+-    server_cert_attr: str,
+-    charm_instance: ops.CharmBase,
+-    charm_type: Type[ops.CharmBase],
+-):
+-    _server_cert = getattr(charm_instance, server_cert_attr)
+-    if callable(_server_cert):
+-        server_cert = _server_cert()
+-    else:
+-        server_cert = _server_cert
+-
+-    if server_cert is None:
+-        logger.warning(
+-            "%s.%s is None; sending traces over INSECURE connection.",
+-            charm_type,
+-            server_cert_attr,
+-        )
+-        return
+-    if not isinstance(server_cert, (str, Path)):
+-        logger.warning(
+-            "%s.%s has unexpected type %s; sending traces over INSECURE connection.",
+-            charm_type,
+-            server_cert_attr,
+-            type(server_cert),
+-        )
+-        return
+-    path = Path(server_cert)
+-    if not path.is_absolute() or not path.exists():
+-        raise ValueError(
+-            f"{charm_type}.{server_cert_attr} should resolve to a valid tls cert absolute path (string | Path)); "
+-            f"got {server_cert} instead."
+-        )
+-    return server_cert
+-
+-
+-def _setup_root_span_initializer(
+-    charm_type: _CharmType,
+-    tracing_endpoint_attr: str,
+-    server_cert_attr: Optional[str],
+-    service_name: Optional[str],
+-    buffer_path: Optional[Path],
+-    buffer_max_events: int,
+-    buffer_max_size_mib: int,
+-):
+-    """Patch the charm's initializer."""
+-    original_init = charm_type.__init__
+-
+-    @functools.wraps(original_init)
+-    def wrap_init(self: CharmBase, framework: Framework, *args, **kwargs):
+-        # we're using 'self' here because this is charm init code, makes sense to read what's below
+-        # from the perspective of the charm. Self.unit.name...
+-
+-        original_init(self, framework, *args, **kwargs)
+-        # we call this from inside the init context instead of, say, _autoinstrument, because we want it to
+-        # be checked on a per-charm-instantiation basis, not on a per-type-declaration one.
+-        if not is_enabled():
+-            # this will only happen during unittesting, hopefully, so it's fine to log a
+-            # bit more verbosely
+-            logger.info("Tracing DISABLED: skipping root span initialization")
+-            return
+-
+-        original_event_context = framework._event_context
+-        # default service name isn't just app name because it could conflict with the workload service name
+-        _service_name = service_name or f"{self.app.name}-charm"
+-
+-        unit_name = self.unit.name
+-        resource = Resource.create(
+-            attributes={
+-                "service.name": _service_name,
+-                "compose_service": _service_name,
+-                "charm_type": type(self).__name__,
+-                # juju topology
+-                "juju_unit": unit_name,
+-                "juju_application": self.app.name,
+-                "juju_model": self.model.name,
+-                "juju_model_uuid": self.model.uuid,
+-            }
+-        )
+-        provider = TracerProvider(resource=resource)
+-
+-        # if anything goes wrong with retrieving the endpoint, we let the exception bubble up.
+-        tracing_endpoint = _get_tracing_endpoint(
+-            tracing_endpoint_attr, self, charm_type
+-        )
+-
+-        buffer_only = False
+-        # whether we're only exporting to buffer, or also to the otlp exporter.
+-
+-        if not tracing_endpoint:
+-            # tracing is off if tracing_endpoint is None
+-            # however we can buffer things until tracing comes online
+-            buffer_only = True
+-
+-        server_cert: Optional[Union[str, Path]] = (
+-            _get_server_cert(server_cert_attr, self, charm_type)
+-            if server_cert_attr
+-            else None
+-        )
+-
+-        if (
+-            tracing_endpoint and tracing_endpoint.startswith("https://")
+-        ) and not server_cert:
+-            logger.error(
+-                "Tracing endpoint is https, but no server_cert has been passed."
+-                "Please point @trace_charm to a `server_cert` attr. "
+-                "This might also mean that the tracing provider is related to a "
+-                "certificates provider, but this application is not (yet). "
+-                "In that case, you might just have to wait a bit for the certificates "
+-                "integration to settle. This span will be buffered."
+-            )
+-            buffer_only = True
+-
+-        buffer = _Buffer(
+-            db_file=buffer_path or Path() / BUFFER_DEFAULT_CACHE_FILE_NAME,
+-            max_event_history_length=buffer_max_events,
+-            max_buffer_size_mib=buffer_max_size_mib,
+-        )
+-        previous_spans_buffered = not buffer.is_empty
+-
+-        exporters: List[SpanExporter] = []
+-        if buffer_only:
+-            # we have to buffer because we're missing necessary backend configuration
+-            dev_logger.debug("buffering mode: ON")
+-            exporters.append(_BufferedExporter(buffer))
+-
+-        else:
+-            dev_logger.debug("buffering mode: FALLBACK")
+-            # in principle, we have the right configuration to be pushing traces,
+-            # but if we fail for whatever reason, we will put everything in the buffer
+-            # and retry the next time
+-            otlp_exporter = _OTLPSpanExporter(
+-                endpoint=tracing_endpoint,
+-                certificate_file=str(Path(server_cert).absolute())
+-                if server_cert
+-                else None,
+-                timeout=_OTLP_SPAN_EXPORTER_TIMEOUT,  # give individual requests 1 second to succeed
+-            )
+-            exporters.append(otlp_exporter)
+-            exporters.append(_BufferedExporter(buffer))
+-            buffer.exporter = otlp_exporter
+-
+-        for exporter in exporters:
+-            processor = BatchSpanProcessor(exporter)
+-            provider.add_span_processor(processor)
+-
+-        set_tracer_provider(provider)
+-        _tracer = get_tracer(_service_name)  # type: ignore
+-        _tracer_token = tracer.set(_tracer)
+-
+-        dispatch_path = os.getenv(
+-            "JUJU_DISPATCH_PATH", ""
+-        )  # something like hooks/install
+-        event_name = (
+-            dispatch_path.split("/")[1] if "/" in dispatch_path else dispatch_path
+-        )
+-        root_span_name = f"{unit_name}: {event_name} event"
+-        span = _tracer.start_span(
+-            root_span_name, attributes={"juju.dispatch_path": dispatch_path}
+-        )
+-
+-        # all these shenanigans are to work around the fact that the opentelemetry tracing API is built
+-        # on the assumption that spans will be used as contextmanagers.
+-        # Since we don't (as we need to close the span on framework.commit),
+-        # we need to manually set the root span as current.
+-        ctx = set_span_in_context(span)
+-
+-        # log a trace id, so we can pick it up from the logs (and jhack) to look it up in tempo.
+-        root_trace_id = hex(span.get_span_context().trace_id)[2:]  # strip 0x prefix
+-        logger.debug("Starting root trace with id=%r.", root_trace_id)
+-
+-        span_token = opentelemetry.context.attach(ctx)  # type: ignore
+-
+-        @contextmanager
+-        def wrap_event_context(event_name: str):
+-            dev_logger.debug("entering event context: %s", event_name)
+-            # when the framework enters an event context, we create a span.
+-            with _span("event: " + event_name) as event_context_span:
+-                if event_context_span:
+-                    # todo: figure out how to inject event attrs in here
+-                    event_context_span.add_event(event_name)
+-                yield original_event_context(event_name)
+-
+-        framework._event_context = wrap_event_context  # type: ignore
+-
+-        original_close = framework.close
+-
+-        @functools.wraps(original_close)
+-        def wrap_close():
+-            dev_logger.debug("tearing down tracer and flushing traces")
+-            span.end()
+-            opentelemetry.context.detach(span_token)  # type: ignore
+-            tracer.reset(_tracer_token)
+-            tp = cast(TracerProvider, get_tracer_provider())
+-            flush_successful = tp.force_flush(
+-                timeout_millis=1000
+-            )  # don't block for too long
+-
+-            if buffer_only:
+-                # if we're in buffer_only mode, it means we couldn't even set up the exporter for
+-                # tempo as we're missing some data.
+-                # so attempting to flush the buffer doesn't make sense
+-                dev_logger.debug(
+-                    "tracing backend unavailable: all spans pushed to buffer"
+-                )
+-
+-            else:
+-                dev_logger.debug("tracing backend found: attempting to flush buffer...")
+-
+-                # if we do have an exporter for tempo, and we could send traces to it,
+-                # we can attempt to flush the buffer as well.
+-                if not flush_successful:
+-                    logger.error("flushing FAILED: unable to push traces to backend.")
+-                else:
+-                    dev_logger.debug("flush succeeded.")
+-
+-                    # the backend has accepted the spans generated during this event,
+-                    if not previous_spans_buffered:
+-                        # if the buffer was empty to begin with, any spans we collected now can be discarded
+-                        buffer.drop()
+-                        dev_logger.debug(
+-                            "buffer dropped: this trace has been sent already"
+-                        )
+-                    else:
+-                        # if the buffer was nonempty, we can attempt to flush it
+-                        dev_logger.debug("attempting buffer flush...")
+-                        buffer_flush_successful = buffer.flush()
+-                        if buffer_flush_successful:
+-                            dev_logger.debug("buffer flush OK")
+-                        elif buffer_flush_successful is None:
+-                            # TODO is this even possible?
+-                            dev_logger.debug("buffer flush OK; empty: nothing to flush")
+-                        else:
+-                            # this situation is pretty weird, I'm not even sure it can happen,
+-                            # because it would mean that we did manage
+-                            # to push traces directly to the tempo exporter (flush_successful),
+-                            # but the buffer flush failed to push to the same exporter!
+-                            logger.error("buffer flush FAILED")
+-
+-            tp.shutdown()
+-            original_close()
+-
+-        framework.close = wrap_close
+-        return
+-
+-    charm_type.__init__ = wrap_init  # type: ignore
+-
+-
+-def trace_charm(
+-    tracing_endpoint: str,
+-    server_cert: Optional[str] = None,
+-    service_name: Optional[str] = None,
+-    extra_types: Sequence[type] = (),
+-    buffer_max_events: int = BUFFER_DEFAULT_MAX_EVENT_HISTORY_LENGTH,
+-    buffer_max_size_mib: int = BUFFER_DEFAULT_CACHE_FILE_SIZE_LIMIT_MiB,
+-    buffer_path: Optional[Union[str, Path]] = None,
+-) -> Callable[[_T], _T]:
+-    """Autoinstrument the decorated charm with tracing telemetry.
+-
+-    Use this function to get out-of-the-box traces for all events emitted on this charm and all
+-    method calls on instances of this class.
+-
+-    Usage:
+-    >>> from charms.tempo_coordinator_k8s.v0.charm_tracing import trace_charm
+-    >>> from charms.tempo_coordinator_k8s.v0.tracing import TracingEndpointRequirer
+-    >>> from ops import CharmBase
+-    >>>
+-    >>> @trace_charm(
+-    >>>         tracing_endpoint="tempo_otlp_http_endpoint",
+-    >>> )
+-    >>> class MyCharm(CharmBase):
+-    >>>
+-    >>>     def __init__(self, framework: Framework):
+-    >>>         ...
+-    >>>         self.tracing = TracingEndpointRequirer(self)
+-    >>>
+-    >>>     @property
+-    >>>     def tempo_otlp_http_endpoint(self) -> Optional[str]:
+-    >>>         if self.tracing.is_ready():
+-    >>>             return self.tracing.otlp_http_endpoint()
+-    >>>         else:
+-    >>>             return None
+-    >>>
+-
+-    :param tracing_endpoint: name of a method, property or attribute  on the charm type that returns an
+-        optional (fully resolvable) tempo url to which the charm traces will be pushed.
+-        If None, tracing will be effectively disabled.
+-    :param server_cert: name of a method, property or attribute on the charm type that returns an
+-        optional absolute path to a CA certificate file to be used when sending traces to a remote server.
+-        If it returns None, an _insecure_ connection will be used. To avoid errors in transient
+-        situations where the endpoint is already https but there is no certificate on disk yet, it
+-        is recommended to disable tracing (by returning None from the tracing_endpoint) altogether
+-        until the cert has been written to disk.
+-    :param service_name: service name tag to attach to all traces generated by this charm.
+-        Defaults to the juju application name this charm is deployed under.
+-    :param extra_types: pass any number of types that you also wish to autoinstrument.
+-        For example, charm libs, relation endpoint wrappers, workload abstractions, ...
+-    :param buffer_max_events: max number of events to save in the buffer. Set to 0 to disable buffering.
+-    :param buffer_max_size_mib: max size of the buffer file. When exceeded, spans will be dropped.
+-        Minimum 10MiB.
+-    :param buffer_path: path to buffer file to use for saving buffered spans.
+-    """
+-
+-    def _decorator(charm_type: _T) -> _T:
+-        """Autoinstrument the wrapped charmbase type."""
+-        _autoinstrument(
+-            charm_type,
+-            tracing_endpoint_attr=tracing_endpoint,
+-            server_cert_attr=server_cert,
+-            service_name=service_name,
+-            extra_types=extra_types,
+-            buffer_path=Path(buffer_path) if buffer_path else None,
+-            buffer_max_size_mib=buffer_max_size_mib,
+-            buffer_max_events=buffer_max_events,
+-        )
+-        return charm_type
+-
+-    return _decorator
+-
+-
+-def _autoinstrument(
+-    charm_type: _T,
+-    tracing_endpoint_attr: str,
+-    server_cert_attr: Optional[str] = None,
+-    service_name: Optional[str] = None,
+-    extra_types: Sequence[type] = (),
+-    buffer_max_events: int = BUFFER_DEFAULT_MAX_EVENT_HISTORY_LENGTH,
+-    buffer_max_size_mib: int = BUFFER_DEFAULT_CACHE_FILE_SIZE_LIMIT_MiB,
+-    buffer_path: Optional[Path] = None,
+-) -> _T:
+-    """Set up tracing on this charm class.
+-
+-    Use this function to get out-of-the-box traces for all events emitted on this charm and all
+-    method calls on instances of this class.
+-
+-    Usage:
+-
+-    >>> from charms.tempo_coordinator_k8s.v0.charm_tracing import _autoinstrument
+-    >>> from ops.main import main
+-    >>> _autoinstrument(
+-    >>>         MyCharm,
+-    >>>         tracing_endpoint_attr="tempo_otlp_http_endpoint",
+-    >>>         service_name="MyCharm",
+-    >>>         extra_types=(Foo, Bar)
+-    >>> )
+-    >>> main(MyCharm)
+-
+-    :param charm_type: the CharmBase subclass to autoinstrument.
+-    :param tracing_endpoint_attr: name of a method, property or attribute  on the charm type that returns an
+-        optional (fully resolvable) tempo url to which the charm traces will be pushed.
+-        If None, tracing will be effectively disabled.
+-    :param server_cert_attr: name of a method, property or attribute on the charm type that returns an
+-        optional absolute path to a CA certificate file to be used when sending traces to a remote server.
+-        If it returns None, an _insecure_ connection will be used. To avoid errors in transient
+-        situations where the endpoint is already https but there is no certificate on disk yet, it
+-        is recommended to disable tracing (by returning None from the tracing_endpoint) altogether
+-        until the cert has been written to disk.
+-    :param service_name: service name tag to attach to all traces generated by this charm.
+-        Defaults to the juju application name this charm is deployed under.
+-    :param extra_types: pass any number of types that you also wish to autoinstrument.
+-        For example, charm libs, relation endpoint wrappers, workload abstractions, ...
+-    :param buffer_max_events: max number of events to save in the buffer. Set to 0 to disable buffering.
+-    :param buffer_max_size_mib: max size of the buffer file. When exceeded, spans will be dropped.
+-        Minimum 10MiB.
+-    :param buffer_path: path to buffer file to use for saving buffered spans.
+-    """
+-    dev_logger.debug("instrumenting %s", charm_type)
+-    _setup_root_span_initializer(
+-        charm_type,
+-        tracing_endpoint_attr,
+-        server_cert_attr=server_cert_attr,
+-        service_name=service_name,
+-        buffer_path=buffer_path,
+-        buffer_max_events=buffer_max_events,
+-        buffer_max_size_mib=buffer_max_size_mib,
+-    )
+-    trace_type(charm_type)
+-    for type_ in extra_types:
+-        trace_type(type_)
+-
+-    return charm_type
+-
+-
+-def trace_type(cls: _T) -> _T:
+-    """Set up tracing on this class.
+-
+-    Use this decorator to get out-of-the-box traces for all method calls on instances of this class.
+-    It assumes that this class is only instantiated after a charm type decorated with `@trace_charm`
+-    has been instantiated.
+-    """
+-    dev_logger.debug("instrumenting %s", cls)
+-    for name, method in inspect.getmembers(cls, predicate=inspect.isfunction):
+-        dev_logger.debug("discovered %s", method)
+-
+-        if method.__name__.startswith("__"):
+-            dev_logger.debug("skipping %s (dunder)", method)
+-            continue
+-
+-        # the span title in the general case should be:
+-        #   method call: MyCharmWrappedMethods.b
+-        # if the method has a name (functools.wrapped or regular method), let
+-        # _trace_callable use its default algorithm to determine what name to give the span.
+-        trace_method_name = None
+-        try:
+-            qualname_c0 = method.__qualname__.split(".")[0]
+-            if not hasattr(cls, method.__name__):
+-                # if the callable doesn't have a __name__ (probably a decorated method),
+-                # it probably has a bad qualname too (such as my_decorator.<locals>.wrapper) which is not
+-                # great for finding out what the trace is about. So we use the method name instead and
+-                # add a reference to the decorator name. Result:
+-                #   method call: @my_decorator(MyCharmWrappedMethods.b)
+-                trace_method_name = f"@{qualname_c0}({cls.__name__}.{name})"
+-        except Exception:  # noqa: failsafe
+-            pass
+-
+-        new_method = trace_method(method, name=trace_method_name)
+-
+-        if isinstance(inspect.getattr_static(cls, name), staticmethod):
+-            new_method = staticmethod(new_method)
+-        setattr(cls, name, new_method)
+-
+-    return cls
+-
+-
+-def trace_method(method: _F, name: Optional[str] = None) -> _F:
+-    """Trace this method.
+-
+-    A span will be opened when this method is called and closed when it returns.
+-    """
+-    return _trace_callable(method, "method", name=name)
+-
+-
+-def trace_function(function: _F, name: Optional[str] = None) -> _F:
+-    """Trace this function.
+-
+-    A span will be opened when this function is called and closed when it returns.
+-    """
+-    return _trace_callable(function, "function", name=name)
+-
+-
+-def _trace_callable(callable: _F, qualifier: str, name: Optional[str] = None) -> _F:
+-    dev_logger.debug("instrumenting %s", callable)
+-
+-    # sig = inspect.signature(callable)
+-    @functools.wraps(callable)
+-    def wrapped_function(*args, **kwargs):  # type: ignore
+-        name_ = name or getattr(
+-            callable, "__qualname__", getattr(callable, "__name__", str(callable))
+-        )
+-        with _span(f"{qualifier} call: {name_}"):  # type: ignore
+-            return callable(*args, **kwargs)  # type: ignore
+-
+-    # wrapped_function.__signature__ = sig
+-    return wrapped_function  # type: ignore
+-
+-
+-def trace(obj: Union[Type, Callable]):
+-    """Trace this object and send the resulting spans to Tempo.
+-
+-    It will dispatch to ``trace_type`` if the decorated object is a class, otherwise
+-    ``trace_function``.
+-    """
+-    if isinstance(obj, type):
+-        if issubclass(obj, CharmBase):
+-            raise ValueError(
+-                "cannot use @trace on CharmBase subclasses: use @trace_charm instead "
+-                "(we need some arguments!)"
+-            )
+-        return trace_type(obj)
+-    else:
+-        try:
+-            return trace_function(obj)
+-        except Exception:
+-            raise UntraceableObjectError(
+-                f"cannot create span from {type(obj)}; instrument {obj} manually."
+-            )
+diff --git a/lib/charms/tempo_coordinator_k8s/v0/tracing.py b/lib/charms/tempo_coordinator_k8s/v0/tracing.py
+deleted file mode 100644
+index 387ac6a..0000000
+--- a/lib/charms/tempo_coordinator_k8s/v0/tracing.py
++++ /dev/null
+@@ -1,1010 +0,0 @@
+-# Copyright 2024 Canonical Ltd.
+-# See LICENSE file for licensing details.
+-"""## Overview.
+-
+-This document explains how to integrate with the Tempo charm for the purpose of pushing traces to a
+-tracing endpoint provided by Tempo. It also explains how alternative implementations of the Tempo charm
+-may maintain the same interface and be backward compatible with all currently integrated charms.
+-
+-## Requirer Library Usage
+-
+-Charms seeking to push traces to Tempo, must do so using the `TracingEndpointRequirer`
+-object from this charm library. For the simplest use cases, using the `TracingEndpointRequirer`
+-object only requires instantiating it, typically in the constructor of your charm. The
+-`TracingEndpointRequirer` constructor requires the name of the relation over which a tracing endpoint
+- is exposed by the Tempo charm, and a list of protocols it intends to send traces with.
+- This relation must use the `tracing` interface.
+- The `TracingEndpointRequirer` object may be instantiated as follows
+-
+-    from charms.tempo_coordinator_k8s.v0.tracing import TracingEndpointRequirer
+-
+-    def __init__(self, *args):
+-        super().__init__(*args)
+-        # ...
+-        self.tracing = TracingEndpointRequirer(self,
+-            protocols=['otlp_grpc', 'otlp_http', 'jaeger_http_thrift']
+-        )
+-        # ...
+-
+-Note that the first argument (`self`) to `TracingEndpointRequirer` is always a reference to the
+-parent charm.
+-
+-Alternatively to providing the list of requested protocols at init time, the charm can do it at
+-any point in time by calling the
+-`TracingEndpointRequirer.request_protocols(*protocol:str, relation:Optional[Relation])` method.
+-Using this method also allows you to use per-relation protocols.
+-
+-Units of requirer charms obtain the tempo endpoint to which they will push their traces by calling
+-`TracingEndpointRequirer.get_endpoint(protocol: str)`, where `protocol` is, for example:
+-- `otlp_grpc`
+-- `otlp_http`
+-- `zipkin`
+-- `tempo`
+-
+-If the `protocol` is not in the list of protocols that the charm requested at endpoint set-up time,
+-the library will raise an error.
+-
+-We recommend that you scale up your tracing provider and relate it to an ingress so that your tracing requests
+-go through the ingress and get load balanced across all units. Otherwise, if the provider's leader goes down, your tracing goes down.
+-
+-## Provider Library Usage
+-
+-The `TracingEndpointProvider` object may be used by charms to manage relations with their
+-trace sources. For this purposes a Tempo-like charm needs to do two things
+-
+-1. Instantiate the `TracingEndpointProvider` object by providing it a
+-reference to the parent (Tempo) charm and optionally the name of the relation that the Tempo charm
+-uses to interact with its trace sources. This relation must conform to the `tracing` interface
+-and it is strongly recommended that this relation be named `tracing` which is its
+-default value.
+-
+-For example a Tempo charm may instantiate the `TracingEndpointProvider` in its constructor as
+-follows
+-
+-    from charms.tempo_coordinator_k8s.v0.tracing import TracingEndpointProvider
+-
+-    def __init__(self, *args):
+-        super().__init__(*args)
+-        # ...
+-        self.tracing = TracingEndpointProvider(self)
+-        # ...
+-
+-
+-
+-"""  # noqa: W505
+-
+-import enum
+-import json
+-import logging
+-from pathlib import Path
+-from typing import (
+-    TYPE_CHECKING,
+-    Any,
+-    Dict,
+-    List,
+-    Literal,
+-    MutableMapping,
+-    Optional,
+-    Sequence,
+-    Tuple,
+-    Union,
+-    cast,
+-)
+-
+-import pydantic
+-from ops.charm import (
+-    CharmBase,
+-    CharmEvents,
+-    RelationBrokenEvent,
+-    RelationEvent,
+-    RelationRole,
+-)
+-from ops.framework import EventSource, Object
+-from ops.model import ModelError, Relation
+-from pydantic import BaseModel, Field
+-
+-# The unique Charmhub library identifier, never change it
+-LIBID = "d2f02b1f8d1244b5989fd55bc3a28943"
+-
+-# Increment this major API version when introducing breaking changes
+-LIBAPI = 0
+-
+-# Increment this PATCH version before using `charmcraft publish-lib` or reset
+-# to 0 if you are raising the major API version
+-LIBPATCH = 11
+-
+-PYDEPS = ["pydantic"]
+-
+-logger = logging.getLogger(__name__)
+-
+-DEFAULT_RELATION_NAME = "tracing"
+-RELATION_INTERFACE_NAME = "tracing"
+-
+-# Supported list rationale https://github.com/canonical/tempo-coordinator-k8s-operator/issues/8
+-ReceiverProtocol = Literal[
+-    "zipkin",
+-    "otlp_grpc",
+-    "otlp_http",
+-    "jaeger_grpc",
+-    "jaeger_thrift_http",
+-]
+-
+-RawReceiver = Tuple[ReceiverProtocol, str]
+-# Helper type. A raw receiver is defined as a tuple consisting of the protocol name, and the (external, if available),
+-# (secured, if available) resolvable server url.
+-
+-
+-BUILTIN_JUJU_KEYS = {"ingress-address", "private-address", "egress-subnets"}
+-
+-
+-class TransportProtocolType(str, enum.Enum):
+-    """Receiver Type."""
+-
+-    http = "http"
+-    grpc = "grpc"
+-
+-
+-receiver_protocol_to_transport_protocol: Dict[
+-    ReceiverProtocol, TransportProtocolType
+-] = {
+-    "zipkin": TransportProtocolType.http,
+-    "otlp_grpc": TransportProtocolType.grpc,
+-    "otlp_http": TransportProtocolType.http,
+-    "jaeger_thrift_http": TransportProtocolType.http,
+-    "jaeger_grpc": TransportProtocolType.grpc,
+-}
+-# A mapping between telemetry protocols and their corresponding transport protocol.
+-
+-
+-class TracingError(Exception):
+-    """Base class for custom errors raised by this library."""
+-
+-
+-class NotReadyError(TracingError):
+-    """Raised by the provider wrapper if a requirer hasn't published the required data (yet)."""
+-
+-
+-class ProtocolNotRequestedError(TracingError):
+-    """Raised if the user attempts to obtain an endpoint for a protocol it did not request."""
+-
+-
+-class DataValidationError(TracingError):
+-    """Raised when data validation fails on IPU relation data."""
+-
+-
+-class DataAccessPermissionError(TracingError):
+-    """Raised when follower units attempt leader-only operations."""
+-
+-
+-class AmbiguousRelationUsageError(TracingError):
+-    """Raised when one wrongly assumes that there can only be one relation on an endpoint."""
+-
+-
+-if int(pydantic.version.VERSION.split(".")[0]) < 2:
+-
+-    class DatabagModel(BaseModel):  # type: ignore
+-        """Base databag model."""
+-
+-        class Config:
+-            """Pydantic config."""
+-
+-            # ignore any extra fields in the databag
+-            extra = "ignore"
+-            """Ignore any extra fields in the databag."""
+-            allow_population_by_field_name = True
+-            """Allow instantiating this class by field name (instead of forcing alias)."""
+-
+-        _NEST_UNDER = None
+-
+-        @classmethod
+-        def load(cls, databag: MutableMapping):
+-            """Load this model from a Juju databag."""
+-            if cls._NEST_UNDER:
+-                return cls.parse_obj(json.loads(databag[cls._NEST_UNDER]))
+-
+-            try:
+-                data = {
+-                    k: json.loads(v)
+-                    for k, v in databag.items()
+-                    # Don't attempt to parse model-external values
+-                    if k in {f.alias for f in cls.__fields__.values()}
+-                }
+-            except json.JSONDecodeError as e:
+-                msg = f"invalid databag contents: expecting json. {databag}"
+-                logger.error(msg)
+-                raise DataValidationError(msg) from e
+-
+-            try:
+-                return cls.parse_raw(json.dumps(data))  # type: ignore
+-            except pydantic.ValidationError as e:
+-                msg = f"failed to validate databag: {databag}"
+-                logger.debug(msg, exc_info=True)
+-                raise DataValidationError(msg) from e
+-
+-        def dump(self, databag: Optional[MutableMapping] = None, clear: bool = True):
+-            """Write the contents of this model to Juju databag.
+-
+-            :param databag: the databag to write the data to.
+-            :param clear: ensure the databag is cleared before writing it.
+-            """
+-            if clear and databag:
+-                databag.clear()
+-
+-            if databag is None:
+-                databag = {}
+-
+-            if self._NEST_UNDER:
+-                databag[self._NEST_UNDER] = self.json(by_alias=True)
+-                return databag
+-
+-            dct = self.dict()
+-            for key, field in self.__fields__.items():  # type: ignore
+-                value = dct[key]
+-                databag[field.alias or key] = json.dumps(value)
+-
+-            return databag
+-
+-else:
+-    from pydantic import ConfigDict
+-
+-    class DatabagModel(BaseModel):
+-        """Base databag model."""
+-
+-        model_config = ConfigDict(
+-            # ignore any extra fields in the databag
+-            extra="ignore",
+-            # Allow instantiating this class by field name (instead of forcing alias).
+-            populate_by_name=True,
+-            # Custom config key: whether to nest the whole datastructure (as json)
+-            # under a field or spread it out at the toplevel.
+-            _NEST_UNDER=None,  # type: ignore
+-        )
+-        """Pydantic config."""
+-
+-        @classmethod
+-        def load(cls, databag: MutableMapping):
+-            """Load this model from a Juju databag."""
+-            nest_under = cls.model_config.get("_NEST_UNDER")  # type: ignore
+-            if nest_under:
+-                return cls.model_validate(json.loads(databag[nest_under]))  # type: ignore
+-
+-            try:
+-                data = {
+-                    k: json.loads(v)
+-                    for k, v in databag.items()
+-                    # Don't attempt to parse model-external values
+-                    if k in {(f.alias or n) for n, f in cls.__fields__.items()}
+-                }
+-            except json.JSONDecodeError as e:
+-                msg = f"invalid databag contents: expecting json. {databag}"
+-                logger.error(msg)
+-                raise DataValidationError(msg) from e
+-
+-            try:
+-                return cls.model_validate_json(json.dumps(data))  # type: ignore
+-            except pydantic.ValidationError as e:
+-                msg = f"failed to validate databag: {databag}"
+-                logger.debug(msg, exc_info=True)
+-                raise DataValidationError(msg) from e
+-
+-        def dump(self, databag: Optional[MutableMapping] = None, clear: bool = True):
+-            """Write the contents of this model to Juju databag.
+-
+-            :param databag: the databag to write the data to.
+-            :param clear: ensure the databag is cleared before writing it.
+-            """
+-            if clear and databag:
+-                databag.clear()
+-
+-            if databag is None:
+-                databag = {}
+-            nest_under = self.model_config.get("_NEST_UNDER")
+-            if nest_under:
+-                databag[nest_under] = self.model_dump_json(  # type: ignore
+-                    by_alias=True,
+-                    # skip keys whose values are default
+-                    exclude_defaults=True,
+-                )
+-                return databag
+-
+-            dct = self.model_dump()  # type: ignore
+-            for key, field in self.model_fields.items():  # type: ignore
+-                value = dct[key]
+-                if value == field.default:
+-                    continue
+-                databag[field.alias or key] = json.dumps(value)
+-
+-            return databag
+-
+-
+-# todo use models from charm-relation-interfaces
+-if int(pydantic.version.VERSION.split(".")[0]) < 2:
+-
+-    class ProtocolType(BaseModel):  # type: ignore
+-        """Protocol Type."""
+-
+-        class Config:
+-            """Pydantic config."""
+-
+-            use_enum_values = True
+-            """Allow serializing enum values."""
+-
+-        name: str = Field(
+-            ...,
+-            description="Receiver protocol name. What protocols are supported (and what they are called) "
+-            "may differ per provider.",
+-            examples=["otlp_grpc", "otlp_http", "tempo_http"],
+-        )
+-
+-        type: TransportProtocolType = Field(
+-            ...,
+-            description="The transport protocol used by this receiver.",
+-            examples=["http", "grpc"],
+-        )
+-
+-else:
+-
+-    class ProtocolType(BaseModel):
+-        """Protocol Type."""
+-
+-        model_config = ConfigDict(  # type: ignore
+-            # Allow serializing enum values.
+-            use_enum_values=True
+-        )
+-        """Pydantic config."""
+-
+-        name: str = Field(
+-            ...,
+-            description="Receiver protocol name. What protocols are supported (and what they are called) "
+-            "may differ per provider.",
+-            examples=["otlp_grpc", "otlp_http", "tempo_http"],
+-        )
+-
+-        type: TransportProtocolType = Field(
+-            ...,
+-            description="The transport protocol used by this receiver.",
+-            examples=["http", "grpc"],
+-        )
+-
+-
+-class Receiver(BaseModel):
+-    """Specification of an active receiver."""
+-
+-    protocol: ProtocolType = Field(..., description="Receiver protocol name and type.")
+-    url: str = Field(
+-        ...,
+-        description="""URL at which the receiver is reachable. If there's an ingress, it would be the external URL.
+-        Otherwise, it would be the service's fqdn or internal IP.
+-        If the protocol type is grpc, the url will not contain a scheme.""",
+-        examples=[
+-            "http://traefik_address:2331",
+-            "https://traefik_address:2331",
+-            "http://tempo_public_ip:2331",
+-            "https://tempo_public_ip:2331",
+-            "tempo_public_ip:2331",
+-        ],
+-    )
+-
+-
+-class TracingProviderAppData(DatabagModel):  # noqa: D101 # type: ignore
+-    """Application databag model for the tracing provider."""
+-
+-    receivers: List[Receiver] = Field(
+-        ...,
+-        description="List of all receivers enabled on the tracing provider.",
+-    )
+-
+-
+-class TracingRequirerAppData(DatabagModel):  # noqa: D101 # type: ignore
+-    """Application databag model for the tracing requirer."""
+-
+-    receivers: List[ReceiverProtocol]
+-    """Requested receivers."""
+-
+-
+-class _AutoSnapshotEvent(RelationEvent):
+-    __args__: Tuple[str, ...] = ()
+-    __optional_kwargs__: Dict[str, Any] = {}
+-
+-    @classmethod
+-    def __attrs__(cls):
+-        return cls.__args__ + tuple(cls.__optional_kwargs__.keys())
+-
+-    def __init__(self, handle, relation, *args, **kwargs):
+-        super().__init__(handle, relation)
+-
+-        if not len(self.__args__) == len(args):
+-            raise TypeError(
+-                "expected {} args, got {}".format(len(self.__args__), len(args))
+-            )
+-
+-        for attr, obj in zip(self.__args__, args):
+-            setattr(self, attr, obj)
+-        for attr, default in self.__optional_kwargs__.items():
+-            obj = kwargs.get(attr, default)
+-            setattr(self, attr, obj)
+-
+-    def snapshot(self) -> dict:
+-        dct = super().snapshot()
+-        for attr in self.__attrs__():
+-            obj = getattr(self, attr)
+-            try:
+-                dct[attr] = obj
+-            except ValueError as e:
+-                raise ValueError(
+-                    "cannot automagically serialize {}: "
+-                    "override this method and do it "
+-                    "manually.".format(obj)
+-                ) from e
+-
+-        return dct
+-
+-    def restore(self, snapshot: dict) -> None:
+-        super().restore(snapshot)
+-        for attr, obj in snapshot.items():
+-            setattr(self, attr, obj)
+-
+-
+-class RelationNotFoundError(Exception):
+-    """Raised if no relation with the given name is found."""
+-
+-    def __init__(self, relation_name: str):
+-        self.relation_name = relation_name
+-        self.message = "No relation named '{}' found".format(relation_name)
+-        super().__init__(self.message)
+-
+-
+-class RelationInterfaceMismatchError(Exception):
+-    """Raised if the relation with the given name has an unexpected interface."""
+-
+-    def __init__(
+-        self,
+-        relation_name: str,
+-        expected_relation_interface: str,
+-        actual_relation_interface: str,
+-    ):
+-        self.relation_name = relation_name
+-        self.expected_relation_interface = expected_relation_interface
+-        self.actual_relation_interface = actual_relation_interface
+-        self.message = "The '{}' relation has '{}' as interface rather than the expected '{}'".format(
+-            relation_name, actual_relation_interface, expected_relation_interface
+-        )
+-
+-        super().__init__(self.message)
+-
+-
+-class RelationRoleMismatchError(Exception):
+-    """Raised if the relation with the given name has a different role than expected."""
+-
+-    def __init__(
+-        self,
+-        relation_name: str,
+-        expected_relation_role: RelationRole,
+-        actual_relation_role: RelationRole,
+-    ):
+-        self.relation_name = relation_name
+-        self.expected_relation_interface = expected_relation_role
+-        self.actual_relation_role = actual_relation_role
+-        self.message = (
+-            "The '{}' relation has role '{}' rather than the expected '{}'".format(
+-                relation_name, repr(actual_relation_role), repr(expected_relation_role)
+-            )
+-        )
+-
+-        super().__init__(self.message)
+-
+-
+-def _validate_relation_by_interface_and_direction(
+-    charm: CharmBase,
+-    relation_name: str,
+-    expected_relation_interface: str,
+-    expected_relation_role: RelationRole,
+-):
+-    """Validate a relation.
+-
+-    Verifies that the `relation_name` provided: (1) exists in metadata.yaml,
+-    (2) declares as interface the interface name passed as `relation_interface`
+-    and (3) has the right "direction", i.e., it is a relation that `charm`
+-    provides or requires.
+-
+-    Args:
+-        charm: a `CharmBase` object to scan for the matching relation.
+-        relation_name: the name of the relation to be verified.
+-        expected_relation_interface: the interface name to be matched by the
+-            relation named `relation_name`.
+-        expected_relation_role: whether the `relation_name` must be either
+-            provided or required by `charm`.
+-
+-    Raises:
+-        RelationNotFoundError: If there is no relation in the charm's metadata.yaml
+-            with the same name as provided via `relation_name` argument.
+-        RelationInterfaceMismatchError: The relation with the same name as provided
+-            via `relation_name` argument does not have the same relation interface
+-            as specified via the `expected_relation_interface` argument.
+-        RelationRoleMismatchError: If the relation with the same name as provided
+-            via `relation_name` argument does not have the same role as specified
+-            via the `expected_relation_role` argument.
+-    """
+-    if relation_name not in charm.meta.relations:
+-        raise RelationNotFoundError(relation_name)
+-
+-    relation = charm.meta.relations[relation_name]
+-
+-    # fixme: why do we need to cast here?
+-    actual_relation_interface = cast(str, relation.interface_name)
+-
+-    if actual_relation_interface != expected_relation_interface:
+-        raise RelationInterfaceMismatchError(
+-            relation_name, expected_relation_interface, actual_relation_interface
+-        )
+-
+-    if expected_relation_role is RelationRole.provides:
+-        if relation_name not in charm.meta.provides:
+-            raise RelationRoleMismatchError(
+-                relation_name, RelationRole.provides, RelationRole.requires
+-            )
+-    elif expected_relation_role is RelationRole.requires:
+-        if relation_name not in charm.meta.requires:
+-            raise RelationRoleMismatchError(
+-                relation_name, RelationRole.requires, RelationRole.provides
+-            )
+-    else:
+-        raise TypeError(
+-            "Unexpected RelationDirection: {}".format(expected_relation_role)
+-        )
+-
+-
+-class RequestEvent(RelationEvent):
+-    """Event emitted when a remote requests a tracing endpoint."""
+-
+-    @property
+-    def requested_receivers(self) -> List[ReceiverProtocol]:
+-        """List of receiver protocols that have been requested."""
+-        relation = self.relation
+-        app = relation.app
+-        if not app:
+-            raise NotReadyError("relation.app is None")
+-
+-        return TracingRequirerAppData.load(relation.data[app]).receivers
+-
+-
+-class BrokenEvent(RelationBrokenEvent):
+-    """Event emitted when a relation on tracing is broken."""
+-
+-
+-class TracingEndpointProviderEvents(CharmEvents):
+-    """TracingEndpointProvider events."""
+-
+-    request = EventSource(RequestEvent)
+-    broken = EventSource(BrokenEvent)
+-
+-
+-class TracingEndpointProvider(Object):
+-    """Class representing a trace receiver service."""
+-
+-    on = TracingEndpointProviderEvents()  # type: ignore
+-
+-    def __init__(
+-        self,
+-        charm: CharmBase,
+-        external_url: Optional[str] = None,
+-        relation_name: str = DEFAULT_RELATION_NAME,
+-    ):
+-        """Initialize.
+-
+-        Args:
+-            charm: a `CharmBase` instance that manages this instance of the Tempo service.
+-            external_url: external address of the node hosting the tempo server,
+-                if an ingress is present.
+-            relation_name: an optional string name of the relation between `charm`
+-                and the Tempo charmed service. The default is "tracing".
+-
+-        Raises:
+-            RelationNotFoundError: If there is no relation in the charm's metadata.yaml
+-                with the same name as provided via `relation_name` argument.
+-            RelationInterfaceMismatchError: The relation with the same name as provided
+-                via `relation_name` argument does not have the `tracing` relation
+-                interface.
+-            RelationRoleMismatchError: If the relation with the same name as provided
+-                via `relation_name` argument does not have the `RelationRole.requires`
+-                role.
+-        """
+-        _validate_relation_by_interface_and_direction(
+-            charm, relation_name, RELATION_INTERFACE_NAME, RelationRole.provides
+-        )
+-
+-        super().__init__(charm, relation_name + "tracing-provider")
+-        self._charm = charm
+-        self._external_url = external_url
+-        self._relation_name = relation_name
+-        self.framework.observe(
+-            self._charm.on[relation_name].relation_joined, self._on_relation_event
+-        )
+-        self.framework.observe(
+-            self._charm.on[relation_name].relation_created, self._on_relation_event
+-        )
+-        self.framework.observe(
+-            self._charm.on[relation_name].relation_changed, self._on_relation_event
+-        )
+-        self.framework.observe(
+-            self._charm.on[relation_name].relation_broken,
+-            self._on_relation_broken_event,
+-        )
+-
+-    def _on_relation_broken_event(self, e: RelationBrokenEvent):
+-        """Handle relation broken events."""
+-        self.on.broken.emit(e.relation)
+-
+-    def _on_relation_event(self, e: RelationEvent):
+-        """Handle relation created/joined/changed events."""
+-        if self.is_requirer_ready(e.relation):
+-            self.on.request.emit(e.relation)
+-
+-    def is_requirer_ready(self, relation: Relation):
+-        """Attempt to determine if requirer has already populated app data."""
+-        try:
+-            self._get_requested_protocols(relation)
+-        except NotReadyError:
+-            return False
+-        return True
+-
+-    @staticmethod
+-    def _get_requested_protocols(relation: Relation):
+-        app = relation.app
+-        if not app:
+-            raise NotReadyError("relation.app is None")
+-
+-        try:
+-            databag = TracingRequirerAppData.load(relation.data[app])
+-        except (json.JSONDecodeError, pydantic.ValidationError, DataValidationError):
+-            logger.info("relation %s is not ready to talk tracing", relation)
+-            raise NotReadyError()
+-        return databag.receivers
+-
+-    def requested_protocols(self):
+-        """All receiver protocols that have been requested by our related apps."""
+-        requested_protocols = set()
+-        for relation in self.relations:
+-            try:
+-                protocols = self._get_requested_protocols(relation)
+-            except NotReadyError:
+-                continue
+-            requested_protocols.update(protocols)
+-        return requested_protocols
+-
+-    @property
+-    def relations(self) -> List[Relation]:
+-        """All relations active on this endpoint."""
+-        return self._charm.model.relations[self._relation_name]
+-
+-    def publish_receivers(self, receivers: Sequence[RawReceiver]):
+-        """Let all requirers know that these receivers are active and listening."""
+-        if not self._charm.unit.is_leader():
+-            raise RuntimeError("only leader can do this")
+-
+-        for relation in self.relations:
+-            try:
+-                TracingProviderAppData(
+-                    receivers=[
+-                        Receiver(
+-                            url=url,
+-                            protocol=ProtocolType(
+-                                name=protocol,
+-                                type=receiver_protocol_to_transport_protocol[protocol],
+-                            ),
+-                        )
+-                        for protocol, url in receivers
+-                    ],
+-                ).dump(relation.data[self._charm.app])
+-
+-            except ModelError as e:
+-                # args are bytes
+-                msg = e.args[0]
+-                if isinstance(msg, bytes):
+-                    if msg.startswith(
+-                        b"ERROR cannot read relation application settings: permission denied"
+-                    ):
+-                        logger.error(
+-                            "encountered error %s while attempting to update_relation_data."
+-                            "The relation must be gone.",
+-                            e,
+-                        )
+-                        continue
+-                raise
+-
+-
+-class EndpointRemovedEvent(RelationBrokenEvent):
+-    """Event representing a change in one of the receiver endpoints."""
+-
+-
+-class EndpointChangedEvent(_AutoSnapshotEvent):
+-    """Event representing a change in one of the receiver endpoints."""
+-
+-    __args__ = ("_receivers",)
+-
+-    if TYPE_CHECKING:
+-        _receivers = []  # type: List[dict]
+-
+-    @property
+-    def receivers(self) -> List[Receiver]:
+-        """Cast receivers back from dict."""
+-        return [Receiver(**i) for i in self._receivers]
+-
+-
+-class TracingEndpointRequirerEvents(CharmEvents):
+-    """TracingEndpointRequirer events."""
+-
+-    endpoint_changed = EventSource(EndpointChangedEvent)
+-    endpoint_removed = EventSource(EndpointRemovedEvent)
+-
+-
+-class TracingEndpointRequirer(Object):
+-    """A tracing endpoint for Tempo."""
+-
+-    on = TracingEndpointRequirerEvents()  # type: ignore
+-
+-    def __init__(
+-        self,
+-        charm: CharmBase,
+-        relation_name: str = DEFAULT_RELATION_NAME,
+-        protocols: Optional[List[ReceiverProtocol]] = None,
+-    ):
+-        """Construct a tracing requirer for a Tempo charm.
+-
+-        If your application supports pushing traces to a distributed tracing backend, the
+-        `TracingEndpointRequirer` object enables your charm to easily access endpoint information
+-        exchanged over a `tracing` relation interface.
+-
+-        Args:
+-            charm: a `CharmBase` object that manages this
+-                `TracingEndpointRequirer` object. Typically, this is `self` in the instantiating
+-                class.
+-            relation_name: an optional string name of the relation between `charm`
+-                and the Tempo charmed service. The default is "tracing". It is strongly
+-                advised not to change the default, so that people deploying your charm will have a
+-                consistent experience with all other charms that provide tracing endpoints.
+-            protocols: optional list of protocols that the charm intends to send traces with.
+-                The provider will enable receivers for these and only these protocols,
+-                so be sure to enable all protocols the charm or its workload are going to need.
+-
+-        Raises:
+-            RelationNotFoundError: If there is no relation in the charm's metadata.yaml
+-                with the same name as provided via `relation_name` argument.
+-            RelationInterfaceMismatchError: The relation with the same name as provided
+-                via `relation_name` argument does not have the `tracing` relation
+-                interface.
+-            RelationRoleMismatchError: If the relation with the same name as provided
+-                via `relation_name` argument does not have the `RelationRole.provides`
+-                role.
+-        """
+-        _validate_relation_by_interface_and_direction(
+-            charm, relation_name, RELATION_INTERFACE_NAME, RelationRole.requires
+-        )
+-
+-        super().__init__(charm, relation_name)
+-
+-        self._is_single_endpoint = charm.meta.relations[relation_name].limit == 1
+-
+-        self._charm = charm
+-        self._relation_name = relation_name
+-
+-        events = self._charm.on[self._relation_name]
+-        self.framework.observe(
+-            events.relation_changed, self._on_tracing_relation_changed
+-        )
+-        self.framework.observe(events.relation_broken, self._on_tracing_relation_broken)
+-
+-        if protocols and self._charm.unit.is_leader():
+-            # we can't be sure that the current event context supports read/writing relation data for this relation,
+-            # so we catch ModelErrors. This is because we're doing this in init.
+-            try:
+-                self.request_protocols(protocols)
+-            except ModelError as e:
+-                logger.error(
+-                    "encountered error %s while attempting to request_protocols."
+-                    "The relation must be gone.",
+-                    e,
+-                )
+-                pass
+-
+-    def request_protocols(
+-        self, protocols: Sequence[ReceiverProtocol], relation: Optional[Relation] = None
+-    ):
+-        """Publish the list of protocols which the provider should activate."""
+-        # todo: should we check if _is_single_endpoint and len(self.relations) > 1 and raise, here?
+-        relations = [relation] if relation else self.relations
+-
+-        if not protocols:
+-            # empty sequence
+-            raise ValueError(
+-                "You need to pass a nonempty sequence of protocols to `request_protocols`."
+-            )
+-
+-        if self._charm.unit.is_leader():
+-            for relation in relations:
+-                TracingRequirerAppData(
+-                    receivers=list(protocols),
+-                ).dump(relation.data[self._charm.app])
+-        else:
+-            raise DataAccessPermissionError("only leaders can request_protocols")
+-
+-    @property
+-    def relations(self) -> List[Relation]:
+-        """The tracing relations associated with this endpoint."""
+-        return self._charm.model.relations[self._relation_name]
+-
+-    @property
+-    def _relation(self) -> Optional[Relation]:
+-        """If this wraps a single endpoint, the relation bound to it, if any."""
+-        if not self._is_single_endpoint:
+-            objname = type(self).__name__
+-            raise AmbiguousRelationUsageError(
+-                f"This {objname} wraps a {self._relation_name} endpoint that has "
+-                "limit != 1. We can't determine what relation, of the possibly many, you are "
+-                f"talking about. Please pass a relation instance while calling {objname}, "
+-                "or set limit=1 in the charm metadata."
+-            )
+-        relations = self.relations
+-        return relations[0] if relations else None
+-
+-    def is_ready(self, relation: Optional[Relation] = None):
+-        """Is this endpoint ready?"""
+-        relation = relation or self._relation
+-        if not relation:
+-            logger.debug("no relation on %r: tracing not ready", self._relation_name)
+-            return False
+-        if relation.data is None:
+-            logger.error("relation data is None for %s", relation)
+-            return False
+-        if not relation.app:
+-            logger.error("%s event received but there is no relation.app", relation)
+-            return False
+-        try:
+-            databag = dict(relation.data[relation.app])
+-            TracingProviderAppData.load(databag)
+-
+-        except (json.JSONDecodeError, pydantic.ValidationError, DataValidationError):
+-            logger.info("failed validating relation data for %s", relation)
+-            return False
+-        return True
+-
+-    def _on_tracing_relation_changed(self, event):
+-        """Notify the providers that there is new endpoint information available."""
+-        relation = event.relation
+-        if not self.is_ready(relation):
+-            self.on.endpoint_removed.emit(relation)  # type: ignore
+-            return
+-
+-        data = TracingProviderAppData.load(relation.data[relation.app])
+-        self.on.endpoint_changed.emit(relation, [i.dict() for i in data.receivers])  # type: ignore
+-
+-    def _on_tracing_relation_broken(self, event: RelationBrokenEvent):
+-        """Notify the providers that the endpoint is broken."""
+-        relation = event.relation
+-        self.on.endpoint_removed.emit(relation)  # type: ignore
+-
+-    def get_all_endpoints(
+-        self, relation: Optional[Relation] = None
+-    ) -> Optional[TracingProviderAppData]:
+-        """Unmarshalled relation data."""
+-        relation = relation or self._relation
+-        if not self.is_ready(relation):
+-            return
+-        return TracingProviderAppData.load(relation.data[relation.app])  # type: ignore
+-
+-    def _get_endpoint(
+-        self, relation: Optional[Relation], protocol: ReceiverProtocol
+-    ) -> Optional[str]:
+-        app_data = self.get_all_endpoints(relation)
+-        if not app_data:
+-            return None
+-        receivers: List[Receiver] = list(
+-            filter(lambda i: i.protocol.name == protocol, app_data.receivers)
+-        )
+-        if not receivers:
+-            # it can happen if the charm requests tracing protocols, but the relay (such as grafana-agent) isn't yet
+-            # connected to the tracing backend. In this case, it's not an error the charm author can do anything about
+-            logger.warning("no receiver found with protocol=%r.", protocol)
+-            return
+-        if len(receivers) > 1:
+-            # if we have more than 1 receiver that matches, it shouldn't matter which receiver we'll be using.
+-            logger.warning(
+-                "too many receivers with protocol=%r; using first one. Found: %s",
+-                protocol,
+-                receivers,
+-            )
+-
+-        receiver = receivers[0]
+-        return receiver.url
+-
+-    def get_endpoint(
+-        self, protocol: ReceiverProtocol, relation: Optional[Relation] = None
+-    ) -> Optional[str]:
+-        """Receiver endpoint for the given protocol.
+-
+-        It could happen that this function gets called before the provider publishes the endpoints.
+-        In such a scenario, if a non-leader unit calls this function, a permission denied exception will be raised due to
+-        restricted access. To prevent this, this function needs to be guarded by the `is_ready` check.
+-
+-        Raises:
+-        ProtocolNotRequestedError:
+-            If the charm unit is the leader unit and attempts to obtain an endpoint for a protocol it did not request.
+-        """
+-        endpoint = self._get_endpoint(relation or self._relation, protocol=protocol)
+-        if not endpoint:
+-            requested_protocols = set()
+-            relations = [relation] if relation else self.relations
+-            for relation in relations:
+-                try:
+-                    databag = TracingRequirerAppData.load(
+-                        relation.data[self._charm.app]
+-                    )
+-                except DataValidationError:
+-                    continue
+-
+-                requested_protocols.update(databag.receivers)
+-
+-            if protocol not in requested_protocols:
+-                raise ProtocolNotRequestedError(protocol, relation)
+-
+-            return None
+-        return endpoint
+-
+-
+-def charm_tracing_config(
+-    endpoint_requirer: TracingEndpointRequirer, cert_path: Optional[Union[Path, str]]
+-) -> Tuple[Optional[str], Optional[str]]:
+-    """Return the charm_tracing config you likely want.
+-
+-    If no endpoint is provided:
+-     disable charm tracing.
+-    If https endpoint is provided but cert_path is not found on disk:
+-     disable charm tracing.
+-    If https endpoint is provided and cert_path is None:
+-     ERROR
+-    Else:
+-     proceed with charm tracing (with or without tls, as appropriate)
+-
+-    Usage:
+-    >>> from lib.charms.tempo_coordinator_k8s.v0.charm_tracing import trace_charm
+-    >>> from lib.charms.tempo_coordinator_k8s.v0.tracing import charm_tracing_config
+-    >>> @trace_charm(tracing_endpoint="my_endpoint", cert_path="cert_path")
+-    >>> class MyCharm(...):
+-    >>>     _cert_path = "/path/to/cert/on/charm/container.crt"
+-    >>>     def __init__(self, ...):
+-    >>>         self.tracing = TracingEndpointRequirer(...)
+-    >>>         self.my_endpoint, self.cert_path = charm_tracing_config(
+-    ...             self.tracing, self._cert_path)
+-    """
+-    if not endpoint_requirer.is_ready():
+-        return None, None
+-
+-    try:
+-        endpoint = endpoint_requirer.get_endpoint("otlp_http")
+-    except ModelError as e:
+-        if e.args[0] == "ERROR permission denied\n":
+-            # this can happen the app databag doesn't have data,
+-            # or we're breaking the relation.
+-            return None, None
+-        raise
+-
+-    if not endpoint:
+-        return None, None
+-
+-    is_https = endpoint.startswith("https://")
+-
+-    if is_https:
+-        if cert_path is None or not Path(cert_path).exists():
+-            # disable charm tracing until we obtain a cert to prevent tls errors
+-            logger.error(
+-                "Tracing endpoint is https, but no server_cert has been passed."
+-                "Please point @trace_charm to a `server_cert` attr. "
+-                "This might also mean that the tracing provider is related to a "
+-                "certificates provider, but this application is not (yet). "
+-                "In that case, you might just have to wait a bit for the certificates "
+-                "integration to settle. "
+-            )
+-            return None, None
+-        return endpoint, str(cert_path)
+-    else:
+-        return endpoint, None
+diff --git a/pyproject.toml b/pyproject.toml
+index 140d222..e725844 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -6,14 +6,13 @@ version = "0.0"
+ requires-python = "~=3.8"
+ 
+ dependencies = [
+-  "ops",
++  "ops[tracing]>=2.21",
+   "pyyaml",
+   "lightkube>=0.11",  # observability_libs
+   "lightkube-models",  # observability_libs
+   "jsonschema", # traefik_k8s, tls_certificates
+   "cryptography",  # tls_certificates
+   "pydantic>=2",  # traefik_k8s.v2.ingress
+-  "opentelemetry-exporter-otlp-proto-http>=1.21.0",  # tracing
+   "tenacity",
+   "cosl",
+   "charmed-service-mesh-helpers>=0.2.0",
+diff --git a/src/charm.py b/src/charm.py
+index ae92826..49b17f3 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -30,13 +30,12 @@ from charms.observability_libs.v0.kubernetes_compute_resources_patch import (
+     adjust_resource_requirements,
+ )
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from charms.tempo_coordinator_k8s.v0.charm_tracing import trace_charm
+-from charms.tempo_coordinator_k8s.v0.tracing import TracingEndpointRequirer, charm_tracing_config
+ from charms.tls_certificates_interface.v4.tls_certificates import (
+     CertificateRequestAttributes,
+     TLSCertificatesRequiresV4,
+ )
+ from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
++from ops import tracing as ops_tracing
+ from ops.charm import ActionEvent, CharmBase
+ from ops.main import main
+ from ops.model import (
+@@ -69,17 +68,6 @@ class TLSConfig:
+     private_key: str
+ 
+ 
+-@trace_charm(
+-    tracing_endpoint="_charm_tracing_endpoint",
+-    server_cert="_charm_tracing_ca_cert",
+-    extra_types=(
+-        AlertmanagerProvider,
+-        TLSCertificatesRequiresV4,
+-        IngressPerAppRequirer,
+-        KubernetesComputeResourcesPatch,
+-        RemoteConfigurationRequirer,
+-    ),
+-)
+ class AlertmanagerCharm(CharmBase):
+     """A Juju charm for alertmanager."""
+ 
+@@ -183,10 +171,7 @@ class AlertmanagerCharm(CharmBase):
+                 self._cert_requirer.on.certificate_available,  # pyright: ignore
+             ],
+         )
+-        self._tracing = TracingEndpointRequirer(self, protocols=["otlp_http"])
+-        self._charm_tracing_endpoint, self._charm_tracing_ca_cert = charm_tracing_config(
+-            self._tracing, self._ca_cert_path
+-        )
++        ops_tracing.Tracing(self, tracing_relation_name="tracing")
+ 
+         self.catalog = CatalogueConsumer(charm=self, item=self._catalogue_item)
+ 
+diff --git a/tests/unit/conftest.py b/tests/unit/conftest.py
+index a09d997..c46abdc 100644
+--- a/tests/unit/conftest.py
++++ b/tests/unit/conftest.py
+@@ -1,28 +1,12 @@
+ from unittest.mock import patch
+ 
+ import pytest
+-from charms.tempo_coordinator_k8s.v0.charm_tracing import charm_tracing_disabled
+ from ops.testing import Context
+ 
+ from src.alertmanager import WorkloadManager
+ from src.charm import AlertmanagerCharm
+ 
+ 
+-@pytest.fixture(autouse=True)
+-def patch_buffer_file_for_charm_tracing(tmp_path):
+-    with patch(
+-        "charms.tempo_coordinator_k8s.v0.charm_tracing.BUFFER_DEFAULT_CACHE_FILE_NAME",
+-        str(tmp_path / "foo.json"),
+-    ):
+-        yield
+-
+-
+-@pytest.fixture(autouse=True)
+-def silence_tracing():
+-    with charm_tracing_disabled():
+-        yield
+-
+-
+ def tautology(*_, **__) -> bool:
+     return True
+ 
+diff --git a/uv.lock b/uv.lock
+index c08f26c..56028be 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -1,5 +1,5 @@
+ version = 1
+-revision = 2
++revision = 3
+ requires-python = ">=3.8, <4"
+ resolution-markers = [
+     "python_full_version >= '3.11'",
+@@ -21,8 +21,7 @@ dependencies = [
+     { name = "lightkube" },
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+-    { name = "opentelemetry-exporter-otlp-proto-http" },
+-    { name = "ops" },
++    { name = "ops", extra = ["tracing"] },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pyyaml" },
+@@ -71,9 +70,8 @@ requires-dist = [
+     { name = "lightkube", specifier = ">=0.11" },
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0" },
+-    { name = "ops" },
+     { name = "ops", extras = ["testing"], marker = "extra == 'dev'" },
++    { name = "ops", extras = ["tracing"], specifier = ">=2.21" },
+     { name = "pydantic", specifier = ">=2" },
+     { name = "pyright", marker = "extra == 'dev'", specifier = "<1.1.399" },
+     { name = "pytest", marker = "extra == 'dev'" },
+@@ -815,18 +813,6 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/6a/c7/e2d82e6702e2a9e2311c138f8e1100f21d08aed0231290872b229ae57a86/google_auth-2.40.2-py2.py3-none-any.whl", hash = "sha256:f7e568d42eedfded58734f6a60c58321896a621f7c116c411550a4b4a13da90b", size = 216102, upload-time = "2025-05-21T18:04:57.547Z" },
+ ]
+ 
+-[[package]]
+-name = "googleapis-common-protos"
+-version = "1.70.0"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "protobuf" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/39/24/33db22342cf4a2ea27c9955e6713140fedd51e8b141b5ce5260897020f1a/googleapis_common_protos-1.70.0.tar.gz", hash = "sha256:0e1b44e0ea153e6594f9f394fef15193a68aaaea2d843f83e2742717ca753257", size = 145903, upload-time = "2025-04-14T10:17:02.924Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/86/f1/62a193f0227cf15a920390abe675f386dec35f7ae3ffe6da582d3ade42c7/googleapis_common_protos-1.70.0-py3-none-any.whl", hash = "sha256:b8bfcca8c25a2bb253e0e0b0adaf8c00773e5e6af6fd92397576680b807e0fd8", size = 294530, upload-time = "2025-04-14T10:17:01.271Z" },
+-]
+-
+ [[package]]
+ name = "h11"
+ version = "0.16.0"
+@@ -1472,48 +1458,6 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/05/44/4c45a34def3506122ae61ad684139f0bbc4e00c39555d4f7e20e0e001c8a/opentelemetry_api-1.33.1-py3-none-any.whl", hash = "sha256:4db83ebcf7ea93e64637ec6ee6fabee45c5cbe4abd9cf3da95c43828ddb50b83", size = 65771, upload-time = "2025-05-16T18:52:17.419Z" },
+ ]
+ 
+-[[package]]
+-name = "opentelemetry-exporter-otlp-proto-common"
+-version = "1.33.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "opentelemetry-proto" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/7a/18/a1ec9dcb6713a48b4bdd10f1c1e4d5d2489d3912b80d2bcc059a9a842836/opentelemetry_exporter_otlp_proto_common-1.33.1.tar.gz", hash = "sha256:c57b3fa2d0595a21c4ed586f74f948d259d9949b58258f11edb398f246bec131", size = 20828, upload-time = "2025-05-16T18:52:43.795Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/09/52/9bcb17e2c29c1194a28e521b9d3f2ced09028934c3c52a8205884c94b2df/opentelemetry_exporter_otlp_proto_common-1.33.1-py3-none-any.whl", hash = "sha256:b81c1de1ad349785e601d02715b2d29d6818aed2c809c20219f3d1f20b038c36", size = 18839, upload-time = "2025-05-16T18:52:22.447Z" },
+-]
+-
+-[[package]]
+-name = "opentelemetry-exporter-otlp-proto-http"
+-version = "1.33.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "deprecated" },
+-    { name = "googleapis-common-protos" },
+-    { name = "opentelemetry-api" },
+-    { name = "opentelemetry-exporter-otlp-proto-common" },
+-    { name = "opentelemetry-proto" },
+-    { name = "opentelemetry-sdk" },
+-    { name = "requests" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/60/48/e4314ac0ed2ad043c07693d08c9c4bf5633857f5b72f2fefc64fd2b114f6/opentelemetry_exporter_otlp_proto_http-1.33.1.tar.gz", hash = "sha256:46622d964a441acb46f463ebdc26929d9dec9efb2e54ef06acdc7305e8593c38", size = 15353, upload-time = "2025-05-16T18:52:45.522Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/63/ba/5a4ad007588016fe37f8d36bf08f325fe684494cc1e88ca8fa064a4c8f57/opentelemetry_exporter_otlp_proto_http-1.33.1-py3-none-any.whl", hash = "sha256:ebd6c523b89a2ecba0549adb92537cc2bf647b4ee61afbbd5a4c6535aa3da7cf", size = 17733, upload-time = "2025-05-16T18:52:25.137Z" },
+-]
+-
+-[[package]]
+-name = "opentelemetry-proto"
+-version = "1.33.1"
+-source = { registry = "https://pypi.org/simple" }
+-dependencies = [
+-    { name = "protobuf" },
+-]
+-sdist = { url = "https://files.pythonhosted.org/packages/f6/dc/791f3d60a1ad8235930de23eea735ae1084be1c6f96fdadf38710662a7e5/opentelemetry_proto-1.33.1.tar.gz", hash = "sha256:9627b0a5c90753bf3920c398908307063e4458b287bb890e5c1d6fa11ad50b68", size = 34363, upload-time = "2025-05-16T18:52:52.141Z" }
+-wheels = [
+-    { url = "https://files.pythonhosted.org/packages/c4/29/48609f4c875c2b6c80930073c82dd1cafd36b6782244c01394007b528960/opentelemetry_proto-1.33.1-py3-none-any.whl", hash = "sha256:243d285d9f29663fc7ea91a7171fcc1ccbbfff43b48df0774fd64a37d98eda70", size = 55854, upload-time = "2025-05-16T18:52:36.269Z" },
+-]
+-
+ [[package]]
+ name = "opentelemetry-sdk"
+ version = "1.33.1"
+@@ -1561,6 +1505,9 @@ wheels = [
+ testing = [
+     { name = "ops-scenario" },
+ ]
++tracing = [
++    { name = "ops-tracing" },
++]
+ 
+ [[package]]
+ name = "ops-scenario"
+@@ -1575,6 +1522,21 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/93/3b/4cc28ea9d77015ecf8fc5c3d362bb274e35ffaa2e6fbd87909a5384afa40/ops_scenario-7.21.1-py3-none-any.whl", hash = "sha256:eeb9def2c31a1db2429cf21bd9b8cbd2ac092cc1fbe5591e850e4aa192c542fa", size = 72451, upload-time = "2025-05-01T03:03:28.488Z" },
+ ]
+ 
++[[package]]
++name = "ops-tracing"
++version = "2.21.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-sdk" },
++    { name = "ops" },
++    { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
++    { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/cd/1d/8c028b996ef5cc320064e63b8497cc95dbd4cb6be730012f12046ac50d43/ops_tracing-2.21.1.tar.gz", hash = "sha256:d1dc8ecd079a4d78f3d6978bda16b884d1dc00792db0d8e9273912a87cf2cafc", size = 27871, upload-time = "2025-05-01T03:03:18.482Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/f3/22/d75274cd8775a016b925fd7a3a4040b890a3be797285d4f6c56ab0c2b471/ops_tracing-2.21.1-py3-none-any.whl", hash = "sha256:e84900361806481e74b0c1855c52a85552a3a3edaaea06f47846f934a2ffa5b2", size = 31177, upload-time = "2025-05-01T03:03:16.918Z" },
++]
++
+ [[package]]
+ name = "orderly-set"
+ version = "5.4.1"

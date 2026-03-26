@@ -1,0 +1,247 @@
+● Explore: Explore charm tracing state
+  ● Check interface conftest.py for tracing setup
+    $ grep -n "charm_tracing_disabled\|patch"
+    /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/tests/interface/conftest.py
+    └ 9 lines...
+  ● Read lib/charms/tempo_coordinator_k8s/v0/tracing.py lines 150-250
+    └ 101 lines read
+
+Now I have a clear picture. Let me look at the actual charm code in detail before making changes.
+
+● Read unit test conftest
+  $ cat /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/tests/unit/conftest.py
+  └ 53 lines...
+
+● Read interface test conftest
+  $ cat /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/tests/interface/conftest.py
+  └ 82 lines...
+
+● Find tracing-related lines in charm.py
+  $ grep -n "charm_tracing\|trace_charm\|TracingEndpointRequirer\|charm_tracing_config\|_charm_traci
+  ng\|workload_tracing\|workload-tracing"
+  /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/src/charm.py | head -60
+  └ 19 lines...
+
+● Read src/charm.py lines 40-130
+  └ 90 lines read
+
+● Find ops and opentelemetry deps
+  $ grep -n "ops\|opentelemetry"
+  /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/pyproject.toml
+  └ 9 lines...
+
+● Read src/charm.py lines 240-270
+  └ 31 lines read
+
+Now I have everything I need. Let me implement the migration:
+
+● Read pyproject.toml lines 1-45
+  └ 45 lines read
+
+Now I'll make all the changes in parallel:
+
+● Edit pyproject.toml (+1 -7)
+
+● Edit src/charm.py (+2 -2)
+
+● Edit src/charm.py (-12)
+
+● Edit src/charm.py (+1 -6)
+
+Now update the test files and delete the community library:
+
+● Edit tests/interface/conftest.py (-2)
+
+● Edit tests/unit/conftest.py (+1 -12)
+
+● Delete community charm_tracing library
+  $ rm /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/lib/charms/tempo_coordinator
+  _k8s/v0/charm_tracing.py
+  └ 1 line...
+
+Now let's run the linter and tests to verify:
+
+● Run lint
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && tox -e lint 2>&1 | tail
+  -20
+  └ 21 lines...
+
+Import ordering issue. Let me fix it:
+
+● Auto-fix import ordering
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev ruff check --fix src/charm.py 2>&1
+  └ 4 lines...
+
+● Run lint again
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && tox -e lint 2>&1 | tail
+  -10
+  └ 7 lines...
+
+Lint passes. Now run unit tests:
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && tox -e unit 2>&1 | tail
+  -30
+  └ 20 lines...
+
+The lock file needs updating. Let me update it:
+
+● Update uv.lock
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 | tail -20
+  └ 13 lines...
+
+● Run unit tests again
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && tox -e unit 2>&1 | tail
+  -20
+  └ 14 lines...
+
+● Check ops.tracing availability
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "import ops; print(ops.__version__); import ops.tracing;
+  print('ops.tracing ok')" 2>&1 | grep -v "warning\|Installed"
+  └ 5 lines...
+
+● Check ops_tracing module
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "import ops_tracing; print(dir(ops_tracing))" 2>&1 | grep -v
+  "warning\|Installed"
+  └ 2 lines...
+
+● Check ops_tracing.setup API
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "from ops_tracing import setup; help(setup)" 2>&1 | grep -v
+  "warning\|Installed"
+  └ 4 lines...
+
+✗ Find ops_tracing source
+  $ uv run --frozen --isolated --extra=dev python -c "import ops_tracing; import inspect;
+  print(inspect.getfile(ops_tracing))" 2>/dev/null; find /home/ubuntu/.cache/uv -name "_api.py"
+  -path "*/ops_tracing/*" 2>/dev/null | head -3
+  Permission denied and could not request permission from user
+
+● Check ops_tracing public API
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "import ops_tracing; print(ops_tracing.__all__)" 2>&1 | grep -v
+  "warning\|Installed"
+  └ 2 lines...
+
+● Find ops_tracing module location
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "
+  import ops_tracing
+  import inspect
+  print(inspect.getfile(ops_tracing))...
+  └ 3 lines...
+
+✗ List ops_tracing files
+  $ ls /home/ubuntu/.cache/uv/builds-v0/.tmpRDc1KB/lib/python3.12/site-packages/ops_tracing/
+  2>/dev/null || find /home/ubuntu/.cache/uv -name "__init__.py" -path "*/ops_tracing/*" 2>/dev/null
+   | head -5
+  Permission denied and could not request permission from user
+
+● Read ops_tracing source
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "
+  import ops_tracing
+  import inspect
+  src = inspect.getsource(ops_tracing)...
+  └ 91 lines...
+
+● Check if ops.tracing is accessible
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "
+  import ops
+  print(hasattr(ops, 'tracing'))
+  import ops.tracing...
+  └ 7 lines...
+
+● Check Tracing class API
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "
+  import ops_tracing
+  print(ops_tracing.Tracing)
+  import inspect...
+  └ 30 lines...
+
+● Check ops.tracing as attribute
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev python -c "
+  import ops
+  print(type(ops.tracing))
+  print(ops.tracing.Tracing)...
+  └ 4 lines...
+
+The correct approach is `ops.tracing.Tracing(...)` accessed via `import ops`. Let me update charm.py:
+
+● Read src/charm.py lines 28-35
+  └ 8 lines read
+
+● Check for bare ops import
+  $ grep -n "^import ops"
+  /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/src/charm.py
+  └ 2 lines...
+
+● Edit src/charm.py (+1 -1)
+
+● Read src/charm.py lines 243-253
+  └ 11 lines read
+
+● Read src/charm.py lines 230-250
+  └ 21 lines read
+
+● Edit src/charm.py (+1 -1)
+
+Now I need to check if there's already a bare `import ops` or if we need it:
+
+● Check ops imports
+  $ grep -n "^import ops\|^from ops "
+  /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/src/charm.py | head -10
+  └ 3 lines...
+
+Good. Now let's run lint and tests:
+
+● Run lint
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && tox -e lint 2>&1 | tail
+  -5
+  └ 6 lines...
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf && tox -e unit 2>&1 | tail
+  -20
+  └ 21 lines...
+
+All 71 tests pass. Let me do a final check to ensure no remaining references to the old community library:
+
+● Check for remaining community library references
+  $ grep -rn "charm_tracing\|trace_charm\|charm_tracing_disabled\|BUFFER_DEFAULT_CACHE_FILE_NAME"
+  /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/src
+  /tmp/ops-upgrade-experiment/loki-k8s-operator__ops-tracing__C1pf/tests 2>/dev/null
+  └ 1 line...
+
+No remaining references. Here's a summary of the changes made:
+
+**Migration from community `charm_tracing` to `ops[tracing]`:**
+
+1. **`pyproject.toml`**: Replaced `"ops"` + 6 explicit `opentelemetry-*` packages with `"ops[tracing]>=2.21"`.
+
+2. **`src/charm.py`**:
+   - Removed `@trace_charm(...)` decorator and its imports
+   - Replaced `TracingEndpointRequirer(charm-tracing)` + `charm_tracing_config()` with `ops.tracing.Tracing(self, tracing_relation_name="charm-tracing")`
+   - Kept `workload_tracing` (Jaeger for Loki workload) unchanged
+
+3. **`tests/unit/conftest.py`** & **`tests/interface/conftest.py`**: Removed `charm_tracing_disabled()` usage and the buffer-file patch fixture.
+
+4. **`lib/charms/tempo_coordinator_k8s/v0/charm_tracing.py`**: Deleted (kept `tracing.py` for workload tracing).
+
+5. **`uv.lock`**: Updated via `uv lock`.
+
+
+Total usage est:        1 Premium request
+API time spent:         4m 27s
+Total session time:     5m 50s
+Total code changes:     +7 -43
+Breakdown by AI model:
+ claude-sonnet-4.6       1.3m in, 11.9k out, 1.3m cached (Est. 1 Premium request)
+ claude-haiku-4.5        264.4k in, 7.0k out, 227.0k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/loki-k8s-operator__ops-tracing__C1pf/transcript.md

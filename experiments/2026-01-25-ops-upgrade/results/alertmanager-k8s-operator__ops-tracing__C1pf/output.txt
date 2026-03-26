@@ -1,0 +1,259 @@
+● Explore: Explore charm tracing state
+  ● Get charm.py line count
+    $ wc -l /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf/src/charm.py
+    └ 2 lines...
+  ● Read src/charm.py lines 1-100
+    └ 100 lines read
+
+Clear picture. This is Scenario A — migrating from `charms.tempo_coordinator_k8s.v0.charm_tracing` to `ops[tracing]`. Let me look at the key files before making changes.
+
+● Read src/charm.py lines 1-100
+  └ 100 lines read
+
+● Read pyproject.toml
+  └ 91 lines read
+
+● Read tests/unit/conftest.py
+  └ 45 lines read
+
+Now let me see the relevant sections of charm.py with the `__init__` and tracing-related properties:
+
+● Read src/charm.py lines 100-260
+  └ 161 lines read
+
+● Grep "_charm_tracing|_tracing"
+(/tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf/src/charm.py)
+  └ 7 lines found
+
+Good. Now I have everything I need. Let me implement all the changes:
+
+● Edit pyproject.toml (+1 -2)
+
+● Edit src/charm.py (-2)
+
+Now remove the `@trace_charm` decorator and update the charm class:
+
+● Edit src/charm.py (-11)
+
+Now update the `__init__` to use `ops.tracing.setup()` and add the import:
+
+● Edit src/charm.py (+1 -4)
+
+Now add `import ops.tracing` near the ops imports:
+
+● Read src/charm.py lines 35-50
+  └ 16 lines read
+
+● Edit src/charm.py (+1)
+
+Now update the test conftest to remove the community tracing fixtures:
+
+● Edit tests/unit/conftest.py (-18)
+
+Now check if `from unittest.mock import patch` is still needed (used in `alertmanager_charm` fixture):
+
+● Read tests/unit/conftest.py
+  └ 27 lines read
+
+`patch` is still used in `alertmanager_charm` fixture. Need to add the import back:
+
+● Edit tests/unit/conftest.py (+2)
+
+Now delete the community library directory:
+
+● Delete tempo_coordinator_k8s library
+  $ rm -rf /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf/lib/charms/tempo
+  _coordinator_k8s && echo "Deleted"
+  └ 2 lines...
+
+Now install updated deps and run lint + unit tests:
+
+● Sync dependencies
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv sync
+  --extra=dev 2>&1 | tail -5
+  └ 6 lines...
+
+● Run lint
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && tox -e lint 2>&1
+  | tail -20
+  └ 21 lines...
+
+Import ordering issue — `import ops.tracing` needs to be in the right place. Let me fix:
+
+● Read src/charm.py lines 1-58
+  └ 57 lines read
+
+● Edit src/charm.py
+
+● Auto-fix import ordering
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run --frozen
+  --isolated --extra=dev ruff check --fix src/charm.py && echo "Fixed"
+  └ 5 lines...
+
+● Run lint again
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && tox -e lint 2>&1
+  | tail -5
+  └ 6 lines...
+
+Lint passes. Now run unit tests:
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && tox -e unit 2>&1
+  | tail -20
+  └ 18 lines...
+
+The lockfile needs updating for `ops[tracing]`:
+
+● Update uv lockfile
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 |
+  tail -5
+  └ 3 lines...
+
+● Sync and verify ops.tracing available
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv sync
+  --extra=dev 2>&1 | tail -5 && python -c "import ops.tracing; print('ok')"
+  └ 5 lines...
+
+● Verify ops.tracing importable
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "import ops.tracing; print('ok')"
+  └ 5 lines...
+
+● Check ops version and extras
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "import ops; print(ops.__version__)" && uv pip show ops | grep -E "Version|Requires"
+  └ 5 lines...
+
+● Check ops tracing module
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "import ops; print(dir(ops))" | tr ',' '\n' | grep -i trac
+  └ 3 lines...
+
+● Try importing tracing from ops
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "from ops import tracing; print(dir(tracing))"
+  └ 3 lines...
+
+● Check ops.tracing public API
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "from ops import tracing; print(tracing.__all__)"
+  └ 3 lines...
+
+● Inspect ops tracing API
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "from ops import tracing; import inspect; print(inspect.getsource(tracing._api))"
+  └ 218 lines...
+
+● Check for CA cert relation in charmcraft.yaml
+  $ grep -A 5 "receive-ca\|certificate.transfer\|ca.cert"
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf/charmcraft.yaml
+  └ 7 lines...
+
+The actual API in ops 2.21.1 is `ops.tracing.Tracing(...)`, not `setup()`. Let me update the charm to use the correct API:
+
+● Edit src/charm.py (+1 -1)
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && tox -e unit 2>&1
+  | tail -20
+  └ 17 lines...
+
+● Test import approach
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "import ops; import ops.tracing; print('ok')" 2>&1
+  └ 5 lines...
+
+● Find ops.tracing location
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3 -c
+   "from ops import tracing; print(tracing.__file__)"
+  └ 3 lines...
+
+● Check if ops-tracing package installed
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run pip show
+  ops-tracing 2>&1 | head -10
+  └ 3 lines...
+
+● Check ops entry in lockfile
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && grep -A 20 "name
+  = \"ops\"" uv.lock | head -30
+  └ 31 lines...
+
+● Check ops-tracing in lockfile
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && grep -n
+  "ops-tracing\|ops_tracing" uv.lock | head -20
+  └ 5 lines...
+
+● Check ops packages being installed
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv sync
+  --extra=dev 2>&1 | grep -i "ops" | head -10
+  └ 1 line...
+
+● List installed ops packages
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv pip list |
+  grep ops
+  └ 4 lines...
+
+● Test import pattern
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && uv run python3
+  -c "
+  import sys
+  # first import ops to initialize it
+  import ops...
+  └ 8 lines...
+
+The issue: `import ops.tracing` doesn't work with this namespace package, but `from ops import tracing` does. I need to update the import style:
+
+✗ Edit src/charm.py
+  No match found
+
+● Find tracing imports
+  $ grep -n "ops.tracing\|ops_tracing\|import ops"
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf/src/charm.py
+  └ 3 lines...
+
+● Read src/charm.py lines 14-20
+  └ 7 lines read
+
+● Edit src/charm.py (-1)
+
+Now find the right place to insert the `from ops import tracing as ops_tracing` import (after the other `from ops.*` imports):
+
+● Read src/charm.py lines 35-55
+  └ 21 lines read
+
+● Edit src/charm.py (+1)
+
+● Edit src/charm.py (+1 -1)
+
+● Run lint and unit tests
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && tox -e lint 2>&1
+  | tail -5 && tox -e unit 2>&1 | tail -15
+  └ 6 lines...
+
+● Read shell output: Waiting up to 60 seconds for command output
+  └ 21 lines...
+
+All tests pass. Now commit the changes:
+
+● Stage and preview changes
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && git add -A && git
+   diff --cached --stat
+  └ 9 lines...
+
+● Commit migration
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__ops-tracing__C1pf && git commit -m
+  "Migrate from community charm_tracing to ops[tracing]
+
+  Replace the community charms.tempo_coordinator_k8s tracing library with
+  the first-party ops[tracing] package....
+  └ 18 lines...
+
+
+Total usage est:        1 Premium request
+API time spent:         5m 32s
+Total session time:     8m 14s
+Total code changes:     +8 -40
+Breakdown by AI model:
+ claude-sonnet-4.6       2.2m in, 12.5k out, 2.1m cached (Est. 1 Premium request)
+ claude-haiku-4.5        282.6k in, 5.4k out, 260.2k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/alertmanager-k8s-operator__ops-tracing__C1pf/transcript.md

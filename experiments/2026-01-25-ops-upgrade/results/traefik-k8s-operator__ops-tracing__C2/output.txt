@@ -1,0 +1,454 @@
+● List Python files and lib directory
+  $ find /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 -name "*.py" | head -30
+  && echo "---" && ls lib/ 2>/dev/null || true
+  └ 33 lines...
+
+● Explore: Explore ops tracing feature
+  ● Create comprehensive analysis
+    $ cat > /tmp/tracing_analysis.md << 'EOF'
+    # ops[tracing] 2.21.0+ Migration Analysis
+
+    ## Current Implementation in Traefik Charm...
+    └ 506 lines...
+  ● Create implementation comparison
+    $ cat > /tmp/implementation_comparison.md << 'EOF'
+    # Implementation Comparison
+
+    ## Current Implementation (charm_tracing library)...
+    └ 438 lines...
+
+● Read src/charm.py
+  └ 1 line read
+
+✗ Find ops tracing module
+  $ find / -path "*/ops/tracing*" -name "*.py" 2>/dev/null | head -10 && python3 -c "import ops;
+  print(ops.__version__)" 2>/dev/null || true
+  Permission denied and could not request permission from user
+
+● Read pyproject.toml
+  └ 122 lines read
+
+● View charm.py header
+  $ head -150 /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py
+  └ 150 lines...
+
+● Find tracing-related code in charm.py
+  $ grep -n "tracing\|charm_tracing\|tempo\|trace_charm\|TracingEndpoint\|server_cert\|charm_tracing
+  _endpoint\|opentelemetry"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py | head -50
+  └ 28 lines...
+
+● View trace_charm decorator and init tracing setup
+  $ sed -n '155,170p' /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py
+   && echo "---" && sed -n '230,270p'
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py
+  └ 58 lines...
+
+● Check ops version and available versions
+  $ pip show ops 2>/dev/null | grep -E "Version|Location" && pip index versions ops 2>/dev/null |
+  head -5 || true
+  └ 7 lines...
+
+✗ Explore ops.tracing module
+  $ find /home/ubuntu/.local/lib/python3.12/site-packages/ops -name "tracing*" 2>/dev/null &&
+  python3 -c "import ops.tracing; help(ops.tracing)" 2>&1 | head -100
+  Permission denied and could not request permission from user
+
+✗ List ops package files
+  $ ls /home/ubuntu/.local/lib/python3.12/site-packages/ops/ 2>&1 | head -30
+  Permission denied and could not request permission from user
+
+● View ops.tracing source
+  $ python3 -c "import ops.tracing; import inspect; print(inspect.getsource(ops.tracing))" 2>&1 |
+  head -200
+  └ 4 lines...
+
+● Check ops[tracing] requirements
+  $ pip install "ops[tracing]==2.21.0" --dry-run 2>&1 | head -20 || pip install "ops[tracing]"
+  --dry-run 2>&1 | head -20
+  └ 21 lines...
+
+● Web Search: ops[tracing] 2.21.0 ops.tracing.setup() Tracing() API documentation charm tracing
+  └ {"type":"text","text":{"value":"The `ops[tracing]` package, especially since ...
+
+Now I understand the current setup. Let me look deeper at the charm to understand all tracing-related code before making changes.
+
+● Find server_cert and charm_tracing_endpoint usage
+  $ grep -n "charm_tracing_endpoint\|server_cert\|SERVER_CERT_PATH\|receive-ca-cert"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py | head -30
+  └ 8 lines...
+
+● Check metadata.yaml for tracing relations
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/metadata.yaml | grep -A5
+  -B2 "tracing\|receive-ca" | head -60
+  └ 21 lines...
+
+● Check charmcraft.yaml for tracing relations
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/charmcraft.yaml | grep -A5
+   -B2 "tracing\|receive-ca" | head -60
+  └ 1 line...
+
+● Look up SERVER_CERT_PATH definition
+  $ grep -n "SERVER_CERT_PATH\|recv_ca_cert"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/traefik.py | head -10 &&
+  grep -n "^SERVER_CERT_PATH\|^CA\b"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/traefik.py | head -10
+  └ 3 lines...
+
+● Check SERVER_CERT_PATH usage
+  $ grep -n "SERVER_CERT_PATH\|recv_ca_cert\|CertificateTransfer"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/traefik.py | head -20 &&
+  grep -n "SERVER_CERT_PATH"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py | head -10
+  └ 4 lines...
+
+● Find CertificateTransferRequires usage
+  $ grep -n "DYNAMIC_CONFIG_DIR\|recv_ca_cert\|CertificateTransferRequires\|receive-ca-cert"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py | head -20
+  └ 10 lines...
+
+● View trace_charm source
+  $ python3 -c "
+  import sys; sys.path.insert(0,
+  '/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/lib')
+  from charms.tempo_coordinator_k8s.v0.charm_tracing import trace_charm
+  import inspect...
+  └ 8 lines...
+
+● View charm_tracing_config source
+  $ python3 -c "
+  import sys; sys.path.insert(0,
+  '/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/lib')
+  from charms.tempo_coordinator_k8s.v0.tracing import charm_tracing_config
+  import inspect...
+  └ 27 lines...
+
+● Fetching web content: https://documentation.ubuntu.com/ops/latest/reference/ops-tracing/
+  └ Contents of https://documentation.ubuntu.com/ops/latest/reference/ops-tracing...
+
+● Fetching web content: https://documentation.ubuntu.com/ops/2.x/_modules/ops_tracing/_api/
+  └ Contents of https://documentation.ubuntu.com/ops/2.x/_modules/ops_tracing/_ap...
+
+● Find all uses of TracingEndpointRequirer
+  $ grep -n "TracingEndpointRequirer\|_charm_tracing\|_workload_tracing"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py
+  └ 15 lines...
+
+● Find all uses of charm_tracing_endpoint and server_cert
+  $ grep -n "self\.charm_tracing_endpoint\|self\.server_cert\b"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py
+  └ 2 lines...
+
+● List test directories
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/tests/
+  └ 2 lines...
+
+● Check tests for tracing references
+  $ grep -rn "trace_charm\|charm_tracing\|charm_tracing_endpoint\|server_cert\b\|TracingEndpointRequ
+  irer\|@trace_charm" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/tests/
+  2>/dev/null | head -30
+  └ 17 lines...
+
+● Read tests/unit/test_tracing_integration.py
+  └ 140 lines read
+
+● Read tests/unit/conftest.py
+  └ 78 lines read
+
+● Read tests/scenario/conftest.py
+  └ 74 lines read
+
+● View specific sections of charm.py
+  $ sed -n '85,100p'
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py && echo "---"
+  && sed -n '155,175p'
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py && echo "---"
+  && sed -n '233,255p' ...
+  └ 64 lines...
+
+Now I have everything I need. Let me implement the changes:
+
+● Check imports in charm.py
+  $ grep -n "^import\|^from"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/src/charm.py | head -50
+  └ 42 lines...
+
+● Check charmcraft.yaml build config
+  $ grep -n "build-packages\|cargo\|parts:"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/charmcraft.yaml | head -20
+  └ 3 lines...
+
+● Todo added: Update pyproject.toml
+
+Now let me make all the changes:
+
+● Edit pyproject.toml (+1 -3)
+
+● Edit src/charm.py (+2 -5)
+
+● Edit src/charm.py (-1)
+
+● Edit src/charm.py (-11)
+
+● Edit src/charm.py (+2 -2)
+
+● Edit src/charm.py (-4)
+
+Now update the test conftest files:
+
+● Edit tests/unit/conftest.py (-1)
+
+● Edit tests/unit/conftest.py (+7 -8)
+
+● Edit tests/scenario/conftest.py (-1)
+
+● Edit tests/scenario/conftest.py (+7 -8)
+
+Now update the tracing integration test:
+
+● Edit tests/unit/test_tracing_integration.py (-6)
+
+● Edit tests/unit/test_tracing_integration.py (-28)
+
+Now remove the `charm_tracing_disabled()` wrappers from the remaining tests:
+
+● Read tests/unit/test_tracing_integration.py
+  └ 106 lines read
+
+● Edit tests/unit/test_tracing_integration.py (+1 -2)
+
+● Edit tests/unit/test_tracing_integration.py (+1)
+
+● Read tests/unit/test_tracing_integration.py
+  └ 106 lines read
+
+I see there's a duplicate line and remaining references. Let me rewrite the test file cleanly:
+
+● Edit tests/unit/test_tracing_integration.py (+2 -5)
+
+Now also remove the unused `import os` from the test file:
+
+● Edit tests/unit/test_tracing_integration.py (-2)
+
+Now remove the `charm_tracing.py` library file and install deps:
+
+● Remove unused charm_tracing.py
+  $ rm /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/lib/charms/tempo_coordinato
+  r_k8s/v0/charm_tracing.py && echo "removed"
+  └ 2 lines...
+
+Now install the updated dependencies and run the tests:
+
+● Sync dependencies
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv sync 2>&1 | tail -20
+  └ 21 lines...
+
+● Verify ops.tracing is importable
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "import
+   ops.tracing; print('ops.tracing available:', ops.tracing)"
+  └ 4 lines...
+
+● Check ops_tracing module
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "import
+   ops_tracing; print('ops_tracing available:', ops_tracing)" && uv run python -c "import ops;
+  print(dir(ops))" 2>&1 | grep -i trac
+  └ 3 lines...
+
+`ops.tracing` is available. Let me verify the import works:
+
+● Verify ops.tracing.Tracing accessible
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "import
+   ops; print(ops.tracing)" && uv run python -c "import ops.tracing; print(ops.tracing.Tracing)"
+  └ 5 lines...
+
+The `import ops.tracing` fails as a module import, but `ops.tracing` is accessible as an attribute after `import ops`. Let me fix the import:
+
+● Edit src/charm.py (+2 -1)
+
+● Test if import works
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "
+  import sys; sys.path.insert(0, 'lib'); sys.path.insert(0, 'src')
+  import ops
+  import ops.tracing
+  print('ops:', ops)...
+  └ 7 lines...
+
+● Check how ops_tracing sets up ops.tracing
+  $ grep -r "ops.tracing\|ops_tracing\|setattr.*tracing" /tmp/ops-upgrade-experiment/traefik-k8s-ope
+  rator__ops-tracing__C2/.venv/lib/python3.12/site-packages/ops_tracing/__init__.py 2>/dev/null |
+  head -10
+  └ 4 lines...
+
+● Check how ops.tracing is exposed
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "
+  import ops
+  # The ops.tracing attribute is set by ops_tracing's package registration
+  # Let's check if it's already available
+  print(hasattr(ops, 'tracing'))...
+  └ 5 lines...
+
+● Check ops __init__.py for tracing setup
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/.venv/lib/python3.12/site-
+  packages/ops/__init__.py | grep -A5 "tracing" | head -20
+  └ 18 lines...
+
+● Edit src/charm.py (-1)
+
+Now verify the charm imports correctly:
+
+● Verify ops.tracing is accessible after import ops
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "
+  import sys
+  sys.path.insert(0, 'lib')
+  sys.path.insert(0, 'src')
+  import ops...
+  └ 6 lines...
+
+Now run the unit tests:
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run pytest
+  tests/unit/ -x -q 2>&1 | tail -40
+  └ 5 lines...
+
+● Check scenario version
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run python -c "import
+   scenario; print(scenario.__version__)"
+  └ 4 lines...
+
+● Check what testing framework is available
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run pip show
+  ops-scenario 2>/dev/null || uv run python -c "import ops.testing; print(dir(ops.testing))" 2>&1 |
+  head -10
+  └ 11 lines...
+
+● Check ops-scenario in venv
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv run pip show
+  ops-scenario && uv pip list 2>&1 | grep -i scenario
+  └ 11 lines...
+
+✗ Check scenario in the project venv directly
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && .venv/bin/pip show
+  ops-scenario 2>/dev/null | head -5 && .venv/bin/python -c "import scenario;
+  print(scenario.__version__)" 2>&1
+  Permission denied and could not request permission from user
+
+● Check scenario in venv site-packages
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/.venv/lib/python3.12/site-p
+  ackages/ | grep -i scenario
+  └ 1 line...
+
+● List venv packages
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/.venv/lib/python3.12/site-p
+  ackages/ | head -40
+  └ 41 lines...
+
+● Check tox configuration
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/tox.ini
+  └ 71 lines...
+
+● Run unit tests via tox
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && tox -e unit 2>&1 | tail
+  -40
+  └ 41 lines...
+
+● Run single failing test with verbose output
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && tox -e unit --
+  tests/unit/test_tracing_integration.py::test_traefik_tracing_config -s 2>&1 | tail -30
+  └ 31 lines...
+
+✗ Check ops and ops-scenario versions in tox env
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && .tox/unit/bin/pip show
+  ops-scenario 2>/dev/null | head -5 && .tox/unit/bin/python -c "import ops; print(ops.__version__)"
+  Permission denied and could not request permission from user
+
+● Check tox unit env packages
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2/.tox/unit/lib/python3.12/si
+  te-packages/ | grep -i "ops\|scenario"
+  └ 7 lines...
+
+● Check what ops version changed in lock file
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && git diff uv.lock | grep
+  "^[+-].*\"ops\"" | head -20
+  └ 15 lines...
+
+● Check if tests failed before my changes
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && git stash && tox -e unit
+   -- tests/unit/test_setup.py::test_start_traefik_active 2>&1 | tail -10
+  └ 12 lines...
+
+● Check ops version in original lock file
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && grep "name = \"ops\""
+  uv.lock | head -10 && grep "version = \"2\." uv.lock | grep ops | head -5
+  └ 6 lines...
+
+● Find ops version in original lock
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && grep -A5 "^name =
+  \"ops\"$" uv.lock | head -20
+  └ 7 lines...
+
+The original lock had `ops==2.16.0`. My change resolves to `ops==3.6.0`, which is incompatible with `ops-scenario~=6.0`. Let me restore and use a tighter version bound:
+
+● Restore my changes
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && git stash pop
+  └ 15 lines...
+
+I need to also update `ops-scenario` to support ops 3.x, or constrain ops to 2.x. Let me check what scenario version works with ops 3.6:
+
+● Check available ops-scenario versions
+  $ pip index versions ops-scenario 2>/dev/null | head -3 || pip install "ops-scenario" --dry-run
+  2>&1 | head -5
+  └ 4 lines...
+
+● Check ops-tracing requirements
+  $ pip show ops-tracing 2>/dev/null | grep -E "Requires|Version"
+  └ 3 lines...
+
+The `ops-scenario~=6.0` must be updated to support `ops 3.x`. Let me update the dev dependency:
+
+● Edit pyproject.toml (+1 -1)
+
+● Sync updated dependencies
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv sync 2>&1 | tail -10
+  └ 3 lines...
+
+● Run tracing integration tests via tox
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && tox -e unit --
+  tests/unit/test_tracing_integration.py -q 2>&1 | tail -20
+  └ 21 lines...
+
+There's a cascade of version incompatibilities with ops 3.x. The cleanest approach is to stay on ops 2.x where `ops[tracing]` was first introduced:
+
+● Edit pyproject.toml (-1)
+
+Wait, that would remove the importlib-metadata line. Let me fix:
+
+● Read pyproject.toml lines 10-30
+  └ 21 lines read
+
+● Edit pyproject.toml (+1)
+
+Also revert the ops-scenario change since we should stay on ops 2.x:
+
+● Edit pyproject.toml (+1 -1)
+
+Now let me check if I need to pin the ops version. The issue is `uv sync` resolves to ops 3.6.0. Let me check what `ops-tracing` is for ops 2.x:
+
+● Check ops-tracing versions
+  $ pip index versions ops-tracing 2>/dev/null | head -3
+  └ 4 lines...
+
+● Edit pyproject.toml (+1 -1)
+
+● Sync with ops 2.x constraint
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && uv sync 2>&1 | grep -E
+  "ops|tracing" | head -10
+  └ 5 lines...
+
+Now let's run the unit tests:
+
+● Run unit tests with ops 2.23.2
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C2 && tox -e unit 2>&1 | tail
+  -20
+  └ 21 lines...
+

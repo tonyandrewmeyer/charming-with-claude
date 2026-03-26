@@ -1,0 +1,484 @@
+● Explore: Explore reference charm tracing
+  └ Agent started in background with agent_id: agent-0. You can use read_agent to...
+
+● Explore: Explore current charm structure
+  └ Agent started in background with agent_id: agent-1. You can use read_agent to...
+
+● Read: Explore agent (Explore current charm structure)
+  └ Completed
+
+● Read: Explore agent (Explore reference charm tracing)
+  └ Completed
+
+Now I have a clear picture. Let me read the actual source files before planning the changes.
+
+● Read src/charm.py
+  └ 1 line read
+
+● Read pyproject.toml
+  └ 122 lines read
+
+● Read charmcraft.yaml
+  └ 17 lines read
+
+● Read src/charm.py lines 1-120
+  └ 120 lines read
+
+● Read metadata.yaml
+  └ 125 lines read
+
+● Read src/charm.py lines 155-280
+  └ 126 lines read
+
+● Read src/charm.py lines 280-400
+  └ 121 lines read
+
+Now let me find the workload tracing handlers:
+
+● Find tracing-related lines in charm.py
+  $ grep -n "workload_tracing\|workload-tracing\|_is_workload_tracing\|charm_tracing_endpoint\|serve
+  r_cert\|tracing" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/src/charm.py |
+  head -60
+  └ 26 lines...
+
+● Read src/charm.py lines 660-685
+  └ 25 lines read
+
+Let me find the `server_cert` property and check what else references it:
+
+● Find server_cert and charm_tracing_endpoint references
+  $ grep -n "server_cert\|charm_tracing_endpoint"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/src/charm.py
+  └ 5 lines...
+
+● Check tests for tracing references
+  $ grep -rn "trace_charm\|charm_tracing\|TracingEndpointRequirer\|charm_tracing_config"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/tests/ 2>/dev/null | head -30
+  └ 14 lines...
+
+● Read tests/unit/conftest.py lines 1-30
+  └ 28 lines read
+
+● Read tests/scenario/conftest.py lines 1-30
+  └ 30 lines read
+
+● Read tests/unit/test_tracing_integration.py
+  └ 140 lines read
+
+Now I have everything I need. Let me create a plan and implement the changes:
+
+● Todo added: Update pyproject.toml deps
+
+● Check if tracing.py imports from charm_tracing.py
+  $ grep -n "charm_tracing\|trace_charm" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-traci
+  ng__C3/lib/charms/tempo_coordinator_k8s/v0/tracing.py | head -10
+  └ 8 lines...
+
+Good — `tracing.py` doesn't import from `charm_tracing.py`. Now let me implement all changes:
+
+● Todo started:
+
+**1. Update `pyproject.toml`:**
+
+● Edit pyproject.toml (+1 -3)
+
+**2. Update `src/charm.py`:**
+
+● Edit src/charm.py (+1 -5)
+
+● Edit src/charm.py (+1)
+
+Now remove the `@trace_charm` decorator:
+
+● Edit src/charm.py (-11)
+
+Now replace the tracing init block in `__init__`:
+
+● Edit src/charm.py (+1 -7)
+
+**3. Delete `charm_tracing.py` lib:**
+
+● Delete charm_tracing.py lib
+  $ rm /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/lib/charms/tempo_coordinato
+  r_k8s/v0/charm_tracing.py
+  └ 1 line...
+
+**4. Update `tests/unit/conftest.py`:**
+
+● Read tests/unit/conftest.py
+  └ 78 lines read
+
+● Edit tests/unit/conftest.py (+7 -9)
+
+**5. Update `tests/scenario/conftest.py`:**
+
+● Read tests/scenario/conftest.py
+  └ 74 lines read
+
+● Edit tests/scenario/conftest.py (+7 -9)
+
+**6. Update `tests/unit/test_tracing_integration.py`:**
+
+● Edit tests/unit/test_tracing_integration.py (-8)
+
+Now update the `test_charm_trace_collection` test and the `charm_tracing_disabled()` usages:
+
+● Read tests/unit/test_tracing_integration.py lines 44-141
+  └ 89 lines read
+
+● Read tests/unit/test_tracing_integration.py lines 36-46
+  └ 11 lines read
+
+✗ edit: edit file
+  "path": Required
+
+● Edit tests/unit/test_tracing_integration.py (+6 -29)
+
+Now install dependencies and run the tests:
+
+●Todo completed:pyproject, charm-py, delete-lib, tests-unit-conftest, tests-scenario-conftest,
+                tests-tracing
+
+● Install ops[tracing]
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && pip install
+  "ops[tracing]>=2.21.0" -q 2>&1 | tail -5
+  └ 5 lines...
+
+● Check ops.tracing availability
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && python -c "import ops;
+  print(ops.__version__); import ops.tracing; print('ops.tracing available')"
+  └ 2 lines...
+
+● Check ops.tracing or install
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && python3 -c "import ops;
+  print(ops.__version__); import ops.tracing; print('ops.tracing available')" 2>&1 || pip3 install
+  --break-system-packages "ops[tracing]>=2.21.0" -q 2>&1 | tail -3
+  └ 5 lines...
+
+● Check ops versions available
+  $ pip3 show ops 2>/dev/null | grep -E "Version|Location" && pip3 index versions ops 2>/dev/null |
+  head -5
+  └ 7 lines...
+
+● Install ops 3.6.0 with tracing and verify
+  $ pip3 install --break-system-packages "ops[tracing]==3.6.0" -q 2>&1 | tail -3 && python3 -c
+  "import ops; print(ops.__version__); import ops.tracing; print('ops.tracing OK')"
+  └ 8 lines...
+
+✗ Find tracing in ops package
+  $ find /home/ubuntu/.local/lib/python3.12/site-packages/ops/ -name "*.py" | xargs grep -l
+  "tracing" 2>/dev/null | head -10
+  Permission denied and could not request permission from user
+
+● Check ops attributes for tracing
+  $ python3 -c "import ops; print(dir(ops))" 2>&1 | tr ',' '\n' | grep -i trac
+  └ 2 lines...
+
+● Try accessing ops.tracing attribute
+  $ python3 -c "import ops; print(ops.tracing)"
+  └ 2 lines...
+
+● Check ops.tracing.Tracing
+  $ python3 -c "import ops; print(ops.tracing.Tracing)"
+  └ 2 lines...
+
+`ops.tracing.Tracing` works. Now let's run the tests:
+
+● Reinstall ops 2.23.2 with tracing extra
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && pip3 install
+  --break-system-packages "ops[tracing]==2.23.2" -q 2>&1 | tail -2 && python3 -c "import ops;
+  print(ops.__version__); print(ops.tracing.Tracing)"
+  └ 3 lines...
+
+Now let's run the unit tests:
+
+● Run tracing integration tests
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && python3 -m pytest
+  tests/unit/test_tracing_integration.py -v 2>&1 | tail -40
+  └ 5 lines...
+
+● Check scenario module exports
+  $ python3 -c "import scenario; print(dir(scenario))" | tr ',' '\n' | grep -iE "exec|output"
+  └ 2 lines...
+
+● Check tox configuration
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && cat tox.ini
+  └ 71 lines...
+
+● Run tests with uv
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && uv run --extra dev
+  pytest tests/unit/test_tracing_integration.py -v 2>&1 | tail -50
+  └ 8 lines...
+
+● Run tests with PYTHONPATH set
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && PYTHONPATH=src:lib uv
+  run --extra dev pytest tests/unit/test_tracing_integration.py -v 2>&1 | tail -60
+  └ 61 lines...
+
+● Check ops version in lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && grep -A3 "^name =
+  \"ops\"" uv.lock | head -10
+  └ 10 lines...
+
+● Check ops-scenario in lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && grep -A3 "^name =
+  \"ops-scenario\"" uv.lock | head -10
+  └ 5 lines...
+
+✗ Check installed versions in venv
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && .venv/bin/python -c
+  "import ops; print(ops.__version__)" && .venv/bin/python -c "import scenario;
+  print(scenario.__version__)"
+  Permission denied and could not request permission from user
+
+● Check venv permissions
+  $ ls -la /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/bin/ 2>&1 | head
+  -5
+  └ 6 lines...
+
+● List python binaries in venv
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/bin/python*
+  └ 4 lines...
+
+✗ Check venv package versions
+  $ /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/bin/python -c "import
+  ops; print(ops.__version__); import ops_scenario; print(ops_scenario.__version__)"
+  Permission denied and could not request permission from user
+
+✗ Check venv config
+  $ sudo /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/bin/python -c
+  "import ops; print('ops', ops.__version__)" 2>&1; cat
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/pyvenv.cfg
+  Permission denied and could not request permission from user
+
+● Check venv contents
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/pyvenv.cfg && echo
+  "---" && ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/python3.12
+  /site-packages/ | grep -E "^ops"
+  └ 13 lines...
+
+● Check if tests were broken before changes
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git stash &&
+  PYTHONPATH=src:lib uv run --extra dev pytest tests/unit/test_tracing_integration.py -v 2>&1 | tail
+   -20
+  └ 22 lines...
+
+● Restore changes and check ops-scenario lockfile deps
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git stash pop && grep
+  -A20 "^name = \"ops-scenario\"" uv.lock | head -25
+  └ 36 lines...
+
+● Rerun tests with changes applied
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && PYTHONPATH=src:lib uv
+  run --extra dev pytest tests/unit/test_tracing_integration.py -v 2>&1 | tail -30
+  └ 31 lines...
+
+● Check uv.lock diff
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git diff uv.lock | grep
+  "^[+-]" | grep -v "^---\|^+++" | head -50
+  └ 51 lines...
+
+● Check ops_tracing in venv
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/python3.12/site-p
+  ackages/ | grep "ops_tracing"
+  └ 3 lines...
+
+● Check ops_tracing version diff in lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git diff uv.lock | grep
+  -A5 "ops.tracing\|ops_tracing" | head -30
+  └ 31 lines...
+
+● Find _JujuContext usage in ops_tracing
+  $ grep -r "_JujuContext\|jujucontext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracin
+  g__C3/.venv/lib/python3.12/site-packages/ops_tracing/ 2>/dev/null | head -10
+  └ 1 line...
+
+● Find _JujuContext in scenario
+  $ grep -r "_JujuContext\|jujucontext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracin
+  g__C3/.venv/lib/python3.12/site-packages/scenario/ 2>/dev/null | head -10
+  └ 6 lines...
+
+● Check ops.jujucontext contents
+  $ python3 -c "import ops.jujucontext; print(dir(ops.jujucontext))" 2>/dev/null || echo "not
+  importable globally"
+  # Check in venv
+  cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/python3.12/site-pa
+  ckages/ops/jujucontext.py 2>/dev/null | head -20
+  └ 22 lines...
+
+● Check ops.jujucontext in venv
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/python3.12/site-
+  packages/ops/jujucontext.py 2>/dev/null | head -5 || echo "File not found"
+  ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/python3.12/site-pac
+  kages/ops/ | grep juju
+  └ 8 lines...
+
+● Check if _JujuContext is in the venv's jujucontext
+  $ grep "_JujuContext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/
+  python3.12/site-packages/ops/jujucontext.py | head -5
+  └ 1 line...
+
+● Check classes in venv jujucontext.py
+  $ grep "class\|_JujuContext\|JujuContext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tr
+  acing__C3/.venv/lib/python3.12/site-packages/ops/jujucontext.py
+  └ 17 lines...
+
+The lockfile was auto-updated by uv, picking a different `ops-scenario` version. Let me fix this:
+
+● Regenerate uv lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && uv lock 2>&1 | tail -5
+  └ 2 lines...
+
+● Check ops-scenario version in new lockfile
+  $ grep -A3 "^name = \"ops-scenario\""
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/uv.lock | head -5
+  └ 5 lines...
+
+● Check available ops-scenario versions
+  $ pip3 index versions ops-scenario 2>/dev/null | head -3
+  └ 4 lines...
+
+● Check ops-scenario 6.1.7 JujuContext usage
+  $ pip3 download "ops-scenario==6.1.7" -d /tmp/ops_sc_check --no-deps -q 2>/dev/null && cd
+  /tmp/ops_sc_check && unzip -q *.whl 2>/dev/null && grep -r "_JujuContext\|JujuContext"
+  scenario/ops_main_mock.py 2>/dev/null | head -5
+  └ 1 line...
+
+● Download ops-scenario 6.1.7
+  $ pip3 download "ops-scenario==6.1.7" -d /tmp/ops_sc_check --no-deps -q 2>/dev/null && ls
+  /tmp/ops_sc_check/
+  └ 2 lines...
+
+● Check JujuContext usage in 6.1.7
+  $ cd /tmp/ops_sc_check && python3 -c "
+  import zipfile
+  with zipfile.ZipFile('ops_scenario-6.1.7-py3-none-any.whl') as z:
+      content = z.read('scenario/ops_main_mock.py').decode()
+      for line in content.split('\n'):...
+  └ 9 lines...
+
+● Check original lockfile ops versions
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git show HEAD:uv.lock |
+  grep -A5 "^name = \"ops\"$" | head -20
+  └ 7 lines...
+
+● Get full ops entries in original lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git show HEAD:uv.lock |
+  grep -B2 -A10 "^name = \"ops\"$"
+  └ 13 lines...
+
+● Find all ops version entries in original lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git show HEAD:uv.lock |
+  grep "^name = \"ops\"\|^version = " | grep -A1 "^name = \"ops\""
+  └ 3 lines...
+
+● Count ops entries in original lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && git show HEAD:uv.lock |
+  grep -c "^name = \"ops\""
+  └ 2 lines...
+
+● Check ops_main_mock.py for JujuContext usage
+  $ grep -n "_JujuContext\|jujucontext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracin
+  g__C3/.venv/lib/python3.12/site-packages/scenario/ops_main_mock.py
+  └ 6 lines...
+
+● Check context around _JujuContext usage
+  $ sed -n '85,105p' /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3/.venv/lib/pyt
+  hon3.12/site-packages/scenario/ops_main_mock.py
+  └ 22 lines...
+
+● Check if ops 2.23.2 has _JujuContext
+  $ pip3 download "ops==2.23.2" -d /tmp/ops_check --no-deps -q 2>/dev/null && cd /tmp/ops_check &&
+   python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]
+  with zipfile.ZipFile(whl) as z:...
+  └ 17 lines...
+
+The issue is ops 3.6.0 renamed `_JujuContext` → `JujuContext`, but `ops-scenario~=6.0` still expects the old name. I'll constrain ops to the 2.x line (which has ops[tracing] support and keeps test compatibility):
+
+● Edit pyproject.toml (+1 -1)
+
+● Re-lock with new constraint
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && uv lock 2>&1 | tail -5
+  └ 4 lines...
+
+● Run tracing tests with updated lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && PYTHONPATH=src:lib uv
+  run --extra dev pytest tests/unit/test_tracing_integration.py -v 2>&1 | tail -20
+  └ 20 lines...
+
+● Run single test with full traceback
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C3 && PYTHONPATH=src:lib uv
+  run --extra dev pytest tests/unit/test_tracing_integration.py::test_traefik_tracing_config -v
+  --tb=long 2>&1 | tail -60
+  └ 61 lines...
+
+● Check ops-scenario 6.1.7 requirements
+  $ cd /tmp/ops_sc_check && rm -f *.whl && pip3 download "ops-scenario==6.1.7" -d . --no-deps -q
+  2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]
+  with zipfile.ZipFile(whl) as z:...
+  └ 21 lines...
+
+● Check ops requirements for multiple ops-scenario versions
+  $ cd /tmp/ops_sc_check && for v in 6.1.6 6.0.5 6.0; do
+    rm -f *.whl 2>/dev/null
+    pip3 download "ops-scenario==$v" -d . --no-deps -q 2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]...
+  └ 10 lines...
+
+● Check ops-scenario 7.0.5 requirements
+  $ cd /tmp/ops_sc_check && rm -f *.whl && pip3 download "ops-scenario==7.0.5" -d . --no-deps -q
+  2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]
+  with zipfile.ZipFile(whl) as z:...
+  └ 6 lines...
+
+● Check ops-scenario 7.x requirements
+  $ cd /tmp/ops_sc_check && for v in 7.23.2 7.23.0 7.19.4 7.2.0 7.1.3; do
+    rm -f *.whl 2>/dev/null
+    pip3 download "ops-scenario==$v" -d . --no-deps -q 2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]...
+  └ 12 lines...
+
+● Check if ops 2.23.2 has _TestingPebbleClient
+  $ pip3 download "ops==2.23.2" -d /tmp/ops_check2 --no-deps -q 2>/dev/null && cd /tmp/ops_check2
+  && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]
+  with zipfile.ZipFile(whl) as z:...
+  └ 5 lines...
+
+● Check ops-scenario 7.23.2 exports
+  $ cd /tmp/ops_sc_check && rm -f *.whl && pip3 download "ops-scenario==7.23.2" -d . --no-deps -q
+  2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]
+  with zipfile.ZipFile(whl) as z:...
+  └ 7 lines...
+
+● Check available ops-tracing versions
+  $ pip3 index versions ops-tracing 2>/dev/null | head -3
+  └ 4 lines...
+
+● Check ops 2.23.2 extras and tracing
+  $ cd /tmp/ops_sc_check && rm -f *.whl && pip3 download "ops==2.23.2" -d . --no-deps -q
+  2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('*.whl')[0]
+  with zipfile.ZipFile(whl) as z:...
+  └ 11 lines...
+
+● Check ops 2.21.1 for needed private APIs
+  $ cd /tmp && pip3 download "ops==2.21.1" -d ./ops221 --no-deps -q 2>/dev/null && python3 -c "
+  import zipfile, glob
+  whl = glob.glob('/tmp/ops221/*.whl')[0]
+  with zipfile.ZipFile(whl) as z:
+      content = z.read('ops/testing.py').decode()...
+  └ 7 lines...
+

@@ -1,0 +1,157 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 140d222..cfea8f4 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -6,7 +6,7 @@ version = "0.0"
+ requires-python = "~=3.8"
+ 
+ dependencies = [
+-  "ops",
++  "ops[tracing]",
+   "pyyaml",
+   "lightkube>=0.11",  # observability_libs
+   "lightkube-models",  # observability_libs
+diff --git a/src/charm.py b/src/charm.py
+index ae92826..7ab0174 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -30,13 +30,12 @@ from charms.observability_libs.v0.kubernetes_compute_resources_patch import (
+     adjust_resource_requirements,
+ )
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from charms.tempo_coordinator_k8s.v0.charm_tracing import trace_charm
+-from charms.tempo_coordinator_k8s.v0.tracing import TracingEndpointRequirer, charm_tracing_config
+ from charms.tls_certificates_interface.v4.tls_certificates import (
+     CertificateRequestAttributes,
+     TLSCertificatesRequiresV4,
+ )
+ from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
++import ops
+ from ops.charm import ActionEvent, CharmBase
+ from ops.main import main
+ from ops.model import (
+@@ -69,17 +68,6 @@ class TLSConfig:
+     private_key: str
+ 
+ 
+-@trace_charm(
+-    tracing_endpoint="_charm_tracing_endpoint",
+-    server_cert="_charm_tracing_ca_cert",
+-    extra_types=(
+-        AlertmanagerProvider,
+-        TLSCertificatesRequiresV4,
+-        IngressPerAppRequirer,
+-        KubernetesComputeResourcesPatch,
+-        RemoteConfigurationRequirer,
+-    ),
+-)
+ class AlertmanagerCharm(CharmBase):
+     """A Juju charm for alertmanager."""
+ 
+@@ -183,10 +171,7 @@ class AlertmanagerCharm(CharmBase):
+                 self._cert_requirer.on.certificate_available,  # pyright: ignore
+             ],
+         )
+-        self._tracing = TracingEndpointRequirer(self, protocols=["otlp_http"])
+-        self._charm_tracing_endpoint, self._charm_tracing_ca_cert = charm_tracing_config(
+-            self._tracing, self._ca_cert_path
+-        )
++        self.tracing = ops.tracing.Tracing(self, "tracing")
+ 
+         self.catalog = CatalogueConsumer(charm=self, item=self._catalogue_item)
+ 
+diff --git a/tests/unit/conftest.py b/tests/unit/conftest.py
+index a09d997..c46abdc 100644
+--- a/tests/unit/conftest.py
++++ b/tests/unit/conftest.py
+@@ -1,28 +1,12 @@
+ from unittest.mock import patch
+ 
+ import pytest
+-from charms.tempo_coordinator_k8s.v0.charm_tracing import charm_tracing_disabled
+ from ops.testing import Context
+ 
+ from src.alertmanager import WorkloadManager
+ from src.charm import AlertmanagerCharm
+ 
+ 
+-@pytest.fixture(autouse=True)
+-def patch_buffer_file_for_charm_tracing(tmp_path):
+-    with patch(
+-        "charms.tempo_coordinator_k8s.v0.charm_tracing.BUFFER_DEFAULT_CACHE_FILE_NAME",
+-        str(tmp_path / "foo.json"),
+-    ):
+-        yield
+-
+-
+-@pytest.fixture(autouse=True)
+-def silence_tracing():
+-    with charm_tracing_disabled():
+-        yield
+-
+-
+ def tautology(*_, **__) -> bool:
+     return True
+ 
+diff --git a/uv.lock b/uv.lock
+index c08f26c..86f1b35 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -1,5 +1,5 @@
+ version = 1
+-revision = 2
++revision = 3
+ requires-python = ">=3.8, <4"
+ resolution-markers = [
+     "python_full_version >= '3.11'",
+@@ -22,7 +22,7 @@ dependencies = [
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+     { name = "opentelemetry-exporter-otlp-proto-http" },
+-    { name = "ops" },
++    { name = "ops", extra = ["tracing"] },
+     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+     { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+     { name = "pyyaml" },
+@@ -72,8 +72,8 @@ requires-dist = [
+     { name = "lightkube-extensions" },
+     { name = "lightkube-models" },
+     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.21.0" },
+-    { name = "ops" },
+     { name = "ops", extras = ["testing"], marker = "extra == 'dev'" },
++    { name = "ops", extras = ["tracing"] },
+     { name = "pydantic", specifier = ">=2" },
+     { name = "pyright", marker = "extra == 'dev'", specifier = "<1.1.399" },
+     { name = "pytest", marker = "extra == 'dev'" },
+@@ -1561,6 +1561,9 @@ wheels = [
+ testing = [
+     { name = "ops-scenario" },
+ ]
++tracing = [
++    { name = "ops-tracing" },
++]
+ 
+ [[package]]
+ name = "ops-scenario"
+@@ -1575,6 +1578,21 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/93/3b/4cc28ea9d77015ecf8fc5c3d362bb274e35ffaa2e6fbd87909a5384afa40/ops_scenario-7.21.1-py3-none-any.whl", hash = "sha256:eeb9def2c31a1db2429cf21bd9b8cbd2ac092cc1fbe5591e850e4aa192c542fa", size = 72451, upload-time = "2025-05-01T03:03:28.488Z" },
+ ]
+ 
++[[package]]
++name = "ops-tracing"
++version = "2.21.1"
++source = { registry = "https://pypi.org/simple" }
++dependencies = [
++    { name = "opentelemetry-sdk" },
++    { name = "ops" },
++    { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
++    { name = "pydantic", version = "2.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
++]
++sdist = { url = "https://files.pythonhosted.org/packages/cd/1d/8c028b996ef5cc320064e63b8497cc95dbd4cb6be730012f12046ac50d43/ops_tracing-2.21.1.tar.gz", hash = "sha256:d1dc8ecd079a4d78f3d6978bda16b884d1dc00792db0d8e9273912a87cf2cafc", size = 27871, upload-time = "2025-05-01T03:03:18.482Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/f3/22/d75274cd8775a016b925fd7a3a4040b890a3be797285d4f6c56ab0c2b471/ops_tracing-2.21.1-py3-none-any.whl", hash = "sha256:e84900361806481e74b0c1855c52a85552a3a3edaaea06f47846f934a2ffa5b2", size = 31177, upload-time = "2025-05-01T03:03:16.918Z" },
++]
++
+ [[package]]
+ name = "orderly-set"
+ version = "5.4.1"
