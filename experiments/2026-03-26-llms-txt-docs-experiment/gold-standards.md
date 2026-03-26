@@ -1,6 +1,6 @@
 # Gold-Standard Answers
 
-These answers were sourced from the built documentation output on 2026-03-26.
+These answers were sourced from the built documentation output on 2026-03-26, and were carefully reviewed by me (Tony).
 They serve as the reference against which agent responses are scored.
 
 ---
@@ -57,12 +57,24 @@ local_app_databag = event.relation.data[self.app]
 local_unit_databag = event.relation.data[self.unit]
 ```
 
+**Valid alternative, using Relation.load:**
+```python
+@dataclasses.dataclass
+class MyData:
+    foo: str
+    bar: int
+
+data = event.relation.load(MyData, event.app)
+print(data.foo)
+```
+
 **Key facts:**
 - `event.relation.data` is keyed by `Unit` or `Application` objects.
 - `event.unit` is the specific remote unit that triggered the event.
 - `event.relation.units` contains all remote units in the relation.
 - Remote app databag is read-only; local app databag is writable only on the leader.
 - Databags behave like dictionaries with string keys and string values.
+- Pydantic models or standard library dataclasses can be used with `Relation.load` to get an onjeft representation.
 
 **Source:** ops how-to guide — "Manage relations".
 
@@ -221,7 +233,7 @@ log-targets:
 
 **Key facts:**
 - **Services:** `override` is required (`merge` or `replace`). `command` is required. `startup` defaults to `disabled`.
-- **Checks:** Only one of `http`, `tcp`, or `exec` may be specified. HTTP check succeeds on 2xx status. `level` can be `alive` or `ready` (maps to K8s liveness/readiness probes). `period` defaults to 10s, `timeout` to 3s, `threshold` to 3.
+- **Checks:** Only one of `http`, `tcp`, or `exec` may be specified. HTTP check succeeds on 2xx status. `level` can be `alive` or `ready` (maps to K8s liveness/readiness probes) or not included (meaning it does not contribute to K8s probes but can be queried or used by Pebble). `period` defaults to 10s, `timeout` to 3s, `threshold` to 3.
 - **Log targets:** `type` can be `loki`, `opentelemetry`, or `syslog`. For Loki, `location` must include the full push API URL. Pebble automatically adds a `pebble_service` label. Custom `labels` values may contain `$ENV_VARS`.
 - **Linking checks to services:** Use `on-check-failure` in the service, mapping check names to actions (`restart`, `shutdown`, `success-shutdown`, `ignore`).
 
@@ -239,11 +251,11 @@ log-targets:
 
 1. **`change-update`** — Recorded when a change is spawned or its status is updated. Key = change ID. Data includes the change `kind`.
 2. **`custom`** — Client-reported via `pebble notify`. Key must be in `example.com/path` format. Key and data are user-provided.
-3. **`warning`** — Pebble warnings. Key = human-readable warning message.
+3. **`warning`** — Pebble warnings. Key = human-readable warning message. Not relevant in a charming context.
 
 **How a charm observes notices via ops:**
 - When Pebble emits a `custom` notice, Juju detects it and dispatches a `pebble_custom_notice` event.
-- The charm observes it with `self.on.<container>_pebble_custom_notice`.
+- The charm observes it with `self.on['<container>'].pebble_custom_notice`.
 - The event object provides the notice's type, key, and data.
 
 **API:** `GET /v1/notices` supports filtering by `types`, `keys`, `user-id`, `after` timestamp, and a `timeout` parameter for long-polling.
@@ -373,7 +385,7 @@ juju.wait(lambda status: jubilant.all_active(status, 'app1', 'app2'))
 
 1. **Check relation exists via status:** `status.apps['myapp'].relations` is a `dict[str, list[AppStatusRelation]]` where each `AppStatusRelation` has `related_app`, `interface`, and `scope`.
 
-2. **Wait for active status:** Charms typically go active only after receiving required relation data, so waiting for active implicitly confirms data exchange.
+2. **Wait for active status:** Charms typically go active only after receiving required relation data, so waiting for active implicitly confirms data exchange. This should not be relied on without specific knowledge that the interface works this way.
 
 3. **Use actions:** Many charms expose actions (e.g., `get-password`) to retrieve data set via relations.
 
@@ -387,7 +399,6 @@ juju.wait(lambda status: jubilant.all_active(status, 'app1', 'app2'))
 
 ```python
 result = juju.run('mysql/0', 'get-password')
-assert result.success
 assert result.results['username'] == 'USER0'
 ```
 
@@ -469,32 +480,53 @@ Provider:
 
 ---
 
-## Q15: How do you use the database_requires library to connect to a PostgreSQL database?
+## Q15: What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?
 
-The `postgresql_client` interface (v0) uses the `data_platform_libs.data_interfaces` library from the Data Platform Team.
+The `charmlibs.pathops` library provides a `pathlib`-like interface for working with both local and remote container filesystem paths. Install: `uv add charmlibs-pathops`. Import: `from charmlibs.pathops import ContainerPath, LocalPath, ensure_contents`.
 
-**What the requirer must provide (application databag):**
-- `database`: database name (or prefix ending in `*` with at least 3 extra chars)
-- `requested-secrets`: JSON array of fields to handle via Juju Secrets (must include `username` and `password`, optionally `tls-ca`, `uris`)
-- Optionally: `extra-user-roles` (e.g., `admin`), `extra-group-roles`, `external-node-connectivity`
+**Key components:**
 
-**What the provider returns:**
-- `database`: actual database name created
-- `endpoints`: address of Primary for Read/Write (e.g., `postgresql-k8s-primary:5432`)
-- `read-only-endpoints`: for read-only queries
-- `secret-user`: Juju Secret URI containing `username` and `password`
-- `secret-tls`: Juju Secret URI containing `tls-ca` (if TLS enabled)
-- `uris`: connection string in libpq URI format
-- `version`, `tls` flag
+- **`PathProtocol`** — Protocol defining methods common to both local and container paths. Use for type annotations in code that works across K8s and machine charms.
+- **`ContainerPath`** — Implementation for remote paths in workload containers, using the Pebble file API. Only supports absolute paths (raises `RelativePathError` for relative paths).
+- **`LocalPath`** — Extends `pathlib.PosixPath` with enhanced file-creation arguments (`mode`, `user`, `group`).
+- **`ensure_contents`** — Helper function that works with both path types.
+
+**`ContainerPath` usage:**
+```python
+container = self.unit.get_container('c')
+path = ContainerPath('/etc/myapp/config.yaml', container=container)
+
+# Supports pathlib-like operations
+path.read_text()
+path.write_text('content', mode=0o640, user='app', group='app')
+path.mkdir(parents=True, exist_ok=True)
+path / 'subdir'  # join paths
+path.exists()
+path.iterdir()
+path.glob('*.conf')
+```
+
+**`ensure_contents` signature:**
+```python
+ensure_contents(
+    path: ContainerPath | LocalPath,
+    source: str | bytes | ReadableBuffer,
+    mode: int | None = None,
+    user: str | None = None,
+    group: str | None = None,
+) -> bool
+```
+
+Ensures `path` exists, contains `source`, has the correct permissions and ownership. Returns `True` if any changes were made, `False` otherwise.
 
 **Key facts:**
-- Unique credentials per relation (different Juju applications get different credentials)
-- Different relation names needed for multiple database charms
-- Sensitive data transmitted via Juju Secrets when both sides support it
+- `ContainerPath` operations raise `PebbleConnectionError` if the workload container is unreachable.
+- Comparison methods only compare `ContainerPath` objects on the same `ops.Container`.
+- `str(path)` returns the path string suitable for use in Pebble layers and system calls.
+- Both `ContainerPath` and `LocalPath` support `read_text()`, `write_bytes()`, `mkdir()`, `iterdir()`, `glob()`.
+- File write methods accept optional `mode`, `user`, `group` parameters.
 
-**Note:** The charmlibs docs cover interface specification only, not the `DatabaseRequires` Python API.
-
-**Source:** charmlibs reference — "postgresql_client" interface v0.
+**Source:** charmlibs reference — "charmlibs.pathops".
 
 ---
 

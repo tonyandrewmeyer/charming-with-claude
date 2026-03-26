@@ -202,7 +202,7 @@ mkcert documentation.ubuntu.com
 |---|---|---|---|
 | Q13 | "How do you use the ingress library to provide ingress to your charm? Show the requires side." | Library usage pattern | charmlibs docs |
 | Q14 | "What events does the TLS certificates library emit, and when should a charm request a new certificate?" | Library event model | charmlibs docs |
-| Q15 | "How do you use the database_requires library to connect to a PostgreSQL database?" | Database relation pattern | charmlibs docs |
+| Q15 | "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?" | General library API | charmlibs docs |
 | Q16 | "What is the correct way to implement a provider side of a relation using charmlibs?" | Provider pattern | charmlibs docs |
 
 #### Category 5: Charmcraft & Packaging (4 questions)
