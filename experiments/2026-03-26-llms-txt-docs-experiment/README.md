@@ -250,13 +250,17 @@ mkcert documentation.ubuntu.com
 
 #### Efficiency Metrics (automated, per session)
 
-| Metric | How to Capture |
-|---|---|
-| **Total tokens** (input + output) | Claude Code session metadata / API logs |
-| **Tool calls** | Count of WebFetch, WebSearch, Read calls |
-| **Web fetches** | Count and URLs of all WebFetch calls (did it find llms.txt? llms-full.txt? .md pages?) |
-| **Time to answer** | Wall-clock time from prompt to final response |
-| **Docs discovered** | Which doc URLs the agent accessed (nginx access log analysis) |
+| Metric | How to Capture | Why It Matters |
+|---|---|---|
+| **Total tokens** (input + output) | Claude Code session metadata / API logs | Markdown pages should be dramatically smaller than HTML (no JS/CSS/nav chrome). If llms.txt conditions use fewer tokens for the same correctness, that's a strong argument for adoption even if scores are similar. |
+| **Tokens per doc fetch** | Parse WebFetch responses, measure token count per fetched page | Direct comparison: HTML page tokens vs `.html.md` page tokens vs `llms-full.txt` tokens |
+| **Tool calls** | Count of WebFetch, WebSearch, Read calls | Fewer calls = more efficient path to the answer |
+| **Web fetches** | Count and URLs of all WebFetch calls (did it find llms.txt? llms-full.txt? .md pages?) | Tracks whether the agent discovers and prefers the markdown formats |
+| **Time to answer** | Wall-clock time from prompt to final response | Proxy for cost and user experience |
+| **Docs discovered** | Which doc URLs the agent accessed (nginx access log analysis) | Shows navigation patterns — did llms.txt help the agent find the right page faster? |
+| **Search vs. direct fetch ratio** | WebSearch calls vs WebFetch calls | Does llms.txt reduce reliance on search engines? |
+
+**Token usage is a first-class metric.** Even if correctness scores are identical across conditions, a significant reduction in token consumption from markdown-format docs would be a meaningful finding — it directly translates to cost savings and faster responses. HTML documentation pages are bloated with navigation, JavaScript, CSS, and template chrome that wastes context window space. The llms.txt ecosystem's core value proposition may be efficiency rather than accuracy.
 
 ### Automated Scoring Approach
 
@@ -264,7 +268,7 @@ To score 240 sessions consistently, we use a two-layer approach:
 
 1. **Automated pre-scoring:** A separate Claude instance (the "judge") scores each response against the gold standard, producing a JSON scorecard. The judge prompt includes the gold standard answer, the scoring rubric, and the agent's response.
 
-2. **Human spot-check:** Manually review a random 10-20% sample to calibrate the judge and catch systematic errors. Adjust judge prompt if needed.
+2. **Human spot-check:** Manually review a random ~33% sample to calibrate the judge and catch systematic errors. Adjust judge prompt if needed.
 
 3. **Efficiency metrics:** Fully automated — parse from session logs and nginx access logs.
 
@@ -307,18 +311,23 @@ Randomise the order of conditions and questions within each run to avoid systema
 ## Practical Considerations
 
 ### Repeatability
-- 3 runs per condition per question (720 total sessions across all questions)
-- Wait — that's 20 questions + 3 tasks = 23 items × 4 conditions × 3 runs = 276 sessions
-- Use the same model (claude-sonnet-4-6 for cost efficiency, or claude-opus-4-6 for capability — decide before starting)
+- 3 runs per condition per question per model
+- 23 items × 4 conditions × 3 runs × 2 models = **552 sessions** (max)
+- Models: `claude-sonnet-4-6` and `claude-opus-4-6`
 - Pin doc builds to specific commits of the forks (record commit SHAs)
 
+### Model Dimension & Checkpoint
+
+Adding model as a third dimension (Sonnet vs Opus) to test whether model capability interacts with doc format. However, this doubles the session count.
+
+**Checkpoint strategy:** After completing the first full run (23 items × 4 conditions × 2 models = 184 sessions), compare Sonnet vs Opus scores. If there is no meaningful difference (e.g., scores within 1 standard deviation), drop the model dimension for runs 2 and 3, cutting remaining sessions in half.
+
 ### Cost Estimate
-- Info retrieval questions: ~5K tokens input + ~2K tokens output each ≈ $0.05/session (Sonnet)
-- Synthesis tasks: ~10K tokens input + ~5K tokens output each ≈ $0.15/session (Sonnet)
-- Total estimate (Sonnet): ~240 × $0.05 + ~36 × $0.15 ≈ $17
-- Scoring (judge): ~276 judge calls ≈ $15
-- **Total estimate: ~$32** (Sonnet) or ~$160 (Opus)
-- This is very affordable — run with both models if budget permits
+- Info retrieval questions: ~5K tokens input + ~2K tokens output each
+- Synthesis tasks: ~10K tokens input + ~5K tokens output each
+- Sonnet sessions: ~$0.05 each; Opus sessions: ~$0.25 each
+- **Full run (552 sessions):** ~$50 (Sonnet half) + ~$70 (Opus half) + ~$30 (judge scoring) ≈ **$150**
+- **If model dimension dropped after checkpoint:** ~$100 total
 
 ### What sphinx-llm Produces
 
@@ -377,7 +386,10 @@ Regardless of the main result, we'll learn:
 - ✅ Condition A uses real internet (no /etc/hosts override)
 - ✅ Include charmcraft (RST source — interesting comparison)
 - ✅ Use `/etc/hosts` + nginx + mkcert (VM with passwordless sudo)
-- ✅ Full 240+ sessions, 3 runs per condition
+- ✅ Full 552 sessions max (23 × 4 × 3 × 2 models), with checkpoint to cut model dimension if no difference
+- ✅ 33% human spot-check of judge scores
+- ✅ Token usage is a first-class metric (markdown vs HTML efficiency)
+- ✅ Model dimension: Sonnet + Opus, with checkpoint after run 1
 
 ## Next Steps
 
@@ -391,3 +403,13 @@ Regardless of the main result, we'll learn:
 8. **Full run** — all 276 sessions
 9. **Score and analyse** — automated + human spot-check
 10. **Write up results** — findings, recommendations, artefacts for the community
+
+### Review Tooling
+
+For the 33% human spot-check (~90 sessions to review), we may need a review tool that:
+- Presents the question, agent response, gold standard, and judge scores side by side
+- Lets the reviewer confirm or override each dimension score
+- Tracks inter-rater agreement (judge vs human)
+- Produces a calibration report
+
+This could be a simple CLI tool, a local web app, or a Jupyter notebook. Decision deferred until after the pilot run — the right tool depends on what the judge output looks like in practice.
