@@ -1,6 +1,6 @@
 # Ops Upgrade: AI-Assisted Charm Modernisation
 
-In this experiment, I explored whether AI can reliably upgrade charms to use newer ops features -- the kind of maintenance work that's important but rarely urgent enough to actually happen (and that we see happen very slowly in charming). Tools like [pyupgrade](https://github.com/asottile/pyupgrade) and [django-upgrade](https://github.com/adamchainz/django-upgrade) solve this for Python itself, but ops changes are too semantic for AST transforms. You often need to understand *why* a charm should use a new feature, not just *how* the API changed. That felt like a potential fit for AI.
+In this experiment, I explored whether AI can reliably upgrade charms to use newer ops features -- the kind of maintenance work that's important but rarely urgent enough to actually happen (and that we see happen very slowly in charming). Tools like [pyupgrade](https://github.com/asottile/pyupgrade), [django-upgrade](https://github.com/adamchainz/django-upgrade), and [go fix](https://pkg.go.dev/cmd/fix) solve this for Python and Go, but ops changes are too semantic for AST transforms. You often need to understand *why* a charm should use a new feature, not just *how* the API changed. That felt like a potential fit for AI.
 
 In addition, I also wanted to know whether investing in detailed upgrade skills actually pays off, or whether a simple "hey, there's a new feature, go use it" (or even "there's a new release, go look at the features") prompt is good enough.
 

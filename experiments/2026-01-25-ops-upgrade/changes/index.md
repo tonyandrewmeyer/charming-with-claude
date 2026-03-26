@@ -1,8 +1,25 @@
 # Ops Changes Catalogue
 
-*Catalogued from the [ops CHANGES.md](https://github.com/canonical/operator/blob/main/CHANGES.md) covering releases from ops 2.23.0 (June 2025) through ops 3.6.0 (February 2026). Since ops-scenario and ops-tracing have been merged into the main ops repository (as `ops[testing]` and `ops[tracing]` respectively), all changes are tracked via the single ops changelog.*
+*Catalogued from the [ops CHANGES.md](https://github.com/canonical/operator/blob/main/CHANGES.md). Round 1 covered releases from ops 2.23.0 (June 2025) through ops 3.6.0 (February 2026). Round 2 extends coverage back to ops 2.7.0 (September 2023). Since ops-scenario and ops-tracing have been merged into the main ops repository (as `ops[testing]` and `ops[tracing]` respectively), all changes are tracked via the single ops changelog.*
 
-## Summary
+## Round 2 Additions (ops 2.7.0–2.22.0, September 2023–May 2025)
+
+| Change ID | Version | Type | Complexity | Domain | Summary |
+|-----------|---------|------|------------|--------|---------|
+| [set-ports](set-ports.md) | 2.7.0 | Feature | Moderate | Core | Declarative `Unit.set_ports()` replaces imperative `open_port()` / `close_port()` |
+| [pebble-log-targets](pebble-log-targets.md) | 2.9.0 | Feature | Moderate | Core | Log target support in Pebble layers for forwarding to Loki |
+| [action-testing](action-testing.md) | 2.9.0 | Feature | Moderate | Testing | `Harness.run_action()` / `ActionOutput` / `ActionFailed` testing API |
+| [pebble-notices](pebble-notices.md) | 2.10.0 | Feature | Moderate | Core | `PebbleCustomNoticeEvent` for event-driven workload communication |
+| [relation-active](relation-active.md) | 2.10.0 | Feature / behaviour change | Trivial–Moderate | Core | `Relation.active` property; inactive relations excluded from `Model.relations` |
+| [non-deferrable-lifecycle](non-deferrable-lifecycle.md) | 2.11.0 | Breaking change | Trivial–Moderate | Core | `StopEvent`, `RemoveEvent`, and all `LifecycleEvent`s now non-deferrable |
+| [cloud-spec](cloud-spec.md) | 2.12.0 | Feature | Trivial | Core | `Model.get_cloud_spec()` for cloud credentials and endpoint info |
+| [pebble-check-events](pebble-check-events.md) | 2.15.0 | Feature | Moderate | Core | `pebble-check-failed` and `pebble-check-recovered` events |
+| [ops-testing-migration](ops-testing-migration.md) | 2.17.0 | Feature (major) | Significant | Testing | `ops[testing]` extras: Harness → Scenario migration path |
+| [pebble-check-control](pebble-check-control.md) | 2.19.0 | Feature | Trivial | Core | `start_checks()` / `stop_checks()` for programmatic health check control |
+| [ops-tracing-adoption](ops-tracing-adoption.md) | 2.21.0 | Feature (major) | Moderate | Core | `ops[tracing]` first-party charm tracing, replacing `charm_tracing` library |
+| [databag-init-validation](databag-init-validation.md) | 2.22.0 | Behaviour change | Moderate | Core | Databag access validation enforced during `__init__`, surfacing latent bugs |
+
+## Round 1 Catalogue (ops 2.23.0–3.6.0, June 2025–February 2026)
 
 | Change ID | Version | Type | Complexity | Domain | Summary |
 |-----------|---------|------|------------|--------|---------|
@@ -25,26 +42,38 @@
 | [deprecate-charm-spec](deprecate-charm-spec.md) | 3.5.0 | Deprecation | Trivial | Testing | `testing.Context.charm_spec` deprecated |
 | [testing-exception-wrapping](testing-exception-wrapping.md) | 3.5.0 | Feature | Trivial | Testing | `SCENARIO_BARE_CHARM_ERRORS` env var for bare exception propagation in tests |
 
-## Change Distribution
+## Change Distribution (Combined)
 
 ### By type
-- **Features**: 13
+- **Features**: 24
 - **Improvements**: 2
-- **Breaking changes**: 1
+- **Breaking changes**: 2
+- **Behaviour changes**: 2
 - **Deprecations**: 1
 
 ### By domain
-- **Core ops**: 10 (charm code and runtime)
-- **Testing (ops[testing])**: 7
+- **Core ops**: 20 (charm code and runtime)
+- **Testing (ops[testing])**: 10
 
 ### By complexity
-- **Trivial**: 10 (simple adoption, often one-line changes, or no charm changes needed)
-- **Moderate**: 6 (requires understanding the new API and updating multiple locations)
-- **Significant**: 1 (relation data classes — requires interface compatibility analysis)
+- **Trivial**: 12
+- **Trivial–Moderate**: 3
+- **Moderate**: 12
+- **Significant**: 2 (relation data classes, ops-testing migration)
 
 ## Most Impactful for Charm Upgrades
 
-The following changes are most likely to produce meaningful improvements when applied to existing charms (i.e. they require charm code changes and improve code quality):
+### Round 2 changes (broadest impact, September 2023–May 2025)
+
+1. **[set-ports](set-ports.md)** — nearly every K8s charm manages ports; declarative API is a significant simplification.
+2. **[non-deferrable-lifecycle](non-deferrable-lifecycle.md)** — breaking change that must be addressed for any charm deferring lifecycle events.
+3. **[ops-testing-migration](ops-testing-migration.md)** — the most impactful long-term change; Harness → Scenario migration.
+4. **[ops-tracing-adoption](ops-tracing-adoption.md)** — first-party tracing replaces community library.
+5. **[pebble-check-events](pebble-check-events.md)** — reactive health monitoring for K8s charms.
+6. **[pebble-notices](pebble-notices.md)** — event-driven workload communication.
+7. **[databag-init-validation](databag-init-validation.md)** — may surface latent bugs; important for correctness.
+
+### Round 1 changes (June 2025–February 2026)
 
 1. **[config-classes](config-classes.md)** — nearly every charm has config; this is the most widely applicable.
 2. **[action-classes](action-classes.md)** — most charms with actions will benefit.
