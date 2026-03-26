@@ -167,18 +167,36 @@ charmlibs uses `.docs/` (with leading dot) instead of `docs/`, and uses a `justf
 
 charmcraft uses RST source and has `.readthedocs.yaml` at the repo root (not in `docs/`). The `sphinx-llm` extension should still work — it converts RST to markdown output regardless of source format. Worth testing early.
 
+## Smoke Test Results (2026-03-26)
+
+All infrastructure components validated successfully:
+
+- [x] **mkcert** — v1.4.4 installed, local CA created and installed in system trust store
+- [x] **Certificate** — generated for `documentation.ubuntu.com`, valid until 2028-06-26
+- [x] **nginx** — serving over HTTPS on port 443, config passes `nginx -t`
+- [x] **/etc/hosts** — `127.0.0.1 documentation.ubuntu.com` correctly intercepts DNS
+- [x] **curl test** — `curl https://documentation.ubuntu.com/test/llms.txt` returns content (200)
+- [x] **WebFetch test** — Claude Code's WebFetch successfully fetches both `.txt` and `.html` pages over HTTPS from the local server
+- [x] **Access logs** — nginx logs capture all requests with user-agent `Claude-User (claude-code/...)` — can distinguish WebFetch from other traffic
+- [x] **/etc/hosts toggle** — removing the entry restores normal DNS resolution
+
+**Key finding:** WebFetch (Bun's built-in fetch) resolves DNS via system `getaddrinfo` and trusts the mkcert CA installed via `update-ca-certificates`. No `NODE_EXTRA_CA_CERTS` was needed — the system CA store was sufficient.
+
+**Permission note:** nginx worker (`www-data`) needs `o+rx` on the path to doc files. Applied to `/home/ubuntu`, `/home/ubuntu/llms-txt-experiment`, and doc output directories.
+
 ## Verification Checklist
 
 Before running any experiment sessions:
 
+- [x] mkcert, nginx installed and working
+- [x] HTTPS + DNS override validated with WebFetch
+- [x] nginx access logs capture requests with user-agent
 - [ ] All 5 doc sets build successfully with sphinx-llm
 - [ ] Each doc set has `llms.txt`, `llms-full.txt`, and per-page `.html.md` files
 - [ ] nginx serves all 5 doc sets over HTTPS without errors
-- [ ] `curl -k https://documentation.ubuntu.com/ops/latest/llms.txt` returns content (with /etc/hosts enabled)
-- [ ] WebFetch from a test Claude Code session can access `https://documentation.ubuntu.com/ops/latest/llms.txt`
-- [ ] WebFetch from a test Claude Code session can access a normal HTML page
+- [ ] `curl https://documentation.ubuntu.com/ops/latest/llms.txt` returns content (with /etc/hosts enabled)
+- [ ] WebFetch from a test Claude Code session can access real doc pages
 - [ ] With /etc/hosts disabled, WebFetch reaches the real `documentation.ubuntu.com`
-- [ ] nginx access logs capture all requests with timestamps
 
 ## Log Collection
 
