@@ -7,7 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before working on tasks, check for relevant skills in `.claude/skills/`. Available skills:
 - `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
 - `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
-- `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+- `jhack` — `.claude/skills/jhack/SKILL.md` — diagnostic tools for charming
+- `go-standards` — `.claude/skills/go-standards/SKILL.md` — Canonical Go coding standards
+- `cli-standards` — `.claude/skills/cli-standards/SKILL.md` — Canonical CLI design standards
+- `code-review` — `.claude/skills/code-review/SKILL.md` — code review guidelines
+- `charm-logging` — `.claude/skills/charm-logging/SKILL.md` — charm logging level guidelines
+- `charm-testing-commands` — `.claude/skills/charm-testing-commands/SKILL.md` — standard charm test commands
+- `charm-docs` — `.claude/skills/charm-docs/SKILL.md` — charm documentation guidelines
 
 Read the appropriate SKILL.md before starting any related work.
 
