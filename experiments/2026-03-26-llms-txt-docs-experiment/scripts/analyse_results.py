@@ -17,6 +17,7 @@ from pathlib import Path
 EXPERIMENT_DIR = Path(__file__).parent.parent
 RAW_DIR = EXPERIMENT_DIR / "results" / "raw"
 SCORED_DIR = EXPERIMENT_DIR / "results" / "scored"
+REVIEW_DIR = EXPERIMENT_DIR / "results" / "reviewed"
 
 # nginx combined log pattern
 NGINX_LOG_RE = re.compile(
@@ -99,7 +100,7 @@ def analyse_nginx_log(entries: list[dict]) -> dict:
         parts = path.strip("/").split("/")
         if parts:
             repo = parts[0]
-            if repo in ("ops", "pebble", "jubilant", "charmlibs", "charmcraft"):
+            if repo in ("ops", "pebble", "jubilant", "charmlibs", "charmcraft", "juju"):
                 repos.add(repo)
 
     return {
@@ -152,6 +153,18 @@ def load_all_results() -> list[dict]:
             "wall_time_ms": record.get("wall_time_ms", 0),
             "duration_api_ms": co.get("duration_api_ms", 0),
         }
+
+        # Load human review if available — human scores override judge scores
+        review_file = REVIEW_DIR / session_dir.name / "review.json"
+        if review_file.exists():
+            with open(review_file) as f:
+                review = json.load(f)
+            record["human_review"] = review
+            # Override scorecard scores with human scores
+            if record["scorecard"] and review.get("human_scores"):
+                record["scorecard"]["scores"].update(review["human_scores"])
+        else:
+            record["human_review"] = None
 
         # Parse nginx access log for this session
         nginx_log = session_dir / "access.log"
@@ -213,8 +226,10 @@ def format_summary(results: list[dict]) -> str:
         return "\n".join(lines)
 
     scored = [r for r in results if r.get("scorecard") and r["scorecard"].get("scores")]
+    reviewed = [r for r in results if r.get("human_review")]
     lines.append(f"**Total sessions:** {len(results)}")
     lines.append(f"**Scored sessions:** {len(scored)}")
+    lines.append(f"**Human-reviewed:** {len(reviewed)} ({len(reviewed)/len(scored)*100:.0f}% of scored)" if scored else "")
     lines.append("")
 
     # Main results table: by condition
@@ -481,6 +496,106 @@ def format_summary(results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def format_checkpoint(results: list[dict]) -> str:
+    """Compare Sonnet vs Opus after run 1 to decide whether to keep the model dimension."""
+    lines = ["# Model Checkpoint: Sonnet vs Opus (Run 1)\n"]
+
+    # Filter to run 1 only
+    run1 = [r for r in results if r.get("run_number") == 1]
+    scored = [r for r in run1 if r.get("scorecard") and r["scorecard"].get("scores")]
+
+    if not scored:
+        lines.append("No run 1 scored results found yet.\n")
+        return "\n".join(lines)
+
+    # Split by model
+    by_model = defaultdict(list)
+    for r in scored:
+        is_synth = r["question_id"].startswith("S")
+        score = weighted_score(r["scorecard"]["scores"], is_synth)
+        by_model[r["model"]].append({
+            "score": score,
+            "question_id": r["question_id"],
+            "condition": r["condition"],
+        })
+
+    lines.append(f"**Scored run 1 sessions:** {len(scored)}\n")
+
+    # Overall comparison
+    lines.append("## Overall\n")
+    lines.append("| Model | Mean Score (%) | Std Dev | n |")
+    lines.append("|---|---|---|---|")
+    for model in ["sonnet", "opus"]:
+        items = by_model.get(model, [])
+        if items:
+            scores = [i["score"] for i in items]
+            mean = statistics.mean(scores)
+            std = statistics.stdev(scores) if len(scores) > 1 else 0
+            lines.append(f"| {model} | {mean:.1f} | {std:.1f} | {len(items)} |")
+        else:
+            lines.append(f"| {model} | - | - | 0 |")
+    lines.append("")
+
+    # Per-condition comparison
+    lines.append("## By Condition\n")
+    lines.append("| Condition | Sonnet | Opus | Difference |")
+    lines.append("|---|---|---|---|")
+    for cond in ["A", "B", "C", "D"]:
+        sonnet_scores = [i["score"] for i in by_model.get("sonnet", []) if i["condition"] == cond]
+        opus_scores = [i["score"] for i in by_model.get("opus", []) if i["condition"] == cond]
+        s_mean = statistics.mean(sonnet_scores) if sonnet_scores else None
+        o_mean = statistics.mean(opus_scores) if opus_scores else None
+        if s_mean is not None and o_mean is not None:
+            diff = o_mean - s_mean
+            lines.append(f"| {cond} | {s_mean:.1f}% | {o_mean:.1f}% | {diff:+.1f} |")
+        else:
+            lines.append(f"| {cond} | {f'{s_mean:.1f}%' if s_mean else '-'} | {f'{o_mean:.1f}%' if o_mean else '-'} | - |")
+    lines.append("")
+
+    # Per-question comparison
+    lines.append("## Per Question\n")
+    lines.append("| Question | Sonnet (mean across conds) | Opus (mean across conds) | Diff |")
+    lines.append("|---|---|---|---|")
+    all_qids = sorted(set(r["question_id"] for r in scored),
+                      key=lambda x: (0 if x.startswith("Q") else 1, x))
+    for qid in all_qids:
+        s_scores = [i["score"] for i in by_model.get("sonnet", []) if i["question_id"] == qid]
+        o_scores = [i["score"] for i in by_model.get("opus", []) if i["question_id"] == qid]
+        s_mean = statistics.mean(s_scores) if s_scores else None
+        o_mean = statistics.mean(o_scores) if o_scores else None
+        if s_mean is not None and o_mean is not None:
+            diff = o_mean - s_mean
+            lines.append(f"| {qid} | {s_mean:.1f}% | {o_mean:.1f}% | {diff:+.1f} |")
+        else:
+            lines.append(f"| {qid} | {f'{s_mean:.1f}%' if s_mean else '-'} | {f'{o_mean:.1f}%' if o_mean else '-'} | - |")
+    lines.append("")
+
+    # Recommendation
+    sonnet_all = [i["score"] for i in by_model.get("sonnet", [])]
+    opus_all = [i["score"] for i in by_model.get("opus", [])]
+    if sonnet_all and opus_all:
+        s_mean = statistics.mean(sonnet_all)
+        o_mean = statistics.mean(opus_all)
+        s_std = statistics.stdev(sonnet_all) if len(sonnet_all) > 1 else 0
+        diff = abs(o_mean - s_mean)
+
+        lines.append("## Recommendation\n")
+        if diff < s_std:
+            lines.append(
+                f"Difference ({diff:.1f}pp) is within 1 standard deviation "
+                f"({s_std:.1f}pp). **Consider dropping the model dimension** "
+                f"for runs 2-3 to save cost."
+            )
+        else:
+            lines.append(
+                f"Difference ({diff:.1f}pp) exceeds 1 standard deviation "
+                f"({s_std:.1f}pp). **Keep both models** for runs 2-3."
+            )
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Analyse experiment results")
     parser.add_argument(
@@ -488,10 +603,19 @@ def main():
         default=None,
         help="Output file (default: print to stdout)",
     )
+    parser.add_argument(
+        "--checkpoint",
+        action="store_true",
+        help="Run model checkpoint analysis (Sonnet vs Opus, run 1 only)",
+    )
     args = parser.parse_args()
 
     results = load_all_results()
-    summary = format_summary(results)
+
+    if args.checkpoint:
+        summary = format_checkpoint(results)
+    else:
+        summary = format_summary(results)
 
     if args.output:
         output_path = EXPERIMENT_DIR / args.output
