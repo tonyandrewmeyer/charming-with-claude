@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_A_opus_run2",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 22295,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 20746,
+    "duration_api_ms": 20737,
+    "num_turns": 1,
+    "result": "Here's a complete Pebble layer YAML with all the requested features:\n\n```yaml\n# pebble-layer.yaml\nsummary: Application layer\ndescription: |\n  Pebble layer configuration for the application service\n  with HTTP health check, environment variables, and log forwarding.\n\nservices:\n  my-app:\n    override: replace\n    summary: My application service\n    command: /usr/bin/my-app --config /etc/my-app/config.yaml\n    startup: enabled\n    after:\n      - database-migration\n    environment:\n      APP_ENV: production\n      APP_PORT: \"8080\"\n      LOG_LEVEL: info\n      DATABASE_URL: postgresql://localhost:5432/mydb\n      CACHE_TTL: \"300\"\n    on-success: restart\n    on-failure: restart\n    backoff-delay: 3s\n    backoff-factor: 2\n    backoff-limit: 30s\n\nchecks:\n  my-app-health:\n    override: replace\n    level: ready          # Mark workload as ready only when check passes\n    period: 10s           # How often to run the check\n    timeout: 3s           # Per-attempt timeout\n    threshold: 3          # Failures before check is considered \"down\"\n    http:\n      url: http://localhost:8080/health\n      headers:\n        Accept: application/json\n        X-Health-Check: pebble\n\nlog-targets:\n  application-logs:\n    override: replace\n    type: loki\n    location: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push\n    services:\n      - my-app\n    labels:\n      app: my-app\n      environment: production\n      team: platform\n```\n\n## Key sections explained\n\n### `services`\n- **`override: replace`** \u2014 Replaces any existing definition for this service from a lower layer.\n- **`startup: enabled`** \u2014 Pebble starts the service automatically on startup.\n- **`environment`** \u2014 Inline key-value pairs injected into the process environment.\n- **`on-failure: restart`** with **`backoff-*`** \u2014 Automatic restart with exponential backoff (3s \u2192 6s \u2192 12s \u2192 \u2026 capped at 30s).\n\n### `checks`\n- **`level: ready`** \u2014 Ties the check to Kubernetes readiness. Use `alive` for liveness instead.\n- **`http`** \u2014 Sends an HTTP GET to the given URL; a 2xx response means healthy.\n- **`threshold: 3`** \u2014 The check must fail 3 consecutive times before the workload is considered unhealthy.\n\n### `log-targets`\n- **`type: loki`** \u2014 Forwards stdout/stderr of the listed services to a Grafana Loki endpoint. The other supported type is `syslog`.\n- **`services`** \u2014 Selects which services' output to forward (use `[- all]` for every service).\n- **`labels`** \u2014 Arbitrary key-value labels attached to each log stream in Loki.\n\n## Using it in a charm\n\nIn your charm code, you would typically add this layer via the Pebble client:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    container = event.workload\n    container.add_layer(\"my-app\", self._pebble_layer(), combine=True)\n    container.replan()\n    self.unit.status = ops.ActiveStatus()\n\ndef _pebble_layer(self) -> ops.pebble.LayerDict:\n    return {\n        \"summary\": \"Application layer\",\n        \"services\": {\n            \"my-app\": {\n                \"override\": \"replace\",\n                \"summary\": \"My application service\",\n                \"command\": \"/usr/bin/my-app --config /etc/my-app/config.yaml\",\n                \"startup\": \"enabled\",\n                \"environment\": {\n                    \"APP_ENV\": \"production\",\n                    \"APP_PORT\": \"8080\",\n                    \"LOG_LEVEL\": \"info\",\n                },\n            }\n        },\n        \"checks\": {\n            \"my-app-health\": {\n                \"override\": \"replace\",\n                \"level\": \"ready\",\n                \"period\": \"10s\",\n                \"timeout\": \"3s\",\n                \"threshold\": 3,\n                \"http\": {\n                    \"url\": \"http://localhost:8080/health\",\n                },\n            }\n        },\n    }\n```\n\nThis gives you a fully observable workload with automatic restarts, health-gated readiness, and centralized log forwarding.",
+    "stop_reason": "end_turn",
+    "session_id": "9b9146fb-22f8-416c-b1f7-9ff1ce0a3d72",
+    "total_cost_usd": 0.04030575,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1073,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1172,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1073,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1172,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1073,
+        "webSearchRequests": 0,
+        "costUSD": 0.04030575,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1bce4eb3-34ff-48cc-b7df-2f32ddb097f7"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:32:11+1300"
+}

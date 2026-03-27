@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_A_sonnet_run2",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 120277,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 118976,
+    "duration_api_ms": 153980,
+    "num_turns": 2,
+    "result": "Here's a complete guide with working test code using **jubilant**.\n\n---\n\n## Installation\n\n```toml\n# pyproject.toml\n[project.optional-dependencies]\nintegration = [\"jubilant\"]\n```\n\n---\n\n## `tests/integration/conftest.py`\n\n```python\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Spin up a temporary Juju model, yield it, then tear it down.\"\"\"\n    with jubilant.temp_model() as juju:\n        yield juju\n```\n\n`temp_model()` creates a fresh model before the test module runs and destroys it automatically afterwards \u2014 no manual cleanup needed.\n\n---\n\n## `tests/integration/test_charm.py`\n\n```python\nimport jubilant\nimport pytest\n\n\ndef test_deploy(juju: jubilant.Juju):\n    \"\"\"Deploy the charm and wait for active/idle.\"\"\"\n    # Deploy from the locally built .charm file\n    juju.deploy(\"./mycharm_amd64.charm\")\n\n    # Block until every app and every unit is active/idle.\n    # wait() polls every second and requires 3 consecutive\n    # passing checks before it returns the final Status object.\n    status = juju.wait(jubilant.all_active)\n\n    # The returned Status lets you inspect units right away.\n    unit = status.apps[\"mycharm\"].units[\"mycharm/0\"]\n    assert unit.is_active\n    assert unit.workload_status.message == \"Ready\"\n\n\ndef test_config_change_stays_active(juju: jubilant.Juju):\n    \"\"\"Change a config value and confirm the charm re-settles.\"\"\"\n    juju.config(\"mycharm\", {\"log-level\": \"debug\"})\n\n    status = juju.wait(\n        jubilant.all_active,\n        timeout=120,   # seconds\n    )\n\n    unit = status.apps[\"mycharm\"].units[\"mycharm/0\"]\n    assert unit.is_active\n\n\ndef test_relation(juju: jubilant.Juju):\n    \"\"\"Relate two apps and wait for both to become active.\"\"\"\n    juju.deploy(\"postgresql\", channel=\"14/stable\")\n    juju.integrate(\"mycharm\", \"postgresql\")\n\n    # Pass app names to all_active to check only those apps.\n    status = juju.wait(\n        lambda s: jubilant.all_active(s, \"mycharm\", \"postgresql\"),\n        timeout=300,\n    )\n\n    assert status.apps[\"mycharm\"].units[\"mycharm/0\"].is_active\n    assert status.apps[\"postgresql\"].units[\"postgresql/0\"].is_active\n\n\ndef test_action(juju: jubilant.Juju):\n    \"\"\"Run a Juju action and inspect its results.\"\"\"\n    result = juju.run(\"mycharm/0\", \"my-action\", {\"param\": \"value\"})\n\n    assert result.status == \"completed\"\n    assert result.results[\"output\"] == \"expected-value\"\n```\n\n---\n\n## Key API Summary\n\n| What you want | Code |\n|---|---|\n| Deploy from Charmhub | `juju.deploy(\"myapp\")` |\n| Deploy local file | `juju.deploy(\"./myapp_amd64.charm\")` |\n| Wait \u2014 all apps active | `juju.wait(jubilant.all_active)` |\n| Wait \u2014 specific apps only | `juju.wait(lambda s: jubilant.all_active(s, \"app1\", \"app2\"))` |\n| Wait with timeout | `juju.wait(jubilant.all_active, timeout=300)` |\n| Get unit address | `status.apps[\"myapp\"].units[\"myapp/0\"].address` |\n| Check unit state | `unit.is_active` / `unit.is_blocked` / `unit.is_error` |\n| Integrate two apps | `juju.integrate(\"myapp\", \"postgresql\")` |\n| Run an action | `juju.run(\"myapp/0\", \"action-name\")` |\n| Set config | `juju.config(\"myapp\", {\"key\": \"val\"})` |\n\n---\n\n## Run the tests\n\n```bash\n# Build first\ncharmcraft pack\n\n# Run integration tests\npytest tests/integration/ -v\n```\n\n`jubilant.all_active` checks that **every** application is in `active` workload status **and** `idle` agent status \u2014 exactly what `juju status` shows as `active/idle`. The `wait()` call will raise a `jubilant.WaitError` (with the last status attached) if the timeout expires before the condition is met, giving you a clear failure message.",
+    "stop_reason": "end_turn",
+    "session_id": "b0353677-9862-4714-988c-78066713dd4b",
+    "total_cost_usd": 0.41587709999999994,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3153,
+      "cache_read_input_tokens": 18025,
+      "output_tokens": 1463,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3153,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1463,
+        "cacheReadInputTokens": 18025,
+        "cacheCreationInputTokens": 3153,
+        "webSearchRequests": 0,
+        "costUSD": 0.03919425,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 108952,
+        "outputTokens": 9703,
+        "cacheReadInputTokens": 179646,
+        "cacheCreationInputTokens": 105001,
+        "webSearchRequests": 7,
+        "costUSD": 0.37668284999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "dd159e8a-b4d4-4e3a-941e-3b64f9a57361"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:09:26+1300"
+}

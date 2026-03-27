@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_B_sonnet_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 25971,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 24403,
+    "duration_api_ms": 23340,
+    "num_turns": 2,
+    "result": "Here's complete integration test code using Jubilant:\n\n```python\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    with jubilant.temp_model() as juju:\n        juju.deploy(\"./my-charm.charm\")\n        juju.wait(jubilant.all_active)\n        yield juju\n\n\ndef test_is_active(juju: jubilant.Juju):\n    status = juju.status()\n    assert status.apps[\"my-charm\"].is_active\n\n\ndef test_some_action(juju: jubilant.Juju):\n    result = juju.run(\"my-charm/0\", \"my-action\", param=\"value\")\n    assert result.success\n```\n\nKey points:\n\n- **`jubilant.temp_model()`** \u2014 creates a temporary model and tears it down after the test session. Use `scope=\"module\"` so it's shared across all tests in the file.\n- **`juju.deploy(\"./my-charm.charm\")`** \u2014 deploys from a local `.charm` file; use a charm name (e.g. `\"postgresql\"`) for Charmhub.\n- **`juju.wait(jubilant.all_active)`** \u2014 blocks until every unit is `active/idle`. Raises on timeout (default 10 minutes).\n- The fixture deploys once; individual tests just assert on state.\n\nFor charms with relations or that need config:\n\n```python\n@pytest.fixture(scope=\"module\")\ndef juju():\n    with jubilant.temp_model() as juju:\n        juju.deploy(\"./my-charm.charm\", config={\"port\": \"8080\"})\n        juju.deploy(\"postgresql\", channel=\"14/stable\")\n        juju.integrate(\"my-charm:db\", \"postgresql:db\")\n        juju.wait(jubilant.all_active)\n        yield juju\n```\n\nAnd the `tox.ini` integration env:\n\n```ini\n[testenv:integration]\ndeps =\n    jubilant\n    pytest\ncommands = pytest tests/integration/ -v\n```",
+    "stop_reason": "end_turn",
+    "session_id": "e171b6b6-6940-4df1-85e6-b8f460114658",
+    "total_cost_usd": 0.09528314999999998,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8082,
+      "cache_read_input_tokens": 29881,
+      "output_tokens": 762,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8082,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 762,
+        "cacheReadInputTokens": 29881,
+        "cacheCreationInputTokens": 8082,
+        "webSearchRequests": 0,
+        "costUSD": 0.050719799999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 21280,
+        "outputTokens": 1019,
+        "cacheReadInputTokens": 12971,
+        "cacheCreationInputTokens": 13513,
+        "webSearchRequests": 0,
+        "costUSD": 0.04456335,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "7bb0bcfe-6823-40d8-ac13-ce40d18ea9f3"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:14:15+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_B_sonnet_run2",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 121352,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 120221,
+    "duration_api_ms": 193261,
+    "num_turns": 2,
+    "result": "The standard pattern for a charm library that provides a relation interface is:\n\n## Provider-side Charm Library Pattern\n\n**Structure:** A `*Provides` class that wraps the charm, observes raw Juju relation events, and emits custom domain-specific events to the charm.\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\n\nimport dataclasses\nimport ops\n\n# Custom events the charm observes instead of raw Juju events\nclass MyRequirerJoinedEvent(ops.RelationEvent):\n    pass\n\nclass MyProviderEvents(ops.CharmEvents):\n    requirer_joined = ops.EventSource(MyRequirerJoinedEvent)\n\nclass MyProvides(ops.Object):\n    on = MyProviderEvents()  # type: ignore\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str) -> None:\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n        charm.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        charm.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent) -> None:\n        self.on.requirer_joined.emit(event.relation, app=event.app, unit=event.unit)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        # Read requirer data, emit custom event if relevant\n        pass\n\n    def set_data(self, relation: ops.Relation, *, endpoint: str) -> None:\n        \"\"\"Publish provider data into the relation databag.\"\"\"\n        relation.data[self._charm.app][\"endpoint\"] = endpoint\n```\n\n**In `charm.py`:**\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n        self.my_interface = MyProvides(self, \"my-relation\")\n        framework.observe(self.my_interface.on.requirer_joined, self._on_requirer_joined)\n\n    def _on_requirer_joined(self, event: MyRequirerJoinedEvent) -> None:\n        self.my_interface.set_data(event.relation, endpoint=\"http://...\")\n```\n\n## Key Rules\n\n- **App databag** for data shared by all units of your app (credentials, endpoints). Write to `relation.data[self.app]` \u2014 only the leader can write this.\n- **Unit databag** for per-unit data. Write to `relation.data[self.unit]`.\n- **Never read your own side's data** from the relation; keep it in the charm's state instead.\n- The library owns the raw relation events; the charm only sees the library's custom events.\n- Validate and document the exact keys you put in the databag \u2014 ideally with a Pydantic schema if publishing to [charm-relation-interfaces](https://github.com/canonical/charm-relation-interfaces).\n\n## `charmcraft.yaml`\n\n```yaml\npeers: {}  # or requires/provides as appropriate\nprovides:\n  my-relation:\n    interface: my-interface\n    optional: true\n```\n\nThe `optional: true` key is required on all relation endpoints per the project conventions.",
+    "stop_reason": "end_turn",
+    "session_id": "86890b0e-8128-4680-bb76-676c17009876",
+    "total_cost_usd": 0.69777445,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9258,
+      "cache_read_input_tokens": 29875,
+      "output_tokens": 1184,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9258,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1184,
+        "cacheReadInputTokens": 29875,
+        "cacheCreationInputTokens": 9258,
+        "webSearchRequests": 0,
+        "costUSD": 0.061458,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 230015,
+        "outputTokens": 12476,
+        "cacheReadInputTokens": 157202,
+        "cacheCreationInputTokens": 166561,
+        "webSearchRequests": 12,
+        "costUSD": 0.6363164499999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1bac0bac-dba1-4862-83ab-f33cc305bb95"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:10:16+1300"
+}

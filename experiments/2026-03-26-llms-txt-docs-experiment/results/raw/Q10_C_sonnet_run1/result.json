@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_C_sonnet_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 46162,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 44951,
+    "duration_api_ms": 48970,
+    "num_turns": 5,
+    "result": "Here's a complete guide to deploying a charm and waiting for `active/idle` using **jubilant**.\n\n---\n\n## Key Concepts\n\nJubilant provides two main building blocks:\n\n| Method / Helper | Purpose |\n|---|---|\n| `juju.deploy(charm, ...)` | Deploys a charm from Charmhub or a local `.charm` file |\n| `juju.wait(ready, ...)` | Polls `juju status` until a condition is met N times in a row |\n| `jubilant.all_active(status)` | True when every app/unit workload status is `active` |\n| `jubilant.all_agents_idle(status)` | True when every unit agent status is `idle` |\n| `jubilant.any_error(status)` | True when any app/unit is in `error` \u2014 use as the `error` guard |\n\n---\n\n## Complete Test Code\n\n```python\nimport pytest\nimport jubilant\n\n\n# \u2500\u2500 Fixture: one Juju model per test module \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Provide a Juju instance with a temporary model, torn down after the module.\"\"\"\n    with jubilant.temp_model() as juju:\n        yield juju\n\n\n# \u2500\u2500 1. Simplest possible case \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\ndef test_deploy_single_charm(juju: jubilant.Juju):\n    \"\"\"Deploy from Charmhub and wait for active/idle.\"\"\"\n    juju.deploy(\"snappass-test\")\n\n    # all_active  \u2192 workload status == \"active\"\n    # all_agents_idle \u2192 agent status == \"idle\"\n    juju.wait(\n        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),\n        error=jubilant.any_error,\n        timeout=300,   # seconds; omit for no timeout\n    )\n\n\n# \u2500\u2500 2. Local .charm file \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\ndef test_deploy_local_charm(juju: jubilant.Juju):\n    \"\"\"Deploy a packed local charm and wait for it to become active/idle.\"\"\"\n    juju.deploy(\"./my-charm_ubuntu-22.04-amd64.charm\", app=\"my-charm\")\n\n    juju.wait(\n        lambda status: (\n            jubilant.all_active(status, \"my-charm\")\n            and jubilant.all_agents_idle(status, \"my-charm\")\n        ),\n        error=jubilant.any_error,\n        timeout=300,\n    )\n\n\n# \u2500\u2500 3. Multiple charms with a relation \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\ndef test_deploy_with_relation(juju: jubilant.Juju):\n    \"\"\"Deploy two charms, relate them, and wait for all to be active/idle.\"\"\"\n    juju.deploy(\"wordpress\")\n    juju.deploy(\"mysql\")\n    juju.integrate(\"wordpress\", \"mysql:database\")\n\n    juju.wait(\n        lambda status: (\n            jubilant.all_active(status, \"wordpress\", \"mysql\")\n            and jubilant.all_agents_idle(status, \"wordpress\", \"mysql\")\n        ),\n        error=jubilant.any_error,\n        timeout=600,\n    )\n\n\n# \u2500\u2500 4. With config, constraints, and multiple units \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\ndef test_deploy_with_options(juju: jubilant.Juju):\n    \"\"\"Deploy with charm config, hardware constraints, and HA units.\"\"\"\n    juju.deploy(\n        \"postgresql\",\n        config={\"max_connections\": \"200\"},\n        constraints={\"mem\": \"4G\", \"cores\": \"2\"},\n        num_units=3,\n        channel=\"14/stable\",\n        trust=True,\n    )\n\n    juju.wait(\n        lambda status: (\n            jubilant.all_active(status, \"postgresql\")\n            and jubilant.all_agents_idle(status, \"postgresql\")\n        ),\n        error=jubilant.any_error,\n        timeout=600,\n    )\n\n\n# \u2500\u2500 5. Inspecting the returned Status object \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\ndef test_inspect_status_after_wait(juju: jubilant.Juju):\n    \"\"\"wait() returns the final Status; use it for assertions.\"\"\"\n    juju.deploy(\"snappass-test\")\n\n    status = juju.wait(\n        lambda s: jubilant.all_active(s) and jubilant.all_agents_idle(s),\n        error=jubilant.any_error,\n        timeout=300,\n    )\n\n    # status is a jubilant.Status dataclass\n    app = status.apps[\"snappass-test\"]\n    assert app.status.current == \"active\"\n    for unit in app.units.values():\n        assert unit.workload_status.current == \"active\"\n        assert unit.agent_status.current == \"idle\"\n```\n\n---\n\n## `juju.wait()` \u2014 parameter reference\n\n```python\njuju.wait(\n    ready,          # Callable[[Status], bool] \u2014 return True when done\n    *,\n    error=None,     # Callable[[Status], bool] \u2014 raise immediately if True\n    delay=1.0,      # seconds between polls\n    timeout=None,   # total seconds before TimeoutError; None = forever\n    successes=3,    # ready() must return True this many times in a row\n)\n```\n\n> **Why `successes=3`?**  \n> Juju status can briefly flicker (e.g., `maintenance` \u2192 `active` \u2192 `maintenance`). Requiring three consecutive successes avoids false positives.\n\n---\n\n## Tips\n\n- **Filter to specific apps** \u2014 pass app names to `all_active` / `all_agents_idle` so unrelated apps don't block the wait:\n  ```python\n  jubilant.all_active(status, \"my-charm\", \"postgresql\")\n  ```\n- **Always set `error=jubilant.any_error`** \u2014 this causes `wait()` to raise immediately if any unit enters the `error` state, rather than waiting until timeout.\n- **Local charms** must start with `/` or `./` so jubilant knows it's a file path, not a Charmhub name.",
+    "stop_reason": "end_turn",
+    "session_id": "8556e1da-5c2c-4b1f-a42a-367254f2a1cb",
+    "total_cost_usd": 0.08473375,
+    "usage": {
+      "input_tokens": 476,
+      "cache_creation_input_tokens": 3575,
+      "cache_read_input_tokens": 39005,
+      "output_tokens": 2094,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3575,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 476,
+        "outputTokens": 2094,
+        "cacheReadInputTokens": 39005,
+        "cacheCreationInputTokens": 3575,
+        "webSearchRequests": 0,
+        "costUSD": 0.057945750000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 18708,
+        "outputTokens": 1616,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.026788000000000003,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "8881c55d-4ef5-4bbc-a5a7-95236bd8aa8c"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:58:51+1300"
+}

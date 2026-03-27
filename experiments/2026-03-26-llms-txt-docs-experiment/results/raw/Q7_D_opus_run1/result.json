@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_D_opus_run1",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 145928,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 144826,
+    "duration_api_ms": 163542,
+    "num_turns": 2,
+    "result": "\n\n## Pebble Notices\n\nNotices are a Pebble subsystem that lets the workload inform the charm about events. They're persisted to disk (surviving restarts) and expire after a configurable interval.\n\nEach notice is uniquely identified by **user ID + type + key**. If the same combination is recorded again, the **occurrence count is incremented** rather than creating a new notice.\n\n### Notice Types\n\n| Type | `ops.pebble.NoticeType` | Description |\n|---|---|---|\n| `custom` | `NoticeType.CUSTOM` | User-defined notices via `pebble notify` or the client API. Key must be in `example.com/path` format. |\n| `change-update` | `NoticeType.CHANGE_UPDATE` | Recorded when a Pebble change's status updates. Key is the change ID. |\n| `warning` | *(not in the enum)* | Pebble warnings stored as notices. Key is the warning message. |\n\n### Key Fields on `ops.pebble.Notice`\n\n- `id`, `user_id`, `type`, `key`\n- `first_occurred`, `last_occurred`, `last_repeated`\n- `occurrences` \u2014 how many times this type+key has been recorded\n- `last_data` \u2014 `dict[str, str]` from the most recent occurrence\n- `repeat_after` \u2014 minimum interval before Pebble will wake the charm again (throttling)\n- `expire_after` \u2014 time since last occurrence before the notice is dropped\n\n### Recording a Notice from the Workload\n\n```sh\n/charm/bin/pebble notify canonical.com/myapp/backup-done path=/tmp/backup.sql\n```\n\nUse `--repeat-after=1h` to throttle frequent notices.\n\n### Observing Notices in a Charm\n\nOps auto-creates a `pebble_custom_notice` event per container declared in `charmcraft.yaml`:\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(\n            self.on[\"mycontainer\"].pebble_custom_notice,\n            self._on_custom_notice,\n        )\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        if event.notice.key == \"canonical.com/myapp/backup-done\":\n            path = event.notice.last_data[\"path\"]\n            logger.info(\"Backup finished at %s\", path)\n```\n\nThe `event.notice` is a `LazyNotice` \u2014 `id`, `type`, and `key` are available immediately, but other fields (`last_data`, `occurrences`, etc.) are fetched from Pebble on first access.\n\nYou can also query notices directly via the container:\n\n```python\ncontainer.get_notice(notice_id)\ncontainer.get_notices(types=[ops.pebble.NoticeType.CUSTOM], keys=[\"example.com/foo\"])\n```\n\n### Unit Testing with `ops.testing`\n\n```python\ndef test_backup_notice():\n    ctx = testing.Context(MyCharm)\n    notice = testing.Notice(\n        \"canonical.com/myapp/backup-done\",\n        last_data={\"path\": \"/tmp/backup.sql\"},\n    )\n    container = testing.Container(\"mycontainer\", can_connect=True, notices=[notice])\n    state_in = testing.State(containers={container})\n    state_out = ctx.run(ctx.on.pebble_custom_notice(container, notice), state_in)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "26ac539e-6296-47dc-a5ee-f5d55a3b91e8",
+    "total_cost_usd": 0.5253802499999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 10297,
+      "cache_read_input_tokens": 30158,
+      "output_tokens": 1199,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10297,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 549,
+        "outputTokens": 5481,
+        "cacheReadInputTokens": 172989,
+        "cacheCreationInputTokens": 28331,
+        "webSearchRequests": 0,
+        "costUSD": 0.40333325,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 103477,
+        "outputTokens": 3714,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.12204699999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a8f6b574-76e7-4dac-a1a7-de795754308c"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:54:10+1300"
+}

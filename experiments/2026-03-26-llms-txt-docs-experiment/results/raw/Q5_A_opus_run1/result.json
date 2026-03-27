@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_A_opus_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 22209,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 21068,
+    "duration_api_ms": 21060,
+    "num_turns": 1,
+    "result": "## Using `ops.CollectStatusEvent`\n\n`CollectStatusEvent` provides a centralized way to evaluate and set charm status, replacing scattered `self.unit.status = ...` calls throughout your handlers. The framework fires `collect_unit_status` and `collect_app_status` events after every hook, and automatically picks the **highest-priority** status from those added.\n\n### Priority order (highest \u2192 lowest):\n1. `ErrorStatus`\n2. `BlockedStatus`\n3. `WaitingStatus`\n4. `MaintenanceStatus`\n5. `ActiveStatus`\n\n### Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm that demonstrates CollectStatusEvent.\"\"\"\n\nimport ops\n\n\nclass MyDatabaseCharm(ops.CharmBase):\n    \"\"\"A charm that manages a database service.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Register the collect-status handler\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n        # Register other event handlers\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Central place to evaluate and report unit status.\n\n        You can call event.add_status() multiple times.\n        The framework automatically selects the highest-priority one.\n        \"\"\"\n        # Check for missing configuration\n        if not self.config.get(\"db-port\"):\n            event.add_status(ops.BlockedStatus(\"'db-port' config is required\"))\n\n        # Check for a required relation\n        if not self.model.get_relation(\"database-peers\"):\n            event.add_status(ops.WaitingStatus(\"waiting for peer relation\"))\n\n        # Check if storage is available\n        if not self._storage_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for storage\"))\n\n        # Everything looks good\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n    def _on_install(self, event: ops.InstallEvent):\n        # Just do install work \u2014 no need to set status here!\n        self._install_packages()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # Just do config work \u2014 no need to set status here!\n        self._apply_config()\n\n    def _storage_ready(self) -> bool:\n        # Placeholder for real storage check\n        return True\n\n    def _install_packages(self):\n        ...\n\n    def _apply_config(self):\n        ...\n\n\nif __name__ == \"__main__\":  # pragma: nocover\n    ops.main(MyDatabaseCharm)\n```\n\n### Key points\n\n- **Call `event.add_status()`, not `self.unit.status = ...`** \u2014 the framework picks the highest-priority status automatically.\n- **Multiple `add_status()` calls are encouraged** \u2014 each one represents a separate condition. If `db-port` is missing (Blocked) *and* storage isn't ready (Waiting), the charm correctly reports `BlockedStatus` because it outranks `WaitingStatus`.\n- **No status-setting in other handlers** \u2014 keep your `_on_install`, `_on_config_changed`, etc. focused on their actual work. Status evaluation is fully centralized in the collect handler.\n- **Use `collect_app_status`** for application-level status (set by the leader unit only):\n\n```python\nframework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\ndef _on_collect_app_status(self, event: ops.CollectStatusEvent):\n    if not self.model.get_relation(\"db-client\"):\n        event.add_status(ops.BlockedStatus(\"need a db-client relation\"))\n    else:\n        event.add_status(ops.ActiveStatus())\n```\n\nThis pattern keeps status logic maintainable and avoids the common problem of stale status messages left behind by earlier hooks.",
+    "stop_reason": "end_turn",
+    "session_id": "bfc3653c-f54b-400f-95b6-69ad3c05d859",
+    "total_cost_usd": 0.038662,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1066,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1108,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1066,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1108,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1066,
+        "webSearchRequests": 0,
+        "costUSD": 0.038662,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "6493e1a5-de69-411d-8b4e-e98ca80abe0f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:18:39+1300"
+}

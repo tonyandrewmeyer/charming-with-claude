@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_D_opus_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 165536,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 164410,
+    "duration_api_ms": 165380,
+    "num_turns": 4,
+    "result": "\n\nHere's a `_on_pebble_ready` handler following the project conventions:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    \"\"\"Configure the workload container with Pebble.\"\"\"\n    container = event.workload\n\n    if not self._database_ready():\n        event.defer()\n        return\n\n    db_env = self._get_database_environment()\n    layer: ops.pebble.LayerDict = {\n        \"summary\": \"workload layer\",\n        \"services\": {\n            self._service_name: {\n                \"override\": \"replace\",\n                \"command\": self.config[\"command\"],\n                \"startup\": \"enabled\",\n                \"environment\": db_env,\n                \"on-check-failure\": {\n                    \"workload-ready\": \"restart\",\n                },\n            },\n        },\n        \"checks\": {\n            \"workload-ready\": {\n                \"override\": \"replace\",\n                \"level\": \"ready\",\n                \"period\": \"10s\",\n                \"timeout\": \"3s\",\n                \"threshold\": 3,\n                \"http\": {\n                    \"url\": \"http://localhost:8080/health\",\n                },\n            },\n        },\n    }\n    container.add_layer(self._service_name, layer, combine=True)\n    container.replan()\n    self.unit.status = ops.ActiveStatus()\n```\n\nWith the supporting methods:\n\n```python\ndef _database_ready(self) -> bool:\n    \"\"\"Check whether the database relation has provided connection details.\"\"\"\n    relation = self.model.get_relation(\"database\")\n    if not relation or not relation.data.get(relation.app):\n        return False\n    data = relation.data[relation.app]\n    return bool(data.get(\"host\") and data.get(\"port\"))\n\ndef _get_database_environment(self) -> dict[str, str]:\n    \"\"\"Extract database connection details as environment variables.\"\"\"\n    relation = self.model.get_relation(\"database\")\n    assert relation and relation.app  # guarded by _database_ready\n    data = relation.data[relation.app]\n    return {\n        \"DB_HOST\": str(data[\"host\"]),\n        \"DB_PORT\": str(data[\"port\"]),\n        \"DB_NAME\": str(data.get(\"database\", \"\")),\n        \"DB_USER\": str(data.get(\"user\", \"\")),\n        \"DB_PASSWORD\": str(data.get(\"password\", \"\")),\n    }\n```\n\nKey points:\n\n- **Config-driven command**: `self.config[\"command\"]` reads from a `command` config option defined in `charmcraft.yaml`.\n- **Database relation**: The handler defers if the relation data isn't available yet, avoiding a partial configuration.\n- **HTTP health check**: Pebble's `level: ready` check hits `http://localhost:8080/health` every 10s, with 3 failures before marking the service down. The `on-check-failure` restarts the service automatically on health check failure.\n- **`combine=True`**: Ensures the layer merges correctly if the handler fires again (e.g. after a config change triggers a re-plan).\n- **`override: replace`**: Both the service and check definitions fully replace any previous version, so the layer is always consistent with current config/relation data.\n\nThe corresponding `charmcraft.yaml` entries would be:\n\n```yaml\nconfig:\n  options:\n    command:\n      type: string\n      description: The command to run in the workload container.\n\nrequires:\n  database:\n    interface: mysql_client\n    optional: true\n\ncontainers:\n  workload:\n    resource: workload-image\n\nresources:\n  workload-image:\n    type: oci-image\n    description: OCI image for the workload.\n```",
+    "stop_reason": "end_turn",
+    "session_id": "30b73ff8-327a-4041-95a8-1de16603cd13",
+    "total_cost_usd": 0.55263975,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 10571,
+      "cache_read_input_tokens": 49255,
+      "output_tokens": 1355,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10571,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 60,
+        "outputTokens": 5853,
+        "cacheReadInputTokens": 205556,
+        "cacheCreationInputTokens": 23403,
+        "webSearchRequests": 0,
+        "costUSD": 0.39567174999999993,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 132213,
+        "outputTokens": 4951,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.156968,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "5a37203d-f863-4538-b556-a988bf94fc38"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:45:22+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q4_A_sonnet_run2",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 17289,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 16133,
+    "duration_api_ms": 16124,
+    "num_turns": 1,
+    "result": "Great question! These two approaches have meaningfully different behaviors in Juju action handlers.\n\n## `ActionEvent.fail()` vs Raising an Exception\n\n### `ActionEvent.fail(message)`\n\nThis is the **graceful, intentional** way to signal that an action did not succeed:\n\n```python\ndef _on_my_action(self, event: ActionEvent):\n    target = event.params.get(\"target\")\n    if not self._is_valid(target):\n        event.fail(f\"Invalid target: {target!r}\")\n        return  # Important: execution continues unless you return!\n    # ... rest of handler\n```\n\n- Sets the action status to **failed** with your message visible to the operator\n- Execution of the handler **continues** after the call (you must `return` yourself)\n- Any results set via `event.set_results()` *before* the `fail()` call are still returned\n- Produces a clean, **expected** failure \u2014 no traceback, no noise in logs\n- The operator sees: `Action id XX failed: \"Invalid target: 'foo'\"`\n\n---\n\n### Raising an Exception\n\nThis is an **unexpected / unhandled** failure:\n\n```python\ndef _on_my_action(self, event: ActionEvent):\n    result = some_call_that_blows_up()  # raises ValueError, etc.\n```\n\n- The `ops` framework catches unhandled exceptions in action handlers and **also** marks the action as failed\n- However, it produces a **generic, less informative** failure message\n- A **full traceback** is logged (useful for debugging, but noisy for operators)\n- Any partial results from `event.set_results()` may be lost\n- The operator experience is worse \u2014 they see an internal error rather than a clear explanation\n\n---\n\n### Key Differences at a Glance\n\n| Behaviour | `event.fail()` | Unhandled Exception |\n|---|---|---|\n| Action status | Failed \u2713 | Failed \u2713 |\n| Operator-facing message | Your custom message | Generic / traceback |\n| Traceback in logs | No | Yes |\n| Execution stops | **No** (you must `return`) | Yes (immediately) |\n| Partial results preserved | Yes | No |\n| Signals intent | Intentional failure | Bug / crash |\n\n---\n\n### Best Practice\n\nUse `event.fail()` for **expected, operator-visible failures** (bad params, preconditions not met, external service unavailable), and let exceptions propagate for **truly unexpected bugs** \u2014 but always aim to catch anticipated errors explicitly:\n\n```python\ndef _on_backup_action(self, event: ActionEvent):\n    if not self._is_leader():\n        event.fail(\"Backup must be run on the leader unit.\")\n        return\n\n    try:\n        path = self._do_backup()\n    except BackupError as e:\n        event.fail(f\"Backup failed: {e}\")\n        return\n\n    event.set_results({\"backup-path\": path})\n```\n\nThis gives operators clear, actionable feedback rather than a confusing traceback.",
+    "stop_reason": "end_turn",
+    "session_id": "41934624-d8bc-4660-a258-9a4b2de17f4b",
+    "total_cost_usd": 0.01835115,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1065,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 787,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1065,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 787,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1065,
+        "webSearchRequests": 0,
+        "costUSD": 0.01835115,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "413f8563-fb0b-444b-93a1-801c25429e89"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:47:12+1300"
+}

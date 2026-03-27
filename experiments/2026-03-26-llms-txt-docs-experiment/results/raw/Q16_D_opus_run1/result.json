@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_D_opus_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 133730,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 132554,
+    "duration_api_ms": 125845,
+    "num_turns": 21,
+    "result": "Here's a comprehensive answer based on the actual charmlibs source code:\n\n## Implementing a Provider Side of a Relation Using Charmlibs\n\nThe pattern involves subclassing `ops.framework.Object` and interacting with Juju relation databags. Here's the structure:\n\n### 1. Define Pydantic Data Models for the Databag\n\n```python\nimport pydantic\nfrom ops.framework import Object\nfrom ops.charm import CharmBase\n\nclass ProviderApplicationData(pydantic.BaseModel):\n    \"\"\"Data the provider writes to its app databag.\"\"\"\n    some_field: str = pydantic.Field(description=\"...\")\n    version: int = pydantic.Field(default=1)\n\n    def dump(self, databag, clear=True):\n        \"\"\"Serialise to the Juju databag (JSON-encode each field).\"\"\"\n        if clear:\n            databag.clear()\n        import json\n        dct = json.loads(self.model_dump_json(by_alias=True))\n        databag.update({k: json.dumps(v) for k, v in dct.items()})\n```\n\n### 2. Create the Provider Class\n\nThe provider subclasses `Object`, takes the charm and relationship name, and exposes public methods that the charm calls to write data to the relation databags:\n\n```python\nclass MyInterfaceProvides(Object):\n    \"\"\"Provider side of the my_interface relation.\"\"\"\n\n    def __init__(self, charm: CharmBase, relationship_name: str):\n        super().__init__(charm, relationship_name)\n        self.charm = charm\n        self.relationship_name = relationship_name\n\n    def set_data(self, data: str, relation_id: int | None = None) -> None:\n        \"\"\"Publish data to all (or a specific) relation.\"\"\"\n        if not self.charm.unit.is_leader():\n            return\n        relations = self._get_active_relations(relation_id)\n        for relation in relations:\n            databag = relation.data[self.model.app]\n            ProviderApplicationData(some_field=data).dump(databag)\n\n    def _get_active_relations(self, relation_id: int | None = None):\n        if relation_id is not None:\n            relation = self.model.get_relation(\n                relation_name=self.relationship_name, relation_id=relation_id\n            )\n            if relation and relation.active:\n                return [relation]\n            return []\n        return [\n            r for r in self.model.relations[self.relationship_name]\n            if r.active\n        ]\n```\n\n### 3. Use It in the Charm\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.provider = MyInterfaceProvides(self, \"my-endpoint\")\n        self.framework.observe(\n            self.on[\"my-endpoint\"].relation_joined,\n            self._on_relation_joined,\n        )\n\n    def _on_relation_joined(self, event):\n        self.provider.set_data(\"some value\")\n```\n\n### Key Points\n\n- **Provider writes, requirer reads**: The provider writes to `relation.data[self.model.app]` (the app databag); the requirer reads from `relation.data[relation.app]` (the remote app databag).\n- **Leader-gated writes**: Only the leader unit can write to the app databag \u2014 always guard with `self.charm.unit.is_leader()`.\n- **Subclass `Object`, not `CharmBase`**: The library class inherits from `ops.framework.Object` and receives the charm via the constructor.\n- **The charm observes events, not the provider**: In many libraries the provider class doesn't observe any events itself \u2014 it just provides methods the charm calls from its own event handlers. The *requirer* side typically does observe `relation-changed`/`relation-broken` and re-emits custom events (like `CertificatesAvailableEvent`).\n- **Pydantic for validation**: Use pydantic models to define and validate the databag schema, with `load()`/`dump()` methods to serialise/deserialise.\n\nThe full reference implementation can be seen in the `certificate_transfer` interface library in the [charmlibs repo](https://github.com/canonical/charmlibs).",
+    "stop_reason": "end_turn",
+    "session_id": "e5a2a455-d254-4bca-9792-628913648d29",
+    "total_cost_usd": 0.4942462499999999,
+    "usage": {
+      "input_tokens": 23,
+      "cache_creation_input_tokens": 21631,
+      "cache_read_input_tokens": 423243,
+      "output_tokens": 3786,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 21631,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 23,
+        "outputTokens": 3786,
+        "cacheReadInputTokens": 423243,
+        "cacheCreationInputTokens": 21631,
+        "webSearchRequests": 0,
+        "costUSD": 0.4415802499999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 42986,
+        "outputTokens": 1936,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.052666,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "fbc7a8ff-f1ba-4ecc-a411-baa272917649"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T08:48:18+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q13_A_sonnet_run1",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 85667,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 84120,
+    "duration_api_ms": 108539,
+    "num_turns": 2,
+    "result": "Here's how to use the ingress library on the **requires** side of your charm:\n\n---\n\n## 1. Fetch the Library\n\n```bash\ncharmcraft fetch-lib charms.traefik_k8s.v2.ingress\n```\n\nThis downloads the library to `lib/charms/traefik_k8s/v2/ingress.py`.\n\n---\n\n## 2. Declare the Relation (`charmcraft.yaml` or `metadata.yaml`)\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n```\n\nThe `limit: 1` ensures only one ingress provider can be related at a time.\n\n---\n\n## 3. Wire it up in `src/charm.py`\n\n```python\nimport logging\nfrom ops.charm import CharmBase\nfrom ops.main import main\nfrom charms.traefik_k8s.v2.ingress import (\n    IngressPerAppRequirer,\n    IngressPerAppReadyEvent,\n    IngressPerAppRevokedEvent,\n)\n\nlogger = logging.getLogger(__name__)\n\n\nclass MyCharm(CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # Initialise the requirer, declaring the port your workload listens on.\n        # The relation name must match what you put in charmcraft.yaml.\n        self.ingress = IngressPerAppRequirer(self, port=8080)\n\n        self.framework.observe(self.ingress.on.ready,   self._on_ingress_ready)\n        self.framework.observe(self.ingress.on.revoked, self._on_ingress_revoked)\n\n    # ------------------------------------------------------------------\n    # Event handlers\n    # ------------------------------------------------------------------\n\n    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):\n        \"\"\"Fired when the ingress URL is first assigned or changes.\"\"\"\n        logger.info(\"Ingress ready \u2014 URL: %s\", event.url)\n        # Reconfigure your workload to use the public URL, e.g.:\n        # self._configure_workload(public_url=event.url)\n\n    def _on_ingress_revoked(self, event: IngressPerAppRevokedEvent):\n        \"\"\"Fired when the relation is removed or the URL is withdrawn.\"\"\"\n        logger.info(\"Ingress revoked \u2014 falling back to internal address\")\n        # Reconfigure your workload to use its internal address\n\n\nif __name__ == \"__main__\":\n    main(MyCharm)\n```\n\n---\n\n## 4. Reading the URL Anywhere\n\nYou don't have to wait for the event \u2014 you can read the URL at any time:\n\n```python\nurl = self.ingress.url   # returns None if not yet available\nif url:\n    logger.info(\"Public URL: %s\", url)\n```\n\n---\n\n## 5. Providing Requirements Dynamically\n\nIf you don't know the port at initialisation time (e.g. it comes from config), skip the `port` argument and call `provide_ingress_requirements()` when you have the values:\n\n```python\nself.ingress = IngressPerAppRequirer(self)          # no port yet\n\n# Later, e.g. in a config-changed handler:\nself.ingress.provide_ingress_requirements(port=self.config[\"port\"])\n```\n\n---\n\n## Key Points\n\n| Topic | Detail |\n|---|---|\n| **Library** | `charms.traefik_k8s.v2.ingress` |\n| **Requirer class** | `IngressPerAppRequirer` (load-balanced across all units) |\n| **Events** | `ingress.on.ready`, `ingress.on.revoked` |\n| **URL property** | `self.ingress.url` \u2192 `str \\| None` |\n| **Relation limit** | Always set `limit: 1` \u2014 you only need one ingress provider |\n| **Provider charm** | [`traefik-k8s`](https://charmhub.io/traefik-k8s) is the standard provider on Kubernetes |",
+    "stop_reason": "end_turn",
+    "session_id": "02ec6196-c26d-4a05-83da-f4cf61f26172",
+    "total_cost_usd": 0.2899476,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3207,
+      "cache_read_input_tokens": 18021,
+      "output_tokens": 1359,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3207,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1359,
+        "cacheReadInputTokens": 18021,
+        "cacheCreationInputTokens": 3207,
+        "webSearchRequests": 0,
+        "costUSD": 0.037835549999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 59211,
+        "outputTokens": 6666,
+        "cacheReadInputTokens": 81398,
+        "cacheCreationInputTokens": 81145,
+        "webSearchRequests": 5,
+        "costUSD": 0.25211205000000003,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "f8e32d53-c2d5-4341-9ab8-73af7a235c72"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:24:26+1300"
+}

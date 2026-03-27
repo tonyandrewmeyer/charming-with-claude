@@ -1,0 +1,57 @@
+{
+  "session_id": "Q4_A_opus_run1",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 16040,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 14689,
+    "duration_api_ms": 14680,
+    "num_turns": 1,
+    "result": "Great question \u2014 they behave quite differently:\n\n## `ActionEvent.fail(message)`\n\n- **Marks the action as failed** with a user-friendly message, but **does not stop execution** of the handler.\n- The charm continues running normally after the call.\n- The failure message is returned to the user who ran the action (via `juju run`).\n- You can still set results before or after calling `.fail()`.\n\n```python\ndef _on_backup(self, event: ActionEvent):\n    if not self._database_ready():\n        event.fail(\"Database is not ready for backup\")\n        return  # You must return explicitly if you want to stop!\n    # ... perform backup ...\n    event.set_results({\"backup-id\": \"abc123\"})\n```\n\n**Key point:** If you forget the `return`, execution continues past the `.fail()` call.\n\n## Raising an exception\n\n- **Also marks the action as failed**, but the message shown to the user is a generic/ugly traceback \u2014 not user-friendly.\n- **Stops execution** of the handler immediately.\n- If unhandled, the Juju framework catches it and puts the **unit into error state**, which requires `juju resolve` to clear.\n\n```python\ndef _on_backup(self, event: ActionEvent):\n    result = do_backup()  # raises RuntimeError on failure\n    event.set_results({\"backup-id\": result})\n    # If do_backup() raises, the action fails with a traceback\n```\n\n## Summary\n\n| Behavior | `event.fail()` | Raising an exception |\n|---|---|---|\n| Action marked as failed | \u2705 | \u2705 |\n| User-friendly message | \u2705 | \u274c (traceback) |\n| Stops handler execution | \u274c (must `return`) | \u2705 |\n| Unit enters error state | \u274c | \u2705 |\n| Requires `juju resolve` | \u274c | \u2705 |\n\n## Best practice\n\nUse `event.fail()` + `return` for **expected/recoverable failures** (bad input, preconditions not met). Catch exceptions from underlying code and convert them into `event.fail()` calls:\n\n```python\ndef _on_backup(self, event: ActionEvent):\n    try:\n        result = do_backup()\n    except subprocess.CalledProcessError as e:\n        event.fail(f\"Backup failed: {e.stderr}\")\n        return\n    event.set_results({\"backup-id\": result})\n```\n\nLet exceptions propagate only for truly **unexpected bugs** \u2014 those warrant putting the unit into error state so an operator investigates.",
+    "stop_reason": "end_turn",
+    "session_id": "503f9dcc-03f1-43f7-80ed-4388828e5514",
+    "total_cost_usd": 0.02785575,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1065,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 676,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1065,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 676,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1065,
+        "webSearchRequests": 0,
+        "costUSD": 0.02785575,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "7891e9b2-51b3-4a62-bff8-4d9f6338bbaf"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:20:30+1300"
+}

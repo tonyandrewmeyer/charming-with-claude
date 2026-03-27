@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_C_sonnet_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 206830,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 204974,
+    "duration_api_ms": 216871,
+    "num_turns": 38,
+    "result": "I now have enough information from the official Juju/ops/charmlibs documentation to give you a comprehensive answer.\n\n---\n\n## Implementing the Provider Side of a Relation Using Charmlibs\n\nThe correct approach has two parts: **declaring the endpoint in metadata** and **implementing a `Provider` class in a charm library** that wraps all the relation event handling.\n\n---\n\n### 1. Declare the Endpoint in `charmcraft.yaml`\n\n```yaml\nprovides:\n  smtp:\n    interface: smtp\n```\n\n---\n\n### 2. Charm Library Structure\n\nLibrary files live at:\n```\nlib/charms/<charm-name>/v<API>/<libname>.py\n```\n\nA modern library published as a PyPI package lives under the `charmlibs.interfaces` namespace and is imported as:\n```python\nfrom charmlibs.interfaces import smtp\n```\n\n---\n\n### 3. Define Pydantic Data Models\n\nUse Pydantic to model the data your provider writes to the databag. This enforces a schema and makes serialisation/deserialisation safe:\n\n```python\nimport pydantic\n\nclass SmtpProviderAppData(pydantic.BaseModel):\n    \"\"\"Data shared by the provider at the application level.\"\"\"\n    host: str = pydantic.Field(description=\"SMTP hostname\")\n    port: int = pydantic.Field(description=\"SMTP port\")\n    credentials: str | None = pydantic.Field(\n        default=None, description=\"A Juju secret ID for credentials\"\n    )\n```\n\n---\n\n### 4. Implement the `Provider` Class\n\nThe `Provider` class is instantiated in the charm's `__init__`, observes the relevant relation events, and exposes a clean API to the charm:\n\n```python\nimport ops\nimport pydantic\nimport logging\n\nlogger = logging.getLogger(__name__)\n\nLIBID = \"abc123...\"        # unique ID from charmcraft\nLIBAPI = 0\nLIBPATCH = 1\n\n\nclass SmtpProviderAppData(pydantic.BaseModel):\n    host: str\n    port: int\n    credentials: str | None = None\n\n\nclass SmtpProvider:\n    \"\"\"Provider side of the 'smtp' relation interface.\"\"\"\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str = \"smtp\"):\n        self._charm = charm\n        self._relation_name = relation_name\n\n        charm.framework.observe(\n            charm.on[relation_name].relation_created,\n            self._on_relation_created,\n        )\n        charm.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        charm.framework.observe(\n            charm.on[relation_name].relation_broken,\n            self._on_relation_broken,\n        )\n\n    # ------------------------------------------------------------------\n    # Public API (called by the charm when its own state changes)\n    # ------------------------------------------------------------------\n\n    def set_smtp_data(self, host: str, port: int, credentials: str | None = None):\n        \"\"\"Write provider data to all active relations (call on config-changed, etc.).\"\"\"\n        if not self._charm.unit.is_leader():\n            return\n\n        data = SmtpProviderAppData(host=host, port=port, credentials=credentials)\n\n        for relation in self._charm.model.relations[self._relation_name]:\n            self._write_app_data(relation, data)\n\n    # ------------------------------------------------------------------\n    # Event handlers\n    # ------------------------------------------------------------------\n\n    def _on_relation_created(self, event: ops.RelationCreatedEvent):\n        \"\"\"New relation established \u2013 publish current provider data.\"\"\"\n        if not self._charm.unit.is_leader():\n            return\n        self._publish_current_data(event.relation)\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        \"\"\"A new requirer unit joined \u2013 re-publish so it sees the data.\"\"\"\n        if not self._charm.unit.is_leader():\n            return\n        self._publish_current_data(event.relation)\n\n    def _on_relation_broken(self, event: ops.RelationBrokenEvent):\n        \"\"\"Relation is being removed \u2013 perform any necessary cleanup.\"\"\"\n        if not self._charm.unit.is_leader():\n            return\n        logger.info(\"Relation %s broken with %s\", self._relation_name, event.app)\n        # clean up resources provisioned for the requirer, if needed\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def _publish_current_data(self, relation: ops.Relation):\n        host = self._charm.config.get(\"host\", \"localhost\")\n        port = int(self._charm.config.get(\"port\", 25))\n        data = SmtpProviderAppData(host=host, port=port)\n        self._write_app_data(relation, data)\n\n    def _write_app_data(self, relation: ops.Relation, data: SmtpProviderAppData):\n        # Write to our own app databag \u2013 only the leader can do this\n        relation.data[self._charm.app].update(data.model_dump(exclude_none=True, mode=\"json\"))\n```\n\n---\n\n### 5. Use it in the Charm\n\n```python\nclass SmtpServerCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self._smtp_provider = SmtpProvider(self, relation_name=\"smtp\")\n\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        self._smtp_provider.set_smtp_data(\n            host=self.config[\"host\"],\n            port=self.config[\"port\"],\n        )\n```\n\n---\n\n### Key Rules to Follow\n\n| Rule | Why |\n|---|---|\n| **Only the leader writes to the app databag** | Juju enforces this; non-leader writes are silently dropped |\n| **Any unit can write to its own unit databag** | Use this for unit-specific data (e.g. per-unit endpoints) |\n| **Never read your own app databag via the remote side** | Use `relation.data[self.app]` not `relation.data[event.app]` |\n| **Use Pydantic models for databag data** | Enforces schema; avoids drift between provider and requirer |\n| **Use Juju Secrets for credentials** | Store the secret ID in the databag, not the raw secret value |\n| **Re-publish on `relation_joined`** | New units joining don't automatically see previously written data in all Juju versions |\n| **Handle `relation_broken` for cleanup** | Revoke credentials / drop per-requirer resources |\n\n---\n\n### Modern Alternative: `charmlibs` Packages\n\nFor well-known interfaces (e.g. TLS certificates, databases), prefer using a ready-made library from the [charmlibs monorepo](https://documentation.ubuntu.com/charmlibs/reference/interface-libs/):\n\n```bash\nuv add 'charmlibs-tls-certificates~=1.0'\n```\n\n```python\nfrom charmlibs.interfaces import tls_certificates\n\nprovider = tls_certificates.TLSCertificatesProvides(self, \"certificates\")\n```\n\nThese libraries are the recommended approach as they implement the full interface spec, are tested, and are maintained by Canonical.",
+    "stop_reason": "end_turn",
+    "session_id": "cc3e1b1e-2766-47a5-8d31-0533a51435a7",
+    "total_cost_usd": 0.4269720500000001,
+    "usage": {
+      "input_tokens": 778,
+      "cache_creation_input_tokens": 14895,
+      "cache_read_input_tokens": 350536,
+      "output_tokens": 6065,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14895,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 778,
+        "outputTokens": 6065,
+        "cacheReadInputTokens": 350536,
+        "cacheCreationInputTokens": 14895,
+        "webSearchRequests": 0,
+        "costUSD": 0.25432604999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 146296,
+        "outputTokens": 5270,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.172646,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "214653f9-90e5-4de8-b872-0a5000c2ce0f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:12:41+1300"
+}

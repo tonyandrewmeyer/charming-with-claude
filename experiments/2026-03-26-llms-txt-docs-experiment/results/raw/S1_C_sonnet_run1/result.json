@@ -1,0 +1,67 @@
+{
+  "session_id": "S1_C_sonnet_run1",
+  "question_id": "S1",
+  "category": "synthesis",
+  "question": "Write a minimal K8s charm (`src/charm.py` + `charmcraft.yaml`) that sets ActiveStatus on install and WaitingStatus if a 'name' config option is empty.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 109420,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 108259,
+    "duration_api_ms": 108184,
+    "num_turns": 17,
+    "result": "Both files are written. Here's a full walk-through of every decision made:\n\n---\n\n## `src/charm.py`\n\n```python\n#!/usr/bin/env python3\n\"\"\"Minimal Kubernetes charm that sets status based on the 'name' config option.\"\"\"\n\nimport logging\nimport ops\n\nlogger = logging.getLogger(__name__)\n\n\nclass MinimalK8sCharm(ops.CharmBase):\n\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        self._refresh_status()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        self._refresh_status()\n\n    def _refresh_status(self) -> None:\n        name = self.config.get(\"name\", \"\")\n        if not name:\n            self.unit.status = ops.WaitingStatus(\"Waiting for 'name' config to be set\")\n        else:\n            self.unit.status = ops.ActiveStatus(f\"Ready (name={name!r})\")\n\n\nif __name__ == \"__main__\":\n    ops.main(MinimalK8sCharm)\n```\n\n**Key design decisions:**\n\n| Decision | Reason |\n|---|---|\n| `import ops` (not `from ops.charm import \u2026`) | Modern ops style \u2014 all public symbols live on the top-level `ops` namespace |\n| `_refresh_status()` helper | Both `install` and `config-changed` share identical logic; a helper avoids duplication and is the idiomatic ops pattern |\n| `self.config.get(\"name\", \"\")` | Safely returns `\"\"` if the key is somehow absent (e.g. during testing without a full config map) |\n| `ops.WaitingStatus` when empty | Semantically correct \u2014 the charm *is* waiting for operator input, not blocked by an error |\n| Status message includes the value | Makes `juju status` self-documenting |\n\n---\n\n## `charmcraft.yaml`\n\n```yaml\nname: minimal-k8s-charm\ntype: charm\nbase: ubuntu@24.04\nplatforms:\n  amd64:\n\ncontainers:          # \u2190 what makes this a K8s / sidecar charm\n  app:\n    resource: app-image\n\nresources:\n  app-image:\n    type: oci-image\n\nconfig:\n  options:\n    name:\n      type: string\n      default: \"\"    # \u2190 empty default triggers WaitingStatus on first deploy\n\nparts:\n  charm:\n    plugin: charm\n    source: .\n    charm-entrypoint: src/charm.py\n```\n\n**Key design decisions:**\n\n| Field | Reason |\n|---|---|\n| `type: charm` | Required by Charmcraft; distinguishes from bundles/libraries |\n| `base: ubuntu@24.04` + `platforms: amd64:` | Current recommended syntax (replaces old `bases:` list) for Charmcraft \u2265 3 |\n| `containers:` section | **This is what makes Juju treat it as a Kubernetes sidecar charm**; without it Juju would deploy it as a machine charm |\n| `resources.app-image` (OCI image) | Every K8s sidecar container must reference an `oci-image` resource |\n| `config.options.name.default: \"\"` | Empty string default means a fresh `juju deploy` immediately hits `WaitingStatus`, demonstrating the intended behaviour |\n| `charm-entrypoint: src/charm.py` | Explicit entrypoint so Charmcraft knows where `ops.main()` is called |\n\n---\n\n**Typical lifecycle flow:**\n\n```\njuju deploy ./minimal-k8s-charm.charm   \u2192  install fires \u2192 name=\"\" \u2192 WaitingStatus\njuju config minimal-k8s-charm name=prod \u2192  config-changed fires   \u2192 ActiveStatus(\"Ready (name='prod')\")\njuju config minimal-k8s-charm name=     \u2192  config-changed fires   \u2192 WaitingStatus\n```",
+    "stop_reason": "end_turn",
+    "session_id": "7d6fa961-1b4d-4896-8cda-f1b9be1624b0",
+    "total_cost_usd": 0.21069469999999998,
+    "usage": {
+      "input_tokens": 281,
+      "cache_creation_input_tokens": 8520,
+      "cache_read_input_tokens": 165669,
+      "output_tokens": 4401,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8520,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 281,
+        "outputTokens": 4401,
+        "cacheReadInputTokens": 165669,
+        "cacheCreationInputTokens": 8520,
+        "webSearchRequests": 0,
+        "costUSD": 0.1485087,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 51566,
+        "outputTokens": 2124,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.062186000000000005,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "21ccd493-5f0a-4893-acf9-6a67d8d6b184"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:07:10+1300"
+}

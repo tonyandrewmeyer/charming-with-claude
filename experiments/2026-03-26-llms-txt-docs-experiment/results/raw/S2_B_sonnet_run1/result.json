@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_B_sonnet_run1",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 34288,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 33156,
+    "duration_api_ms": 33100,
+    "num_turns": 4,
+    "result": "Here's what the implementation does and why each piece is shaped the way it is:\n\n---\n\n### `_on_pebble_ready`\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    container = event.workload\n    self._reconfigure(container)\n```\n\nDelegates to `_reconfigure`, which is also called from `config_changed` and `database_relation_changed`. This avoids duplicating the \"apply config + restart\" logic.\n\n---\n\n### `_reconfigure` \u2014 the core logic\n\n**1. Config validation (`CharmConfig`)**\n\n`CharmConfig.from_charm()` reads and validates the `command` config option. If it's missing, the unit goes to `BlockedStatus` \u2014 the user must supply it. Using a dataclass keeps config parsing separate from the event handler.\n\n**2. Database env vars (`_get_db_env`)**\n\nReads `host`, `port`, `dbname`, `user`, `password` from the remote unit's relation data and maps them to `DB_*` env vars. Returns `{}` if the relation is absent or data is incomplete, which causes the unit to wait.\n\n**3. Pebble layer (`_build_layer`)**\n\n```python\n\"checks\": {\n    \"http-health\": {\n        \"override\": \"replace\",\n        \"level\": \"ready\",          # marks the unit ready only when this passes\n        \"http\": {\"url\": \"http://localhost:8080/health\"},\n    },\n},\n```\n\nThe check uses `level: ready` so Juju only considers the unit ready once the HTTP endpoint responds. `override: replace` means re-applying the layer always wins over any previous version.\n\n**4. `container.replan()`**\n\nStarts the service if it isn't running, or restarts it if the layer changed. Preferred over `restart()` because it's idempotent and safe to call on every hook.\n\n---\n\n### Status lifecycle\n\n| Situation | Status |\n|---|---|\n| `command` not set | `BlockedStatus` |\n| Database relation missing/incomplete | `WaitingStatus` |\n| Applying changes | `MaintenanceStatus` |\n| Running and healthy | `ActiveStatus` |",
+    "stop_reason": "end_turn",
+    "session_id": "ebade1bb-cca0-4ef8-895d-d6a43056e2d6",
+    "total_cost_usd": 0.10405035000000001,
+    "usage": {
+      "input_tokens": 5,
+      "cache_creation_input_tokens": 16375,
+      "cache_read_input_tokens": 41397,
+      "output_tokens": 2014,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16375,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 5,
+        "outputTokens": 2014,
+        "cacheReadInputTokens": 41397,
+        "cacheCreationInputTokens": 16375,
+        "webSearchRequests": 0,
+        "costUSD": 0.10405035000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4abe8a0e-1c31-47e4-9828-e76afd10b434"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:26:18+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_B_sonnet_run3",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 40605,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 39443,
+    "duration_api_ms": 45747,
+    "num_turns": 2,
+    "result": "## Pebble Notices\n\nNotices are Pebble's persistent event log \u2014 each notice is uniquely identified by `(user_id, type, key)` and records occurrence counts, timestamps, and optional string metadata. They survive Pebble restarts.\n\n### Types\n\n| Type | Key format | Triggered by |\n|---|---|---|\n| `custom` | `example.com/path` | `pebble notify` command or API call |\n| `change-update` | change ID | A Pebble change is spawned or its status changes |\n| `warning` | warning message text | Pebble's internal warning system |\n\n### Observing notices in ops\n\n**Events**\n\nThe main hook is `pebble_custom_notice`, fired when a `custom` notice is created or repeats:\n\n```python\nself.framework.observe(self.on.mycontainer_pebble_custom_notice, self._on_custom_notice)\n```\n\nThe event object exposes `.notice` (a `ops.pebble.Notice`) and `.workload` (the `Container`).\n\n**Querying notices directly**\n\n```python\ncontainer = self.unit.get_container(\"mycontainer\")\n\n# Single notice by ID\nnotice = container.get_notice(\"abc123\")\n\n# Filtered query\nnotices = container.get_notices(\n    types=[ops.pebble.NoticeType.CUSTOM],\n    keys=[\"example.com/myevent\"],\n)\n```\n\nBoth require Juju 3.4+.\n\n**`Notice` attributes**\n\n- `id`, `type`, `key`\n- `occurrences` \u2014 how many times it has fired\n- `first_occurred`, `last_occurred`, `last_repeated`\n- `last_data` \u2014 `dict[str, str]` from the most recent occurrence\n\n### Testing\n\nPre-populate notices in `ops.testing` via `testing.Container(notices=[...])` and then run the `pebble_custom_notice` event via `ctx.run(ctx.on.pebble_custom_notice(container, notice=...), state)`.\n\n### Typical pattern\n\n```python\ndef _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n    if event.notice.key == \"example.com/config-changed\":\n        self._reconfigure(event.workload)\n```\n\nThe `change-update` and `warning` types don't have dedicated charm events \u2014 you'd query them explicitly via `get_notices()` if needed, e.g. inside `pebble_ready`.",
+    "stop_reason": "end_turn",
+    "session_id": "7657c1af-5391-41a2-ae36-f55bf0c67f53",
+    "total_cost_usd": 0.1348492,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8414,
+      "cache_read_input_tokens": 29879,
+      "output_tokens": 948,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8414,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 948,
+        "cacheReadInputTokens": 29879,
+        "cacheCreationInputTokens": 8414,
+        "webSearchRequests": 0,
+        "costUSD": 0.0547542,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 65310,
+        "outputTokens": 1904,
+        "cacheReadInputTokens": 24875,
+        "cacheCreationInputTokens": 2222,
+        "webSearchRequests": 0,
+        "costUSD": 0.080095,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1afce8f3-6325-4b34-bdce-80c3c91ba70f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:30:27+1300"
+}

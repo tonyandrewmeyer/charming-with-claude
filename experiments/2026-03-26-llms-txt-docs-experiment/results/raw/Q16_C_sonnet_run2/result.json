@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_C_sonnet_run2",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 247491,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 246286,
+    "duration_api_ms": 270801,
+    "num_turns": 2,
+    "result": "Here is the correct way to implement the **provider side** of a relation using charmlibs in Juju:\n\n---\n\n## 1. Declare the Endpoint in `charmcraft.yaml`\n\n```yaml\nprovides:\n  my-relation:\n    interface: my_interface\n```\n\n---\n\n## 2. Structure of a Charmlib Provider Class\n\nA charmlib provider subclasses `ops.framework.Object` (not `CharmBase`). It receives the charm as a constructor argument and subscribes to relation events internally.\n\n### Custom Events (optional but recommended)\n\n```python\nfrom ops.framework import EventBase, EventSource, ObjectEvents, Object\n\nclass MyDataChangedEvent(EventBase):\n    def __init__(self, handle, data=None):\n        super().__init__(handle)\n        self.data = data\n\n    def snapshot(self) -> dict:\n        return {\"data\": self.data}\n\n    def restore(self, snapshot) -> None:\n        self.data = snapshot[\"data\"]\n\nclass MyProviderEvents(ObjectEvents):\n    data_changed = EventSource(MyDataChangedEvent)\n```\n\n### The Provider Class\n\n```python\nfrom ops.charm import CharmBase, RelationBrokenEvent\nfrom ops.framework import Object\nfrom ops.model import RelationRole\nimport json\n\nclass MyProvider(Object):\n    on = MyProviderEvents()  # class-level custom event namespace\n\n    def __init__(self, charm: CharmBase, relation_name: str = \"my-relation\"):\n        # Validate relation exists, has correct interface and role\n        _validate_relation_by_interface_and_direction(\n            charm, relation_name, \"my_interface\", RelationRole.provides\n        )\n\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        # Subscribe to relation events via the charm's event namespace\n        events = self._charm.on[relation_name]\n        self.framework.observe(events.relation_joined,   self._on_relation_changed)\n        self.framework.observe(events.relation_changed,  self._on_relation_changed)\n        self.framework.observe(events.relation_departed, self._on_relation_changed)\n        self.framework.observe(events.relation_broken,   self._on_relation_broken)\n\n    def _on_relation_changed(self, event):\n        \"\"\"Write provider data into the relation databags.\"\"\"\n        self._publish_data(event.relation)\n        self.on.data_changed.emit()\n\n    def _on_relation_broken(self, event):\n        \"\"\"Clean up on relation removal \u2014 do NOT write new data.\"\"\"\n        pass  # handle teardown logic here\n\n    def _publish_data(self, relation):\n        # Every unit writes its own unit-level data\n        relation.data[self._charm.unit][\"host\"] = self._get_host()\n\n        # Only the leader writes app-level data\n        if self._charm.unit.is_leader():\n            relation.data[self._charm.app][\"config\"] = json.dumps({\n                \"model\": self._charm.model.name,\n                \"application\": self._charm.app.name,\n            })\n\n    def _get_host(self) -> str:\n        return str(self._charm.model.get_binding(\n            self._relation_name\n        ).network.bind_address)\n```\n\n### Validation Helper\n\n```python\nfrom ops.model import TooManyRelatedAppsError\n\nclass RelationNotFoundError(Exception): ...\nclass RelationInterfaceMismatchError(Exception): ...\nclass RelationRoleMismatchError(Exception): ...\n\ndef _validate_relation_by_interface_and_direction(\n    charm, relation_name, expected_interface, expected_role\n):\n    if relation_name not in charm.meta.relations:\n        raise RelationNotFoundError(relation_name)\n\n    meta = charm.meta.relations[relation_name]\n\n    if meta.interface_name != expected_interface:\n        raise RelationInterfaceMismatchError(\n            relation_name, expected_interface, meta.interface_name\n        )\n\n    if meta.role != expected_role:\n        raise RelationRoleMismatchError(\n            relation_name, expected_role, meta.role\n        )\n```\n\n---\n\n## 3. Register the Provider in Your Charm\n\n```python\nfrom charms.my_charm.v0.my_lib import MyProvider\n\nclass MyCharm(CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        self.provider = MyProvider(self, relation_name=\"my-relation\")\n\n        # Optionally observe the library's custom events\n        self.framework.observe(\n            self.provider.on.data_changed,\n            self._on_data_changed\n        )\n\n        # Refresh on config changes, upgrades, etc.\n        self.framework.observe(self.on.config_changed, self._refresh)\n\n    def _on_data_changed(self, event):\n        ...  # react to provider state changes\n\n    def _refresh(self, event):\n        for rel in self.model.relations[\"my-relation\"]:\n            self.provider._publish_data(rel)\n```\n\n---\n\n## 4. Key Rules to Follow\n\n| Rule | Detail |\n|---|---|\n| **Subclass `Object`, not `CharmBase`** | Provider lives in the lib, not the charm itself |\n| **Subscribe via `charm.on[relation_name]`** | Gets the per-endpoint event handle |\n| **Unit databag** | Any unit can write `relation.data[self.unit][...]` |\n| **App databag** | Only the **leader** writes `relation.data[self.app][...]` |\n| **Don't write on `relation_broken`** | Data is being torn down; just clean up |\n| **Emit custom events** | Lets the consuming charm react without knowing internals |\n| **Validate in `__init__`** | Check interface name and `RelationRole.provides` early |\n\n---\n\n## 5. Library File Boilerplate\n\nEvery charmlib must have these constants at the top:\n\n```python\n# lib/charms/my_charm/v0/my_lib.py\n\n# The unique Charmhub library identifier, never change it\nLIBID = \"abc123...\"  # generated by `charmcraft create-lib`\n\n# Increment LIBAPI when you break backwards compatibility\nLIBAPI = 0\n\n# Increment LIBPATCH for bug fixes and non-breaking changes\nLIBPATCH = 1\n```\n\nConsumers fetch it with:\n```bash\ncharmcraft fetch-lib charms.my_charm.v0.my_lib\n```",
+    "stop_reason": "end_turn",
+    "session_id": "8713a2ce-7c30-4836-bc74-4530e007e328",
+    "total_cost_usd": 0.6217367,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3957,
+      "cache_read_input_tokens": 19118,
+      "output_tokens": 1954,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3957,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 563,
+        "outputTokens": 9799,
+        "cacheReadInputTokens": 268964,
+        "cacheCreationInputTokens": 21714,
+        "webSearchRequests": 0,
+        "costUSD": 0.3107907,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 269741,
+        "outputTokens": 8241,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.31094599999999994,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "bcec470a-d030-45c0-92cf-c641ab22fea8"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:56:47+1300"
+}

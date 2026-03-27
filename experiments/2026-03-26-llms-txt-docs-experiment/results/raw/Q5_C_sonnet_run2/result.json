@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_C_sonnet_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 89794,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 88648,
+    "duration_api_ms": 87372,
+    "num_turns": 17,
+    "result": "Now I have enough information to give a thorough answer. Here's a complete explanation:\n\n---\n\n## `ops.CollectStatusEvent` \u2014 Setting Charm Status\n\n`CollectStatusEvent` is the **recommended, modern way** to set charm status in ops. Instead of calling `self.unit.status = ...` imperatively throughout your hook handlers, you observe `collect_unit_status` (or `collect_app_status` for the application) and call `event.add_status()`. The framework fires this event **at the end of every successful hook**, collects all statuses, and automatically applies the **highest-priority** one.\n\n### Priority Order (highest \u2192 lowest)\n| Priority | Status Class |\n|---|---|\n| 1 (highest) | `ops.BlockedStatus` |\n| 2 | `ops.MaintenanceStatus` |\n| 3 | `ops.WaitingStatus` |\n| 4 (lowest) | `ops.ActiveStatus` |\n\n---\n\n### Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm using CollectStatusEvent for clean, composable status reporting.\"\"\"\n\nimport ops\n\n\nclass DatabaseComponent(ops.Object):\n    \"\"\"A charm component that checks database readiness.\"\"\"\n\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"database\")\n        self._charm = charm\n        # Each component observes the status event independently\n        charm.on.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent) -> None:\n        if not self._charm.model.config.get(\"db-uri\"):\n            event.add_status(ops.BlockedStatus('missing required config: \"db-uri\"'))\n            return\n        if not self._is_db_reachable():\n            event.add_status(ops.WaitingStatus(\"waiting for database connection\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _is_db_reachable(self) -> bool:\n        # ... real connectivity check here ...\n        return True\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # Instantiate components \u2014 they register their own status observers\n        self._db = DatabaseComponent(self)\n\n        # The charm itself also observes status events\n        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        self.framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Regular hook handlers \u2014 no need to set status here\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n    # \u2500\u2500 Status handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Called after every hook. Add any statuses relevant to this unit.\"\"\"\n        if not self._is_installed():\n            event.add_status(ops.MaintenanceStatus(\"installing\"))\n            return\n        if not self.model.config.get(\"port\"):\n            event.add_status(ops.BlockedStatus('missing required config: \"port\"'))\n            return\n        # If nothing is wrong from the charm's perspective, report active.\n        # But DatabaseComponent may have added a higher-priority status above.\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Called on the leader unit after every hook. Sets application-level status.\"\"\"\n        # Application status is derived from all unit statuses by Juju,\n        # but you can also set it explicitly here.\n        if not self.unit.is_leader():\n            return  # Only the leader should set app status\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n    # \u2500\u2500 Regular hook handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        # No need to set status here; collect_unit_status handles it\n        self._do_install()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        # No need to set status here either\n        self._reconfigure()\n\n    # \u2500\u2500 Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _is_installed(self) -> bool:\n        return self.unit.get_container(\"myapp\").can_connect()  # example check\n\n    def _do_install(self) -> None:\n        pass  # ... real install logic ...\n\n    def _reconfigure(self) -> None:\n        pass  # ... real reconfigure logic ...\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n### Key Points\n\n| Concept | Detail |\n|---|---|\n| **`collect_unit_status`** | Fired after every hook on every unit. Use for unit-level status. |\n| **`collect_app_status`** | Fired after every hook, **leader unit only**. Use for app-level status. |\n| **`event.add_status()`** | Call as many times as you like; framework picks the highest-priority result. |\n| **Multiple observers** | Multiple components (like `DatabaseComponent`) can each add statuses independently \u2014 this is the main advantage over imperative `unit.status = ...`. |\n| **No more scattered `unit.status =`** | You no longer need to set status in every hook; status is always recalculated at the end of each hook automatically. |\n\nThis pattern is especially powerful for **charm libraries and components** \u2014 each piece of your charm can independently declare what it needs without knowing about the others, and the framework reconciles them into a single status automatically.",
+    "stop_reason": "end_turn",
+    "session_id": "0e4438a6-71be-45b7-8ce8-60cde19b901f",
+    "total_cost_usd": 0.21547980000000003,
+    "usage": {
+      "input_tokens": 91,
+      "cache_creation_input_tokens": 7062,
+      "cache_read_input_tokens": 125891,
+      "output_tokens": 3199,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7062,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 91,
+        "outputTokens": 3199,
+        "cacheReadInputTokens": 125891,
+        "cacheCreationInputTokens": 7062,
+        "webSearchRequests": 0,
+        "costUSD": 0.11250779999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 93872,
+        "outputTokens": 1820,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.10297199999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c9dac05d-211b-47a3-8c20-ed837845e8ac"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:23:25+1300"
+}

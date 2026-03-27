@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_B_opus_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 21161,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 19538,
+    "duration_api_ms": 19517,
+    "num_turns": 1,
+    "result": "In Juju charm development, the provider side of a relation is typically implemented using a charm library that defines the interface. Here's the pattern:\n\n## 1. Define the library\n\nCharm libraries live in `lib/charms/<charm_name>/v<N>/<interface>.py`. The library typically provides two classes: a **Provider** and a **Requirer**, each emitting custom events.\n\n## 2. Provider implementation pattern\n\n```python\n# src/charm.py\nimport ops\n\nfrom charms.my_charm.v0.my_interface import MyInterfaceProvider\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.provider = MyInterfaceProvider(self)\n        self.framework.observe(\n            self.provider.on.data_requested, self._on_data_requested\n        )\n\n    def _on_data_requested(self, event):\n        # Set data on the relation for the requirer to consume\n        event.relation.data[self.app][\"endpoint\"] = \"http://myapp:8080\"\n```\n\n## 3. Writing the library itself\n\nThe library subclasses `ops.Object`, defines custom events, and emits them at the right time:\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\nimport ops\n\nclass DataRequestedEvent(ops.EventBase):\n    \"\"\"Emitted when a requirer joins and requests data.\"\"\"\n\nclass MyInterfaceProviderEvents(ops.CharmEvents):\n    data_requested = ops.EventSource(DataRequestedEvent)\n\nclass MyInterfaceProvider(ops.Object):\n    on = MyInterfaceProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str = \"my-relation\"):\n        super().__init__(charm, relation_name)\n        self.charm = charm\n        self.relation_name = relation_name\n        self.framework.observe(\n            charm.on[relation_name].relation_joined, self._on_relation_joined\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_changed, self._on_relation_changed\n        )\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        self.on.data_requested.emit()\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        self.on.data_requested.emit()\n\n    def set_connection_info(self, info: dict[str, str]):\n        \"\"\"Helper to publish data on all relations.\"\"\"\n        for relation in self.charm.model.relations[self.relation_name]:\n            for key, value in info.items():\n                relation.data[self.charm.app][key] = value\n```\n\n## 4. Declare the relation in `charmcraft.yaml`\n\n```yaml\nprovides:\n  my-relation:\n    interface: my-interface\n    optional: true\n```\n\n## Key points\n\n- The provider **writes to `relation.data[self.app]`** (app-level data) to share information with requirers.\n- Use `ops.Object` as the base class for the library, not `CharmBase`.\n- Call `super().__init__(charm, key)` where `key` is a unique string (typically the relation name) \u2014 this registers the object with the framework.\n- The library observes standard Juju relation events (`relation-joined`, `relation-changed`) and re-emits them as domain-specific custom events.\n- Prefer using existing well-known charm libraries (e.g. from `data-platform-libs`, `traefik-k8s`, `grafana-k8s`) rather than writing your own, when a standard interface already exists.\n\nFor existing libraries, use `charmcraft fetch-libs` after declaring them in `charmcraft.yaml` under `charm-libs`.",
+    "stop_reason": "end_turn",
+    "session_id": "30372d03-0c9b-408b-b36c-b638741b0466",
+    "total_cost_usd": 0.07625225,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7325,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 991,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7325,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 991,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7325,
+        "webSearchRequests": 0,
+        "costUSD": 0.07625225,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "f1969abd-672f-4091-b61f-3e4122555020"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:24:07+1300"
+}

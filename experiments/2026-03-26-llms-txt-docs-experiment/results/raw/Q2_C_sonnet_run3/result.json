@@ -1,0 +1,67 @@
+{
+  "session_id": "Q2_C_sonnet_run3",
+  "question_id": "Q2",
+  "category": "ops_api",
+  "question": "How do you access relation data for a specific remote unit? Show the code.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 76976,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 75472,
+    "duration_api_ms": 75502,
+    "num_turns": 14,
+    "result": "Based on the documentation and the `ops` framework source, here is a comprehensive answer:\n\n---\n\n## Accessing Relation Data for a Specific Remote Unit\n\nIn a Juju charm using the **ops library**, relation data is accessed through the `relation.data` mapping, keyed by a `Unit` or `Application` object.\n\n---\n\n### In a Relation Hook Handler\n\nThe most common place is in a `relation-changed` event handler, where the **triggering unit** is available directly on the event:\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.framework.observe(self.on.db_relation_changed, self._on_db_relation_changed)\n\n    def _on_db_relation_changed(self, event: ops.RelationChangedEvent):\n        # The specific remote unit that triggered this event\n        remote_unit = event.unit  # ops.Unit object\n\n        # Access that unit's data bag\n        unit_data = event.relation.data[remote_unit]\n\n        # Read a specific key\n        address = unit_data.get(\"private-address\")\n        port = unit_data.get(\"port\")\n\n        if address and port:\n            self.do_something(address, port)\n```\n\n---\n\n### Iterating Over All Remote Units\n\nIf you need to read data from **all** remote units on a relation (e.g., in a config-changed or other non-relation hook):\n\n```python\ndef _on_config_changed(self, event: ops.ConfigChangedEvent):\n    # Get the relation by name (returns None if not joined)\n    relation = self.model.get_relation(\"db\")\n\n    if relation is None:\n        return  # Relation not established yet\n\n    # Iterate over all remote units that have joined\n    for unit in relation.units:  # relation.units is a set of remote Unit objects\n        unit_data = relation.data[unit]\n\n        address = unit_data.get(\"private-address\")\n        port = unit_data.get(\"port\", \"5432\")\n\n        print(f\"Unit {unit.name}: {address}:{port}\")\n```\n\n---\n\n### Reading Remote Application-Level Data\n\nIf the remote charm's **leader** sets data on the *application* databag (rather than per-unit), use the remote `app` instead:\n\n```python\ndef _on_db_relation_changed(self, event: ops.RelationChangedEvent):\n    remote_app = event.app  # The remote Application object\n\n    # Read the remote application's databag\n    app_data = event.relation.data[remote_app]\n    connection_string = app_data.get(\"connection-string\")\n```\n\n---\n\n### Multiple Relations (same endpoint)\n\nIf your charm can have **multiple relations** on the same endpoint, use `model.relations`:\n\n```python\ndef _get_all_db_data(self):\n    for relation in self.model.relations[\"db\"]:  # list of Relation objects\n        for unit in relation.units:\n            data = relation.data[unit]\n            yield unit.name, dict(data)\n```\n\n---\n\n### Key API Summary\n\n| Expression | Type | Description |\n|---|---|---|\n| `event.relation` | `ops.Relation` | The relation that triggered the event |\n| `event.unit` | `ops.Unit` | The **remote unit** that changed |\n| `event.app` | `ops.Application` | The remote application |\n| `relation.units` | `set[ops.Unit]` | All **remote** units in the relation |\n| `relation.data[unit]` | `RelationDataContent` | A `dict`-like bag for that unit |\n| `relation.data[app]` | `RelationDataContent` | Application-level databag |\n| `relation.data[self.unit]` | `RelationDataContent` | **Your own** unit's databag (writable) |\n| `relation.data[self.app]` | `RelationDataContent` | Your app's databag (leader-writable) |\n\n> **Important:** `relation.units` contains only **remote** units. To access your own unit's data, use `self.unit` explicitly as the key.",
+    "stop_reason": "end_turn",
+    "session_id": "57dee059-fc37-431b-8afe-03ac90fc6ddf",
+    "total_cost_usd": 0.19239664999999997,
+    "usage": {
+      "input_tokens": 54,
+      "cache_creation_input_tokens": 6801,
+      "cache_read_input_tokens": 142063,
+      "output_tokens": 2559,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6801,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 54,
+        "outputTokens": 2559,
+        "cacheReadInputTokens": 142063,
+        "cacheCreationInputTokens": 6801,
+        "webSearchRequests": 0,
+        "costUSD": 0.10666965,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 76422,
+        "outputTokens": 1861,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.085727,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4f69fbe5-440b-4e99-b2e3-36e382f819c7"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:33:29+1300"
+}

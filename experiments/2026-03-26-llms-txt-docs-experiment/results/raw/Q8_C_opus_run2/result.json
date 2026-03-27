@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_C_opus_run2",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 101544,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 100332,
+    "duration_api_ms": 107439,
+    "num_turns": 14,
+    "result": "Here's a comprehensive overview of the Pebble change/task model:\n\n---\n\n## Pebble Change/Task Model\n\nWhen Pebble performs a potentially long-running operation (like starting or stopping services), it creates a **Change** object containing one or more **Tasks** to track progress.\n\n### Change Object\n\nA `Change` has these key fields:\n\n| Field | Description |\n|---|---|\n| `id` | Unique change identifier |\n| `kind` | Type of operation (e.g., `\"start\"`, `\"stop\"`) |\n| `status` | Current status (see below) |\n| **`ready`** | **`True` when the change has finished (success or error)** |\n| `err` | Error message, or `None` if successful |\n| `tasks` | List of `Task` objects comprising this change |\n| `spawn_time` | When the change was created |\n| `ready_time` | When the change finished (if ready) |\n\n### Task Object\n\nEach `Task` within a change has: `id`, `kind`, `summary`, `status`, `log`, `progress`, `spawn_time`, `ready_time`.\n\n### Status Values (`ChangeStatus`)\n\n| Status | Meaning |\n|---|---|\n| `Hold` | Waiting to start |\n| `Do` | Queued to execute |\n| `Doing` | Currently executing |\n| **`Done`** | **Completed successfully** |\n| `Abort` | Marked to abort |\n| `Undo` | Queued to undo |\n| `Undoing` | Currently undoing |\n| `Wait` | Waiting on external condition |\n| `Error` | Failed |\n\n### Checking Completion in Charm Code (ops library)\n\nThe ops `Client` (accessed via `container.pebble`) provides three methods:\n\n```python\n# Most service methods (start_services, stop_services, etc.) \n# automatically wait for the change to finish:\ncontainer.start([\"myservice\"])  # blocks until done\n\n# But for manual control, you can use:\n\n# 1. Wait for a change to complete (blocking with timeout)\nchange = client.wait_change(change_id, timeout=30.0)\nif change.err:\n    raise Exception(f\"Change failed: {change.err}\")\n\n# 2. Poll a specific change by ID\nchange = client.get_change(change_id)\nif change.ready:\n    if change.err:\n        print(f\"Failed: {change.err}\")\n    else:\n        print(\"Completed successfully!\")\n\n# 3. List changes filtered by state\nin_progress = client.get_changes(select=ChangeState.IN_PROGRESS)\nall_ready = client.get_changes(select=ChangeState.READY)\n```\n\n### Key Pattern: Checking Success\n\nA change is **successfully complete** when:\n- `change.ready is True` \u2014 it has finished executing\n- `change.err is None` \u2014 no error occurred\n\n```python\nchange = container.pebble.wait_change(change_id)\nif change.ready and not change.err:\n    # Success!\n    pass\nelif change.ready and change.err:\n    # Finished but failed\n    raise ops.pebble.ChangeError(change.err, change)\n```\n\n### REST API Level\n\nAt the API level, you can also wait for a change using the blocking endpoint:\n```\nGET /v1/changes/{id}/wait\n```\n\n### Persistence\n\nChange/task state is persisted in `$PEBBLE/.pebble.state` (JSON). Set `PEBBLE_PERSIST=never` to keep state in memory only.",
+    "stop_reason": "end_turn",
+    "session_id": "f09762e7-03e5-45e8-87e1-f97ab7b71b53",
+    "total_cost_usd": 0.24390175,
+    "usage": {
+      "input_tokens": 53,
+      "cache_creation_input_tokens": 8177,
+      "cache_read_input_tokens": 129357,
+      "output_tokens": 2522,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8177,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 53,
+        "outputTokens": 2522,
+        "cacheReadInputTokens": 129357,
+        "cacheCreationInputTokens": 8177,
+        "webSearchRequests": 0,
+        "costUSD": 0.17909974999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 51052,
+        "outputTokens": 2750,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.064802,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "563ab709-5244-443b-a781-e0641ffec885"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T08:58:24+1300"
+}

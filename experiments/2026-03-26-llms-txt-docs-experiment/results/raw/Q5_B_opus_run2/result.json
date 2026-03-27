@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_B_opus_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 14390,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 13061,
+    "duration_api_ms": 13050,
+    "num_turns": 1,
+    "result": "`CollectStatusEvent` lets you consolidate status-setting logic into a single handler instead of scattering `unit.status =` calls across every event handler. The charm framework emits it automatically before each status update.\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # Do work here, but don't set status \u2014 let collect-status handle it.\n        self._configure_workload()\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        # Add one or more statuses. Juju picks the highest-priority one.\n        if not self._workload_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for workload\"))\n            return\n\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.BlockedStatus(\"missing database relation\"))\n            return\n\n        event.add_status(ops.ActiveStatus())\n```\n\nKey points:\n\n- **`event.add_status()`** \u2014 you call this (potentially multiple times) rather than assigning `self.unit.status` directly.\n- **Priority** \u2014 if multiple statuses are added, ops picks the highest-severity one: `error` > `blocked` > `waiting` > `maintenance` > `active`.\n- **`collect_app_status`** \u2014 there is also `self.on.collect_app_status` for setting application-level status (only runs on the leader unit).\n- **Centralised logic** \u2014 the benefit is that all status decisions live in one place, making it easier to reason about what the charm reports and why.\n\nThere is no need to observe `update-status` or manually set `self.unit.status` elsewhere when using this pattern.",
+    "stop_reason": "end_turn",
+    "session_id": "cc3275c3-44fc-41ea-aa7f-7d115c940b18",
+    "total_cost_usd": 0.06515850000000001,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7334,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 545,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7334,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 545,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7334,
+        "webSearchRequests": 0,
+        "costUSD": 0.06515850000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "94e7e10c-e96a-4d71-b436-d525f6745034"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:19:40+1300"
+}

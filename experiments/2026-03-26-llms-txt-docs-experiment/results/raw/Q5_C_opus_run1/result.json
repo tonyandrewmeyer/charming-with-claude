@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_C_opus_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 56751,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 55514,
+    "duration_api_ms": 55743,
+    "num_turns": 9,
+    "result": "Here's how `ops.CollectStatusEvent` works, with a complete example:\n\n## Overview\n\n`CollectStatusEvent` is fired **at the end of every hook** to collect statuses. Instead of scattering `self.unit.status = ...` calls throughout your handlers, you observe `collect_unit_status` (or `collect_app_status`) and report status from a single place. The framework automatically picks the **highest-priority** status using this ordering:\n\n> **error \u2192 blocked \u2192 maintenance \u2192 waiting \u2192 active**\n\n## Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm that uses CollectStatusEvent for clean status management.\"\"\"\n\nimport ops\n\n\nclass MyDatabaseCharm(ops.CharmBase):\n    \"\"\"A charm with multiple components, each reporting its own status.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Observe the collect-status events\n        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        self.framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Other event observers\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n    # \u2500\u2500 Status collection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called at the end of every hook to determine unit status.\"\"\"\n\n        # Check configuration\n        if \"port\" not in self.model.config or not self.model.config[\"port\"]:\n            event.add_status(ops.BlockedStatus('please set \"port\" config'))\n\n        # Check a relation\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.WaitingStatus(\"waiting for database relation\"))\n\n        # Check if the workload is ready\n        if not self._workload_ready():\n            event.add_status(ops.MaintenanceStatus(\"workload starting up\"))\n            return\n\n        # Everything is good\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called at the end of every hook to determine app status.\"\"\"\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.BlockedStatus(\"integrate with a database\"))\n            return\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n    # \u2500\u2500 Other handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_install(self, event: ops.InstallEvent):\n        # No need to set status here \u2014 collect_unit_status handles it.\n        self._install_packages()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # No need to set status here either.\n        self._reconfigure_workload()\n\n    # \u2500\u2500 Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _workload_ready(self) -> bool:\n        # ... check container / pebble / service\n        return True\n\n    def _install_packages(self):\n        pass\n\n    def _reconfigure_workload(self):\n        pass\n\n\nif __name__ == \"__main__\":\n    ops.main(MyDatabaseCharm)\n```\n\n## Key Points\n\n| Concept | Detail |\n|---|---|\n| **`event.add_status()`** | Call this one or more times; the framework keeps the highest-priority status. |\n| **Priority order** | `error > blocked > maintenance > waiting > active`. If you add both `BlockedStatus` and `ActiveStatus`, the unit will be **blocked**. |\n| **When it fires** | Automatically, at the **end of every hook**. You never emit it yourself. |\n| **Unit vs App** | `collect_unit_status` sets the **unit** status; `collect_app_status` sets the **application** status (only evaluated on the leader). |\n| **Components / libs** | Each `ops.Object` (library, component) can independently observe the event and call `add_status()` \u2014 all statuses are merged by priority. |\n\n### Using it from a charm library / component\n\nThis pattern really shines when you have reusable library objects that each own a piece of status:\n\n```python\nclass Webapp(ops.Object):\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"webapp\")\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        if not self._is_configured():\n            event.add_status(ops.BlockedStatus(\"webapp not configured\"))\n            return\n        event.add_status(ops.ActiveStatus())\n```\n\nThis way the main charm and every component each report their own status independently, and the framework automatically surfaces the most critical one.",
+    "stop_reason": "end_turn",
+    "session_id": "bebb5034-cfe1-4578-b35b-41449ecf33ca",
+    "total_cost_usd": 0.16339974999999998,
+    "usage": {
+      "input_tokens": 50,
+      "cache_creation_input_tokens": 3631,
+      "cache_read_input_tokens": 83640,
+      "output_tokens": 2110,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3631,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 50,
+        "outputTokens": 2110,
+        "cacheReadInputTokens": 83640,
+        "cacheCreationInputTokens": 3631,
+        "webSearchRequests": 0,
+        "costUSD": 0.11751374999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 42161,
+        "outputTokens": 745,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.045885999999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "6e985d9c-5581-4d13-8545-1ef2b0745435"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:08:17+1300"
+}

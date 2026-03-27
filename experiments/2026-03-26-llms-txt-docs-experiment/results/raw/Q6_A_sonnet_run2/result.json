@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_A_sonnet_run2",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 28757,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 27537,
+    "duration_api_ms": 27529,
+    "num_turns": 1,
+    "result": "Here's a complete, production-ready Pebble layer YAML covering all three requirements:\n\n```yaml\nsummary: Application layer\n\ndescription: |\n  Pebble layer for the application service, including an HTTP health check,\n  custom environment variables, and a Loki-compatible log target.\n\nservices:\n  myapp:\n    summary: My application service\n    description: |\n      The primary application process managed by Pebble.\n    command: /usr/bin/myapp --config /etc/myapp/config.yaml\n    startup: enabled\n    after:\n      - support\n    requires:\n      - support\n\n    # \u2500\u2500 Environment variables \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    environment:\n      # Runtime tuning\n      APP_ENV:            production\n      APP_PORT:           \"8080\"\n      APP_LOG_LEVEL:      info\n      APP_LOG_FORMAT:     json\n\n      # Feature flags\n      FEATURE_CACHE:      \"true\"\n      FEATURE_METRICS:    \"true\"\n\n      # Database connection (values supplied by charm at runtime)\n      DB_HOST:            \"\"\n      DB_PORT:            \"5432\"\n      DB_NAME:            myapp_db\n      DB_SSL_MODE:        require\n\n    # \u2500\u2500 Process identity \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    user:  myapp\n    group: myapp\n\n    # \u2500\u2500 Limits \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    kill-delay: 10s\n\n  # A lightweight helper that must be running before myapp starts\n  support:\n    summary: Support / sidecar process\n    command: /usr/bin/support-daemon\n    startup: enabled\n\n# \u2500\u2500 Health checks \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nchecks:\n  myapp-http:\n    summary: HTTP liveness check for myapp\n    override: replace\n    level: alive          # \"alive\" \u2192 unhealthy service is restarted\n    period: 10s           # how often Pebble runs the check\n    timeout: 3s           # per-attempt deadline\n    threshold: 3          # consecutive failures before marking unhealthy\n\n    http:\n      url: http://localhost:8080/healthz\n      headers:\n        Accept:     application/json\n        User-Agent: pebble-healthcheck/1.0\n\n  myapp-ready:\n    summary: HTTP readiness check for myapp\n    override: replace\n    level: ready          # \"ready\" \u2192 signals the unit is ready for traffic\n    period: 15s\n    timeout: 3s\n    threshold: 2\n\n    http:\n      url: http://localhost:8080/readyz\n      headers:\n        Accept: application/json\n\n# \u2500\u2500 Log targets \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nlog-targets:\n  loki:\n    summary: Forward logs to Loki via the Grafana Agent / cos-agent relation\n    type: loki\n    location: http://localhost:3500/loki/api/v1/push  # Grafana Agent sidecar\n    services:\n      - myapp       # only forward logs from these services; use [all] for every service\n    labels:\n      product:      myapp\n      environment:  production\n      juju_model:   \"\"        # populated by the charm at runtime\n      juju_unit:    \"\"        # populated by the charm at runtime\n```\n\n---\n\n### Key design decisions\n\n| Area | Choice | Why |\n|---|---|---|\n| **`level: alive`** on `myapp-http` | Triggers automatic restart | Maps to Juju's liveness concept; keeps the unit self-healing |\n| **`level: ready`** on `myapp-ready` | Separate readiness gate | Allows traffic-routing decisions without restarting the process |\n| **`override: replace`** on both checks | Full control from this layer | Prevents partial merges from a base layer from breaking check config |\n| **`log-targets.loki`** | Loki push API | Standard in the Canonical Observability Stack (COS); works with `cos-agent` |\n| `services: [myapp]` in log-target | Scoped forwarding | Avoids forwarding Pebble's own internal logs to Loki |\n| Empty `DB_HOST` / `juju_model` / `juju_unit` | Placeholder pattern | The charm layer (added via `container.add_layer()`) fills real values at runtime without touching this base layer |\n\n### How a charm would extend this at runtime\n\n```python\n# In src/charm.py  (ops framework)\nfrom ops.pebble import Layer\n\ndef _on_config_changed(self, event):\n    container = self.unit.get_container(\"myapp\")\n    container.add_layer(\"myapp-runtime\", Layer({\n        \"services\": {\n            \"myapp\": {\n                \"override\": \"merge\",\n                \"environment\": {\n                    \"DB_HOST\": self.config[\"db-host\"],\n                },\n            }\n        },\n        \"log-targets\": {\n            \"loki\": {\n                \"labels\": {\n                    \"juju_model\": self.model.name,\n                    \"juju_unit\":  self.unit.name,\n                }\n            }\n        },\n    }), combine=True)\n    container.replan()\n```\n\nThis keeps secrets and runtime-specific values out of the base layer YAML while leveraging Pebble's `merge` override strategy.",
+    "stop_reason": "end_turn",
+    "session_id": "ab73305d-c96c-484d-85a6-2aef48bde7f2",
+    "total_cost_usd": 0.027726149999999998,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1073,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1410,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1073,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1410,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1073,
+        "webSearchRequests": 0,
+        "costUSD": 0.027726149999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4dc7a1e5-41b9-4689-b030-e8ee5aadacee"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:10:36+1300"
+}

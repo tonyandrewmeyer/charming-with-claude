@@ -1,0 +1,67 @@
+{
+  "session_id": "Q3_A_sonnet_run2",
+  "question_id": "Q3",
+  "category": "ops_api",
+  "question": "What is the full list of hook events a charm can observe? List them all.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 205476,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 204065,
+    "duration_api_ms": 199371,
+    "num_turns": 2,
+    "result": "Here is the complete list of all hook events a Juju charm can observe, organized by category:\n\n---\n\n## 1. Core Lifecycle Hooks\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `install` | `install` | Once, on first deployment, before anything else |\n| `config_changed` | `config-changed` | After install/upgrade/leader-elected, on restart, or whenever config changes |\n| `start` | `start` | After the first `config-changed`; signal to start the workload |\n| `stop` | `stop` | When the unit is being prepared for destruction |\n| `remove` | `remove` | Final hook ever received; used for cleanup |\n| `upgrade_charm` | `upgrade-charm` | After the charm directory is updated via `juju refresh` |\n| `update_status` | `update-status` | Periodically (default every 5 min) for health reporting |\n\n---\n\n## 2. Leadership Hooks\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `leader_elected` | `leader-elected` | On the unit that just became leader |\n| `leader_settings_changed` | `leader-settings-changed` | On non-leader units when the leader writes to leadership settings *(deprecated since ops v2.4.0)* |\n\n---\n\n## 3. Relation Hooks *(one set per endpoint, named dynamically)*\n\nReplace `<endpoint>` with the relation endpoint name from `metadata.yaml`.\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `<endpoint>_relation_created` | `<endpoint>-relation-created` | When the relation is first established (before any remote units join) |\n| `<endpoint>_relation_joined` | `<endpoint>-relation-joined` | When a remote unit joins the relation (once per remote unit) |\n| `<endpoint>_relation_changed` | `<endpoint>-relation-changed` | After `relation-joined`, and whenever a remote unit updates its relation data |\n| `<endpoint>_relation_departed` | `<endpoint>-relation-departed` | When a remote unit is leaving the relation |\n| `<endpoint>_relation_broken` | `<endpoint>-relation-broken` | When the relation itself is being completely torn down |\n\n---\n\n## 4. Storage Hooks *(one set per storage, named dynamically)*\n\nReplace `<storage>` with the storage name from `metadata.yaml`.\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `<storage>_storage_attached` | `<storage>-storage-attached` | When a storage volume is provisioned and ready to use |\n| `<storage>_storage_detaching` | `<storage>-storage-detaching` | Before a storage volume is removed |\n\n---\n\n## 5. Workload / Pebble Hooks *(Kubernetes sidecar charms only, named dynamically)*\n\nReplace `<container>` with the container name from `metadata.yaml`.\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `<container>_pebble_ready` | `<container>-pebble-ready` | When the Pebble daemon in the sidecar container becomes reachable |\n| `<container>_pebble_check_failed` | `<container>-pebble-check-failed` | When a Pebble health check crosses its failure threshold |\n| `<container>_pebble_check_recovered` | `<container>-pebble-check-recovered` | When a previously-failed Pebble health check passes again |\n| `<container>_pebble_custom_notice` | `<container>-pebble-custom-notice` | When a custom Pebble notice is fired from within the container |\n\n---\n\n## 6. Secret Hooks\n\n| `CharmBase.on` attribute | Shell hook name | Who receives it | When it fires |\n|---|---|---|---|\n| `secret_changed` | `secret-changed` | Observers/consumers | When the owner publishes a new revision of a tracked secret |\n| `secret_rotate` | `secret-rotate` | Owner | When the secret's rotation policy interval elapses |\n| `secret_expired` | `secret-expired` | Owner | When a secret revision's expiry time is reached |\n| `secret_remove` | `secret-remove` | Owner | When a revision is no longer tracked by any consumer and can be deleted |\n\n---\n\n## 7. Status Collection Hooks *(ops framework-level, not shell hooks)*\n\nThese fire at the end of every hook execution to let the charm report status in a composable way via `event.add_status(...)`.\n\n| `CharmBase.on` attribute | Who receives it | When it fires |\n|---|---|---|\n| `collect_app_status` | Leader unit only | End of every hook, to set **application** status |\n| `collect_unit_status` | All units | End of every hook, to set **unit** status |\n\n---\n\n## 8. Action Hooks *(one per action, named dynamically)*\n\nReplace `<action>` with the action name from `actions.yaml`.\n\n| `CharmBase.on` attribute | When it fires |\n|---|---|\n| `<action>_action` | When an operator runs `juju run <unit> <action>` |\n\n---\n\n## 9. Series Upgrade Hooks *(machine charms only; deprecated, removed in Juju 4.0)*\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `pre_series_upgrade` | `pre-series-upgrade` | Before an OS series upgrade begins |\n| `post_series_upgrade` | `post-series-upgrade` | After an OS series upgrade completes |\n\n---\n\n## 10. Metrics Hook *(deprecated, removed in Juju 3.6.11 / 4.0)*\n\n| `CharmBase.on` attribute | Shell hook name | When it fires |\n|---|---|---|\n| `collect_metrics` | `collect-metrics` | Every 5 minutes, to collect custom metrics (use `prometheus_scrape` library instead) |\n\n---\n\n### Quick Count Summary\n\n| Category | Events |\n|---|---|\n| Core Lifecycle | 7 |\n| Leadership | 2 |\n| Relation | **5 \u00d7 N endpoints** |\n| Storage | **2 \u00d7 N storages** |\n| Pebble/Workload (K8s) | **4 \u00d7 N containers** |\n| Secrets | 4 |\n| Status Collection | 2 |\n| Actions | **1 \u00d7 N actions** |\n| Series Upgrade (deprecated) | 2 |\n| Metrics (deprecated) | 1 |",
+    "stop_reason": "end_turn",
+    "session_id": "818dbe6d-46a4-4d87-8cc1-12833d15fbdf",
+    "total_cost_usd": 0.58492595,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4426,
+      "cache_read_input_tokens": 18017,
+      "output_tokens": 1927,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4426,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 599,
+        "outputTokens": 7352,
+        "cacheReadInputTokens": 178674,
+        "cacheCreationInputTokens": 17864,
+        "webSearchRequests": 0,
+        "costUSD": 0.2326692,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 131671,
+        "outputTokens": 5338,
+        "cacheReadInputTokens": 95720,
+        "cacheCreationInputTokens": 99459,
+        "webSearchRequests": 6,
+        "costUSD": 0.35225675,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "544104ab-2a4c-491b-bbde-9a8c4d087a1d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:17:32+1300"
+}

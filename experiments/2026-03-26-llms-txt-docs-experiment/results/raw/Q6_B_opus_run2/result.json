@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_B_opus_run2",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 12578,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 11250,
+    "duration_api_ms": 11240,
+    "num_turns": 1,
+    "result": "Here's a complete Pebble layer YAML:\n\n```yaml\nservices:\n  myapp:\n    override: replace\n    summary: My application service\n    command: /usr/bin/myapp --config /etc/myapp/config.yaml\n    startup: enabled\n    environment:\n      APP_PORT: \"8080\"\n      APP_LOG_LEVEL: \"info\"\n      APP_DATA_DIR: \"/var/lib/myapp\"\n    on-success: restart\n    on-failure: restart\n    backoff-delay: 3s\n    backoff-factor: 2\n    backoff-limit: 30s\n\nchecks:\n  myapp-health:\n    override: replace\n    level: ready\n    period: 30s\n    timeout: 5s\n    threshold: 3\n    http:\n      url: http://localhost:8080/health\n\nlog-targets:\n  loki:\n    override: replace\n    type: loki\n    location: http://loki:3100/loki/api/v1/push\n    services:\n      - myapp\n    labels:\n      app: myapp\n      environment: production\n```\n\nKey elements:\n\n- **Service** (`myapp`): Runs the workload with `startup: enabled` so Pebble starts it automatically. Restart policies handle crashes with exponential backoff.\n- **Check** (`myapp-health`): HTTP GET to `/health` every 30s. `level: ready` means the container won't report ready until this check passes. After 3 consecutive failures (`threshold`), the check is considered failed.\n- **Log target** (`loki`): Forwards stdout/stderr from the `myapp` service to a Loki endpoint with custom labels.\n\nIn a charm, you'd add this layer via Pebble's Python API:\n\n```python\ncontainer.add_layer(\"myapp\", layer, combine=True)\ncontainer.replan()\n```",
+    "stop_reason": "end_turn",
+    "session_id": "7ff348c1-b49b-4f00-92c5-b7fa5172d423",
+    "total_cost_usd": 0.0639585,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7338,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 496,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7338,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 496,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7338,
+        "webSearchRequests": 0,
+        "costUSD": 0.0639585,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "32f8b2af-01a2-43ff-967b-4a2df0fcb917"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:26:27+1300"
+}

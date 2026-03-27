@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_C_sonnet_run1",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 115678,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 114446,
+    "duration_api_ms": 123904,
+    "num_turns": 2,
+    "result": "Here's a full breakdown of Pebble log forwarding to Loki, based on the official documentation.\n\n---\n\n## Pebble Log Forwarding \u2014 Layer YAML\n\n### Minimal Example (all services \u2192 Loki)\n\n```yaml\nlog-targets:\n  my-loki:\n    override: merge\n    type: loki\n    location: http://localhost:3100/loki/api/v1/push\n    services: [all]\n```\n\n### Full Example (with labels, specific services)\n\n```yaml\nlog-targets:\n  my-loki:\n    override: merge\n    type: loki\n    location: http://loki-server:3100/loki/api/v1/push\n    services: [web, worker]\n    labels:\n      env: production\n      app: my-charm\n```\n\n### Dynamic Labels via Environment Variables\n\n```yaml\nservices:\n  web:\n    override: replace\n    command: /bin/web\n    environment:\n      OWNER: alice\n\nlog-targets:\n  my-loki:\n    override: merge\n    type: loki\n    location: http://localhost:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      owner: \"user-$OWNER\"   # interpolated per-service at runtime\n```\n\n---\n\n## Protocol Options (`type`)\n\nAll three types share the same `log-targets` structure but differ in how `location` is formatted:\n\n| `type` | `location` format | Notes |\n|---|---|---|\n| `loki` | `http://<host>:3100/loki/api/v1/push` | Must include the full API endpoint path |\n| `opentelemetry` | `http://<host>:4318` | Port only \u2014 **no** endpoint suffix |\n| `syslog` | `tcp://<host>:<port>` or `udp://<host>:<port>` | Choose TCP or UDP transport |\n\n### Syslog Example\n```yaml\nlog-targets:\n  my-syslog:\n    override: merge\n    type: syslog\n    location: tcp://syslog-server:514\n    services: [all]\n```\n\n### OpenTelemetry Example\n```yaml\nlog-targets:\n  my-otel:\n    override: merge\n    type: opentelemetry\n    location: http://otel-collector:4318\n    services: [all]\n```\n\n---\n\n## Key Behaviours\n\n### `override` \u2014 Layer Merging\n- **`merge`** \u2014 appends to an existing target definition with the same name\n- **`replace`** \u2014 discards the previous definition entirely\n\n### `services` \u2014 Selective Forwarding\n```yaml\nservices: [all]          # every service, including future ones\nservices: [svc1, svc2]   # explicit list\nservices: [-svc1]        # remove svc1 from a merged list\nservices: [-all]         # disable all (effectively pauses forwarding)\nservices: [-all, svc1]   # reset to only svc1\n```\n> \u26a0\ufe0f If `services` is omitted entirely, **no logs are forwarded** \u2014 you must explicitly opt in.\n\n### Default Label\nPebble automatically attaches a label to every forwarded log entry:\n```\npebble_service: <service-name>\n```\nYou cannot remove this \u2014 it's always present alongside any custom `labels` you define.\n\n### Multiple Targets\nYou can fan logs out to multiple destinations simultaneously:\n```yaml\nlog-targets:\n  loki-dev:\n    override: merge\n    type: loki\n    location: http://dev-loki:3100/loki/api/v1/push\n    services: [all]\n  loki-prod:\n    override: merge\n    type: loki\n    location: http://prod-loki:3100/loki/api/v1/push\n    services: [web]   # only the web service goes to prod\n```\n\n---\n\n## In a Charm Context\n\nIn an ops charm, you'd typically write this layer from the `_on_pebble_ready` handler:\n\n```python\ndef _on_pebble_ready(self, event):\n    container = event.workload\n    layer = {\n        \"summary\": \"log forwarding layer\",\n        \"log-targets\": {\n            \"loki\": {\n                \"override\": \"merge\",\n                \"type\": \"loki\",\n                \"location\": self.config[\"loki-push-url\"],\n                \"services\": [\"all\"],\n                \"labels\": {\"juju_application\": self.app.name},\n            }\n        },\n    }\n    container.add_layer(\"log-forwarding\", layer, combine=True)\n```\n\nThe `loki-push-url` config option would be set to the Loki push endpoint, which in production Juju deployments is typically discovered via a **`loki_push_api`** relation (provided by the `loki-k8s` charm and the `grafana-agent` library).",
+    "stop_reason": "end_turn",
+    "session_id": "bceb0745-f82b-436f-8401-ebb4fb7a68a1",
+    "total_cost_usd": 0.16682445,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3883,
+      "cache_read_input_tokens": 18063,
+      "output_tokens": 1488,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3883,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 15,
+        "outputTokens": 4681,
+        "cacheReadInputTokens": 60979,
+        "cacheCreationInputTokens": 11689,
+        "webSearchRequests": 0,
+        "costUSD": 0.13238745000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 11317,
+        "outputTokens": 4624,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.034436999999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "37030123-abdd-4bf2-8333-c1f6ca0ceea1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:46:37+1300"
+}

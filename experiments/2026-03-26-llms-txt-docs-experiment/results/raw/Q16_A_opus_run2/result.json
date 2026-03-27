@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_A_opus_run2",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 29878,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 28647,
+    "duration_api_ms": 28638,
+    "num_turns": 1,
+    "result": "# Implementing a Provider-Side Relation with Charm Libraries\n\nIn Juju's Operator framework, charm libraries (charmlibs) provide reusable interface implementations. Here's how to correctly implement the **provider** side of a relation:\n\n## 1. Define the Relation in `charmcraft.yaml`\n\n```yaml\nprovides:\n  my-database:\n    interface: mysql\n```\n\n## 2. Use an Existing Charm Library (Recommended)\n\nFetch the library from the charm that owns the interface:\n\n```bash\ncharmcraft fetch-lib charms.mysql.v0.mysql\n```\n\nThen use it in your charm:\n\n```python\nfrom charms.mysql.v0.mysql import MySQLProvider\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.db_provider = MySQLProvider(\n            self,\n            relation_name=\"my-database\",\n        )\n```\n\nThe library typically handles emitting custom events. You observe those events in your charm:\n\n```python\n        self.framework.observe(\n            self.db_provider.on.database_requested, self._on_database_requested\n        )\n\n    def _on_database_requested(self, event):\n        # Provide credentials/connection info back to the requirer\n        self.db_provider.set_credentials(event.relation.id, \"user\", \"pass\")\n```\n\n## 3. Writing Your Own Charm Library (from scratch)\n\nIf you're creating a new interface, place your library in `lib/charms/<your_charm>/v0/<libname>.py`:\n\n```python\n\"\"\"My custom interface library.\"\"\"\n\n# Charm library boilerplate\nLIBID = \"abcdef1234567890\"  # unique ID from charmcraft create-lib\nLIBAPI = 0\nLIBPATCH = 1\n\nimport json\nimport logging\nfrom ops.framework import Object, StoredState, EventBase, EventSource, CharmEvents\n\nlogger = logging.getLogger(__name__)\n\n\n# --- Custom Events ---\n\nclass DataRequestedEvent(EventBase):\n    \"\"\"Raised when a requirer joins and requests data.\"\"\"\n    pass\n\n\nclass ProviderEvents(CharmEvents):\n    data_requested = EventSource(DataRequestedEvent)\n\n\n# --- Provider class ---\n\nclass MyInterfaceProvider(Object):\n    on = ProviderEvents()\n\n    def __init__(self, charm, relation_name: str):\n        super().__init__(charm, relation_name)\n        self.charm = charm\n        self.relation_name = relation_name\n\n        # Observe raw relation events and re-emit as custom events\n        self.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n\n    def _on_relation_joined(self, event):\n        \"\"\"Handle a new requirer joining.\"\"\"\n        self.on.data_requested.emit()\n\n    def _on_relation_changed(self, event):\n        \"\"\"Handle updated data from the requirer.\"\"\"\n        # Read requirer's data from the relation databag\n        requirer_data = event.relation.data[event.app]\n        if requirer_data.get(\"database\"):\n            self.on.data_requested.emit()\n\n    # --- Public API for the charm to set data ---\n\n    def set_connection_info(self, relation_id: int, host: str, port: int, credentials: dict):\n        \"\"\"Publish connection info into the provider's app databag.\"\"\"\n        relation = self.model.get_relation(self.relation_name, relation_id)\n        if relation is None:\n            return\n        data = {\n            \"host\": host,\n            \"port\": str(port),\n            \"username\": credentials[\"username\"],\n            \"password\": credentials[\"password\"],\n        }\n        relation.data[self.charm.app].update(data)\n```\n\n## Key Principles\n\n| Principle | Details |\n|---|---|\n| **App vs. Unit databag** | Use `relation.data[self.app]` for app-level data (credentials, endpoints). Use `relation.data[self.unit]` for per-unit data (e.g., individual pod IPs). Only the **leader** can write to the app databag. |\n| **Only set data when leader** | Always guard writes: `if self.charm.unit.is_leader()` |\n| **Databag values are strings** | Serialize complex data with `json.dumps()` |\n| **Emit custom events** | Translate raw `relation-joined`/`relation-changed` into domain-specific events (`database_requested`, etc.) so the charm has a clean API |\n| **Idempotency** | `relation-changed` can fire multiple times \u2014 handlers should be safe to re-run |\n\n## 4. Usage Pattern in the Charm\n\n```python\nfrom charms.my_charm.v0.my_interface import MyInterfaceProvider\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.provider = MyInterfaceProvider(self, \"my-database\")\n        self.framework.observe(\n            self.provider.on.data_requested, self._on_data_requested\n        )\n\n    def _on_data_requested(self, event):\n        if not self.unit.is_leader():\n            return\n        for relation in self.model.relations[\"my-database\"]:\n            self.provider.set_connection_info(\n                relation_id=relation.id,\n                host=\"10.0.0.1\",\n                port=3306,\n                credentials={\"username\": \"admin\", \"password\": \"secret\"},\n            )\n```\n\nThis pattern \u2014 **library wraps raw relation events \u2192 emits domain events \u2192 exposes a clean setter API** \u2014 is the standard approach used across the Juju charm ecosystem (e.g., `data-platform-libs`, `tls-certificates-interface`, `ingress`, etc.).",
+    "stop_reason": "end_turn",
+    "session_id": "b8303bba-7691-43f8-86f8-aa7e387a577a",
+    "total_cost_usd": 0.04891825,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1063,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1519,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1063,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1519,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1063,
+        "webSearchRequests": 0,
+        "costUSD": 0.04891825,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "5aa3e9f3-b57b-45a4-9f18-3d4cecb0bddf"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:37:42+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_A_opus_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 71798,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 70607,
+    "duration_api_ms": 70354,
+    "num_turns": 2,
+    "result": "\n\nHere's a complete example of deploying a charm and waiting for it to reach active/idle using **jubilant**:\n\n```python\n\"\"\"Integration tests using Jubilant.\"\"\"\n\nimport logging\nimport sys\nimport time\n\nimport jubilant\nimport pytest\n\nlogger = logging.getLogger(__name__)\n\n\n# -- Fixture (typically in conftest.py) --\n\n@pytest.fixture(scope=\"module\")\ndef juju(request: pytest.FixtureRequest):\n    \"\"\"Create a temporary Juju model for running tests.\"\"\"\n    with jubilant.temp_model() as juju:\n        yield juju\n\n        # On failure, dump logs for debugging\n        if request.session.testsfailed:\n            logger.info(\"Collecting Juju logs...\")\n            time.sleep(0.5)\n            log = juju.debug_log(limit=1000)\n            print(log, end=\"\", file=sys.stderr)\n\n\n# -- Tests --\n\ndef test_deploy_and_wait(juju: jubilant.Juju):\n    \"\"\"Deploy a charm and wait for active/idle.\"\"\"\n    juju.deploy(\"./my-charm_amd64.charm\", resources={\"my-image\": \"my-image:latest\"})\n    juju.wait(jubilant.all_active, timeout=600)\n\n    # Verify the status\n    status = juju.status()\n    assert status.apps[\"my-charm\"].status.current == \"active\"\n```\n\n### Key concepts\n\n| Concept | Code |\n|---|---|\n| **Create a temp model** | `with jubilant.temp_model() as juju:` |\n| **Deploy a charm** | `juju.deploy(\"./charm.charm\")` |\n| **Wait for all active/idle** | `juju.wait(jubilant.all_active, timeout=600)` |\n| **Wait for all blocked** | `juju.wait(jubilant.all_blocked)` |\n| **Wait for mixed statuses** | `juju.wait(lambda s: jubilant.all_active(s, 'app1') and jubilant.all_blocked(s, 'app2'))` |\n| **Set config** | `juju.config(\"app\", {\"key\": \"value\"})` |\n| **Add a relation** | `juju.integrate(\"app1\", \"app2\")` |\n| **Check status** | `status = juju.status()` |\n| **Get logs** | `juju.debug_log(limit=1000)` |\n\n### pyproject.toml setup\n\n```toml\n[dependency-groups]\nintegration = [\n    \"jubilant\",\n    \"pytest\",\n]\n```\n\n### Important notes\n\n- **`jubilant.all_active`** is the predicate that checks all units are active/idle \u2014 there is no `wait_for_idle` function.\n- **`juju.wait()`** polls status until the predicate returns `True`, or raises on timeout.\n- **`jubilant.temp_model()`** creates a Juju model for the test and tears it down automatically.\n- You can scope the check to a specific app: `jubilant.all_active(status, 'my-app')`.\n\nDocs: https://documentation.ubuntu.com/jubilant/",
+    "stop_reason": "end_turn",
+    "session_id": "22d5ba86-bf44-4da4-a632-2ccef62d8d1a",
+    "total_cost_usd": 0.17081125,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 2869,
+      "cache_read_input_tokens": 18207,
+      "output_tokens": 1032,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2869,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1032,
+        "cacheReadInputTokens": 18207,
+        "cacheCreationInputTokens": 2869,
+        "webSearchRequests": 0,
+        "costUSD": 0.05286475,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 83,
+        "outputTokens": 5457,
+        "cacheReadInputTokens": 313410,
+        "cacheCreationInputTokens": 47390,
+        "webSearchRequests": 0,
+        "costUSD": 0.11794649999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "909ffdd6-9a4d-42a6-83a7-e0bfb6a7b0c7"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:16:29+1300"
+}

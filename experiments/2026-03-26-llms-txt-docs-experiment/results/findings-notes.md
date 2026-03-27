@@ -60,3 +60,15 @@ In condition C, the agent's first fetch is `/juju/en/latest/llms.txt` **27 times
 In condition D, the first fetch is distributed across the correct repos because the instructions name them explicitly.
 
 **Implication:** A generic "docs support llms.txt" hint isn't enough — the agent needs to know which sub-sites exist. The llms.txt at `/juju/llms.txt` should ideally link to sibling projects (ops, pebble, etc.) to help with discovery.
+
+## Synthesis Tasks: Instructions Can Suppress Code Output
+
+For S3 (write a provider charm), conditions B and D score dramatically lower (32-33%) than A and C (75-77%). Investigation reveals the cause: **the agent with instructions often describes what the code would do rather than writing it**. It outputs `charmcraft.yaml`, explains the approach, references file line numbers, but never actually provides the `src/charm.py` implementation.
+
+Conditions A and C (no instructions) just write the code directly, which is what the question asks for.
+
+This pattern is also visible in S2 (pebble-ready handler) and S1 to a lesser extent. The CLAUDE.md instructions appear to trigger a more cautious, tool-oriented workflow (plan, describe, reference files) rather than direct code output. In interactive use this is fine (the agent would use Write/Edit tools), but in our `-p` mode the agent can't actually write files — it can only output text.
+
+**Implication for the experiment:** The synthesis task scores for B/D may understate the value of instructions. In real interactive use, the agent would use tools to actually write the files. Our non-interactive `-p` mode penalises the instructed agent's preferred workflow.
+
+**Implication for instructions:** Consider adding guidance like "When asked to write code, output the complete code directly rather than describing what you would write" for non-interactive contexts.

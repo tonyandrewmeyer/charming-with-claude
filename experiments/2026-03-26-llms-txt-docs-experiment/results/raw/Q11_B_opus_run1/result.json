@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_B_opus_run1",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 83346,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 82129,
+    "duration_api_ms": 78929,
+    "num_turns": 8,
+    "result": "Now I have a clear picture. Here's how to add a relation and verify data exchange using Jubilant:\n\n## Adding a relation\n\n```python\nimport jubilant\n\njuju = jubilant.Juju()\n\n# Deploy two apps\njuju.deploy('./my-charm.charm', app='my-app')\njuju.deploy('postgresql', app='postgresql', channel='14/stable')\n\n# Wait for them to be ready\njuju.wait(jubilant.all_active)\n\n# Integrate (add a relation)\njuju.integrate('my-app:database', 'postgresql:database')\n\n# Wait for everything to settle\njuju.wait(jubilant.all_active)\n```\n\n## Verifying the relation exists\n\nCheck `status.apps[app_name].relations`, which is a `dict[str, list[AppStatusRelation]]` mapping endpoint names to related apps:\n\n```python\nstatus = juju.status()\nrelations = status.apps['my-app'].relations\nassert 'database' in relations\nassert relations['database'][0].related_app == 'postgresql'\n```\n\n## Verifying data was actually exchanged\n\nJubilant doesn't have a direct relation-data inspection method. Two common approaches:\n\n**1. Verify via observable side-effects (preferred)**\n\nThe best approach is to check that the charm acted on the relation data \u2014 e.g. the workload is now connected to the database, a config file was written, etc:\n\n```python\njuju.integrate('my-app:database', 'postgresql:database')\njuju.wait(jubilant.all_active)\n\n# Verify the charm used the relation data (e.g. app is serving)\nstatus = juju.status()\nassert status.apps['my-app'].is_active\n```\n\n**2. Use `cli()` for raw relation data inspection**\n\n```python\noutput = juju.cli('show-unit', 'my-app/0', '--format=json')\nimport json\nunit_data = json.loads(output)\n# Inspect relation-info in the parsed output\n```\n\nOr directly:\n\n```python\noutput = juju.cli('relation-get', '-r', '1', '--app', '-', 'my-app/0')\n```\n\nThe idiomatic Jubilant pattern is approach 1: integrate, wait for active status, and assert that the charm reached the expected state \u2014 proving the relation data was received and acted upon.",
+    "stop_reason": "end_turn",
+    "session_id": "b147a74a-8607-4bd3-aeea-78ba4f34273a",
+    "total_cost_usd": 0.31728499999999993,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 11114,
+      "cache_read_input_tokens": 154175,
+      "output_tokens": 1523,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11114,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 12,
+        "outputTokens": 1523,
+        "cacheReadInputTokens": 154175,
+        "cacheCreationInputTokens": 11114,
+        "webSearchRequests": 0,
+        "costUSD": 0.18468500000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 122480,
+        "outputTokens": 2024,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.1326,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ec68bc72-d498-4ce3-b5ac-311c5b555408"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:46:10+1300"
+}
