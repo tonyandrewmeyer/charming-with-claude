@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_B_opus_run3",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 128052,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 126667,
+    "duration_api_ms": 132387,
+    "num_turns": 2,
+    "result": "\n\n## Pebble Notices\n\nNotices are a Pebble subsystem for recording and observing events happening in the Pebble server. They persist to disk across restarts and expire after a configurable interval.\n\nEach notice is uniquely identified by the combination of **user ID + type + key**. If the same combination occurs again, the occurrence count is incremented rather than creating a new notice.\n\n### Notice Types\n\n| Type | `pebble.NoticeType` | Description |\n|---|---|---|\n| **custom** | `NoticeType.CUSTOM` | User/client-reported notices. Key must be domain-namespaced (e.g. `example.com/myapp/ready`). This is the type charms interact with. |\n| **change-update** | `NoticeType.CHANGE_UPDATE` | Recorded when a Pebble change is spawned or its status updates. Key is the change ID. |\n| **warning** | *(no enum value in ops)* | Pebble warnings, implemented as notices. Key is the warning message. |\n\n### Key Attributes\n\nEach notice carries: `id`, `user_id`, `type`, `key`, `first_occurred`, `last_occurred`, `last_repeated`, `occurrences`, `last_data` (dict of string key-value pairs from the most recent occurrence), `repeat_after`, and `expire_after`.\n\nThe `repeat_after` duration prevents excessive repetition \u2014 a notice only \"repeats\" (and fires a charm event) if enough time has elapsed since the last repeat.\n\n### Observing Notices in a Charm (ops)\n\nOnly **custom** notices generate charm events. Requires **Juju 3.4+**.\n\nFor each container in `charmcraft.yaml`, ops auto-generates a `<container>_pebble_custom_notice` event:\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.framework.observe(\n            self.on.mycontainer_pebble_custom_notice,\n            self._on_custom_notice,\n        )\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent):\n        # event.notice is a LazyNotice \u2014 id/type/key are immediate,\n        # other attributes are fetched from Pebble on first access.\n        if event.notice.key == \"example.com/myapp/ready\":\n            data = event.notice.last_data  # dict[str, str]\n            # ...\n```\n\n### Querying Notices Directly\n\nYou can also query notices on a container outside of event handlers:\n\n```python\ncontainer = self.unit.get_container(\"mycontainer\")\n\n# Single notice by ID\nnotice = container.get_notice(notice_id)\n\n# Filtered query\nnotices = container.get_notices(\n    types=[ops.pebble.NoticeType.CUSTOM],\n    keys=[\"example.com/myapp/ready\"],\n)\n```\n\n### Triggering Custom Notices\n\nFrom inside a workload container, run `pebble notify example.com/myapp/ready` (or use the Pebble client API). This records the custom notice and triggers the charm's `pebble_custom_notice` event.",
+    "stop_reason": "end_turn",
+    "session_id": "7e04c6fb-2295-4bab-9a09-c21fb9dc9da1",
+    "total_cost_usd": 0.5377825,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9372,
+      "cache_read_input_tokens": 30056,
+      "output_tokens": 1106,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9372,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 614,
+        "outputTokens": 4835,
+        "cacheReadInputTokens": 218855,
+        "cacheCreationInputTokens": 30936,
+        "webSearchRequests": 0,
+        "costUSD": 0.4267225,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 103350,
+        "outputTokens": 1542,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.11106,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "e2f81de7-afdc-4024-9909-f1e7f59498a5"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:42:28+1300"
+}

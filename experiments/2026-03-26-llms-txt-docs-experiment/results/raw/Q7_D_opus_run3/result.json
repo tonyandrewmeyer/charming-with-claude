@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_D_opus_run3",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 93723,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 92523,
+    "duration_api_ms": 110885,
+    "num_turns": 2,
+    "result": "\n\n## Pebble Notices\n\nNotices are Pebble's built-in event/alerting subsystem. They're persisted to disk (surviving restarts) and expire after a configurable interval. A notice is uniquely identified by **(user ID, type, key)** \u2014 recording the same combination again increments the occurrence count rather than creating a new notice.\n\n### Notice Types (`ops.pebble.NoticeType`)\n\n| Type | Description | Key format |\n|---|---|---|\n| **`CUSTOM`** | User-reported, created via `pebble notify` or the API | Reverse-domain, e.g. `example.com/myapp/backup-done` |\n| **`CHANGE_UPDATE`** | Auto-recorded when a Pebble change spawns or its status updates | The change ID |\n\nPebble warnings are also implemented as notices internally.\n\n### Key attributes of a `Notice` object\n\n- `key`, `type`, `user_id` \u2014 the identity\n- `first_occurred`, `last_occurred`, `last_repeated` \u2014 timestamps\n- `occurrences` \u2014 total count\n- `last_data` \u2014 `dict[str, str]` from the most recent occurrence\n- `repeat_after` \u2014 minimum interval before Pebble re-fires the notice (avoids excessive charm wake-ups)\n- `expire_after` \u2014 TTL for the notice\n\n### Observing notices in a charm\n\n**1. Custom notices** \u2014 `pebble_custom_notice` event on a container:\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(\n            self.on[\"mycontainer\"].pebble_custom_notice,\n            self._on_custom_notice,\n        )\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        if event.notice.key == \"example.com/myapp/backup-done\":\n            path = event.notice.last_data[\"path\"]\n            # handle it...\n```\n\nThe workload triggers this by running e.g. `pebble notify example.com/myapp/backup-done path=/tmp/backup.sql`.\n\n**2. Health check notices** \u2014 `pebble_check_failed` / `pebble_check_recovered` (ops 2.15+, Juju 3.6+):\n\n```python\nself.framework.observe(\n    self.on[\"mycontainer\"].pebble_check_failed,\n    self._on_check_failed,\n)\nself.framework.observe(\n    self.on[\"mycontainer\"].pebble_check_recovered,\n    self._on_check_recovered,\n)\n```\n\nThe handler receives a `PebbleCheckFailedEvent` / `PebbleCheckRecoveredEvent` with an `info` attribute (`CheckInfo`) containing the check name and current status. Note: the status may have changed by the time the charm handles the event, so check `event.info.status` before taking heavy actions like restarting services.\n\n**3. Querying notices directly** from a `Container`:\n\n- `container.get_notice(id)` \u2014 fetch a single notice by ID\n- `container.get_notices(types=..., keys=...)` \u2014 query with filters\n\n### Unit testing with `ops.testing`\n\n```python\ndef test_custom_notice():\n    ctx = testing.Context(MyCharm)\n    notice = testing.Notice(\n        \"example.com/myapp/backup-done\",\n        last_data={\"path\": \"/tmp/backup.sql\"},\n    )\n    container = testing.Container(\"mycontainer\", can_connect=True, notices=[notice])\n    state_in = testing.State(containers={container})\n\n    state_out = ctx.run(ctx.on.pebble_custom_notice(container, notice), state_in)\n    # assert on state_out...\n```",
+    "stop_reason": "end_turn",
+    "session_id": "ef9db75e-547d-4a42-a4e4-1f8661b757eb",
+    "total_cost_usd": 0.38821549999999994,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9664,
+      "cache_read_input_tokens": 30155,
+      "output_tokens": 1274,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9664,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 305,
+        "outputTokens": 4126,
+        "cacheReadInputTokens": 104465,
+        "cacheCreationInputTokens": 24748,
+        "webSearchRequests": 0,
+        "costUSD": 0.3115825,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 65678,
+        "outputTokens": 2191,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.07663299999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "13c133d1-21a5-49a4-b043-69671feb1328"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:24:11+1300"
+}

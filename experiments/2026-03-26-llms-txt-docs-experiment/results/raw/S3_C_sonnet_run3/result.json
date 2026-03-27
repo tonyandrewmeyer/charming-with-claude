@@ -1,0 +1,67 @@
+{
+  "session_id": "S3_C_sonnet_run3",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 171418,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 170315,
+    "duration_api_ms": 169112,
+    "num_turns": 23,
+    "result": "Here is the complete, production-quality charm. Let me walk you through every piece:\n\n---\n\n## File layout\n\n```\nmy-provider-charm/\n\u251c\u2500\u2500 charmcraft.yaml          # charm manifest & relation declaration\n\u251c\u2500\u2500 src/\n\u2502   \u2514\u2500\u2500 charm.py             # charm class\n\u2514\u2500\u2500 tests/\n    \u2514\u2500\u2500 unit/\n        \u2514\u2500\u2500 test_charm.py    # ops.testing unit tests\n```\n\n---\n\n## `charmcraft.yaml` \u2014 declare the relation endpoint\n\n```yaml\nprovides:\n  myservice:\n    interface: myservice   # arbitrary name; both sides must use the same string\n```\n\nThe `provides` stanza registers the endpoint. A consuming charm mirrors it under `requires:` with the identical `interface:` value.\n\n---\n\n## `src/charm.py` \u2014 the charm class\n\n### Key design decisions\n\n| Concern | Choice | Why |\n|---|---|---|\n| **FQDN source** | `socket.getfqdn()` | Standard-library call; works on any machine unit |\n| **Databag target** | `relation.data[self.unit]` | A unit may only write its **own** databag; ops enforces this |\n| **Primary event** | `relation_joined` | Fires once per joining remote unit \u2014 earliest possible moment the consumer can read the data |\n| **Idempotent writes** | Skip if unchanged | Avoids spurious `relation_changed` events on the consumer side |\n| **Re-publish hooks** | `config_changed`, `upgrade_charm` | Keeps the value current if the FQDN ever changes |\n\n### Core helper\n\n```python\ndef _publish_endpoint(self, relation: ops.Relation) -> None:\n    fqdn = socket.getfqdn()\n    if relation.data[self.unit].get(\"endpoint\") == fqdn:\n        return                                   # already current, skip\n    relation.data[self.unit][\"endpoint\"] = fqdn  # write to OUR unit databag\n```\n\n### Event handler\n\n```python\ndef _on_myservice_relation_joined(self, event: ops.RelationJoinedEvent) -> None:\n    # event.unit  \u2192 the remote unit that just joined\n    # event.relation \u2192 the Relation object; use it to access databags\n    self._publish_endpoint(event.relation)\n```\n\n---\n\n## Consumer side (reference)\n\nA consuming charm reads the data like this:\n\n```python\n# in the *requiring* charm\ndef _on_myservice_relation_changed(self, event: ops.RelationChangedEvent):\n    endpoint = event.relation.data[event.unit].get(\"endpoint\")\n    if endpoint:\n        # connect to endpoint\u2026\n```\n\n---\n\n## Running the tests\n\n```bash\npip install ops pytest\ncd tests/unit\npython -m pytest test_charm.py -v\n```\n\nThe tests use `ops.testing.Harness` to simulate `relation_joined`, `config_changed`, and `upgrade_charm` events without a real Juju controller, and `unittest.mock.patch` to control what `socket.getfqdn()` returns.",
+    "stop_reason": "end_turn",
+    "session_id": "88044298-352f-49f1-9dcd-e9778ed3457a",
+    "total_cost_usd": 0.30951215,
+    "usage": {
+      "input_tokens": 215,
+      "cache_creation_input_tokens": 11163,
+      "cache_read_input_tokens": 237528,
+      "output_tokens": 6680,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11163,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 216,
+        "outputTokens": 6806,
+        "cacheReadInputTokens": 251533,
+        "cacheCreationInputTokens": 11475,
+        "webSearchRequests": 0,
+        "costUSD": 0.22122914999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 79713,
+        "outputTokens": 1714,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.088283,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ac2ba479-4729-4f36-bccc-d2f0bf202cb4"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:38:29+1300"
+}

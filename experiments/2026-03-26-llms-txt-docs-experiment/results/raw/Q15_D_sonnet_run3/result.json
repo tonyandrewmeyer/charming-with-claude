@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_D_sonnet_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 67744,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 66254,
+    "duration_api_ms": 71704,
+    "num_turns": 3,
+    "result": "## `charmlibs.pathops`\n\n`pathops` provides a unified, `pathlib`-like interface for filesystem operations that works on both local machine paths and remote Kubernetes workload containers (via Pebble). The key benefit is writing path-manipulation code once that works in both contexts.\n\n### `ContainerPath`\n\nWraps Pebble's file API for a workload container. Requires an `ops.Container` and **only accepts absolute paths**.\n\n```python\nimport charmlibs.pathops as pathops\n\ncontainer = self.unit.get_container(\"myapp\")\npath = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n# Write a file\npath.write_text(\"key: value\\n\")\n\n# Read it back\ncontent = path.read_text()\n\n# Check existence\nif not path.exists():\n    path.parent.mkdir()\n\n# Iterate a directory\nfor child in pathops.ContainerPath(\"/etc/myapp\", container=container).iterdir():\n    print(child)\n```\n\nWrite methods accept optional permission/ownership parameters:\n\n```python\npath.write_text(\"content\", mode=0o640, user=\"root\", group=\"myapp\")\n```\n\n### `ensure_contents`\n\nIdempotently ensures a file has the correct content, permissions, and ownership. Returns `True` if it made changes, `False` if the file was already correct.\n\n```python\nchanged = pathops.ensure_contents(\n    path,           # ContainerPath or LocalPath\n    \"key: value\\n\", # desired content (str or bytes)\n    mode=0o640,\n    user=\"root\",\n    group=\"myapp\",\n)\nif changed:\n    self._restart_service()\n```\n\nThis is the idiomatic pattern in a charm: call `ensure_contents` whenever you'd otherwise write a config file, then only restart/reload the workload if it returns `True`.\n\n### `PathProtocol`\n\nA typing protocol that both `ContainerPath` and `LocalPath` implement. Use it to write helpers that work in both machine and Kubernetes charms:\n\n```python\ndef write_config(path: pathops.PathProtocol, config: dict) -> bool:\n    content = render_template(config)\n    return pathops.ensure_contents(path, content, mode=0o640)\n```\n\n### Error handling\n\n| Exception | Cause |\n|---|---|\n| `RelativePathError` | Passing a relative path to `ContainerPath` |\n| `PebbleConnectionError` | Container not yet reachable (workload not started) |\n\nCatch `PebbleConnectionError` to defer work until the container is ready \u2014 typically by returning early from a handler and waiting for the `pebble_ready` event.",
+    "stop_reason": "end_turn",
+    "session_id": "924b964b-d24a-4c9b-ad0b-7448aa1c875b",
+    "total_cost_usd": 0.21773029999999996,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 9254,
+      "cache_read_input_tokens": 49500,
+      "output_tokens": 1090,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9254,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 9,
+        "outputTokens": 1090,
+        "cacheReadInputTokens": 49500,
+        "cacheCreationInputTokens": 9254,
+        "webSearchRequests": 0,
+        "costUSD": 0.0659295,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 113723,
+        "outputTokens": 4116,
+        "cacheReadInputTokens": 94703,
+        "cacheCreationInputTokens": 6422,
+        "webSearchRequests": 0,
+        "costUSD": 0.15180079999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a4e2f80f-1ff6-4e73-9cd0-10030f8a507b"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:27:37+1300"
+}

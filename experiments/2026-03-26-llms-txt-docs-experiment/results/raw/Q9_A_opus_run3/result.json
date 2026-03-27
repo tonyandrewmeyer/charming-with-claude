@@ -1,0 +1,57 @@
+{
+  "session_id": "Q9_A_opus_run3",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 21991,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 20879,
+    "duration_api_ms": 20869,
+    "num_turns": 1,
+    "result": "## Pebble Log Forwarding to Loki\n\nPebble supports forwarding workload logs to a Loki instance via its **layer configuration**. Here's how it works:\n\n### Layer YAML Example\n\n```yaml\nlog-targets:\n  loki-log-target:\n    override: merge\n    type: loki\n    location: http://loki:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      app: my-workload\n      environment: production\n```\n\n### Key Fields\n\n| Field | Description |\n|---|---|\n| **`type`** | Must be `loki` for Loki forwarding. |\n| **`location`** | The full URL of the Loki push endpoint. Typically `http://<host>:3100/loki/api/v1/push`. |\n| **`services`** | List of service names whose stdout/stderr logs to forward. Use `[all]` to forward logs from all services. |\n| **`override`** | Standard Pebble override behaviour \u2014 `replace` or `merge`. |\n| **`labels`** | Optional key-value map of Loki labels attached to every log line from this target. |\n\n### Protocol Options\n\nPebble sends logs to Loki using the **HTTP push API** (`POST /loki/api/v1/push`). The specifics:\n\n1. **`loki`** \u2014 The only supported `type` for Loki. Pebble pushes logs as JSON payloads over **HTTP/HTTPS** to the Loki push API endpoint. There is no separate gRPC/protobuf option \u2014 Pebble always uses the **JSON over HTTP** protocol.\n\n2. **HTTP vs HTTPS** \u2014 Controlled entirely by the `location` URL scheme:\n   - `http://...` \u2014 unencrypted (suitable for in-cluster communication)\n   - `https://...` \u2014 TLS-encrypted (required for cross-network or production use)\n\n3. **No built-in auth** \u2014 Pebble's Loki client does not natively support basic auth or bearer tokens in the layer config. Authentication is typically handled at the network level (e.g., mTLS via service mesh, or a reverse proxy).\n\n### Using It in a Juju Charm (with `loki_push_api`)\n\nIn practice, you rarely hardcode the Loki URL. Instead, you use the **`loki_push_api`** integration from the `cos-lib` (Canonical Observability Stack library):\n\n```python\nfrom charms.loki_k8s.v1.loki_push_api import LogForwarder\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self._log_forwarder = LogForwarder(self, relation_name=\"logging\")\n```\n\nThe `LogForwarder` automatically:\n- Receives the Loki endpoint URL from the `logging` relation\n- Configures the Pebble log-target layer for you\n- Updates the layer if the Loki endpoint changes\n\nYour `metadata.yaml` (or `charmcraft.yaml`) needs:\n\n```yaml\nrequires:\n  logging:\n    interface: loki_push_api\n```\n\nThen relate your charm to Loki:\n\n```bash\njuju relate my-charm loki-k8s:logging\n```\n\n### Summary\n\n- **Protocol**: JSON over HTTP(S) \u2014 no gRPC option\n- **Direction**: Pebble **pushes** logs to Loki (not pull-based)\n- **Buffering**: Pebble buffers logs internally and retries on failure\n- **Filtering**: Use `services` to select which Pebble services' logs get forwarded\n- **Labels**: Use `labels` to add static Loki labels for easier querying (`{app=\"my-workload\"}`)",
+    "stop_reason": "end_turn",
+    "session_id": "abf14ab2-01ab-4cfc-b918-f1cf5b1c9190",
+    "total_cost_usd": 0.03559325,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1071,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 984,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1071,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 984,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1071,
+        "webSearchRequests": 0,
+        "costUSD": 0.03559325,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "f518119f-90b3-40c8-abf2-f2579715bc2b"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:38:16+1300"
+}

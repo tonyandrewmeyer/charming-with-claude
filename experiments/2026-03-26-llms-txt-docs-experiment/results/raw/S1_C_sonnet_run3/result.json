@@ -1,0 +1,67 @@
+{
+  "session_id": "S1_C_sonnet_run3",
+  "question_id": "S1",
+  "category": "synthesis",
+  "question": "Write a minimal K8s charm (`src/charm.py` + `charmcraft.yaml`) that sets ActiveStatus on install and WaitingStatus if a 'name' config option is empty.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 120963,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 119809,
+    "duration_api_ms": 133998,
+    "num_turns": 7,
+    "result": "Here are the two files and a walkthrough of every decision made.\n\n---\n\n## `charmcraft.yaml`\n\n```yaml\nname: minimal-k8s-charm\ntype: charm\n\nsummary: A minimal Kubernetes sidecar charm.\ndescription: |\n  Demonstrates the smallest possible Kubernetes charm:\n  sets ActiveStatus on install and WaitingStatus when the\n  'name' configuration option is empty.\n\nbases:\n  - build-on:\n      - name: ubuntu\n        channel: \"22.04\"\n        architectures: [amd64]\n    run-on:\n      - name: ubuntu\n        channel: \"22.04\"\n        architectures: [amd64]\n\ncontainers:\n  workload:\n    resource: workload-image\n\nresources:\n  workload-image:\n    type: oci-image\n    description: OCI image for the workload container.\n\nconfig:\n  options:\n    name:\n      type: string\n      default: \"\"\n      description: >\n        A name for this deployment. When empty the unit will remain in\n        WaitingStatus until a non-empty value is supplied.\n```\n\n---\n\n## `src/charm.py`\n\n```python\n#!/usr/bin/env python3\n\"\"\"Minimal Kubernetes charm.\"\"\"\n\nimport logging\nimport ops\n\nlogger = logging.getLogger(__name__)\n\n\nclass MinimalK8sCharm(ops.CharmBase):\n    \"\"\"A minimal Kubernetes charm.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _update_status(self) -> None:\n        name = self.config.get(\"name\", \"\").strip()\n        if not name:\n            self.unit.status = ops.WaitingStatus(\"waiting for 'name' config option to be set\")\n        else:\n            self.unit.status = ops.ActiveStatus(f\"ready (name={name})\")\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        logger.info(\"install event fired\")\n        self._update_status()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        logger.info(\"config-changed event fired\")\n        self._update_status()\n\n\nif __name__ == \"__main__\":\n    ops.main(MinimalK8sCharm)\n```\n\n---\n\n## Key design decisions\n\n| Decision | Reason |\n|---|---|\n| `containers` + `resources` blocks in `charmcraft.yaml` | Required for a K8s sidecar charm \u2014 Juju expects at least one OCI-image resource backing a declared container. |\n| `default: \"\"` on `name` | Ensures the charm starts in `WaitingStatus` immediately after install, because the config value is empty by default. |\n| `_update_status()` helper | Both `install` and `config-changed` share the same logic, keeping the handlers to one-liners and avoiding duplication. |\n| `.strip()` on the config value | Guards against a value of only whitespace being treated as \"set\". |\n| `ops.main(MinimalK8sCharm)` guard | Standard ops pattern; lets the file be imported in tests without side-effects. |\n\nTo deploy after building:\n```bash\ncharmcraft pack\njuju deploy ./minimal-k8s-charm_ubuntu-22.04-amd64.charm \\\n  --resource workload-image=ubuntu:22.04\n# Later, provide the name to reach ActiveStatus:\njuju config minimal-k8s-charm name=\"my-app\"\n```",
+    "stop_reason": "end_turn",
+    "session_id": "43d5a798-d51c-472e-961b-756b73b0ddbe",
+    "total_cost_usd": 0.24410064999999997,
+    "usage": {
+      "input_tokens": 11,
+      "cache_creation_input_tokens": 4510,
+      "cache_read_input_tokens": 76461,
+      "output_tokens": 2850,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4510,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 11,
+        "outputTokens": 2850,
+        "cacheReadInputTokens": 76461,
+        "cacheCreationInputTokens": 4510,
+        "webSearchRequests": 0,
+        "costUSD": 0.08263380000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 41840,
+        "outputTokens": 4224,
+        "cacheReadInputTokens": 94806,
+        "cacheCreationInputTokens": 55221,
+        "webSearchRequests": 2,
+        "costUSD": 0.16146685,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "6a93f978-8ea6-4bc7-ba0b-a9176ac5edc2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:31:15+1300"
+}

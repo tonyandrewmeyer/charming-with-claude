@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_C_sonnet_run3",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 190052,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 189020,
+    "duration_api_ms": 254055,
+    "num_turns": 3,
+    "result": "Here's a thorough breakdown of Pebble notices and how to work with them in a charm:\n\n---\n\n## What Are Pebble Notices?\n\nPebble notices are a **persistent event/notification subsystem** built into the Pebble daemon that runs inside each workload container. They allow a workload process to signal the charm (or any other observer) that something noteworthy happened \u2014 without the charm having to poll the workload directly.\n\nKey properties:\n- **Persisted to disk** \u2014 survive Pebble restarts\n- **Deduplicated** \u2014 a notice is uniquely identified by `(user_id, type, key)`; repeated occurrences increment a counter rather than creating duplicates\n- **Repeatable** \u2014 a `repeat_after` duration controls how soon the same notice can fire again\n- **Expire** \u2014 notices are dropped after an `expire_after` window\n- **Juju integration** \u2014 Juju polls each container's Pebble server and fires ops events when new notices arrive or existing ones repeat (requires Juju 3.4+, ops 2.10+)\n\n---\n\n## Notice Types\n\n| Type | `NoticeType` constant | Description |\n|---|---|---|\n| **custom** | `ops.pebble.NoticeType.CUSTOM` | User-defined; the workload records these explicitly via `pebble notify`. The primary type for workload\u2192charm communication. |\n| **change-update** | `ops.pebble.NoticeType.CHANGE_UPDATE` | Fired internally by Pebble when a change (start/stop/etc.) is created or its status changes. |\n| **warning** | `ops.pebble.NoticeType.WARNING` | Pebble's internal warnings, surfaced as notices. |\n\nFor charm authors, **`custom`** is by far the most relevant type.\n\n---\n\n## How the Workload Sends a Notice\n\nFrom inside the workload container, a script or process calls:\n\n```bash\n# Minimal\npebble notify example.com/backup-done\n\n# With key/value data and repeat throttle\npebble notify canonical.com/postgresql/backup-done \\\n    path=/tmp/mydb.sql \\\n    status=ok \\\n    --repeat-after=1h\n```\n\n- The **key** must be a namespaced path (`domain.com/path`) \u2014 this prevents collisions between different software stacks.\n- `--repeat-after` stops Juju from re-firing the ops event within that window even if `pebble notify` is called again.\n- Key/value pairs end up in `notice.last_data` (a `dict[str, str]`).\n\n---\n\n## Ops Event Classes\n\n```\nops.PebbleNoticeEvent          \u2190 base class (don't observe directly)\n\u251c\u2500\u2500 ops.PebbleCustomNoticeEvent   \u2190 custom notices (your workload's signals)\n\nops.PebbleReadyEvent           \u2190 Pebble API is up (not a notice, but related)\nops.PebbleCheckFailedEvent     \u2190 health check exceeded failure threshold (ops 2.15+)\nops.PebbleCheckRecoveredEvent  \u2190 previously-failed check is passing again (ops 2.15+)\n```\n\n---\n\n## Observing Notices in a Charm\n\n### `charmcraft.yaml` / `metadata.yaml` \u2014 declare the container\n\n```yaml\ncontainers:\n  db:\n    resource: db-image\n```\n\n### `src/charm.py`\n\n```python\nimport ops\nimport logging\n\nlogger = logging.getLogger(__name__)\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Pebble ready \u2014 run once when Pebble's API becomes available\n        framework.observe(self.on[\"db\"].pebble_ready, self._on_pebble_ready)\n\n        # Custom notices \u2014 workload signals charm\n        framework.observe(self.on[\"db\"].pebble_custom_notice, self._on_custom_notice)\n\n        # Health check events (ops 2.15+ / Juju 3.6+)\n        framework.observe(self.on[\"db\"].pebble_check_failed, self._on_check_failed)\n        framework.observe(self.on[\"db\"].pebble_check_recovered, self._on_check_recovered)\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        container = event.workload          # ops.Container\n        # add layers, start services, etc.\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        notice = event.notice               # ops.LazyNotice\n\n        logger.info(\n            \"Notice type=%s key=%s occurrences=%d last_data=%s\",\n            notice.type, notice.key, notice.occurrences, notice.last_data,\n        )\n\n        if notice.key == \"canonical.com/postgresql/backup-done\":\n            path = notice.last_data.get(\"path\")\n            logger.info(\"Backup finished at %s \u2014 uploading to S3\", path)\n            self._upload_backup(path)\n\n        elif notice.key == \"canonical.com/postgresql/alert\":\n            self.unit.status = ops.BlockedStatus(\n                notice.last_data.get(\"message\", \"unknown alert\")\n            )\n\n    def _on_check_failed(self, event: ops.PebbleCheckFailedEvent) -> None:\n        logger.warning(\"Check %s is DOWN (%d failures)\", event.info.name, event.info.failures)\n        self.unit.status = ops.BlockedStatus(f\"check {event.info.name} failing\")\n\n    def _on_check_recovered(self, event: ops.PebbleCheckRecoveredEvent) -> None:\n        logger.info(\"Check %s recovered\", event.info.name)\n        self.unit.status = ops.ActiveStatus()\n```\n\n---\n\n## Notice Object Attributes (`event.notice` / `ops.LazyNotice`)\n\n| Attribute | Type | Description |\n|---|---|---|\n| `id` | `str` | Server-assigned unique ID |\n| `type` | `ops.pebble.NoticeType` | `CUSTOM`, `CHANGE_UPDATE`, or `WARNING` |\n| `key` | `str` | Namespaced key, e.g. `\"canonical.com/postgresql/backup-done\"` |\n| `user_id` | `int \\| None` | UID that recorded the notice (`None` = public) |\n| `first_occurred` | `datetime` | When this `(type, key)` pair was first seen |\n| `last_occurred` | `datetime` | Most recent occurrence |\n| `last_repeated` | `datetime` | When Juju last fired an event for it |\n| `occurrences` | `int` | Total occurrence count |\n| `last_data` | `dict[str, str]` | Key/value data from the most recent `pebble notify` call |\n| `repeat_after` | `timedelta` | Minimum gap between repeated event firings |\n| `expire_after` | `timedelta \\| None` | When Pebble will discard this notice |\n\n---\n\n## Querying Notices Directly\n\n```python\ncontainer = self.unit.get_container(\"db\")\n\n# Fetch one by ID\nnotice = container.get_notice(\"abc123\")\n\n# Fetch all custom notices\nnotices = container.get_notices(types=[ops.pebble.NoticeType.CUSTOM])\n\n# Fetch by key\nnotices = container.get_notices(\n    types=[ops.pebble.NoticeType.CUSTOM],\n    keys=[\"canonical.com/postgresql/backup-done\"],\n)\n```\n\n---\n\n## Unit Testing with `ops.testing`\n\n```python\nimport ops\nimport ops.testing\n\ndef test_backup_notice(monkeypatch):\n    ctx = ops.testing.Context(MyCharm, meta={\n        \"name\": \"my-charm\",\n        \"containers\": {\"db\": {\"resource\": \"db-image\"}},\n    })\n    container = ops.testing.Container(\"db\", can_connect=True)\n    notice = ops.testing.Notice(\n        notice_type=ops.pebble.NoticeType.CUSTOM,\n        key=\"canonical.com/postgresql/backup-done\",\n        last_data={\"path\": \"/tmp/mydb.sql\"},\n    )\n    state_in = ops.testing.State(containers={container})\n\n    state_out = ctx.run(ctx.on.pebble_custom_notice(container, notice), state_in)\n\n    assert state_out.unit_status == ops.ActiveStatus()\n```\n\n---\n\n## Summary\n\n| Concern | Answer |\n|---|---|\n| **Who sends notices?** | The workload, via `pebble notify <key> [k=v \u2026]` |\n| **Who receives them?** | Juju polls Pebble and fires ops events on the charm |\n| **Which event to observe?** | `self.on[\"<container>\"].pebble_custom_notice` for `CUSTOM` notices |\n| **Event object** | `event.notice` (`LazyNotice`) + `event.workload` (`Container`) |\n| **Key data payload** | `event.notice.last_data` \u2014 a `dict[str, str]` |\n| **Minimum Juju version** | 3.4 for notices; 3.6 for check events |\n| **Minimum ops version** | 2.10 for notices; 2.15 for check events |",
+    "stop_reason": "end_turn",
+    "session_id": "8322e222-bd4a-4af7-981b-4dfd4663c55e",
+    "total_cost_usd": 0.98357725,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 5582,
+      "cache_read_input_tokens": 28589,
+      "output_tokens": 3115,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5582,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 9,
+        "outputTokens": 3115,
+        "cacheReadInputTokens": 28589,
+        "cacheCreationInputTokens": 5582,
+        "webSearchRequests": 0,
+        "costUSD": 0.0762612,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 190126,
+        "outputTokens": 16665,
+        "cacheReadInputTokens": 421713,
+        "cacheCreationInputTokens": 321355,
+        "webSearchRequests": 19,
+        "costUSD": 0.90731605,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "40c64680-3989-4a1a-ad09-fafe790e9913"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:13:19+1300"
+}

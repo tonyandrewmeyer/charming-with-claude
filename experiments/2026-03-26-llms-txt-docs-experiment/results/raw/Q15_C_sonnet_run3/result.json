@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_C_sonnet_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 156002,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 154783,
+    "duration_api_ms": 164197,
+    "num_turns": 2,
+    "result": "## `charmlibs.pathops` \u2014 Overview\n\n`charmlibs.pathops` is a charm library that provides a **`pathlib`-like interface** for managing files in both local and remote (Pebble workload container) filesystems. It abstracts the Pebble file API behind familiar Python path semantics, making file management in Kubernetes charms clean and consistent.\n\n**Install it:**\n```bash\npip install charmlibs-pathops\n```\n\n---\n\n## Key Classes\n\n| Class | Purpose |\n|---|---|\n| `ContainerPath` | Manages files **inside a Pebble workload container** (K8s charms) |\n| `LocalPath` | Manages files **locally** (machine charms or the charm container itself) |\n| `PathProtocol` | A structural protocol for type-annotating code that works with **either** |\n\n---\n\n## `ContainerPath`\n\n`ContainerPath` wraps the Pebble file API behind a `pathlib`-style interface. It **requires absolute paths** \u2014 relative paths raise `RelativePathError`.\n\n### Construction\n\n```python\nimport ops\nfrom charmlibs.pathops import ContainerPath\n\ncontainer = self.unit.get_container(\"myapp\")\n\n# All of these are equivalent:\np = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\np = ContainerPath(\"/etc\", \"myapp\", \"config.yaml\", container=container)\np = ContainerPath(pathlib.PurePath(\"/etc/myapp\"), \"config.yaml\", container=container)\n```\n\n### Path Manipulation (no I/O)\n\n```python\np = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\nstr(p)            # \"/etc/myapp/config.yaml\"\np.name            # \"config.yaml\"\np.stem            # \"config\"\np.suffix          # \".yaml\"\np.parent          # ContainerPath(\"/etc/myapp\", container=container)\np.parts           # (\"/\", \"etc\", \"myapp\", \"config.yaml\")\n\n# Join with /\np = ContainerPath(\"/etc/myapp\", container=container) / \"config.yaml\"\n\n# Pattern matching\np.match(\"*.yaml\")            # True\np.match(\"/etc/myapp/*.yaml\") # True\n```\n\n### Reading Files\n\n```python\n# Read as text (always UTF-8, newlines normalised to \\n by default)\ntext = p.read_text()\n\n# Read as raw bytes\ndata = p.read_bytes()\n```\n\n### Writing Files\n\n```python\n# Write text (UTF-8)\np.write_text(\"key: value\\n\")\n\n# Write with permissions and ownership\np.write_text(\n    \"key: value\\n\",\n    mode=0o640,\n    user=\"myapp\",\n    group=\"myapp\",\n)\n\n# Write bytes\np.write_bytes(b\"\\x00\\x01\\x02\", mode=0o600, user=\"root\")\n```\n\n### Directories\n\n```python\nlog_dir = ContainerPath(\"/var/log/myapp\", container=container)\n\n# Create directory (parents=True like mkdir -p)\nlog_dir.mkdir(parents=True, exist_ok=True, mode=0o755, user=\"myapp\")\n\n# List contents\nfor child in log_dir.iterdir():\n    print(child.name)\n\n# Glob (no ** support)\nfor f in log_dir.glob(\"*.log\"):\n    print(f)\n```\n\n### Existence & Type Checks\n\n```python\np.exists()    # True/False (follows symlinks)\np.is_file()   # True/False\np.is_dir()    # True/False\np.is_symlink() # True/False (does NOT follow symlinks)\n```\n\n### Removal\n\n```python\np.unlink()                 # Remove a file\np.unlink(missing_ok=True)  # Don't raise if already gone\nlog_dir.rmdir()            # Remove an empty directory\n```\n\n---\n\n## `ensure_contents` \u2014 The Idempotent File Manager\n\n`ensure_contents` is the **recommended way** to declaratively push configuration files into a container. It only writes if something has actually changed, and returns `True` when it does \u2014 making it perfect for triggering a service restart.\n\n```python\nfrom charmlibs.pathops import ContainerPath, ensure_contents\n\ndef _configure(self, event):\n    container = self.unit.get_container(\"myapp\")\n    if not container.can_connect():\n        event.defer()\n        return\n\n    config_path = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n    config_content = f\"\"\"\\\nhost: {self.config[\"host\"]}\nport: {self.config[\"port\"]}\nlog_level: {self.config[\"log-level\"]}\n\"\"\"\n\n    # Returns True if the file was created or changed\n    changed = ensure_contents(\n        config_path,\n        config_content,        # str, bytes, or a file-like object\n        mode=0o640,\n        user=\"myapp\",\n        group=\"myapp\",\n    )\n\n    if changed:\n        container.restart(\"myapp\")  # Only restart when necessary\n```\n\n### What `ensure_contents` checks and sets\n\n| Property | Behaviour |\n|---|---|\n| **File contents** | Writes the file only if contents differ |\n| **Permissions** (`mode`) | Corrects permissions if wrong; default `0o644` |\n| **Ownership** (`user`/`group`) | Corrects ownership if wrong; unchanged if `None` |\n| **Return value** | `True` if **any** change was made (content, perms, or ownership) |\n\n---\n\n## Using `PathProtocol` for Reusable Code\n\nIf you want a helper that works for **both** K8s and machine charms, annotate with `PathProtocol`:\n\n```python\nfrom charmlibs.pathops import PathProtocol, ensure_contents\n\ndef push_config(path: PathProtocol, host: str, port: int) -> bool:\n    content = f\"host: {host}\\nport: {port}\\n\"\n    return ensure_contents(path, content, mode=0o640)\n```\n\nThen call it with either a `ContainerPath` (K8s) or a `LocalPath` (machine), and the code stays identical.\n\n---\n\n## Error Handling\n\n```python\nfrom charmlibs.pathops import ContainerPath, PebbleConnectionError\n\ncontainer = self.unit.get_container(\"myapp\")\npath = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\ntry:\n    changed = ensure_contents(path, \"key: value\\n\")\nexcept PebbleConnectionError:\n    # Workload container not yet ready \u2014 defer the event\n    event.defer()\nexcept PermissionError:\n    # Charm doesn't have permission for this path\n    self.unit.status = ops.BlockedStatus(\"Permission denied writing config\")\nexcept LookupError as e:\n    # Unknown user or group specified\n    self.unit.status = ops.BlockedStatus(f\"Unknown user/group: {e}\")\n```\n\n---\n\n## Summary\n\n- **`ContainerPath`** gives you a `pathlib`-style interface over the Pebble API \u2014 use it anywhere you'd use `pathlib.Path` but targeting the workload container.\n- **`ensure_contents`** is the idempotent, declarative way to manage config files \u2014 it only writes when needed and tells you when it did, so you can conditionally restart services.\n- **`PathProtocol`** lets you write charm helpers that work transparently on both K8s and machine charms.",
+    "stop_reason": "end_turn",
+    "session_id": "57d89cca-3879-4d35-a8b9-36d20526d472",
+    "total_cost_usd": 0.3946347,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 5679,
+      "cache_read_input_tokens": 18072,
+      "output_tokens": 2250,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5679,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 639,
+        "outputTokens": 8002,
+        "cacheReadInputTokens": 118759,
+        "cacheCreationInputTokens": 30898,
+        "webSearchRequests": 0,
+        "costUSD": 0.27344219999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 85785,
+        "outputTokens": 2007,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 12298,
+        "webSearchRequests": 1,
+        "costUSD": 0.12119250000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0a4c1938-fadb-4057-9675-63b6d9f93a22"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:47:05+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_D_opus_run3",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 58440,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 57291,
+    "duration_api_ms": 67166,
+    "num_turns": 10,
+    "result": "## Pebble Change/Task Model\n\nWhen Pebble performs a potentially long-running operation (starting/stopping services, executing commands, etc.), it records a **change** object containing one or more **tasks**.\n\n### Structure\n\nA **Change** has:\n- **id** \u2014 a `ChangeID` (typed string)\n- **kind** \u2014 the operation type: `start`, `stop`, `restart`, `exec`, `replan`, `perform-check`, `recover-check`\n- **status** \u2014 one of: `Do`, `Doing`, `Done`, `Error`, `Abort`, `Undo`, `Undoing`, `Hold`, `Wait`\n- **ready** \u2014 boolean indicating whether the change has completed (successfully or not)\n- **err** \u2014 error message, if applicable\n- **tasks** \u2014 list of `Task` objects comprising the change\n- **spawn_time** / **ready_time** \u2014 timestamps\n\n### Async API pattern\n\nWhen you call an asynchronous Pebble endpoint, it returns a `202 Accepted` with a change ID:\n\n```json\n{\"type\": \"async\", \"status-code\": 202, \"change\": \"42\"}\n```\n\n### Checking completion from a charm (Python/ops)\n\n**1. Service operations** \u2014 `start_services()`, `stop_services()`, `restart_services()`, `replan_services()` all accept a `timeout` parameter. With a non-zero timeout (the default), they block until the change is ready. Setting `timeout=0` returns the `ChangeID` immediately without waiting:\n\n```python\n# Blocks until done (default behaviour):\ncontainer.start(\"myservice\")\n\n# Non-blocking \u2014 get the change ID back:\nchange_id = container.start(\"myservice\", timeout=0)\n```\n\n**2. Waiting on a change explicitly** \u2014 use `Client.wait_change()`:\n\n```python\nchange = container.pebble.wait_change(change_id, timeout=30.0, delay=0.1)\nif change.err:\n    raise RuntimeError(f\"Change failed: {change.err}\")\n```\n\nUnder the hood, if Pebble supports the `/v1/changes/{id}/wait` endpoint it uses long-polling; otherwise it polls `/v1/changes/{id}` at the specified `delay` interval. Raises `TimeoutError` if the timeout is exceeded.\n\n**3. Querying changes** \u2014 use `Client.get_change()` or `Client.get_changes()`:\n\n```python\nchange = container.pebble.get_change(change_id)\nif change.ready:\n    print(\"Done!\")\n\n# List in-progress changes:\nin_progress = container.pebble.get_changes(select=ops.pebble.ChangeState.IN_PROGRESS)\n```\n\n**4. Exec operations** \u2014 `Container.exec()` returns an `ExecProcess` with its own wait methods:\n\n```python\nprocess = container.exec([\"pg_dump\", \"mydb\"])\nstdout, stderr = process.wait_output()  # blocks until complete\n\n# Or just wait without capturing output:\nprocess.wait()\n```\n\nBoth raise `ChangeError` for Pebble-level failures and `ExecError` for non-zero exit codes.\n\n### Error handling\n\n- **`ops.pebble.ChangeError`** \u2014 raised when a change completes with an error; the `.change` attribute holds the full `Change` object.\n- **`ops.pebble.ExecError`** \u2014 raised on non-zero exit codes from `exec()`; includes `.command`, `.exit_code`, `.stdout`, and `.stderr`.",
+    "stop_reason": "end_turn",
+    "session_id": "75d03c3b-4a15-492f-9f0e-aa3bab7207f7",
+    "total_cost_usd": 0.22273824999999997,
+    "usage": {
+      "input_tokens": 48,
+      "cache_creation_input_tokens": 11633,
+      "cache_read_input_tokens": 111682,
+      "output_tokens": 1876,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11633,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 48,
+        "outputTokens": 1876,
+        "cacheReadInputTokens": 111682,
+        "cacheCreationInputTokens": 11633,
+        "webSearchRequests": 0,
+        "costUSD": 0.17568725,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 36811,
+        "outputTokens": 2048,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.047050999999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "835b81cd-8598-4f4a-97bb-ba0a959afc7a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:35:37+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q4_D_sonnet_run3",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 15931,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 14602,
+    "duration_api_ms": 14591,
+    "num_turns": 1,
+    "result": "`ActionEvent.fail(message)` is an intentional, controlled failure \u2014 it sets the action result status to failed with your message and is the correct way to signal that an action could not complete its goal (e.g. invalid parameters, preconditions not met). Execution continues after the call unless you also `return`.\n\nRaising an unhandled exception is an *unexpected* crash. Ops catches it, marks the action as failed, but the message shown to the user is less controlled and it signals a bug in the charm rather than a legitimate failure condition.\n\nKey practical differences:\n\n| | `event.fail(msg)` | Unhandled exception |\n|---|---|---|\n| User-facing message | Your `msg` | Exception type/traceback details |\n| Signals | Expected failure | Charm bug |\n| Partial results | Can still call `event.set_results()` before failing | Results may not be set |\n| Execution | Continues (you must `return`) | Stops immediately |\n| Juju logs | Clean | Includes traceback |\n\nThe idiomatic pattern is:\n\n```python\ndef _on_my_action(self, event: ops.ActionEvent) -> None:\n    if not self._is_ready():\n        event.fail(\"Service is not ready\")\n        return\n    # do the work...\n    event.set_results({\"result\": \"done\"})\n```\n\nReserve exceptions for genuinely unexpected conditions (programming errors). Use `fail()` for any case where the action legitimately cannot proceed \u2014 wrong state, bad input, etc.",
+    "stop_reason": "end_turn",
+    "session_id": "3f45d878-2099-4936-890f-61a12a268763",
+    "total_cost_usd": 0.0407853,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7428,
+      "cache_read_input_tokens": 11271,
+      "output_tokens": 636,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7428,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 636,
+        "cacheReadInputTokens": 11271,
+        "cacheCreationInputTokens": 7428,
+        "webSearchRequests": 0,
+        "costUSD": 0.0407853,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "288e8212-91a8-4cad-85f6-5fa7653207da"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:25:41+1300"
+}
