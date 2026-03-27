@@ -25,6 +25,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import (
     Footer,
     Header,
+    Input,
     Label,
     Markdown,
     Static,
@@ -152,9 +153,12 @@ class ReviewApp(App):
     }
     #scores-panel {
         height: auto;
-        max-height: 14;
+        max-height: 18;
         border-top: solid $primary;
         padding: 1;
+    }
+    #human-note {
+        margin-top: 1;
     }
     #status-bar {
         height: 1;
@@ -186,7 +190,9 @@ class ReviewApp(App):
         Binding("3", "cycle_dim_3", "Dim 3"),
         Binding("4", "cycle_dim_4", "Dim 4"),
         Binding("s", "save_review", "Save"),
+        Binding("c", "focus_note", "Comment"),
         Binding("tab", "focus_next", "Focus next", show=False),
+        Binding("escape", "unfocus_note", "Back to keys", show=False),
     ]
 
     def __init__(self, items: list[dict]):
@@ -194,6 +200,7 @@ class ReviewApp(App):
         self.items = items
         self.current_index = 0
         self.human_scores: dict[str, dict[str, int]] = {}  # session_id -> {dim: score}
+        self.human_notes: dict[str, str] = {}  # session_id -> note
         self.saved_count = 0
 
     def compose(self) -> ComposeResult:
@@ -211,6 +218,7 @@ class ReviewApp(App):
             with Vertical(id="scores-panel"):
                 yield Static("", id="scores-display")
                 yield Static("", id="notes-display")
+                yield Input(placeholder="Press [c] to add a note explaining score overrides...", id="human-note")
         yield Static("", id="status-bar")
         yield Footer()
 
@@ -283,6 +291,10 @@ class ReviewApp(App):
             "\n".join(notes_parts) if notes_parts else ""
         )
 
+        # Restore note for this item
+        note_input = self.query_one("#human-note", Input)
+        note_input.value = self.human_notes.get(item["session_id"], "")
+
         # Status
         reviewed = sum(
             1 for it in self.items
@@ -292,7 +304,7 @@ class ReviewApp(App):
             f"  [{self.current_index + 1}/{len(self.items)}]  "
             f"Saved: {self.saved_count}  "
             f"Reviewed: {reviewed}/{len(self.items)}  "
-            f"Keys: [n]ext [p]rev [1-4] cycle score [a]ccept all [s]ave [q]uit"
+            f"Keys: [n]ext [p]rev [1-4] cycle score [a]ccept all [c]omment [s]ave [q]uit"
         )
 
     def _cycle_dim(self, dim_index: int) -> None:
@@ -316,6 +328,21 @@ class ReviewApp(App):
 
     def action_cycle_dim_4(self) -> None:
         self._cycle_dim(3)
+
+    def action_focus_note(self) -> None:
+        """Focus the note input field."""
+        self.query_one("#human-note", Input).focus()
+
+    def action_unfocus_note(self) -> None:
+        """Unfocus the note input and return to key bindings."""
+        self.set_focus(None)
+
+    @on(Input.Changed, "#human-note")
+    def _on_note_changed(self, event: Input.Changed) -> None:
+        """Store the note as the user types."""
+        if self.items:
+            sid = self.items[self.current_index]["session_id"]
+            self.human_notes[sid] = event.value
 
     def action_accept_all(self) -> None:
         """Accept all judge scores as-is and save."""
@@ -353,6 +380,8 @@ class ReviewApp(App):
             human_val = human.get(d, judge_val)
             agreements[d] = judge_val == human_val
 
+        note = self.human_notes.get(item["session_id"], "")
+
         review = {
             "session_id": item["session_id"],
             "question_id": item["question_id"],
@@ -361,6 +390,7 @@ class ReviewApp(App):
             "run_number": item["run_number"],
             "judge_scores": {d: item["judge_scores"].get(d, 0) for d in dims},
             "human_scores": human,
+            "human_note": note if note else None,
             "agreements": agreements,
             "all_agreed": all(agreements.values()),
         }
