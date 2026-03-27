@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_E_sonnet_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 178215,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 177093,
+    "duration_api_ms": 207647,
+    "num_turns": 2,
+    "result": "Here's the correct way to implement the **provider side of a relation** using charmlibs:\n\n---\n\n## 1. File Structure\n\nPlace your library at:\n```\nlib/charms/<your-charm>/v0/<libname>.py\n```\n\nEvery charm library file **must** start with these metadata constants:\n\n```python\n\"\"\"Library docstring (published to Charmhub).\"\"\"\n\nLIBID = \"abc123...\"   # Unique ID from `charmcraft create-lib` \u2014 NEVER change this\nLIBAPI = 0            # Major version (matches the v<N> in the path)\nLIBPATCH = 1          # Patch version (reset to 0 when LIBAPI increments)\n# PYDEPS = [\"pydantic>=2\"]  # Optional: pip dependencies\n```\n\n---\n\n## 2. Declare the Endpoint in `charmcraft.yaml`\n\n```yaml\nprovides:\n  smtp:\n    interface: smtp\n```\n\n---\n\n## 3. Implement the Provider Class\n\nThe standard pattern is a class inheriting from `ops.Object` that observes relation events:\n\n```python\nimport ops\nfrom ops import CharmBase, Object\n\nclass SmtpProvider(Object):\n    def __init__(self, charm: CharmBase, relation_name: str = \"smtp\"):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        charm.framework.observe(\n            charm.on[relation_name].relation_created, self._on_relation_created\n        )\n        charm.framework.observe(\n            charm.on[relation_name].relation_joined, self._on_relation_joined\n        )\n        charm.framework.observe(\n            charm.on[relation_name].relation_departed, self._on_relation_departed\n        )\n        charm.framework.observe(\n            charm.on[relation_name].relation_broken, self._on_relation_broken\n        )\n\n    def _on_relation_created(self, event: ops.RelationCreatedEvent):\n        # Fires once when a requirer integrates. Leader writes to the APP databag.\n        if not self._charm.unit.is_leader():\n            return\n        event.relation.data[self._charm.app][\"endpoint\"] = self._get_endpoint()\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        # Fires per requirer unit joining. Write per-unit data to the UNIT databag.\n        event.relation.data[self._charm.unit][\"secret_id\"] = self._create_user(event.unit)\n\n    def _on_relation_departed(self, event: ops.RelationDepartedEvent):\n        # Clean up per-unit resources.\n        self._remove_user(event.unit)\n\n    def _on_relation_broken(self, event: ops.RelationBrokenEvent):\n        # Clean up app-level resources.\n        if not self._charm.unit.is_leader():\n            return\n        self._drop_service_account(event.app)\n```\n\n---\n\n## 4. Advanced: Custom Events (Recommended for Clean APIs)\n\nRather than exposing raw relation events, emit **custom events** so the consuming charm gets a meaningful, stable API:\n\n```python\nfrom ops import CharmBase, EventBase, EventSource, CharmEvents, Object\n\nclass SmtpRequestedEvent(EventBase):\n    \"\"\"Emitted when a requirer requests SMTP integration.\"\"\"\n\nclass SmtpProviderEvents(CharmEvents):\n    smtp_requested = EventSource(SmtpRequestedEvent)\n\nclass SmtpProvider(Object):\n    on = SmtpProviderEvents()  # Custom event bus\n\n    def __init__(self, charm: CharmBase, relation_name: str = \"smtp\"):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n        charm.framework.observe(\n            charm.on[relation_name].relation_joined, self._on_relation_joined\n        )\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        # Translate the raw event into a meaningful custom event\n        self.on.smtp_requested.emit()\n\n    def update_relation_data(self, relation_id: int, data: dict):\n        \"\"\"Public API for the provider charm to push data into the databag.\"\"\"\n        relation = self.model.get_relation(self._relation_name, relation_id)\n        if relation:\n            for key, value in data.items():\n                relation.data[self.model.app][key] = value\n```\n\nThe provider charm then uses it like:\n\n```python\nclass MySmtpCharm(CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.smtp_provider = SmtpProvider(self, \"smtp\")\n        self.framework.observe(\n            self.smtp_provider.on.smtp_requested, self._on_smtp_requested\n        )\n\n    def _on_smtp_requested(self, event):\n        self.smtp_provider.update_relation_data(event.relation.id, {\n            \"host\": \"smtp.example.com\",\n            \"port\": \"587\",\n        })\n```\n\n---\n\n## 5. Key Rules\n\n| Rule | Detail |\n|---|---|\n| **App databag** | Only the **leader unit** may write to `relation.data[self.app]` |\n| **Unit databag** | Any unit may write to `relation.data[self.unit]` |\n| **`LIBID`** | Never change it after creation \u2014 it is the library's permanent identity |\n| **`LIBAPI`** | Increment on breaking changes; reset `LIBPATCH` to 0 |\n| **Custom events** | Preferred over exposing raw `ops` events \u2014 gives consumers a stable, meaningful API |\n\n---\n\n## 6. Workflow to Create & Publish\n\n```bash\n# 1. Scaffold the file (auto-assigns a LIBID)\ncharmcraft create-lib <libname>\n\n# 2. Implement your provider class in:\n#    lib/charms/<your-charm>/v0/<libname>.py\n\n# 3. Publish to Charmhub\ncharmcraft publish-lib charms.<your-charm>.v0.<libname>\n\n# 4. Consumers can then fetch it\ncharmcraft fetch-lib charms.<your-charm>.v0.<libname>\n```\n\nThe custom events pattern (step 4) is the approach used by production libraries like [`glauth-k8s`'s LDAP provider](https://charmhub.io/glauth-k8s/libraries/ldap) and is strongly recommended for any library you intend to share.",
+    "stop_reason": "end_turn",
+    "session_id": "2b66ad13-b68e-4402-b987-48b5e35414c8",
+    "total_cost_usd": 0.3845855000000001,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4513,
+      "cache_read_input_tokens": 18039,
+      "output_tokens": 2061,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4513,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 594,
+        "outputTokens": 7551,
+        "cacheReadInputTokens": 136685,
+        "cacheCreationInputTokens": 19231,
+        "webSearchRequests": 0,
+        "costUSD": 0.22816875,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 43548,
+        "outputTokens": 5782,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 43167,
+        "webSearchRequests": 3,
+        "costUSD": 0.15641675,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "254484a7-1ce5-4491-a619-e9eaba6c20e6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:17:22+1300"
+}

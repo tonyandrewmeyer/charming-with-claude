@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_E_sonnet_run1",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 49412,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 48227,
+    "duration_api_ms": 50523,
+    "num_turns": 4,
+    "result": "Here is a comprehensive guide to configuring Pebble log forwarding to Loki.\n\n---\n\n## Pebble Log Forwarding: Layer YAML & Protocol Options\n\n### Full Layer YAML Example\n\n```yaml\nlog-targets:\n  loki-logging:\n    override: merge\n    type: loki\n    location: http://loki-server:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      environment: production\n      region: $REGION          # interpolated from service's env vars\n      app: $APP_NAME\n```\n\n---\n\n### Top-Level Fields\n\n| Field | Required | Description |\n|---|---|---|\n| `override` | \u2705 | `merge` or `replace` \u2014 controls how this layer combines with others |\n| `type` | \u2705 | The protocol/destination type (see below) |\n| `location` | \u2705 | The remote endpoint URL |\n| `services` | \u2705 | Which services to forward logs from |\n| `labels` | \u274c | Custom key/value labels attached to log streams |\n\n---\n\n### Protocol Options (`type`)\n\nPebble supports **three protocols**, each with its own URL scheme for `location`:\n\n#### 1. `loki` \u2014 Grafana Loki (HTTP/JSON push)\n```yaml\ntype: loki\nlocation: http://<host>:3100/loki/api/v1/push\n```\n- Uses **HTTP POST** to Loki's push API\n- You **must** include the full API path (`/loki/api/v1/push`)\n- Default Loki port is `3100`\n\n#### 2. `otlp` \u2014 OpenTelemetry Protocol (HTTP)\n```yaml\ntype: otlp\nlocation: http://<host>:4318\n```\n- Uses the **OTLP HTTP** endpoint\n- Do **not** append an API path \u2014 Pebble handles the endpoint internally\n- Default OTLP HTTP port is `4318`\n\n#### 3. `syslog` \u2014 Syslog (TCP or UDP)\n```yaml\n# TCP\ntype: syslog\nlocation: tcp://<host>:<port>\n\n# UDP\ntype: syslog\nlocation: udp://<host>:<port>\n```\n- Supports both **TCP** (reliable) and **UDP** (fire-and-forget) transport\n- Choose TCP for guaranteed delivery, UDP for lower overhead\n\n---\n\n### `services` Field \u2014 Filtering Which Services Are Forwarded\n\n```yaml\nservices: [all]              # all current and future services\nservices: [web, worker]      # only specific services\nservices: [all, -migrations] # all except 'migrations' (merge-time exclusion)\nservices: [-all]             # remove all previously configured services\n```\n\n> \u26a0\ufe0f If `services` is **omitted entirely**, no logs are forwarded for that target.\n\n---\n\n### `labels` Field \u2014 Label Interpolation\n\n```yaml\nlabels:\n  pebble_service: my-svc     # Pebble sets this automatically; you can override it\n  env: production\n  host: $HOSTNAME             # resolved from *each service's* environment variables\n  release: $RELEASE_VERSION\n```\n\n- Pebble automatically adds a `pebble_service` label containing the originating service name.\n- Custom label **values** support `$VAR` interpolation, resolved **per-service** at runtime using that service's own environment.\n\n---\n\n### Practical Charm Example\n\nIn a charm using the `loki-push-api` relation, you'd typically build the layer dynamically:\n\n```python\ndef _loki_layer(self, loki_url: str) -> ops.pebble.Layer:\n    return ops.pebble.Layer({\n        \"log-targets\": {\n            \"loki\": {\n                \"override\": \"replace\",\n                \"type\": \"loki\",\n                \"location\": loki_url,      # e.g. from cos-lite relation data\n                \"services\": [\"all\"],\n                \"labels\": {\n                    \"juju_application\": self.app.name,\n                    \"juju_model\": self.model.name,\n                    \"juju_unit\": self.unit.name,\n                },\n            }\n        }\n    })\n```\n\nPush it whenever the Loki relation changes:\n```python\ncontainer.add_layer(\"loki\", self._loki_layer(loki_url), combine=True)\n```\n\n---\n\n### Key Takeaways\n\n- **Loki** \u2192 full HTTP push URL including `/loki/api/v1/push`\n- **OTLP** \u2192 base HTTP URL only, no path suffix\n- **Syslog** \u2192 `tcp://` or `udp://` scheme, your choice of transport\n- `services: [all]` is the most common charm pattern \u2014 it captures every service without naming them individually\n- Label values are interpolated **per service** from that service's environment, making them dynamic and context-aware",
+    "stop_reason": "end_turn",
+    "session_id": "3e6a990d-35c3-4b91-998f-3f217d85aa38",
+    "total_cost_usd": 0.07872965,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 3134,
+      "cache_read_input_tokens": 39304,
+      "output_tokens": 1723,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3134,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 10,
+        "outputTokens": 1723,
+        "cacheReadInputTokens": 39304,
+        "cacheCreationInputTokens": 3134,
+        "webSearchRequests": 0,
+        "costUSD": 0.049418699999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 2912,
+        "outputTokens": 1472,
+        "cacheReadInputTokens": 13002,
+        "cacheCreationInputTokens": 14191,
+        "webSearchRequests": 0,
+        "costUSD": 0.02931095,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "263158b6-5459-4ce0-8182-ae668bd01c66"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:42:48+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_E_sonnet_run1",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 24764,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 23515,
+    "duration_api_ms": 23506,
+    "num_turns": 1,
+    "result": "Here's a complete, well-annotated Pebble layer YAML covering all three requirements:\n\n```yaml\nsummary: Application layer\n\ndescription: |\n  Pebble layer defining the main application service with an HTTP health\n  check, custom environment variables, and a log forwarding target.\n\nservices:\n  myapp:\n    summary: Main application service\n    description: |\n      Runs the primary application binary and restarts it automatically\n      on failure.\n\n    # --- Lifecycle ---\n    startup: enabled          # Start automatically when Pebble starts\n    command: /usr/bin/myapp --config /etc/myapp/config.yaml\n    working-dir: /var/lib/myapp\n    user: myapp               # Drop privileges to this OS user\n    group: myapp\n\n    # --- Restart policy ---\n    on-failure: restart       # restart | shutdown | ignore\n    backoff-delay: 500ms      # Initial back-off before first restart\n    backoff-factor: 2.0       # Multiply delay by this factor each retry\n    backoff-limit: 30s        # Cap the back-off at this duration\n\n    # --- Custom environment variables ---\n    environment:\n      APP_ENV: production\n      APP_PORT: \"8080\"\n      APP_LOG_LEVEL: info\n      DATABASE_URL: postgresql://localhost:5432/myappdb\n      SECRET_KEY: changeme                # Override at deploy time\n\n    # --- Health checks (referenced below) ---\n    # The service is considered ready only when ALL listed checks pass.\n    requires:\n      - myapp-http-ready\n\nchecks:\n  # HTTP liveness / readiness probe\n  myapp-http-ready:\n    override: replace         # Replace any layer below that defines this check\n    level: ready              # \"alive\" | \"ready\"  (ready = full readiness)\n\n    # Pebble marks the check unhealthy after this many consecutive failures\n    threshold: 3\n\n    period: 10s               # How often to run the check\n    timeout: 3s               # Per-attempt timeout\n\n    http:\n      url: http://localhost:8080/healthz\n      headers:\n        Accept: application/json\n        X-Health-Token: internal\n\n  # Optional: a lighter TCP \"alive\" check\n  myapp-tcp-alive:\n    override: replace\n    level: alive\n    threshold: 2\n    period: 5s\n    timeout: 1s\n    tcp:\n      port: 8080\n\nlog-targets:\n  loki-main:\n    override: replace\n    type: loki                # \"loki\" is the only built-in remote log type\n    location: http://loki.monitoring.svc:3100/loki/api/v1/push\n\n    # Which services feed into this target (\"all\" or an explicit list)\n    services:\n      - myapp\n\n    # Static labels attached to every log stream sent to Loki\n    labels:\n      app: myapp\n      env: production\n      host: \"${HOSTNAME}\"     # Pebble expands $ENV_VAR references\n```\n\n---\n\n### Key concepts illustrated\n\n| Section | What it does |\n|---|---|\n| `services.myapp` | Declares the long-running process Pebble manages |\n| `environment` | Per-service key/value pairs injected into the process environment |\n| `requires` | Ties service readiness to one or more named checks |\n| `checks.myapp-http-ready` | HTTP probe \u2014 Pebble polls the URL; three consecutive failures mark the check failed |\n| `checks.myapp-tcp-alive` | Lighter TCP dial-only probe for liveness |\n| `log-targets.loki-main` | Forwards all stdout/stderr from listed services to a remote Loki endpoint |\n\n### How to apply this in a Juju charm\n\n```python\n# In your charm's _on_pebble_ready handler:\nimport yaml, pathlib\n\nlayer_yaml = pathlib.Path(\"src/pebble_layer.yaml\").read_text()\ncontainer = self.unit.get_container(\"myapp\")\ncontainer.add_layer(\"myapp\", yaml.safe_load(layer_yaml), combine=True)\ncontainer.replan()   # Starts / restarts services as needed\n```\n\n> **Tip \u2014 `override: replace` vs `merge`:** Use `replace` (shown above) so your layer always wins over any base layer. Use `merge` only when you intentionally want to *patch* a field defined in a lower layer.",
+    "stop_reason": "end_turn",
+    "session_id": "2ab28326-093d-4677-8a8c-15474993802d",
+    "total_cost_usd": 0.023754149999999998,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1073,
+      "cache_read_input_tokens": 8488,
+      "output_tokens": 1145,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1073,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1145,
+        "cacheReadInputTokens": 8488,
+        "cacheCreationInputTokens": 1073,
+        "webSearchRequests": 0,
+        "costUSD": 0.023754149999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "69108872-147d-4208-93af-82c34559e1c8"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:20:34+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_E_sonnet_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 99325,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 98101,
+    "duration_api_ms": 110097,
+    "num_turns": 2,
+    "result": "## Using `ops.CollectStatusEvent` to Set Charm Status\n\n`CollectStatusEvent` is the **recommended** way to manage charm status. Instead of imperatively setting `self.unit.status = ...` scattered throughout your handlers, you centralise all status logic in one place. At the end of every hook, the framework fires the event, collects all statuses added via `event.add_status()`, and automatically surfaces the **highest-priority** one.\n\nThere are two events:\n- `collect_unit_status` \u2014 fires on every unit\n- `collect_app_status` \u2014 fires on the **leader unit only**\n\n---\n\n### Priority Order\n\n| Priority | Status |\n|---|---|\n| 1 (highest) | `BlockedStatus` |\n| 2 | `MaintenanceStatus` |\n| 3 | `WaitingStatus` |\n| 4 (lowest) | `ActiveStatus` |\n\nOn a tie, the **first one added wins**.\n\n---\n\n### Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm demonstrating CollectStatusEvent for status management.\"\"\"\n\nimport ops\n\n\nclass MyAppCharm(ops.CharmBase):\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Observe the lifecycle events that handle status\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Observe normal operational events (no status-setting needed here)\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on.db_relation_changed, self._on_db_relation_changed)\n\n    # -------------------------------------------------------------------------\n    # Operational handlers \u2014 do work, but don't set status directly\n    # -------------------------------------------------------------------------\n\n    def _on_install(self, event: ops.InstallEvent):\n        self.unit.status = ops.MaintenanceStatus(\"installing packages\")\n        # ... install logic ...\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # ... apply config ...\n        pass\n\n    def _on_db_relation_changed(self, event: ops.RelationChangedEvent):\n        # ... handle relation data ...\n        pass\n\n    # -------------------------------------------------------------------------\n    # Status handlers \u2014 the single source of truth for unit/app status\n    # -------------------------------------------------------------------------\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called at the end of every hook on every unit.\"\"\"\n\n        # Check required config\n        if not self.config.get(\"api-key\"):\n            event.add_status(ops.BlockedStatus('required config \"api-key\" not set'))\n\n        # Check required relation\n        if not self.model.relations.get(\"db\"):\n            event.add_status(ops.WaitingStatus(\"waiting for database relation\"))\n            return  # No point checking further\n\n        # Check that relation data is populated\n        db_relation = self.model.relations[\"db\"][0]\n        if not db_relation.data[db_relation.app].get(\"host\"):\n            event.add_status(ops.WaitingStatus(\"waiting for database host\"))\n            return\n\n        # All good\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called at the end of every hook on the leader unit only.\"\"\"\n\n        # Inspect peer data to detect degraded units\n        peers = self.model.relations.get(\"peers\")\n        if not peers:\n            event.add_status(ops.WaitingStatus(\"waiting for peer relation\"))\n            return\n\n        degraded = [\n            unit.name\n            for unit in peers[0].units\n            if peers[0].data[unit].get(\"status\") == \"degraded\"\n        ]\n\n        if degraded:\n            event.add_status(\n                ops.BlockedStatus(f\"degraded units: {', '.join(degraded)}\")\n            )\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n\nif __name__ == \"__main__\":\n    ops.main(MyAppCharm)\n```\n\n---\n\n### Key Points\n\n| Topic | Detail |\n|---|---|\n| **Registration** | Use `framework.observe(self.on.collect_unit_status, ...)` in `__init__` |\n| **Multiple handlers** | You can register multiple handlers (e.g. from library components); each calls `add_status()` independently |\n| **Priority wins** | The framework picks the worst (highest-priority) status automatically \u2014 no manual `if/elif` chains needed |\n| **Tie-breaking** | First `add_status()` call wins among same-priority statuses |\n| **Invalid statuses** | `ErrorStatus` and `UnknownStatus` **cannot** be passed to `add_status()` |\n| **App status** | Only the leader should observe `collect_app_status`; the framework handles this automatically |\n| **Maintenance during hooks** | You can still set `self.unit.status = ops.MaintenanceStatus(...)` mid-hook (e.g. during install) for immediate feedback |\n\n---\n\n### Multi-Component Pattern (Library Best Practice)\n\nWhen building charm libraries, each component observes `collect_unit_status` independently \u2014 no coordination needed:\n\n```python\nclass DatabaseComponent(ops.Object):\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"database\")\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        if not self._is_connected():\n            event.add_status(ops.WaitingStatus(\"waiting for database\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n\nclass CacheComponent(ops.Object):\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"cache\")\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        if not self._is_ready():\n            event.add_status(ops.BlockedStatus(\"cache misconfigured\"))\n            return\n        event.add_status(ops.ActiveStatus())\n```\n\nThe framework merges all the `add_status()` calls from every component and surfaces the worst one \u2014 making `CollectStatusEvent` a clean, scalable pattern for complex charms.",
+    "stop_reason": "end_turn",
+    "session_id": "8a141fe4-46a9-466e-90c9-a35c66fc9dba",
+    "total_cost_usd": 0.26599715,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3206,
+      "cache_read_input_tokens": 18042,
+      "output_tokens": 2000,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3206,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 223,
+        "outputTokens": 4800,
+        "cacheReadInputTokens": 76638,
+        "cacheCreationInputTokens": 10420,
+        "webSearchRequests": 0,
+        "costUSD": 0.1347354,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 85653,
+        "outputTokens": 2571,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 18203,
+        "webSearchRequests": 1,
+        "costUSD": 0.13126174999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "fe76eb2d-5e28-4b85-a69b-2069147e0a46"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:39:28+1300"
+}

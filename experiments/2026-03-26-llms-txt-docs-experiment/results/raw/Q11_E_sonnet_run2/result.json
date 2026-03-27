@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_E_sonnet_run2",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 50762,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 49559,
+    "duration_api_ms": 63494,
+    "num_turns": 2,
+    "result": "Here's how to add a relation between two applications and verify data was exchanged using **jubilant**:\n\n---\n\n## 1. Add a Relation with `juju.integrate()`\n\nUse `juju.integrate()` to create a relation between two deployed applications:\n\n```python\nimport jubilant\n\ndef test_relation(juju: jubilant.Juju):\n    juju.deploy('mysql')\n    juju.deploy('wordpress')\n\n    # Integrate by app name (jubilant infers compatible endpoints)\n    juju.integrate('wordpress', 'mysql')\n```\n\nIf there are **multiple possible endpoints**, specify them explicitly using `app:endpoint` notation:\n\n```python\njuju.integrate('mysql:db', 'wordpress:database')\n```\n\n---\n\n## 2. Verify Data Was Exchanged\n\nAfter integrating, use `juju.wait()` with `jubilant.all_active()` to confirm both applications settled into `active` status \u2014 which means their hooks ran successfully and relation data was exchanged:\n\n```python\njuju.wait(\n    lambda status: jubilant.all_active(status, 'wordpress', 'mysql'),\n    timeout=300,\n)\n```\n\n- **`jubilant.all_active(status, *apps)`** returns `True` only when all specified apps **and all their units** are in the `active` workload state.\n- Since a charm typically transitions to `active` only after its `relation-changed` hook processes the remote app's data, reaching `active` is a strong signal that relation data was successfully exchanged.\n\n---\n\n## 3. Inspect Status for More Detail\n\nFor finer-grained verification, inspect the `Status` object directly:\n\n```python\nstatus = juju.status()\n\n# Check a specific app's status message\nprint(status.apps['wordpress'].app_status.message)\n\n# Check individual unit status\nprint(status.apps['wordpress'].units['wordpress/0'].workload_status.message)\n```\n\n---\n\n## Full Example\n\n```python\nimport jubilant\n\ndef test_wordpress_mysql_relation(juju: jubilant.Juju):\n    juju.deploy('mysql')\n    juju.deploy('wordpress')\n\n    juju.integrate('wordpress:database', 'mysql:db')\n\n    # Wait for both apps to go active \u2014 confirms relation data was exchanged\n    juju.wait(\n        lambda status: jubilant.all_active(status, 'wordpress', 'mysql'),\n        timeout=300,\n    )\n\n    status = juju.status()\n    assert 'ready' in status.apps['wordpress'].units['wordpress/0'].workload_status.message\n```\n\n---\n\n### Key Points\n\n| Concept | Detail |\n|---|---|\n| `juju.integrate(a, b)` | Creates the Juju relation (calls `juju integrate` under the hood) |\n| `app:endpoint` syntax | Required when apps share multiple possible relation types |\n| `jubilant.all_active()` | Confirms hooks ran and relation data was processed |\n| `juju.status()` | Lets you inspect app/unit status messages for custom assertions |",
+    "stop_reason": "end_turn",
+    "session_id": "6c501c80-fd1c-472e-a6ed-82c0146868ee",
+    "total_cost_usd": 0.17799370000000003,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 1097,
+      "cache_read_input_tokens": 19106,
+      "output_tokens": 1050,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1097,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1050,
+        "cacheReadInputTokens": 19106,
+        "cacheCreationInputTokens": 1097,
+        "webSearchRequests": 0,
+        "costUSD": 0.02561355,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 41982,
+        "outputTokens": 3509,
+        "cacheReadInputTokens": 21244,
+        "cacheCreationInputTokens": 48583,
+        "webSearchRequests": 3,
+        "costUSD": 0.15238015000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2833f548-92f3-4af4-8c5b-fc6b454aef2f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:49:05+1300"
+}

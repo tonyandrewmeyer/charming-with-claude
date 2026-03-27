@@ -1,0 +1,67 @@
+{
+  "session_id": "Q12_E_sonnet_run3",
+  "question_id": "Q12",
+  "category": "jubilant",
+  "question": "How do you run a Juju action on a unit and check its results using jubilant?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 130646,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 129408,
+    "duration_api_ms": 139513,
+    "num_turns": 2,
+    "result": "## Running a Juju Action with jubilant\n\n### The `juju.run()` method\n\nUse `Juju.run()` to execute an action on a unit and wait for it to complete:\n\n```python\njuju.run(unit, action, params=None, *, wait=None) -> Task\n```\n\n| Parameter | Type | Description |\n|-----------|------|-------------|\n| `unit` | `str` | Target unit, e.g. `\"mysql/0\"` or `\"mysql/leader\"` |\n| `action` | `str` | Name of the action to run |\n| `params` | `dict \\| None` | Optional key/value parameters for the action |\n| `wait` | `float \\| None` | Timeout in seconds (raises `TimeoutError` if exceeded) |\n\n---\n\n### The `Task` result object\n\n`run()` returns a frozen `Task` dataclass:\n\n```python\ntask.id           # Juju task ID\ntask.status       # 'completed', 'failed', 'error', 'aborted', 'cancelled'\ntask.results      # dict of charm-provided return values\ntask.return_code  # exit code of the action hook\ntask.stdout       # stdout from the action hook\ntask.stderr       # stderr from the action hook\ntask.message      # failure message (set by action-fail in the charm)\ntask.log          # list of messages from action-log calls\ntask.success      # True only if status=='completed' AND return_code==0\n```\n\n> **Note:** `run()` automatically raises `TaskError` on failure before returning, so a returned `Task` is always successful.\n\n---\n\n### Examples\n\n#### Basic action run\n\n```python\nimport jubilant\n\njuju = jubilant.Juju()\n\ntask = juju.run(\"mysql/0\", \"get-password\")\nassert task.success\nprint(task.results[\"password\"])\n```\n\n#### Action with parameters\n\n```python\ntask = juju.run(\"myapp/0\", \"set-value\", {\"key\": \"foo\", \"value\": \"bar\"})\nassert task.success\nassert task.results[\"stored\"] == \"foo=bar\"\n```\n\n#### Run on the leader unit\n\n```python\ntask = juju.run(\"mysql/leader\", \"rotate-password\")\nassert task.success\n```\n\n#### Check stdout, stderr, and logs\n\n```python\ntask = juju.run(\"myapp/0\", \"diagnose\")\nprint(task.stdout)   # printed output from the hook\nprint(task.stderr)   # error output\nprint(task.log)      # e.g. ['2026-03-28 10:00:00 Log message']\n```\n\n#### Handle action failure (`action-fail` in the charm)\n\n```python\nimport pytest\n\nwith pytest.raises(jubilant.TaskError) as exc_info:\n    juju.run(\"myapp/0\", \"do-thing\", {\"trigger-error\": True})\n\ntask = exc_info.value.task\nassert task.status == \"failed\"\nassert \"something went wrong\" in task.message\n```\n\n#### Handle a Python exception in the charm action\n\n```python\nwith pytest.raises(jubilant.TaskError) as exc_info:\n    juju.run(\"myapp/0\", \"do-thing\", {\"raise-exception\": True})\n\ntask = exc_info.value.task\nassert task.return_code != 0      # non-zero due to unhandled exception\nassert \"Traceback\" in task.stderr\n```\n\n#### Set a timeout\n\n```python\n# Raises TimeoutError if the action takes more than 30 seconds\ntask = juju.run(\"myapp/0\", \"slow-action\", wait=30)\n```\n\n---\n\n### In an integration test\n\n```python\n# conftest.py\nimport pytest, jubilant\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    with jubilant.temp_model() as juju:\n        juju.deploy(\"my-charm\")\n        juju.wait(jubilant.all_active)\n        yield juju\n\n# test_actions.py\ndef test_get_password(juju: jubilant.Juju):\n    task = juju.run(\"my-charm/0\", \"get-password\")\n    assert task.success\n    assert len(task.results[\"password\"]) > 0\n```\n\n---\n\n### Key points to remember\n\n- **`run()` raises `TaskError` automatically** on failure \u2014 you only need `task.success` if you're handling failures conditionally rather than in a `pytest.raises` block.\n- **`task.results`** never includes `return-code`, `stdout`, or `stderr` \u2014 jubilant parses those into their own dedicated attributes.\n- Use **`juju.exec()`** instead of `run()` for arbitrary shell commands (not Juju actions).",
+    "stop_reason": "end_turn",
+    "session_id": "f4fc4a45-54e8-4091-aba6-c538cfa9d241",
+    "total_cost_usd": 0.35441265,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3065,
+      "cache_read_input_tokens": 19106,
+      "output_tokens": 1427,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3065,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 544,
+        "outputTokens": 6298,
+        "cacheReadInputTokens": 208133,
+        "cacheCreationInputTokens": 23419,
+        "webSearchRequests": 0,
+        "costUSD": 0.24636314999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 39917,
+        "outputTokens": 2348,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 29114,
+        "webSearchRequests": 2,
+        "costUSD": 0.10804949999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1d1cd36c-d875-476d-aef8-5b0add134d7d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T10:01:28+1300"
+}

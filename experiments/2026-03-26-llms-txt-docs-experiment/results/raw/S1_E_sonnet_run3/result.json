@@ -1,0 +1,57 @@
+{
+  "session_id": "S1_E_sonnet_run3",
+  "question_id": "S1",
+  "category": "synthesis",
+  "question": "Write a minimal K8s charm (`src/charm.py` + `charmcraft.yaml`) that sets ActiveStatus on install and WaitingStatus if a 'name' config option is empty.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 40768,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 39186,
+    "duration_api_ms": 39080,
+    "num_turns": 8,
+    "result": "Both files are written. Here's a full walkthrough of what was created:\n\n---\n\n### `charmcraft.yaml`\n\n```yaml\nname: my-k8s-charm\ntype: charm\n...\nbases:\n  - build-on / run-on: ubuntu 22.04   # standard build target\n\nconfig:\n  options:\n    name:\n      type: string\n      default: \"\"                      # empty by default \u2192 triggers WaitingStatus\n\ncontainers:\n  myapp:                               # declares the K8s sidecar container\n    resource: myapp-image\n\nresources:\n  myapp-image:\n    type: oci-image                    # required for sidecar/K8s charms\n```\n\nKey points:\n- **`type: charm`** \u2014 tells charmcraft this is a charm (not a bundle).\n- **`containers`** block \u2014 required by Juju for Kubernetes charms; it declares the sidecar containers that will be managed via Pebble.\n- **`resources.myapp-image`** \u2014 the OCI image resource the container block references.\n\n---\n\n### `src/charm.py`\n\n| Event | Handler | Outcome |\n|---|---|---|\n| `install` | `_on_install` \u2192 `_update_status()` | `ActiveStatus` if `name` is set, otherwise `WaitingStatus` |\n| `config-changed` | `_on_config_changed` \u2192 `_update_status()` | Same logic re-evaluated on every config change |\n\nThe status logic lives in `_update_status()` so both events share a single code path:\n\n```python\nname = self.config.get(\"name\", \"\")\nif not name:\n    self.unit.status = ops.WaitingStatus(\"waiting for 'name' config to be set\")\n    return\nself.unit.status = ops.ActiveStatus(f\"ready (name={name!r})\")\n```\n\n---\n\n### Next steps\n\n```bash\n# Build\ncd ~/k8s-charm\ncharmcraft pack\n\n# Deploy to a MicroK8s / Juju K8s model\njuju deploy ./my-k8s-charm_ubuntu-22.04-amd64.charm \\\n  --resource myapp-image=ubuntu:22.04\n\n# Trigger WaitingStatus \u2192 ActiveStatus transition\njuju config my-k8s-charm name=\"hello\"\n```",
+    "stop_reason": "end_turn",
+    "session_id": "32d36cc4-44df-4098-a86a-2f6b2e9aa4e0",
+    "total_cost_usd": 0.061194450000000004,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 2123,
+      "cache_read_input_tokens": 70704,
+      "output_tokens": 2133,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2123,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 9,
+        "outputTokens": 2133,
+        "cacheReadInputTokens": 70704,
+        "cacheCreationInputTokens": 2123,
+        "webSearchRequests": 0,
+        "costUSD": 0.061194450000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "412f68ec-b581-4045-b54b-b327b1b552a7"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:47:46+1300"
+}

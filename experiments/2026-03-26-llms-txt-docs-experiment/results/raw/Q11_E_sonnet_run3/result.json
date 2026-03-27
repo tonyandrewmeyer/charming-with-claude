@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_E_sonnet_run3",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 223027,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 221884,
+    "duration_api_ms": 245576,
+    "num_turns": 14,
+    "result": "Now I have everything needed to give a thorough, accurate answer. Here's the complete guide:\n\n---\n\n## Adding a Relation and Verifying Data Exchange with Jubilant\n\n### 1. Adding a Relation \u2014 `juju.integrate()`\n\nUse `juju.integrate()` to create a relation between two applications:\n\n```python\njuju.integrate(app1: str, app2: str, *, via: str | Iterable[str] | None = None) -> None\n```\n\nEach argument uses the format `<application>[:<endpoint>]`. The endpoint is only required when more than one integration is possible between the two apps. The order of the arguments is not significant.\n\n**Basic example:**\n```python\nimport jubilant\nimport pytest\n\n@pytest.fixture(scope='module')\ndef juju():\n    with jubilant.temp_model() as juju:\n        yield juju\n\ndef test_integrate(juju: jubilant.Juju):\n    juju.deploy('wordpress')\n    juju.deploy('mysql')\n    juju.wait(jubilant.all_active)\n\n    juju.integrate('wordpress', 'mysql')\n\n    juju.wait(jubilant.all_active)\n```\n\n**With explicit endpoints** (when multiple relations exist between the same two apps):\n```python\njuju.integrate('wordpress:db', 'mysql:database')\n```\n\n**Cross-model relation** (prefix with `<model>.`):\n```python\njuju.integrate('mymodel.wordpress', 'mysql')\n```\n\n**With `via`** (informs the offering side of the traffic source CIDR, for firewall rules):\n```python\njuju.integrate('wordpress', 'mysql', via='192.0.2.0/24')\n```\n\n---\n\n### 2. Verifying the Relation Was Established \u2014 `juju.status()`\n\nAfter calling `integrate()`, call `juju.status()` and inspect the `Status` object. The key fields are:\n\n- **`status.apps`** \u2014 `dict[str, AppStatus]`, keyed by app name\n- **`AppStatus.relations`** \u2014 `dict[str, list[AppStatusRelation]]`, keyed by endpoint name; each entry holds a list of `AppStatusRelation` objects\n- **`AppStatusRelation.related_app`** \u2014 the name of the related application\n- **`AppStatusRelation.interface`** \u2014 the interface used\n- **`AppStatusRelation.scope`** \u2014 the scope of the relation\n\n```python\ndef test_relation_established(juju: jubilant.Juju):\n    juju.integrate('wordpress', 'mysql')\n    juju.wait(jubilant.all_active)\n\n    status = juju.status()\n\n    # Check the relation appears on the wordpress app\n    wp_relations = status.apps['wordpress'].relations\n    assert 'db' in wp_relations  # 'db' is the endpoint name on wordpress\n\n    related = wp_relations['db']\n    assert any(r.related_app == 'mysql' for r in related)\n```\n\n---\n\n### 3. Verifying Relation Data Was Exchanged\n\nJubilant doesn't have a dedicated `get_relation_data()` method. To inspect the actual key-value data exchanged over the relation, use `juju.exec()` to run `relation-get` on a unit:\n\n```python\ndef test_relation_data_exchanged(juju: jubilant.Juju):\n    juju.integrate('wordpress', 'mysql')\n    juju.wait(jubilant.all_active)\n\n    # Run 'relation-get' inside the wordpress unit to read data set by mysql\n    task = juju.exec('relation-get -r 0 - mysql/0', unit='wordpress/0')\n    assert task.success\n\n    # Or run a charm action that exposes relation data\n    task = juju.run('mysql/0', 'get-password')\n    assert task.results['username'] == 'wordpress'\n```\n\nAlternatively, verify the effect indirectly by checking the workload is active and has the expected message:\n\n```python\n    status = juju.status()\n    wp_unit = status.apps['wordpress'].units['wordpress/0']\n    assert wp_unit.workload_status.current == 'active'\n    assert 'connected' in wp_unit.workload_status.message\n```\n\n---\n\n### 4. Removing a Relation\n\nUse `juju.remove_relation()` \u2014 the mirror of `integrate()`:\n\n```python\njuju.remove_relation('wordpress', 'mysql')\njuju.wait(jubilant.all_active)\n```\n\nPass `force=True` to ignore operational errors:\n```python\njuju.remove_relation('wordpress', 'mysql', force=True)\n```\n\n---\n\n### Summary\n\n| Task | Method |\n|---|---|\n| Create a relation | `juju.integrate('app1', 'app2')` |\n| Wait for settlement | `juju.wait(jubilant.all_active)` |\n| Check relation exists in status | `status.apps['app'].relations` \u2192 `AppStatusRelation.related_app` |\n| Read raw relation data from a unit | `juju.exec('relation-get ...', unit='app/0')` |\n| Run an action to expose relation data | `juju.run('app/0', 'action-name')` |\n| Remove a relation | `juju.remove_relation('app1', 'app2')` |",
+    "stop_reason": "end_turn",
+    "session_id": "00a880b7-2381-4bde-805f-503e3ea92741",
+    "total_cost_usd": 0.6663672000000002,
+    "usage": {
+      "input_tokens": 502,
+      "cache_creation_input_tokens": 16208,
+      "cache_read_input_tokens": 149071,
+      "output_tokens": 3186,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16208,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 502,
+        "outputTokens": 3186,
+        "cacheReadInputTokens": 149071,
+        "cacheCreationInputTokens": 16208,
+        "webSearchRequests": 0,
+        "costUSD": 0.1547973,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 182565,
+        "outputTokens": 19894,
+        "cacheReadInputTokens": 104549,
+        "cacheCreationInputTokens": 119264,
+        "webSearchRequests": 7,
+        "costUSD": 0.5115699,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "8a25614d-a597-461e-b237-bab1cf4e2549"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:46:00+1300"
+}
