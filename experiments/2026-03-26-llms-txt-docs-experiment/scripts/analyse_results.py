@@ -237,7 +237,7 @@ def format_summary(results: list[dict]) -> str:
     lines.append("## Overall Scores by Condition\n")
     lines.append("| Condition | Mean Score (%) | Std Dev | n | Mean Tokens | Mean Cost ($) |")
     lines.append("|---|---|---|---|---|---|")
-    for cond in ["A", "B", "C", "D"]:
+    for cond in ["A", "B", "C", "D", "E"]:
         if cond not in by_condition:
             continue
         items = by_condition[cond]
@@ -259,7 +259,7 @@ def format_summary(results: list[dict]) -> str:
     lines.append("## Scores by Condition × Model\n")
     lines.append("| Condition | Model | Mean Score (%) | Std Dev | n | Mean Tokens |")
     lines.append("|---|---|---|---|---|---|")
-    for cond in ["A", "B", "C", "D"]:
+    for cond in ["A", "B", "C", "D", "E"]:
         for model in ["sonnet", "opus"]:
             key = (cond, model)
             if key not in by_cm:
@@ -288,7 +288,7 @@ def format_summary(results: list[dict]) -> str:
     lines.append("|---|---|---|---|---|")
     for cat in ["ops_api", "pebble", "jubilant", "charmlibs", "charmcraft", "synthesis"]:
         row = [cat]
-        for cond in ["A", "B", "C", "D"]:
+        for cond in ["A", "B", "C", "D", "E"]:
             scores = by_cat_cond[cat][cond]
             if scores:
                 row.append(f"{statistics.mean(scores):.1f}%")
@@ -304,7 +304,7 @@ def format_summary(results: list[dict]) -> str:
     )
     lines.append("| Condition | Mean Input Tokens | Mean Output Tokens | Mean Total |")
     lines.append("|---|---|---|---|")
-    for cond in ["A", "B", "C", "D"]:
+    for cond in ["A", "B", "C", "D", "E"]:
         if cond not in by_condition:
             continue
         items = by_condition[cond]
@@ -328,7 +328,7 @@ def format_summary(results: list[dict]) -> str:
                  "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20",
                  "S1", "S2", "S3"]:
         row = [qid]
-        for cond in ["A", "B", "C", "D"]:
+        for cond in ["A", "B", "C", "D", "E"]:
             scores = by_q_cond[qid][cond]
             if scores:
                 row.append(f"{statistics.mean(scores):.1f}%")
@@ -351,7 +351,7 @@ def format_summary(results: list[dict]) -> str:
 
     lines.append("| Condition | Hallucination Rate |")
     lines.append("|---|---|")
-    for cond in ["A", "B", "C", "D"]:
+    for cond in ["A", "B", "C", "D", "E"]:
         data = halluc_by_cond[cond]
         if data["total"]:
             rate = data["hallucinated"] / data["total"] * 100
@@ -382,7 +382,7 @@ def format_summary(results: list[dict]) -> str:
             "| Mean 404s |"
         )
         lines.append("|---|---|---|---|---|")
-        for cond in ["A", "B", "C", "D"]:
+        for cond in ["A", "B", "C", "D", "E"]:
             items = nginx_by_cond[cond]
             fetches = [i.get("total_fetches", 0) for i in items]
             if not any(fetches):
@@ -408,7 +408,7 @@ def format_summary(results: list[dict]) -> str:
             "| Condition | llms.txt | llms-full.txt | Per-page .md | HTML | Total |"
         )
         lines.append("|---|---|---|---|---|---|")
-        for cond in ["C", "D"]:
+        for cond in ["C", "D", "E"]:
             items = nginx_by_cond[cond]
             llms = sum(i.get("llms_txt_fetches", 0) for i in items)
             full = sum(i.get("llms_full_fetches", 0) for i in items)
@@ -436,7 +436,7 @@ def format_summary(results: list[dict]) -> str:
             if fp:
                 first_pages_by_cond[r["condition"]].append(fp)
 
-        for cond in ["C", "D"]:
+        for cond in ["C", "D", "E"]:
             fps = first_pages_by_cond.get(cond, [])
             if fps:
                 lines.append(f"**Condition {cond}:**")
@@ -460,7 +460,7 @@ def format_summary(results: list[dict]) -> str:
         lines.append("| Category | Condition | Repos Visited |")
         lines.append("|---|---|---|")
         for cat in ["ops_api", "pebble", "jubilant", "charmlibs", "charmcraft", "synthesis"]:
-            for cond in ["C", "D"]:
+            for cond in ["C", "D", "E"]:
                 items = repo_by_cat[cat].get(cond, [])
                 if items:
                     all_repos = [r for repos in items for r in repos]
@@ -481,7 +481,7 @@ def format_summary(results: list[dict]) -> str:
         )
         lines.append("| Condition | Mean Bytes Fetched | Mean Input Tokens | Bytes/Token |")
         lines.append("|---|---|---|---|")
-        for cond in ["C", "D"]:
+        for cond in ["C", "D", "E"]:
             items_nginx = nginx_by_cond[cond]
             items_cond = by_condition.get(cond, [])
             bytes_list = [i.get("total_bytes", 0) for i in items_nginx if i.get("total_bytes")]
@@ -540,7 +540,7 @@ def format_checkpoint(results: list[dict]) -> str:
     lines.append("## By Condition\n")
     lines.append("| Condition | Sonnet | Opus | Difference |")
     lines.append("|---|---|---|---|")
-    for cond in ["A", "B", "C", "D"]:
+    for cond in ["A", "B", "C", "D", "E"]:
         sonnet_scores = [i["score"] for i in by_model.get("sonnet", []) if i["condition"] == cond]
         opus_scores = [i["score"] for i in by_model.get("opus", []) if i["condition"] == cond]
         s_mean = statistics.mean(sonnet_scores) if sonnet_scores else None

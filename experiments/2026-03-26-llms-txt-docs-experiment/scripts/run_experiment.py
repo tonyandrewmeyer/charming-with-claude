@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the llms.txt experiment: 23 questions × 4 conditions × 2 models × 3 runs.
+"""Run the llms.txt experiment: 23 questions × 5 conditions × 2 models × 3 runs.
 
 Usage:
     # Full run
@@ -45,10 +45,14 @@ CONDITION_PROMPTS = {
         "the llms.txt standard."
     ),
     "D": None,  # Uses CLAUDE.md + skills + llms.txt hint appended
+    "E": (
+        "You are writing a Juju charm. "
+        "Documentation is available at documentation.ubuntu.com."
+    ),  # Like C but no llms.txt hint — tests content negotiation (markdown format) without discovery index
 }
 
-# Conditions that need /etc/hosts override (local docs with llms.txt)
-LOCAL_DOCS_CONDITIONS = {"C", "D"}
+# Conditions that need /etc/hosts override (local docs with llms.txt + content negotiation)
+LOCAL_DOCS_CONDITIONS = {"C", "D", "E"}
 
 # Conditions that use CLAUDE.md + skills
 INSTRUCTIONS_CONDITIONS = {"B", "D"}
@@ -172,8 +176,8 @@ def run_session(
     ]
 
     # Set system prompt based on condition
-    if condition == "A":
-        cmd.extend(["--system-prompt", CONDITION_PROMPTS["A"]])
+    if condition in ("A", "E"):
+        cmd.extend(["--system-prompt", CONDITION_PROMPTS[condition]])
     elif condition == "C":
         cmd.extend(["--system-prompt", CONDITION_PROMPTS["C"]])
     elif condition in ("B", "D"):
@@ -289,8 +293,8 @@ def main():
     )
     parser.add_argument(
         "--conditions",
-        default="A,B,C,D",
-        help="Comma-separated conditions (default: A,B,C,D)",
+        default="A,B,C,D,E",
+        help="Comma-separated conditions (default: A,B,C,D,E)",
     )
     parser.add_argument(
         "--models",
