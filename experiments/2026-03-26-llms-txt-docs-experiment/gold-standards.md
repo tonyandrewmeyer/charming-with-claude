@@ -647,7 +647,7 @@ requires:
 | `interface` | **Required** | String | Interface name; cannot be `juju` or start with `juju-`; only `a-z` and `-` |
 | `limit` | Optional | Integer | Maximum number of connections |
 | `optional` | Optional | Boolean | Whether the relation is required; defaults to `false` but should **always** be explicitly included other than for peers |
-| `scope` | Optional | String | `global` (default) or `container`; subordinates need at least one `requires` with `container` scope |
+| `scope` | Optional | String | `global` (default) or `container`; subordinates need at least one `requires` with `container` scope - only relevant for machine charms, not Kubernetes |
 
 **Source:** charmcraft reference — "charmcraft.yaml file".
 
