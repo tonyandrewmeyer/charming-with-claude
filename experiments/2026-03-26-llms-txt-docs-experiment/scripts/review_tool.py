@@ -10,6 +10,7 @@ Usage:
     python scripts/review_tool.py --sample 0.33   # review 33% sample
     python scripts/review_tool.py --condition C    # filter by condition
     python scripts/review_tool.py --resume         # skip already-reviewed
+    python scripts/review_tool.py --desc           # sort by score descending
 """
 
 import argparse
@@ -71,6 +72,7 @@ def load_review_items(
     model: str | None = None,
     resume: bool = False,
     seed: int = 42,
+    descending: bool = False,
 ) -> list[dict]:
     items = []
     if not SCORED_DIR.exists():
@@ -123,7 +125,7 @@ def load_review_items(
         dims = SYNTH_DIMS if item["is_synthesis"] else IR_DIMS
         return sum(item["judge_scores"].get(d, 0) for d in dims)
 
-    items.sort(key=_total_score)
+    items.sort(key=_total_score, reverse=descending)
 
     return items
 
@@ -509,6 +511,10 @@ def main():
     parser.add_argument("--resume", action="store_true", help="Skip already reviewed")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
     parser.add_argument(
+        "--desc", action="store_true",
+        help="Sort by score descending (default: ascending)",
+    )
+    parser.add_argument(
         "--summary", action="store_true",
         help="Print agreement summary and exit",
     )
@@ -524,6 +530,7 @@ def main():
         model=args.model,
         resume=args.resume,
         seed=args.seed,
+        descending=args.desc,
     )
 
     if not items:
