@@ -264,10 +264,6 @@ class ReviewApp(App):
         dims = self._get_dims()
         human = self._get_human_scores()
 
-        # Scroll panels back to top
-        for scroller in self.query("VerticalScroll"):
-            scroller.scroll_home(animate=False)
-
         # Response panel
         header = (
             f"**{item['question_id']}** | "
@@ -399,17 +395,23 @@ class ReviewApp(App):
         self._save_current()
         self.action_next_item()
 
+    def _scroll_to_top(self) -> None:
+        for scroller in self.query("VerticalScroll"):
+            scroller.scroll_home(animate=False)
+
     def action_next_item(self) -> None:
         self._auto_save_if_changed()
         if self.current_index < len(self.items) - 1:
             self.current_index += 1
             self._load_item()
+            self._scroll_to_top()
 
     def action_prev_item(self) -> None:
         self._auto_save_if_changed()
         if self.current_index > 0:
             self.current_index -= 1
             self._load_item()
+            self._scroll_to_top()
 
     def action_save_review(self) -> None:
         self._save_current()
