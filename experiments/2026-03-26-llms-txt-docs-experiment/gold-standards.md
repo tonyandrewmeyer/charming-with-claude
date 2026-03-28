@@ -510,9 +510,9 @@ path.glob('*.conf')
 **`ensure_contents` signature:**
 ```python
 ensure_contents(
-    path: ContainerPath | LocalPath,
-    source: str | bytes | ReadableBuffer,
-    mode: int | None = None,
+    path: str | os.PathLike[str] | PathProtocol,
+    source: str | bytes | BinaryIO | TextIO,
+    mode: int = 420,
     user: str | None = None,
     group: str | None = None,
 ) -> bool
