@@ -672,6 +672,7 @@ resources:
 - `type`: `oci-image` (for container images) or `file` (for files)
 - `description`: optional string description
 - `filename`: path to resource (only for `file` type, not used for `oci-image`)
+- `upstream-source`: unofficial and not used by `charmcraft` or `juju`, but very commonly included to help with testing
 
 **Key rule:** The resource name under `resources` must match the `resource` field in the corresponding `containers` entry.
 
