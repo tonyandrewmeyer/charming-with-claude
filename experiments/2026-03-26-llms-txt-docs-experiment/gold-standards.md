@@ -483,7 +483,7 @@ Provider:
 
 ## Q15: What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?
 
-The `charmlibs.pathops` library provides a `pathlib`-like interface for working with both local and remote container filesystem paths. Install: `uv add charmlibs-pathops`. Import: `from charmlibs.pathops import ContainerPath, LocalPath, ensure_contents`.
+The `charmlibs.pathops` library provides a `pathlib`-like interface for working with both local and remote container filesystem paths. Install: `uv add charmlibs-pathops`. Import: `from charmlibs import pathops`. Usage: `pathops.ContainerPath, pathops.LocalPath, pathops.ensure_contents`.
 
 **Key components:**
 
