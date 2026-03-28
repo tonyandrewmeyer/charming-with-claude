@@ -7,6 +7,7 @@
 * [charmkeeper](https://github.com/seb4stien/charmkeeper/)
 * [orc](https://github.com/PietroPasotti/orc)
 * [JujuMate](https://abuelodelanada.github.io/jujumate/)
+* [Working on Juju with agents](https://discourse.charmhub.io/t/working-on-juju-with-agents/20009)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
 
 ## Read everything from
