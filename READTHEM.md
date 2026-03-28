@@ -7,6 +7,7 @@
 * [charmkeeper](https://github.com/seb4stien/charmkeeper/)
 * [orc](https://github.com/PietroPasotti/orc)
 * [JujuMate](https://abuelodelanada.github.io/jujumate/)
+* [Working on Juju with agents](https://discourse.charmhub.io/t/working-on-juju-with-agents/20009)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
 
 ## Read everything from
@@ -20,7 +21,6 @@
 ## Read these specific articles
 
 * [Your job is to deliver code you have proven to work](https://simonwillison.net/2025/Dec/18/code-proven-to-work/).
-* [How to write a great agents.md: Lessons from over 2,500 repositories](https://github.blog/ai-and-ml/github-copilot/how-to-write-a-great-agents-md-lessons-from-over-2500-repositories/) - GitHub blog
 * [Introducing nanochat: The best ChatGPT that $100 can buy.](https://github.com/karpathy/nanochat/discussions/1) - a walkthrough of training a model at $24/hour.
 * [How I Use Every Claude Code Feature](https://blog.sshh.io/p/how-i-use-every-claude-code-feature)
 * [You Should Write An Agent](https://fly.io/blog/everyone-write-an-agent/) - on the fly.io blog but not at all specific to their services
@@ -40,3 +40,11 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [Socialize the plan](https://laughingmeme.org/2026/03/05/socialize-the-plan.html) - thoughts on code review and how AI impacts the value.
 * [microgpt](http://karpathy.github.io/2026/02/12/microgpt/) - a single file of 200 lines of pure Python with no dependencies that trains and inferences a GPT (for generating names).
 * [Mitchell Hashimoto's AI adoption journey](https://mitchellh.com/writing/my-ai-adoption-journey)
+
+### Agent instruction files:
+* [Stop using CLAUDE.md](https://www.xda-developers.com/claude-md-helping-your-projects-is-myth/)
+* [How to write a good spec for AI agents](https://addyosmani.com/blog/good-spec/)
+* [Evaluating AGENTS.md](https://arxiv.org/pdf/2602.11988)
+* [Programmers will document for Claude, but not for each other](https://blog.plover.com/tech/gpt/documentation-wins-2.html)
+* [How to write a great agents.md: Lessons from over 2,500 repositories](https://github.blog/ai-and-ml/github-copilot/how-to-write-a-great-agents-md-lessons-from-over-2500-repositories/)
+* [Juju's AGENTS.md](https://github.com/juju/juju/blob/4.0/AGENTS.md)
