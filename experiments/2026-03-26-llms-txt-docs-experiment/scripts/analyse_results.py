@@ -161,7 +161,7 @@ def load_all_results() -> list[dict]:
                 review = json.load(f)
             record["human_review"] = review
             # Override scorecard scores with human scores
-            if record["scorecard"] and review.get("human_scores"):
+            if record["scorecard"] and record["scorecard"].get("scores") and review.get("human_scores"):
                 record["scorecard"]["scores"].update(review["human_scores"])
         else:
             record["human_review"] = None
