@@ -47,3 +47,4 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [Evaluating AGENTS.md](https://arxiv.org/pdf/2602.11988)
 * [Programmers will document for Claude, but not for each other](https://blog.plover.com/tech/gpt/documentation-wins-2.html)
 * [How to write a great agents.md: Lessons from over 2,500 repositories](https://github.blog/ai-and-ml/github-copilot/how-to-write-a-great-agents-md-lessons-from-over-2500-repositories/)
+* [Juju's AGENTS.md](https://github.com/juju/juju/blob/4.0/AGENTS.md)
