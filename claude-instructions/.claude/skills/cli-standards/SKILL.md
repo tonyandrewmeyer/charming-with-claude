@@ -1,7 +1,6 @@
 ---
 name: cli-standards
 description: Canonical CLI design standards. Use when designing, implementing, or reviewing command-line interfaces. Covers grammar, commands, flags, parameters, feedback, colours, tables, verbosity, and tone of voice.
-argument-hint: [topic]
 license: default
 compatibility: universal
 allowed-tools: Read Grep Glob
@@ -9,21 +8,21 @@ allowed-tools: Read Grep Glob
 
 # Canonical CLI Standards
 
-These standards define how Canonical CLI tools should look and behave. They originate from discussions with Canonical's senior tech leads and Design best practice. All points must be strongly considered before contributing CLI code at Canonical.
+These standards define how Canonical CLI tools should look and behave. They originate from discussions with Canonical's senior tech leads and define best practice. All points must be strongly considered before contributing CLI code at Canonical.
 
 Based on spec DE013. See also: DE027 (Tools & Templates for CLI Design), DE028 (Canonical CLI Help).
 
-For full do/don't examples of every rule, see [examples.md](examples.md).
+For full do/don't examples of every rule, see [examples.md](references/examples.md).
 
 ---
 
 ## Grammar + Vocabulary
 
 ### Commands are verbs
-Every command that acts on a primary object must be a verb (e.g. `install`, `refresh`, `login`). Choose verbs that imply the object type they act on.
+Every command that acts on a primary object must be a verb (for example: `install`, `refresh`, `login`). Choose verbs that imply the object type they act on.
 
 ### Commands are logically grouped
-Group commands that act on the same object type or domain (e.g. build lifecycle vs. store management).
+Group commands that act on the same object type or domain (for example: build lifecycle vs. store management).
 
 ### Verb-noun form
 When verbs alone are insufficient to distinguish objects, use `verb-noun` form:
@@ -143,7 +142,7 @@ All messages must be human-readable, short, and succinct.
 - No ASCII line decorations
 - Show headers by default; support `--no-headers`
 - No spaces within cells (spaces delimit columns)
-- Use short column names (e.g. `REV` not `REVISION`)
+- Use short column names (for example: `REV` not `REVISION`)
 - Optional `NOTES` column always last
 
 ### Empty states
@@ -178,8 +177,8 @@ Use ISO 8601: `2024-06-29T03:24:20Z`
 
 ### Ephemeral feedback
 - Use line-overwriting only in interactive tty sessions, never when piped
-- Use ephemeral feedback for intermediate steps where the final outcome is understood (e.g. `snap remove`)
-- Use non-ephemeral (new line) for steps with meaningful consequences (e.g. machine allocation)
+- Use ephemeral feedback for intermediate steps where the final outcome is understood (for example: `snap remove`)
+- Use non-ephemeral (new line) for steps with meaningful consequences (for example: machine allocation)
 
 ---
 
