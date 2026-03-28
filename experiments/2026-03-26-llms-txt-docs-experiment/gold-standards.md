@@ -475,9 +475,13 @@ Provider:
 - When a certificate is revoked by the provider
 - When `request_errors` indicate the CSR needs adjustment (error codes: `ip_not_allowed` 101, `domain_not_allowed` 102, `wildcard_not_allowed` 103, `server_not_available` 201)
 
-**Note:** The specific event names (e.g., `certificate_available`, `certificate_expiring`, `certificate_invalidated`) are part of the library's Python API, not the interface specification documented in charmlibs.
+The events are:
+- `CertificateAvailableEvent`
+- `CertificateDeniedEvent`
 
-**Source:** charmlibs reference — "tls-certificates" interface v1.
+**Note:** The specific event names are part of the library's Python API, not the interface specification documented in charmlibs.
+
+**Source:** charmlibs reference — "tls-certificates" interface v1, charmlibs reference - charmlibs.interfaces.tls_certificates
 
 ---
 
