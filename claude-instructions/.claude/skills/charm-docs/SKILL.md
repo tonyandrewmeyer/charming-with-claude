@@ -1,7 +1,6 @@
 ---
 name: charm-docs
 description: Canonical charm documentation guidelines. Use when writing or reviewing charm READMEs, Charmhub content, or CONTRIBUTING files. Covers structure, templates, and Diataxis-based documentation.
-argument-hint: [topic]
 license: default
 compatibility: universal
 allowed-tools: Read Grep Glob
@@ -41,8 +40,6 @@ A charm's documentation typically includes:
 
 <!-- 1-2 sentence description. Include the workload software
      and substrate (VM/K8s). -->
-
-<!-- If a bundle, list components. -->
 
 Like any Juju charm, this charm supports one-line deployment,
 configuration, integration, scaling, and more.
