@@ -118,6 +118,13 @@ def load_review_items(
         k = max(1, int(len(items) * sample_rate))
         items = rng.sample(items, k)
 
+    # Sort by total judge score ascending (perfect scores last)
+    def _total_score(item):
+        dims = SYNTH_DIMS if item["is_synthesis"] else IR_DIMS
+        return sum(item["judge_scores"].get(d, 0) for d in dims)
+
+    items.sort(key=_total_score)
+
     return items
 
 
@@ -307,6 +314,26 @@ class ReviewApp(App):
             f"Keys: [n]ext [p]rev [1-4] cycle score [a]ccept all [c]omment [s]ave [q]uit"
         )
 
+    def _has_changes(self) -> bool:
+        """Check if current item has notes or any human score differs from judge."""
+        if not self.items:
+            return False
+        item = self.items[self.current_index]
+        sid = item["session_id"]
+        if self.human_notes.get(sid, ""):
+            return True
+        dims = self._get_dims()
+        human = self._get_human_scores()
+        for d in dims:
+            if human.get(d, item["judge_scores"].get(d, 0)) != item["judge_scores"].get(d, 0):
+                return True
+        return False
+
+    def _auto_save_if_changed(self) -> None:
+        """Save current review if there are any changes from judge scores or notes."""
+        if self._has_changes():
+            self._save_current()
+
     def _cycle_dim(self, dim_index: int) -> None:
         dims = self._get_dims()
         if dim_index >= len(dims):
@@ -315,6 +342,7 @@ class ReviewApp(App):
         human = self._get_human_scores()
         current = human.get(dim, 0)
         human[dim] = (current + 1) % 3
+        self._auto_save_if_changed()
         self._load_item()
 
     def action_cycle_dim_1(self) -> None:
@@ -336,6 +364,8 @@ class ReviewApp(App):
     def action_unfocus_note(self) -> None:
         """Unfocus the note input and return to key bindings."""
         self.set_focus(None)
+        self._auto_save_if_changed()
+        self._load_item()
 
     @on(Input.Changed, "#human-note")
     def _on_note_changed(self, event: Input.Changed) -> None:
