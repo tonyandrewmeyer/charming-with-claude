@@ -101,6 +101,7 @@ print(data.foo)
 15. **`secret_remove`** — Secret revision can be removed (`SecretRemoveEvent`) *[Juju 3.0+]*
 16. **`secret_rotate`** — Secret rotation policy elapsed (`SecretRotateEvent`) *[Juju 3.0+]*
 17. **`pre_series_upgrade`** / **`post_series_upgrade`** — Series upgrade lifecycle *[deprecated, removal in Juju 4.0]*
+18. **`add_metrics`** / **`meter_status_changed`** - Charm metrics *[long deprecated, meter-status-changed never exposed in ops, removed in 3.6.11]*
 
 ### Dynamically-named events (based on charm metadata):
 
@@ -560,9 +561,10 @@ Ensures `path` exists, contains `source`, has the correct permissions and owners
 ```yaml
 name: my-k8s-app
 type: charm
-base: ubuntu@24.04
+base: ubuntu@22.04
 platforms:
   amd64:
+  arm64:
 summary: A Kubernetes charm for my application.
 description: |
   This is a long description of the charm.
@@ -581,8 +583,36 @@ resources:
     description: OCI image for the Super App (hub.docker.com/_/super-app)
 ```
 
+**Old versions of charmcraft used `bases` not `base`:**:
+
+```yaml
+bases:
+  - build-on:
+    - name: ubuntu
+      channel: '22.04'
+      architectures:
+        - amd64
+        - arm64
+  - run-on:
+    - name: ubuntu
+      channel: '22.04'
+      architectures:
+        - arm64
+        - amd64
+```
+
+**Alternate short-form for `bases`:**
+
+```yaml
+bases:
+  - name: ubuntu
+    channel: 24.04
+    architectures:
+      - amd64
+```
+
 **Full set of top-level keys:**
-`name` (req), `type` (req), `base` (req), `platforms` (req), `summary` (req, max 78 chars), `description` (req), `containers` (req for K8s), `build-base`, `assumes`, `actions`, `analysis`, `charm-libs`, `charm-user`, `config`, `devices`, `extra-bindings`, `links`, `parts`, `peers`/`provides`/`requires`, `resources`, `storage`, `subordinate`, `terms`, `title`.
+`name` (req), `type` (req), `bases` (req), `platforms` (req), `summary` (req, max 78 chars), `description` (req), `containers` (req for K8s), `build-base`, `assumes`, `actions`, `analysis`, `charm-libs`, `charm-user`, `config`, `devices`, `extra-bindings`, `links`, `parts`, `peers`/`provides`/`requires`, `platforms`, `resources`, `storage`, `subordinate`, `terms`, `title`.
 
 **Source:** charmcraft reference — "charmcraft.yaml file".
 
