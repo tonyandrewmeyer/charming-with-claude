@@ -1,462 +1,334 @@
 # Experiment: Do LLM-Friendly Docs Help Agents Write Charms?
 
-**Date:** 2026-03-26
-**Status:** Planning
+**Date:** 2026-03-26 to 2026-03-28
+**Status:** Complete (human review in progress)
+**Total cost:** ~$99 (sessions) + ~$30 (judge scoring)
+
+## Summary
+
+We tested whether serving documentation in LLM-optimised formats — `llms.txt`, per-page markdown, and HTTP content negotiation — helps AI coding agents answer questions about the Juju charm ecosystem more accurately.
+
+**Result: Yes, meaningfully.** Providing `llms.txt` improved scores from 79.8% (bare agent) to 86.9% — a 7.1 percentage point gain. Content negotiation alone (serving markdown via the HTTP `Accept` header, transparently) improved scores to 83.1%. Curated instructions (CLAUDE.md + skills) improved scores to 82.0% — less than either doc-format intervention.
+
+| Condition | Score | Cost/session | Description |
+|---|---|---|---|
+| **C** (llms.txt) | **86.9%** | $0.24 | llms.txt index + markdown pages + hint |
+| **E** (content negotiation) | 83.1% | $0.27 | Markdown via Accept header, no hint |
+| **D** (instructions + llms.txt) | 83.0% | $0.20 | CLAUDE.md + skills + llms.txt |
+| **B** (instructions only) | 82.0% | $0.15 | CLAUDE.md + skills |
+| **A** (bare agent) | 79.8% | $0.13 | Control — training data only |
 
 ## Hypothesis
 
 Providing LLM-optimised documentation formats (`llms.txt`, `llms-full.txt`, per-page markdown via `sphinx-llm`) for the core Juju/charm ecosystem libraries makes agents measurably better at writing charms, compared to relying on standard HTML documentation alone.
 
+**Confirmed**, with nuances: the format helps, the discovery index helps more, and curated instructions help least (though they reduce cost).
+
 ## Background
 
-The [llms.txt specification](https://llmstxt.org/) proposes a standardised way to serve documentation in a format optimised for LLM consumption. The `sphinx-llm` extension can generate these files from existing Sphinx documentation. None of the target repos currently serve `llms.txt`.
+The [llms.txt specification](https://llmstxt.org/) proposes a standardised way to serve documentation in a format optimised for LLM consumption. The `sphinx-llm` extension generates these files from existing Sphinx documentation: an `llms.txt` index, an `llms-full.txt` concatenation, and per-page `.html.md` files alongside the HTML.
 
-All five target repos use Sphinx with `canonical_sphinx`, hosted on `documentation.ubuntu.com`. Four use MyST Markdown source; charmcraft uses RST. This makes them good candidates for `sphinx-llm` integration.
+None of the target repos currently serve `llms.txt`. All use Sphinx with `canonical_sphinx`, hosted on `documentation.ubuntu.com`.
+
+A separate approach — HTTP content negotiation via the `Accept: text/markdown` header — allows servers to serve markdown to agents transparently. Claude Code already sends `Accept: text/markdown` as its preferred format.
 
 ### Key Question
 
 Is the value of better docs *at inference time* significant, or do good upfront instructions (skills, CLAUDE.md, curated prompts) already capture the necessary knowledge more efficiently?
 
-## Target Repositories
+**Answer:** Inference-time docs are more impactful than upfront instructions, but the two serve different purposes. Instructions reduce cost and guide navigation; docs provide accurate, current detail.
 
-| Repository | Docs URL | Source Format | Fork |
-|---|---|---|---|
-| canonical/operator (ops) | documentation.ubuntu.com/ops/ | MyST Markdown | tonyandrewmeyer/operator |
-| canonical/pebble | documentation.ubuntu.com/pebble/ | MyST Markdown | tonyandrewmeyer/pebble |
-| canonical/jubilant | documentation.ubuntu.com/jubilant/ | MyST Markdown | tonyandrewmeyer/jubilant |
-| canonical/charmlibs | documentation.ubuntu.com/charmlibs/ | MyST Markdown | tonyandrewmeyer/charmlibs |
-| canonical/charmcraft | documentation.ubuntu.com/charmcraft/ | reStructuredText | tonyandrewmeyer/charmcraft |
+## Experimental Setup
 
-## Experimental Conditions
+### Target Repositories
 
-### Condition A: Bare Agent (Control)
-- Fresh Claude Code session, no CLAUDE.md, no skills
-- Initial prompt includes only: "You are writing a Juju charm."
-- `/etc/hosts` is **not** modified — agent accesses the real `documentation.ubuntu.com` (standard HTML, no llms.txt)
-- Agent may discover docs on its own via WebSearch/WebFetch if it chooses to
-- Tests: what can the agent do with just its training knowledge + real web access?
+Six repositories covering the Juju charm development ecosystem:
 
-### Condition B: Curated Instructions (Skills Baseline)
-- Claude Code with charm-development CLAUDE.md and skills from `claude-instructions/`
-- `/etc/hosts` is **not** modified — real docs, no llms.txt
-- Represents "best current practice" for guided charm development
-- Tests: how much do good upfront instructions improve over bare agent?
-
-### Condition C: LLM-Optimised Docs Only
-- Fresh Claude Code session, no CLAUDE.md, no skills
-- Initial prompt includes: "You are writing a Juju charm. Documentation is available at documentation.ubuntu.com and supports the llms.txt standard."
-- `/etc/hosts` **is** modified — agent hits local nginx serving enhanced docs (HTML + llms.txt + llms-full.txt + per-page .md)
-- Tests: does the llms.txt ecosystem alone (with a hint) help as much as curated instructions?
-
-### Condition D: Curated Instructions + LLM-Optimised Docs
-- Full skills/instructions from Condition B
-- `/etc/hosts` **is** modified — enhanced docs from Condition C
-- Skills/CLAUDE.md also mention that docs support llms.txt
-- Tests: does the combination outperform either alone?
-
-### Condition Matrix
-
-| | No llms.txt (real docs) | llms.txt (local enhanced docs) |
-|---|---|---|
-| **No instructions** | A (bare + real web) | C (bare + llms.txt hint) |
-| **Curated instructions** | B (skills + real web) | D (skills + llms.txt) |
-
-This 2×2 design lets us isolate the effect of each factor and measure interaction effects.
-
-## Infrastructure: Local Doc Serving
-
-### Approach: Local Build + nginx + /etc/hosts
-
-This VM has passwordless sudo, so the `/etc/hosts` approach is straightforward.
-
-#### Step 1: Clone and Build Enhanced Docs
-
-```bash
-# Working directory for doc builds
-mkdir -p ~/llms-txt-experiment/docs-build
-
-# For each fork:
-for repo in operator pebble jubilant charmlibs charmcraft; do
-    git clone https://github.com/tonyandrewmeyer/${repo}.git \
-        ~/llms-txt-experiment/docs-build/${repo}
-done
-
-# Install sphinx-llm
-pip install sphinx-llm
-
-# For each repo, add sphinx_llm.txt to conf.py extensions and build
-# (detailed per-repo build scripts in scripts/ directory)
-```
-
-#### Step 2: Serve via nginx
-
-```nginx
-server {
-    listen 80;
-    server_name documentation.ubuntu.com;
-
-    # ops docs
-    location /ops/ {
-        alias /home/ubuntu/llms-txt-experiment/docs-output/operator/;
-        try_files $uri $uri/ =404;
-    }
-
-    # pebble docs
-    location /pebble/ {
-        alias /home/ubuntu/llms-txt-experiment/docs-output/pebble/;
-        try_files $uri $uri/ =404;
-    }
-
-    # jubilant docs
-    location /jubilant/ {
-        alias /home/ubuntu/llms-txt-experiment/docs-output/jubilant/;
-        try_files $uri $uri/ =404;
-    }
-
-    # charmlibs docs
-    location /charmlibs/ {
-        alias /home/ubuntu/llms-txt-experiment/docs-output/charmlibs/;
-        try_files $uri $uri/ =404;
-    }
-
-    # charmcraft docs
-    location /charmcraft/ {
-        alias /home/ubuntu/llms-txt-experiment/docs-output/charmcraft/;
-        try_files $uri $uri/ =404;
-    }
-}
-```
-
-#### Step 3: DNS Override
-
-```bash
-# Enable (before conditions C/D runs):
-echo "127.0.0.1 documentation.ubuntu.com" | sudo tee -a /etc/hosts
-
-# Disable (before conditions A/B runs):
-sudo sed -i '/documentation.ubuntu.com/d' /etc/hosts
-```
-
-#### HTTPS Consideration
-
-The real `documentation.ubuntu.com` serves over HTTPS. Claude Code's WebFetch will likely request `https://` URLs. Options:
-1. **Self-signed cert + nginx SSL** — may cause certificate verification failures in WebFetch
-2. **mkcert** — generate a locally-trusted CA and cert for `documentation.ubuntu.com`
-3. **HTTP-only** — if WebFetch follows redirects or tries HTTP fallback, this might just work
-4. **Proxy approach** — use a local HTTPS proxy that terminates TLS and forwards to nginx on HTTP
-
-**Recommendation:** Use `mkcert` to generate a trusted local cert. This is the cleanest approach and avoids certificate errors.
-
-```bash
-# Install mkcert
-sudo apt install -y libnss3-tools
-curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-chmod +x mkcert-v*-linux-amd64
-sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
-
-# Create local CA and cert
-mkcert -install
-mkcert documentation.ubuntu.com
-
-# Use the generated cert in nginx SSL config
-```
-
-## Evaluation Design
-
-### Approach: Information Retrieval + Micro-Tasks
-
-20 questions across five categories, plus 3 micro-charm synthesis tasks. Each question has a gold-standard answer prepared in advance. This avoids the cost and variability of building full charms while still testing real capability.
-
-### Question Set
-
-#### Category 1: ops API Knowledge (5 questions)
-
-| # | Question | Tests | Gold Standard Source |
-|---|---|---|---|
-| Q1 | "What parameters does `Container.add_layer` accept and what does each do?" | API detail retrieval | ops API reference |
-| Q2 | "How do you access relation data for a specific remote unit? Show the code." | Relation data access pattern | ops how-to guides |
-| Q3 | "What is the full list of hook events a charm can observe? List them all." | Comprehensive API enumeration | ops reference |
-| Q4 | "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?" | Nuanced API behaviour | ops reference + guides |
-| Q5 | "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example." | Recent API feature | ops how-to / reference |
-
-#### Category 2: Pebble Knowledge (4 questions)
-
-| # | Question | Tests | Gold Standard Source |
-|---|---|---|---|
-| Q6 | "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target." | Layer format synthesis | Pebble reference |
-| Q7 | "How do Pebble notices work? What types are there and how does a charm observe them via ops?" | Cross-project knowledge (Pebble + ops) | Pebble + ops docs |
-| Q8 | "What is the Pebble change/task model? How do you check if a long-running operation has completed?" | Pebble internal concepts | Pebble reference |
-| Q9 | "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options." | Specific feature detail | Pebble reference |
-
-#### Category 3: Testing with jubilant (3 questions)
-
-| # | Question | Tests | Gold Standard Source |
-|---|---|---|---|
-| Q10 | "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code." | Basic jubilant usage | jubilant docs |
-| Q11 | "How do you add a relation between two applications and verify data was exchanged, using jubilant?" | Relation testing pattern | jubilant docs |
-| Q12 | "How do you run a Juju action on a unit and check its results using jubilant?" | Action testing | jubilant docs |
-
-#### Category 4: Charm Libraries — charmlibs (4 questions)
-
-| # | Question | Tests | Gold Standard Source |
-|---|---|---|---|
-| Q13 | "How do you use the ingress library to provide ingress to your charm? Show the requires side." | Library usage pattern | charmlibs docs |
-| Q14 | "What events does the TLS certificates library emit, and when should a charm request a new certificate?" | Library event model | charmlibs docs |
-| Q15 | "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?" | General library API | charmlibs docs |
-| Q16 | "What is the correct way to implement a provider side of a relation using charmlibs?" | Provider pattern | charmlibs docs |
-
-#### Category 5: Charmcraft & Packaging (4 questions)
-
-| # | Question | Tests | Gold Standard Source |
-|---|---|---|---|
-| Q17 | "What is the structure of a `charmcraft.yaml` file for a Kubernetes charm? Show a complete example with all required fields." | Packaging config | charmcraft docs |
-| Q18 | "How do you declare a relation endpoint in `charmcraft.yaml` and what fields does it support?" | Config detail | charmcraft docs |
-| Q19 | "How do you configure resource declarations for OCI images in `charmcraft.yaml`?" | Resource config | charmcraft docs |
-| Q20 | "What bases/platforms does charmcraft support and how do you specify multi-base builds?" | Build config | charmcraft docs |
-
-#### Synthesis Tasks (3 micro-charm builds)
-
-| # | Task | Tests | Scoring |
-|---|---|---|---|
-| S1 | "Write a minimal K8s charm (`src/charm.py` + `charmcraft.yaml`) that sets ActiveStatus on install and WaitingStatus if a 'name' config option is empty." | Basic charm structure | Diff against gold standard |
-| S2 | "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check." | Multi-source synthesis | Correctness of Pebble layer + relation data access |
-| S3 | "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN." | Relation provider pattern | Correct relation data handling |
-
-### Scoring Rubric
-
-#### Per-Question Scoring (Q1–Q20)
-
-| Dimension | 0 | 1 | 2 | Weight |
+| Repository | Docs URL | Source | Pages | llms-full.txt |
 |---|---|---|---|---|
-| **Correctness** | Wrong or fabricated answer | Partially correct (right concept, wrong details) | Fully correct, matches gold standard | 3× |
-| **Specificity** | Vague/generic (could apply to any framework) | Some framework-specific details | Precise API names, parameters, patterns | 2× |
-| **Hallucination** | Invented APIs, parameters, or classes | Minor inaccuracies (e.g., wrong default value) | No hallucinations — all facts verifiable | 3× |
-| **Currency** | Uses deprecated/removed APIs | Uses older but still valid APIs | Uses current recommended APIs | 1× |
+| canonical/operator (ops) | /ops/ | MyST MD | 62 | 21,815 lines |
+| canonical/pebble | /pebble/ | MyST MD | 33 | 4,491 lines |
+| canonical/jubilant | /jubilant/ | MyST MD | 10 | 2,135 lines |
+| canonical/charmlibs | /charmlibs/ | MyST MD | 174 | 12,282 lines |
+| canonical/charmcraft | /charmcraft/ | RST | 134 | 20,902 lines |
+| juju/juju | /juju/ | MyST MD | 393 | 38,886 lines |
+| **Total** | | | **806** | **100,511 lines** |
 
-**Max score per question:** (2×3) + (2×2) + (2×3) + (2×1) = 18 points
-**Max total (Q1–Q20):** 360 points
+Docs were built from tonyandrewmeyer forks using `sphinx-llm` v0.3.0. Commit SHAs are recorded in `build-manifest.json`. The charmlibs build required a two-pass process (per-package autodoc generation via `just`, then combined build with sphinx-llm).
 
-#### Per-Task Scoring (S1–S3)
+### Conditions
 
-| Dimension | 0 | 1 | 2 | Weight |
-|---|---|---|---|---|
-| **Runs correctly** | Syntax errors or missing imports | Minor issues (would work with small fixes) | Would run correctly as-is | 3× |
-| **Idiomatic** | Not recognisable as an ops charm | Some charm patterns but non-standard | Follows ops conventions and patterns | 2× |
-| **Complete** | Missing major components | Has the structure but missing details | All requested features implemented | 2× |
-| **Hallucination-free** | Uses invented APIs | Minor API inaccuracies | All API usage is correct | 3× |
+Five experimental conditions in a design that isolates three factors: instructions, llms.txt discovery index, and markdown format.
 
-**Max score per task:** (2×3) + (2×2) + (2×2) + (2×3) = 20 points
-**Max total (S1–S3):** 60 points
+| Condition | Instructions | llms.txt index | Markdown format | /etc/hosts | Prompt |
+|---|---|---|---|---|---|
+| **A** (control) | No | No | No | Real internet | "You are writing a Juju charm." |
+| **B** (instructions) | Yes | No | No | Real internet | CLAUDE.md + skills |
+| **C** (llms.txt) | No | Yes | Yes | Local | "...supports the llms.txt standard." |
+| **D** (combined) | Yes | Yes | Yes | Local | CLAUDE.md + skills + llms.txt hint |
+| **E** (content negotiation) | No | No | Yes | Local | "...docs at documentation.ubuntu.com." |
 
-#### Efficiency Metrics (automated, per session)
+**Condition E** was added mid-experiment after discovering that Claude Code sends `Accept: text/markdown, text/html, */*` in its WebFetch requests. nginx was configured to serve `.html.md` files when this header is present, giving the agent markdown transparently — no llms.txt discovery needed.
 
-| Metric | How to Capture | Why It Matters |
+### Infrastructure
+
+- **Local doc serving:** nginx with HTTPS (mkcert-generated certificate for `documentation.ubuntu.com`)
+- **DNS override:** `/etc/hosts` entry redirecting `documentation.ubuntu.com` to `127.0.0.1` for conditions C/D/E; removed for conditions A/B
+- **URL rewrites:** nginx rewrites strip version prefixes (`/ops/latest/`, `/charmcraft/stable/`, etc.) and hallucinated `/en/` prefixes to match our flat doc structure
+- **Content negotiation:** nginx `map` directive serves `.html.md` files when `Accept: text/markdown` is in the request header
+- **WebFetch validation:** Confirmed that Claude Code's WebFetch (Bun-based) resolves DNS via system `getaddrinfo` (respects `/etc/hosts`) and trusts system CA store (mkcert certs work without `NODE_EXTRA_CA_CERTS`)
+
+### Evaluation
+
+**23 items:** 20 information-retrieval questions across 5 categories (ops API, Pebble, jubilant, charmlibs, charmcraft) plus 3 micro-charm synthesis tasks.
+
+**Gold-standard answers** were drafted from the built documentation and reviewed by a domain expert. Multiple corrections were made during the review process (see `gold-standards.md`).
+
+**Scoring:** Each response was scored by a Claude judge on 4 dimensions (0-2 scale each), with weighted aggregation into a percentage. The judge prompt was calibrated after an initial 18% human review revealed systematic over-penalisation of hallucinations — the judge treated extra correct detail not in the gold standard as fabrication. After recalibration, judge-human agreement improved from 69% to 75%.
+
+**Human review:** 114 sessions (18% of scored) were reviewed using a custom Textual TUI tool, with score overrides and notes. Human scores take precedence in the analysis.
+
+### Scale
+
+- **620 total sessions:** 551 for conditions A–D (23 questions × 4 conditions × 3 runs × 2 models) + 69 for condition E (23 questions × 3 runs × Sonnet only)
+- **Models:** Claude Sonnet 4.6 and Claude Opus 4.6 (checkpoint after run 1 showed only 2.1pp difference — not significant)
+- **618 scored**, 114 human-reviewed
+- Sessions run via `claude -p` (non-interactive mode) with `--dangerously-skip-permissions`, `--no-session-persistence`, and `--output-format json`
+
+## Results
+
+### Overall Scores
+
+| Condition | Mean Score (%) | Std Dev | n | Mean Tokens | Mean Cost ($) |
+|---|---|---|---|---|---|
+| A (control) | 79.8 | 18.3 | 138 | 1,689 | 0.13 |
+| B (instructions) | 82.0 | 18.0 | 138 | 833 | 0.15 |
+| C (llms.txt) | **86.9** | 15.3 | 136 | 2,229 | 0.24 |
+| D (combined) | 83.0 | 19.8 | 137 | 1,029 | 0.20 |
+| E (content neg.) | 83.1 | 15.4 | 69 | 2,109 | 0.27 |
+
+### Scores by Category
+
+| Category | A | B | C | D | E |
+|---|---|---|---|---|---|
+| ops API | 90.0% | 87.8% | 87.2% | 90.9% | 88.1% |
+| Pebble | 72.9% | 89.8% | 90.3% | 87.3% | 81.5% |
+| jubilant | 83.6% | 83.0% | 92.0% | 82.1% | 87.0% |
+| charmlibs | 79.4% | 81.9% | 78.0% | 82.1% | 80.1% |
+| charmcraft | 85.4% | 83.6% | 93.8% | 88.4% | 84.7% |
+| synthesis | 60.8% | 59.2% | 78.4% | 58.6% | 74.4% |
+
+### Per-Question Scores
+
+| Question | A | B | C | D | E | Topic |
+|---|---|---|---|---|---|---|
+| Q1 | 86% | 89% | **100%** | 94% | **100%** | Container.add_layer |
+| Q2 | **98%** | 93% | 97% | 93% | 91% | Relation data access |
+| Q3 | 94% | 94% | 74% | **95%** | 72% | Event list |
+| Q4 | 89% | 89% | 82% | 89% | 78% | ActionEvent.fail() |
+| Q5 | 82% | 74% | 83% | 83% | **100%** | CollectStatusEvent |
+| Q6 | 89% | 94% | **100%** | 97% | 83% | Pebble layer YAML |
+| Q7 | 78% | **94%** | **94%** | **94%** | 83% | Pebble notices |
+| Q8 | 69% | 76% | **86%** | 71% | 76% | Change/task model |
+| Q9 | 57% | **94%** | 81% | 86% | 83% | Log forwarding |
+| Q10 | 83% | 77% | **97%** | 85% | 94% | jubilant deploy |
+| Q11 | 76% | 89% | 89% | 82% | 78% | jubilant relations |
+| Q12 | **92%** | 83% | 90% | 79% | 89% | jubilant actions |
+| Q13 | 92% | **94%** | 92% | 89% | **94%** | Ingress library |
+| Q14 | 62% | 70% | 64% | **85%** | 63% | TLS certificates |
+| Q15 | **94%** | 83% | **94%** | 79% | 87% | pathops library |
+| Q16 | 69% | **80%** | 62% | 74% | 76% | Relation provider |
+| Q17 | **97%** | 90% | **97%** | 89% | 78% | charmcraft.yaml |
+| Q18 | 75% | 77% | **94%** | 79% | 89% | Relation endpoints |
+| Q19 | 78% | 83% | **94%** | 89% | 78% | OCI resources |
+| Q20 | 92% | 84% | 89% | **97%** | 94% | Multi-base builds |
+| S1 | 63% | 55% | **71%** | 51% | 62% | Minimal charm |
+| S2 | 51% | 78% | **88%** | 73% | **90%** | Pebble handler |
+| S3 | 68% | 44% | **76%** | 53% | 72% | Relation provider |
+
+### Model Comparison (Checkpoint)
+
+After run 1 (181 scored sessions), Sonnet and Opus differed by only 2.1 percentage points (73.1% vs 75.2%), well within one standard deviation. The model dimension was retained for data completeness but is not a significant factor.
+
+### Hallucination Rates
+
+| Condition | Rate |
+|---|---|
+| A | 1.4% (2/138) |
+| B | 0.0% (0/138) |
+| C | 1.5% (2/136) |
+| D | 1.5% (2/137) |
+| E | 0.0% (0/69) |
+
+After judge recalibration, hallucination rates are low and consistent across conditions. The initial v1 scoring showed inflated rates (4–7% for C/D) due to the judge flagging extra correct detail as fabrication.
+
+## Analysis
+
+### Finding 1: llms.txt Provides the Largest Single Improvement
+
+Condition C (llms.txt + hint) outperforms every other condition at 86.9%. The gain over the bare agent (A) is 7.1 percentage points. The gain over curated instructions (B) is 4.9pp.
+
+The biggest wins are in areas where training data is weakest:
+- **Pebble:** C=90.3% vs A=72.9% (+17.4pp) — Pebble is a newer, less-trained-on project
+- **charmcraft:** C=93.8% vs A=85.4% (+8.4pp) — packaging config changes frequently
+- **Synthesis tasks:** C=78.4% vs A=60.8% (+17.6pp) — combining knowledge from multiple sources
+
+For well-known topics (ops API: A=90.0%, C=87.2%), training data is already strong and docs add little.
+
+### Finding 2: Content Negotiation Is Valuable and Zero-Effort
+
+Condition E (markdown via `Accept` header, no llms.txt hint) scores 83.1% — a 3.3pp improvement over the bare agent. The agent doesn't know it's getting markdown; it just makes normal HTML requests and gets cleaner content back.
+
+This decomposes the llms.txt benefit into two parts:
+- **Format effect** (A→E): +3.3pp — getting markdown instead of HTML helps
+- **Discovery effect** (E→C): +3.8pp — the llms.txt index for navigation helps further
+
+Both matter, but discovery matters slightly more. The format benefit is "free" — it requires only server-side configuration with no agent awareness.
+
+### Finding 3: Instructions Reduce Cost But Not Quality
+
+Condition B (instructions only) scores 82.0% but at only $0.15/session — the cheapest effective option. The instructions help the agent avoid unnecessary web searches and produce more concise answers (833 mean tokens vs 1,689 for condition A).
+
+However, instructions do not improve accuracy for topics they don't explicitly cover. The llms.txt approach is more general — it helps with whatever the docs cover.
+
+### Finding 4: Combining Instructions + llms.txt Underperforms llms.txt Alone
+
+Counterintuitively, condition D (83.0%) scores slightly below condition C (86.9%). The data reveals why: instructions make the agent more confident in its existing knowledge, reducing doc exploration.
+
+| Metric | C | D |
 |---|---|---|
-| **Total tokens** (input + output) | Claude Code session metadata / API logs | Markdown pages should be dramatically smaller than HTML (no JS/CSS/nav chrome). If llms.txt conditions use fewer tokens for the same correctness, that's a strong argument for adoption even if scores are similar. |
-| **Tokens per doc fetch** | Parse WebFetch responses, measure token count per fetched page | Direct comparison: HTML page tokens vs `.html.md` page tokens vs `llms-full.txt` tokens |
-| **Tool calls** | Count of WebFetch, WebSearch, Read calls | Fewer calls = more efficient path to the answer |
-| **Web fetches** | Count and URLs of all WebFetch calls (did it find llms.txt? llms-full.txt? .md pages?) | Tracks whether the agent discovers and prefers the markdown formats |
-| **Time to answer** | Wall-clock time from prompt to final response | Proxy for cost and user experience |
-| **Docs discovered** | Which doc URLs the agent accessed (nginx access log analysis) | Shows navigation patterns — did llms.txt help the agent find the right page faster? |
-| **Search vs. direct fetch ratio** | WebSearch calls vs WebFetch calls | Does llms.txt reduce reliance on search engines? |
+| llms.txt fetches | 34% of requests | 15% of requests |
+| HTML fetches | 43% | 71% |
+| Mean bytes fetched | 249 KB | 126 KB |
+| Mean unique pages | 5.3 | 4.3 |
 
-**Token usage is a first-class metric.** Even if correctness scores are identical across conditions, a significant reduction in token consumption from markdown-format docs would be a meaningful finding — it directly translates to cost savings and faster responses. HTML documentation pages are bloated with navigation, JavaScript, CSS, and template chrome that wastes context window space. The llms.txt ecosystem's core value proposition may be efficiency rather than accuracy.
+Condition D fetches fewer docs, uses llms.txt less, and relies more on HTML pages it already knows about. When the instructions are incomplete, the agent doesn't cross-check against docs.
 
-### Automated Scoring Approach
+### Finding 5: The Agent Never Uses llms-full.txt
 
-To score 240 sessions consistently, we use a two-layer approach:
+Across all conditions, `llms-full.txt` accounts for only 5% of condition C fetches and 0% of D/E fetches. The agent strongly prefers fetching `llms.txt` (the navigation index) and then following links to individual pages.
 
-1. **Automated pre-scoring:** A separate Claude instance (the "judge") scores each response against the gold standard, producing a JSON scorecard. The judge prompt includes the gold standard answer, the scoring rubric, and the agent's response.
+If a project can only do one thing, generating `llms.txt` as a navigation index with per-page `.html.md` files is far more valuable than a single `llms-full.txt` concatenation.
 
-2. **Human spot-check:** Manually review a random ~33% sample to calibrate the judge and catch systematic errors. Adjust judge prompt if needed.
+### Finding 6: The Agent Gravitates to Juju Docs First
 
-3. **Efficiency metrics:** Fully automated — parse from session logs and nginx access logs.
+In condition C, the agent's first fetch is `/juju/en/latest/llms.txt` **49 times out of 136 sessions** — even for questions about ops, pebble, or charmcraft. The agent strongly associates `documentation.ubuntu.com` with Juju (the most prominent project on the domain in training data).
 
-## Automation: Running the Experiment
+In condition D, the first fetch is distributed across the correct repos because the CLAUDE.md names them explicitly: charmlibs (22×), charmcraft (19×), pebble (13×), jubilant (12×).
 
-### Session Runner Script
+**Implication:** A generic "docs support llms.txt" hint is insufficient. The agent needs to know which sub-sites exist, or the top-level `llms.txt` should link to sibling projects.
 
-A Python script that:
-1. Sets up the environment for the condition (enable/disable `/etc/hosts`, set up CLAUDE.md)
-2. Launches Claude Code in headless/API mode with the appropriate prompt
-3. Sends each question, captures the full response
-4. Records token usage, tool calls, timing
-5. Saves raw session data to `results/raw/`
+### Finding 7: URL Pattern Hallucination
 
-```
-scripts/
-├── run_experiment.py       # Main runner — iterates conditions × questions × runs
-├── setup_condition.sh      # Toggles /etc/hosts, CLAUDE.md, skills per condition
-├── build_docs.sh           # Builds all 5 doc sets with sphinx-llm
-├── serve_docs.sh           # Starts/stops nginx
-├── score_responses.py      # Judge script — sends responses to Claude for scoring
-├── analyse_results.py      # Aggregates scores, generates tables and charts
-├── gold_standards.json     # All gold-standard answers
-└── nginx.conf              # nginx configuration for local doc serving
-```
+29% of all doc fetches (211/726) included `/en/` in the URL path — a URL pattern from other `documentation.ubuntu.com` sites that is not used by any of the charm ecosystem repos. The breakdown by condition is stark:
+- **Condition C:** 50% of fetches use `/en/`, in 68% of sessions
+- **Condition D:** only 4% of fetches use `/en/`, in 2 sessions
+- **Condition E:** high `/en/` usage (no instructions to correct it)
+
+We added nginx rewrite rules to handle this, but without them, half of condition C's doc fetches would have returned 404s. **URL stability and redirects are a prerequisite for llms.txt adoption.**
+
+The agent also tried hallucinated URLs like `/juju/sdk/howto/manage-relations/llms.txt` and `/charm-tech/howto/manage-tls-certificates/llms.txt` — paths that have never existed. This is a training data artefact from similar URL patterns on other sites.
+
+### Finding 8: Synthesis Tasks Expose a Methodology Artefact
+
+For S3 (write a provider charm), conditions B and D score dramatically lower (44–53%) than A and C (68–76%). Investigation revealed the cause: **the instructed agent describes what code it would write rather than writing it**. It outputs charmcraft.yaml, explains the approach, and references file line numbers, but never actually provides the Python code.
+
+This is an artefact of using non-interactive mode (`-p`). In interactive use, the agent would use Write/Edit tools to create files. The CLAUDE.md instructions trigger a tool-oriented workflow that doesn't work in print mode.
+
+**The synthesis scores for B/D likely understate the real-world value of instructions.** The information-retrieval scores (Q1–Q20) are more representative of the actual quality difference.
+
+## Methodology Notes
+
+### Scoring Calibration
+
+The initial judge prompt was too strict — it treated any detail not in the gold standard as a hallucination. An 18% human review revealed 67% disagreement, with 54 of 55 hallucination overrides being raises (judge too strict). The judge was recalibrated with explicit guidance that:
+- Extra correct detail beyond the gold standard is not a hallucination
+- The gold standard is a reference, not an exhaustive list
+- Deprecated-but-working APIs score 1 for currency, not 0
+
+After recalibration, judge-human agreement improved from 69% to 75%.
+
+### Gold Standard Corrections
+
+During human review, several gold standard answers were corrected:
+- Q3: Added deprecated but real events (`add_metrics`, `meter_status_changed`)
+- Q14: Added actual TLS certificate event names (`CertificateAvailableEvent`, `CertificateDeniedEvent`)
+- Q15: Corrected `ensure_contents` signature and import style (module import preferred)
+- Q17: Added legacy `bases` format (still widely used), corrected key list
+- Q18: Noted that `scope: container` is only relevant for machine charms
+- Q19: Added `upstream-source` as unofficial but widely used field
 
 ### Session Isolation
 
-Each session must be fully isolated:
-- Fresh `/tmp` working directory
-- No `.claude/` directory (no memory persistence between sessions)
-- Condition A/C: no CLAUDE.md in the working directory
-- Condition B/D: CLAUDE.md + skills copied into the working directory
-- Separate nginx access log per session (for doc access analysis)
+Each session ran in a fresh `/tmp` working directory with no Claude memory, no session persistence, and randomised question order (fixed seed per run). Conditions A/B used the real internet; conditions C/D/E used local nginx. The `/etc/hosts` override was toggled between conditions.
 
-### Run Order
+### Limitations
 
-Randomise the order of conditions and questions within each run to avoid systematic bias from model warm-up, caching, or temporal effects. Use a fixed random seed per run for reproducibility.
+1. **Non-interactive mode**: The `-p` flag prevents tool use (Write, Edit, Bash), penalising conditions B/D whose instructions assume interactive use. Information-retrieval scores are more reliable than synthesis scores for these conditions.
 
-## Practical Considerations
+2. **Single domain**: We only intercepted `documentation.ubuntu.com`. The agent could still reach docs via WebSearch (which returns real internet results) or old domains (`juju.is`, `ops.readthedocs.io`), partially bypassing our experimental controls.
 
-### Repeatability
-- 3 runs per condition per question per model
-- 23 items × 4 conditions × 3 runs × 2 models = **552 sessions** (max)
-- Models: `claude-sonnet-4-6` and `claude-opus-4-6`
-- Pin doc builds to specific commits of the forks (record commit SHAs)
+3. **Judge accuracy**: Even after calibration, 25% disagreement with human reviewers remains. The analysis uses human scores where available (18% of sessions).
 
-### Model Dimension & Checkpoint
+4. **Question selection**: The 23 questions may not be representative of all charm development tasks. They were designed to cover the doc ecosystem broadly, not to test specific difficulty levels.
 
-Adding model as a third dimension (Sonnet vs Opus) to test whether model capability interacts with doc format. However, this doubles the session count.
+## Recommendations
 
-**Checkpoint strategy:** After completing the first full run (23 items × 4 conditions × 2 models = 184 sessions), compare Sonnet vs Opus scores. If there is no meaningful difference (e.g., scores within 1 standard deviation), drop the model dimension for runs 2 and 3, cutting remaining sessions in half.
+### For documentation teams adopting llms.txt
 
-### Cost Estimate
-- Info retrieval questions: ~5K tokens input + ~2K tokens output each
-- Synthesis tasks: ~10K tokens input + ~5K tokens output each
-- Sonnet sessions: ~$0.05 each; Opus sessions: ~$0.25 each
-- **Full run (552 sessions):** ~$50 (Sonnet half) + ~$70 (Opus half) + ~$30 (judge scoring) ≈ **$150**
-- **If model dimension dropped after checkpoint:** ~$100 total
+1. **Start with `llms.txt` + per-page `.html.md` files** — the index is more valuable than `llms-full.txt`.
+2. **Add content negotiation** (`Accept: text/markdown`) — it's free and Claude Code already supports it.
+3. **Ensure URL redirects work** — agents hallucinate old URL patterns. Broken URLs eliminate the benefit.
+4. **Cross-link sibling projects** in `llms.txt` — agents don't know the doc domain's structure.
+5. **Use `sphinx-llm`** (NVIDIA/jacobtomlinson) — it generates all three outputs and works with `canonical_sphinx`.
 
-### What sphinx-llm Produces
+### For teams writing agent instructions (CLAUDE.md, skills)
 
-The `sphinx-llm` (`sphinx_llm.txt` extension) generates:
-- `llms.txt` — index file with links and descriptions (markdown)
-- `llms-full.txt` — all docs concatenated into one markdown file
-- Per-page `.html.md` files — markdown version of each HTML page
+1. **Instructions are cost-effective** ($0.15/session vs $0.24 for llms.txt) but less accurate.
+2. **Don't over-specify** — excessive instructions can reduce doc exploration and lower accuracy.
+3. **Name specific doc URLs** in instructions — it prevents the agent from guessing wrong paths.
+4. **For non-interactive use**, add "output code directly, don't describe it" guidance.
 
-This is strictly additive — all existing HTML docs remain unchanged.
+### For the llms.txt specification
 
-### Which sphinx-llm?
+1. **Cross-project discovery** is a gap — the spec doesn't address how agents discover sibling projects on the same domain.
+2. **`llms-full.txt` is rarely used** — agents prefer the per-page approach. The spec should emphasise `llms.txt` + per-page `.md` over full concatenation.
+3. **Content negotiation is complementary** — `llms.txt` handles discovery, `Accept: text/markdown` handles format. Both should be recommended together.
 
-Two options:
-- **`sphinx-llm`** (NVIDIA/jacobtomlinson) — generates markdown output, per-page `.md` files, `llms.txt`, `llms-full.txt`
-- **`sphinx-llms-txt`** (jdillard) — generates `llms.txt` and `llms-full.txt` only, in RST format, more configuration options
+## Files
 
-**Decision:** Use `sphinx-llm` since it produces per-page markdown files (which is part of what we want to test) and outputs markdown (more natural for LLMs than RST). Note: charmcraft uses RST source, but sphinx-llm converts to markdown output regardless.
-
-### Potential Complications
-
-1. **`canonical_sphinx` compatibility with `sphinx-llm`:** The Canonical Sphinx theme may have custom directives or builders that interact poorly with sphinx-llm's markdown builder. Test early.
-
-2. **charmcraft RST source:** sphinx-llm should handle RST→markdown conversion, but the output quality may differ from MyST→markdown. Worth checking.
-
-3. **Large llms-full.txt:** If the concatenated docs exceed Claude's practical context window for a single WebFetch, the agent may need to use per-page .md files instead. This is itself an interesting finding.
-
-4. **WebFetch vs WebSearch:** The agent might WebSearch for docs rather than directly fetching URLs. WebSearch results come from the real internet, not our local server. Only WebFetch is affected by the DNS override. This means conditions C/D still have access to real search results — the llms.txt files are an *additional* resource, not a replacement.
-
-5. **HTTPS/TLS:** Must get mkcert working properly so WebFetch doesn't reject the self-signed cert. Test this before running any sessions.
-
-## Expected Outcomes & What We Learn
-
-### Possible Results
-
-| Outcome | Implication |
+| File | Description |
 |---|---|
-| **D >> B > C > A** | Both help, instructions matter more, combination is best. Invest in both. |
-| **B ≈ D >> C ≈ A** | Instructions are what matter; llms.txt adds nothing on top. Focus on skills/CLAUDE.md. |
-| **C ≈ D >> A ≈ B** | llms.txt is transformative; instructions add little on top. Push for llms.txt adoption in Canonical docs. |
-| **B >> D > A > C** | Instructions help, but llms.txt actively hurts (e.g., context pollution). Investigate why. |
-| **A ≈ B ≈ C ≈ D** | Neither approach makes a significant difference. Training data already captures most of what's needed. |
-
-### Secondary Findings
-
-Regardless of the main result, we'll learn:
-- **Does the agent discover and use llms.txt?** If not, the spec needs better agent integration.
-- **Which doc pages does the agent fetch?** Informs which docs are most valuable.
-- **Does llms-full.txt get used, or per-page .md?** Informs whether full-context or targeted retrieval is preferred.
-- **Which questions are hardest?** Identifies gaps in current docs or training data.
-- **Does the RST-sourced charmcraft behave differently?** Informs whether source format matters.
-
-## Resolved Decisions
-
-- ✅ Agent is told llms.txt exists (conditions C/D get a hint in their prompt)
-- ✅ Condition A gets "You are writing a Juju charm" as minimal context
-- ✅ Condition A uses real internet (no /etc/hosts override)
-- ✅ Include charmcraft (RST source — interesting comparison)
-- ✅ Use `/etc/hosts` + nginx + mkcert (VM with passwordless sudo)
-- ✅ Full 552 sessions max (23 × 4 × 3 × 2 models), with checkpoint to cut model dimension if no difference
-- ✅ 33% human spot-check of judge scores
-- ✅ Token usage is a first-class metric (markdown vs HTML efficiency)
-- ✅ Model dimension: Sonnet + Opus, with checkpoint after run 1
+| `gold-standards.md` | Gold-standard answers for all 23 items |
+| `build-manifest.json` | Doc build details (commits, page counts) |
+| `infrastructure.md` | Infrastructure setup details |
+| `results/analysis-v2.md` | Full generated analysis tables |
+| `results/findings-notes.md` | Detailed observation notes |
+| `results/raw/` | Raw session data (JSON + nginx logs) |
+| `results/scored/` | Judge scorecards |
+| `results/reviewed/` | Human review overrides |
+| `scripts/run_experiment.py` | Session runner |
+| `scripts/score_responses.py` | Judge scoring |
+| `scripts/analyse_results.py` | Analysis + checkpoint |
+| `scripts/review_tool.py` | TUI review tool |
+| `scripts/questions.json` | Question definitions |
 
 ## Running the Experiment
 
-### 1. Run sessions
+See `scripts/` for the full automation pipeline. Key commands:
 
 ```bash
-cd ~/charming-with-claude
+# Run sessions
+python3 scripts/run_experiment.py --conditions A,B,C,D,E --models sonnet --runs 3
 
-# Full run (552 sessions, ~9-10 hours)
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/run_experiment.py
+# Score responses
+python3 scripts/score_responses.py
 
-# Pilot run (subset)
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/run_experiment.py \
-    --runs 1 --questions Q1,Q5,Q10,Q17,S1 --models sonnet
-
-# Resume after interruption (skips existing results)
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/run_experiment.py --resume
-```
-
-### 2. Score with the judge
-
-```bash
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/score_responses.py
-
-# Resume (skip already-scored)
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/score_responses.py --resume
-```
-
-### 3. Human review (33% spot-check)
-
-```bash
-# Set up (one-time)
-uv venv /tmp/llms-experiment-venv
+# Human review (33% sample)
 source /tmp/llms-experiment-venv/bin/activate
-uv pip install textual
-
-# Review 33% random sample
-cd ~/charming-with-claude/experiments/2026-03-26-llms-txt-docs-experiment
-python scripts/review_tool.py
-
-# Resume where you left off
 python scripts/review_tool.py --resume
 
-# Filter by condition or model
-python scripts/review_tool.py --condition C
-python scripts/review_tool.py --model opus
-
-# Check judge/human agreement stats
-python scripts/review_tool.py --summary
-```
-
-**Review tool key bindings:**
-- **n / p** — next / previous item
-- **1-4** — cycle the score for that dimension (0→1→2→0)
-- **a** — accept all judge scores and advance (fast path when you agree)
-- **s** — save current review
-- **q** — quit
-
-The left panel shows the agent response with metadata (question ID, condition, model). The right panel shows the gold standard. Scores are at the bottom with `✓` for agreed and `✎` for overridden.
-
-### 4. Analyse results
-
-```bash
-# Print to stdout
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/analyse_results.py
-
-# Save to file
-python3 experiments/2026-03-26-llms-txt-docs-experiment/scripts/analyse_results.py \
-    --output results/analysis.md
+# Analyse
+python3 scripts/analyse_results.py --output results/analysis.md
+python3 scripts/analyse_results.py --checkpoint  # Sonnet vs Opus comparison
 ```
