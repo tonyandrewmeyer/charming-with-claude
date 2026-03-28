@@ -264,6 +264,10 @@ class ReviewApp(App):
         dims = self._get_dims()
         human = self._get_human_scores()
 
+        # Scroll panels back to top
+        for scroller in self.query("VerticalScroll"):
+            scroller.scroll_home(animate=False)
+
         # Response panel
         header = (
             f"**{item['question_id']}** | "
