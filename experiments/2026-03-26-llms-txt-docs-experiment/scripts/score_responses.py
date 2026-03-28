@@ -152,7 +152,17 @@ Score the response on these dimensions (0-2 each):
 - **complete**: Are all requested features implemented? (0=missing major parts, 1=structure only, 2=complete)
 - **hallucination_free**: Is all API usage factually correct? (0=invented APIs, 1=minor inaccuracies, 2=all correct)
 
-Be strict about hallucinations — any invented method, parameter, or class name is a hallucination.
+IMPORTANT — hallucination scoring:
+- A hallucination is an API, method, parameter, class, or event that does NOT actually exist in the framework.
+- Extra correct details that go beyond the gold standard are NOT hallucinations — score them 2.
+- Real APIs used in an unusual way are NOT hallucinations — score them 2 and note it elsewhere if relevant.
+- Only score 0 if the response includes something genuinely fabricated that does not exist.
+- Score 1 only if there are minor inaccuracies (e.g., wrong default value), not for extra correct content.
+
+IMPORTANT — completeness scoring:
+- If the response describes what code would do but does not actually include the code, score complete as 0 or 1.
+- The question asks the agent to "write" code, so the code must be present in the response.
+
 Pay attention to the scoring notes in the gold standard.
 
 Respond with ONLY a JSON object (no markdown fencing, no other text):
@@ -171,13 +181,28 @@ Respond with ONLY a JSON object (no markdown fencing, no other text):
 
 ## Scoring Instructions
 Score the response on these dimensions (0-2 each):
-- **correctness**: Is the answer factually correct? (0=wrong/fabricated, 1=partially correct, 2=fully matches gold standard)
+- **correctness**: Is the answer factually correct? (0=wrong/fabricated, 1=partially correct, 2=fully correct)
 - **specificity**: Does it use precise, framework-specific details? (0=vague/generic, 1=some specifics, 2=precise API names/params)
 - **hallucination**: Does it invent APIs, parameters, or facts? (0=invented APIs/params, 1=minor inaccuracies, 2=nothing hallucinated)
-- **currency**: Does it use current/recommended APIs? (0=deprecated/removed, 1=older but valid, 2=current best practice)
+- **currency**: Does it use current/recommended APIs? (0=fully removed APIs, 1=older but still valid, 2=current best practice)
 
-Be strict about hallucinations — any method, parameter, event name, or class that doesn't exist is a hallucination.
-Compare carefully against the gold standard for factual accuracy.
+IMPORTANT — hallucination scoring:
+- A hallucination is an API, method, parameter, class, or event that does NOT actually exist in the framework.
+- Extra correct details that go beyond the gold standard are NOT hallucinations — score them 2.
+- The gold standard is not exhaustive. Real APIs, parameters, and features that exist but are not mentioned in the gold standard are NOT hallucinations.
+- Only score 0 if the response includes something genuinely fabricated that does not exist.
+- Score 1 only for minor factual inaccuracies (e.g., wrong default value, wrong type), not for extra correct content.
+
+IMPORTANT — correctness scoring:
+- The gold standard may not be exhaustive. If the response includes correct additional detail beyond the gold standard, that is NOT a correctness error — score 2.
+- Score 1 for answers that are partially correct but miss key details from the gold standard.
+- Score 0 only for answers that are fundamentally wrong or fabricated.
+
+IMPORTANT — currency scoring:
+- Score 1 (not 0) for older patterns that still work (e.g., deprecated but functional APIs).
+- Score 0 only for APIs or patterns that have been fully removed and no longer function.
+
+Compare against the gold standard, but remember it is a reference, not an exhaustive list of all valid answers.
 
 Respond with ONLY a JSON object (no markdown fencing, no other text):
 {{"correctness": <0-2>, "specificity": <0-2>, "hallucination": <0-2>, "currency": <0-2>, "correctness_notes": "<brief>", "hallucination_notes": "<list any hallucinated items or 'none'>"}}"""
