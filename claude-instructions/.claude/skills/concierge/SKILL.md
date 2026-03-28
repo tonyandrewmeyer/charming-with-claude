@@ -25,19 +25,19 @@ Concierge is an opinionated utility for automating the setup of charm developmen
 
 ```bash
 # Full development environment (recommended for most developers)
-concierge prepare -p dev
+sudo concierge prepare -p dev
 
 # Machine charm development only
-concierge prepare -p machine
+sudo concierge prepare -p machine
 
 # Kubernetes-focused development
-concierge prepare -p k8s
+sudo concierge prepare -p k8s
 
 # Lightweight K8s with MicroK8s
-concierge prepare -p microk8s
+sudo concierge prepare -p microk8s
 
 # Build tools only (no Juju)
-concierge prepare -p crafts
+sudo concierge prepare -p crafts
 ```
 
 **Presets comparison:**
@@ -74,7 +74,7 @@ concierge status
 
 ```bash
 # Reverse the prepare operation
-concierge restore
+sudo concierge restore
 ```
 
 **⚠️ CRITICAL WARNING:**
@@ -129,7 +129,7 @@ host:
 
 Then run:
 ```bash
-concierge prepare -c concierge.yaml
+sudo concierge prepare -c concierge.yaml
 ```
 
 **For complete YAML schema, see [references/configuration.md](references/configuration.md)**
@@ -138,18 +138,18 @@ concierge prepare -c concierge.yaml
 
 ```bash
 # Override snap channels
-concierge prepare -p dev --juju-channel=4.0/edge
+sudo concierge prepare -p dev --juju-channel=4.0/edge
 
 # Install extra packages
-concierge prepare -p dev \
+sudo concierge prepare -p dev \
   --extra-snaps=astral-uv/latest/edge,jhack \
   --extra-debs=build-essential,python3-tox
 
 # Skip Juju installation/bootstrap
-concierge prepare -p crafts --disable-juju
+sudo concierge prepare -p crafts --disable-juju
 
 # Use Google Cloud credentials
-concierge prepare -p k8s --google-credential-file=~/gcloud-creds.json
+sudo concierge prepare -p k8s --google-credential-file=~/gcloud-creds.json
 ```
 
 **Channel override flags:**
@@ -171,7 +171,7 @@ export CONCIERGE_JUJU_CHANNEL="4.0/edge"
 export CONCIERGE_EXTRA_SNAPS="astral-uv/latest/edge,jhack"
 export CONCIERGE_EXTRA_DEBS="build-essential"
 
-concierge prepare -p dev
+sudo concierge prepare -p dev
 ```
 
 **Variable naming:** Flag `--juju-channel` becomes `CONCIERGE_JUJU_CHANNEL`
@@ -185,7 +185,7 @@ concierge prepare -p dev
 sudo snap install --classic concierge
 
 # 2. Prepare full dev environment
-concierge prepare -p dev --extra-snaps=jhack
+sudo concierge prepare -p dev --extra-snaps=jhack
 
 # 3. Verify installation
 concierge status
@@ -202,7 +202,7 @@ juju deploy ./my-charm.charm
 
 ```bash
 # Prepare K8s environment
-concierge prepare -p k8s
+sudo concierge prepare -p k8s
 
 # Verify controller
 juju controllers
@@ -217,7 +217,7 @@ juju deploy postgresql-k8s
 
 ```bash
 # Just install craft tools (no Juju)
-concierge prepare -p crafts
+sudo concierge prepare -p crafts
 
 # Build charms and rocks
 cd my-charm
@@ -231,7 +231,7 @@ rockcraft pack
 
 ```bash
 # Automated setup for CI
-concierge prepare -p dev \
+sudo concierge prepare -p dev \
   --juju-channel=3.6/stable \
   --extra-snaps=astral-uv/latest/edge \
   --extra-debs=python3-tox,make
@@ -247,7 +247,7 @@ fi
 
 ```bash
 # Remove everything concierge installed
-concierge restore
+sudo concierge restore
 
 # Verify cleanup
 concierge status
@@ -289,10 +289,10 @@ concierge status
 
 ```bash
 # Run with verbose logging
-concierge prepare -p dev -v
+sudo concierge prepare -p dev -v
 
 # Run with trace logging for detailed output
-concierge prepare -p dev --trace
+sudo concierge prepare -p dev --trace
 
 # Check status
 concierge status
@@ -328,7 +328,7 @@ microk8s status     # For MicroK8s
 concierge status
 
 # Run restore with logging
-concierge restore -v
+sudo concierge restore -v
 ```
 
 **If restore fails:**
@@ -347,22 +347,22 @@ snap list
 sudo snap install juju --channel=3.6/stable --classic
 
 # Then retry prepare
-concierge prepare -p dev
+sudo concierge prepare -p dev
 ```
 
 ## Command Reference
 
 ```bash
 # Prepare environment
-concierge prepare [flags]
-concierge prepare -p <preset>
-concierge prepare -c <config-file>
+sudo concierge prepare [flags]
+sudo concierge prepare -p <preset>
+sudo concierge prepare -c <config-file>
 
 # Check status
 concierge status
 
 # Restore/cleanup
-concierge restore
+sudo concierge restore
 
 # Shell completion
 concierge completion bash
@@ -377,6 +377,9 @@ concierge --version
 # Logging
 concierge prepare -p dev -v        # Verbose
 concierge prepare -p dev --trace   # Trace (very detailed)
+
+# Dry run
+sudo concierge prepare -p dev --dry-run
 ```
 
 ## Integration with Development Tools
@@ -385,7 +388,7 @@ concierge prepare -p dev --trace   # Trace (very detailed)
 
 ```bash
 # Prepare environment
-concierge prepare -p dev
+sudo concierge prepare -p dev
 
 # Develop charm
 cd my-charm
@@ -401,7 +404,7 @@ juju deploy ./my-charm.charm
 
 ```bash
 # Install jhack during prepare
-concierge prepare -p dev --extra-snaps=jhack
+sudo concierge prepare -p dev --extra-snaps=jhack
 
 # Or add to concierge.yaml
 # host:
@@ -418,7 +421,7 @@ jhack tail myapp/0
 
 ```bash
 # Install build tools
-concierge prepare -p dev \
+sudo concierge prepare -p dev \
   --extra-snaps=astral-uv/latest/edge \
   --extra-debs=python3-tox
 
@@ -436,7 +439,7 @@ uv sync
 - name: Prepare environment
   run: |
     sudo snap install --classic concierge
-    concierge prepare -p dev --extra-snaps=astral-uv/latest/edge
+    sudo concierge prepare -p dev --extra-snaps=astral-uv/latest/edge
 
 - name: Verify setup
   run: concierge status
@@ -461,22 +464,22 @@ Concierge uses this priority order (highest to lowest):
 
 ```bash
 # Common operations
-concierge prepare -p dev                   # Full dev environment
-concierge prepare -p machine               # Machine charm dev
-concierge prepare -p k8s                   # K8s charm dev
+sudo concierge prepare -p dev                   # Full dev environment
+sudo concierge prepare -p machine               # Machine charm dev
+sudo concierge prepare -p k8s                   # K8s charm dev
 concierge status                           # Check status
-concierge restore                          # Remove everything
+sudo concierge restore                          # Remove everything
 
 # With customisation
-concierge prepare -p dev --extra-snaps=jhack
-concierge prepare -p dev --juju-channel=4.0/edge
-concierge prepare -c my-config.yaml
-concierge prepare -p dev -v                # Verbose output
+sudo concierge prepare -p dev --extra-snaps=jhack
+sudo concierge prepare -p dev --juju-channel=4.0/edge
+sudo concierge prepare -c my-config.yaml
+sudo concierge prepare -p dev -v                # Verbose output
 
 # Environment variables
 export CONCIERGE_JUJU_CHANNEL="3.6/stable"
 export CONCIERGE_EXTRA_SNAPS="jhack"
-concierge prepare -p dev
+sudo concierge prepare -p dev
 ```
 
 ## Resources
@@ -501,3 +504,4 @@ When you need detailed information:
 - Use `concierge status` to verify setup
 - Add `--extra-snaps=jhack` for rapid development
 - Run with `-v` or `--trace` when troubleshooting
+- `sudo` is required to prepare or restore
