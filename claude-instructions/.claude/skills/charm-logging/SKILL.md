@@ -1,7 +1,6 @@
 ---
 name: charm-logging
 description: Canonical charm logging guidelines. Use when adding logging to charms or reviewing charm log messages. Covers log levels, message formatting, tense, and common pitfalls.
-argument-hint: [topic]
 license: default
 compatibility: universal
 allowed-tools: Read Grep Glob
@@ -129,3 +128,16 @@ Operation IDs, unit names, resource paths:
 - Do not log the same information repeatedly
 - Do not log what Juju already logs (e.g. that an event is running)
 - Each message should add value
+
+## Templating
+
+Always use printf-style percentage formatting, never f-strings.
+
+```python
+# BAD
+logger.debug(f"updating configuration file {filename}")
+logger.debug("updating configuration file {}".format(filename))
+
+# GOOD
+logger.debug("updating configuration file %s", filename)
+```
