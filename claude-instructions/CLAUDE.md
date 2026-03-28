@@ -12,7 +12,7 @@ Before working on tasks, check for relevant skills in `.claude/skills/`. Availab
 - `cli-standards` — `.claude/skills/cli-standards/SKILL.md` — Canonical CLI design standards
 - `code-review` — `.claude/skills/code-review/SKILL.md` — code review guidelines
 - `charm-logging` — `.claude/skills/charm-logging/SKILL.md` — charm logging level guidelines
-- `charm-testing-commands` — `.claude/skills/charm-testing-commands/SKILL.md` — standard charm test commands
+- `charm-development-commands` — `.claude/skills/charm-development-commands/SKILL.md` — standard commands to make available for developing and testing charms
 - `charm-docs` — `.claude/skills/charm-docs/SKILL.md` — charm documentation guidelines
 
 Read the appropriate SKILL.md before starting any related work.
