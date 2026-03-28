@@ -1,7 +1,6 @@
 ---
-name: charm-testing-commands
+name: charm-development-commands
 description: Standard linting and testing commands for Juju charms. Use when setting up a charm project's test infrastructure, CI, or tox/make configuration. Defines the required command names and their meanings.
-argument-hint: [topic]
 license: default
 compatibility: universal
 allowed-tools: Read Grep Glob
@@ -21,7 +20,7 @@ Based on spec OP061.
 |---------|-----------|
 | *(no args)* | Running the tool with no arguments must execute the `lint` and `unit` commands |
 | `format` | Automatically format code (including tests) according to project style |
-| `lint` | Report linting errors (ruff, pylint, flake8, isort, pydocstyle, bandit, etc.) **and** static type checking issues (pyright, ty, mypy). Must include charm libs; should include test code |
+| `lint` | Report linting errors (ruff, pylint, flake8, isort, pydocstyle, bandit, etc.) **and** static type checking issues (pyright, ty, mypy). Must include Charmhub hosted charm libraries that this charm provides, if any; should include test code |
 | `unit` | Run unit tests for the charm and its libs. Includes both deprecated Harness and state-transition (Scenario) framework tests |
 | `integration` | Run integration tests against a real Juju controller. Includes pytest-operator, python-libjuju, and Jubilant tests |
 | `docs` | Build documentation (if docs are in the repository). Should run `make run` in the docs directory |
