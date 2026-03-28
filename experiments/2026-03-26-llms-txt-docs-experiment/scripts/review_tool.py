@@ -225,12 +225,14 @@ class ReviewApp(App):
             with Vertical(id="scores-panel"):
                 yield Static("", id="scores-display")
                 yield Static("", id="notes-display")
-                yield Input(placeholder="Press [c] to add a note explaining score overrides...", id="human-note")
+                yield Input(placeholder="Press [c] to add a note explaining score overrides...", id="human-note", disabled=True)
         yield Static("", id="status-bar")
         yield Footer()
 
     def on_mount(self) -> None:
         self.title = "Experiment Review Tool"
+        # Prevent the Input widget from capturing all keypresses on start
+        self.set_focus(None)
         self._load_item()
 
     def _get_dims(self) -> list[str]:
@@ -359,10 +361,14 @@ class ReviewApp(App):
 
     def action_focus_note(self) -> None:
         """Focus the note input field."""
-        self.query_one("#human-note", Input).focus()
+        note_input = self.query_one("#human-note", Input)
+        note_input.disabled = False
+        note_input.focus()
 
     def action_unfocus_note(self) -> None:
         """Unfocus the note input and return to key bindings."""
+        note_input = self.query_one("#human-note", Input)
+        note_input.disabled = True
         self.set_focus(None)
         self._auto_save_if_changed()
         self._load_item()
@@ -373,6 +379,11 @@ class ReviewApp(App):
         if self.items:
             sid = self.items[self.current_index]["session_id"]
             self.human_notes[sid] = event.value
+
+    def action_quit(self) -> None:
+        """Save any pending changes before quitting."""
+        self._auto_save_if_changed()
+        self.exit()
 
     def action_accept_all(self) -> None:
         """Accept all judge scores as-is and save."""
@@ -385,11 +396,13 @@ class ReviewApp(App):
         self.action_next_item()
 
     def action_next_item(self) -> None:
+        self._auto_save_if_changed()
         if self.current_index < len(self.items) - 1:
             self.current_index += 1
             self._load_item()
 
     def action_prev_item(self) -> None:
+        self._auto_save_if_changed()
         if self.current_index > 0:
             self.current_index -= 1
             self._load_item()
@@ -433,10 +446,22 @@ class ReviewApp(App):
         self.saved_count += 1
 
 
+def count_scored_items() -> int:
+    """Count total number of scored items."""
+    if not SCORED_DIR.exists():
+        return 0
+    return sum(
+        1 for d in SCORED_DIR.iterdir()
+        if (d / "scorecard.json").exists()
+    )
+
+
 def print_agreement_summary():
     """Print agreement stats from completed reviews."""
+    total_scored = count_scored_items()
+
     if not REVIEW_DIR.exists():
-        print("No reviews found.")
+        print(f"\nReview progress: 0/{total_scored} scored items reviewed")
         return
 
     total = 0
@@ -455,9 +480,10 @@ def print_agreement_summary():
             dim_agreement.setdefault(dim, []).append(agree)
 
     if total == 0:
-        print("No reviews found.")
+        print(f"\nReview progress: 0/{total_scored} scored items reviewed")
         return
 
+    print(f"\nReview progress: {total}/{total_scored} scored items reviewed ({total/total_scored*100:.0f}%)")
     print(f"\nAgreement Summary ({total} reviews)")
     print(f"  Overall agreement: {agreed}/{total} ({agreed/total*100:.0f}%)")
     print(f"\n  Per dimension:")
