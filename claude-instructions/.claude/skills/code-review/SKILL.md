@@ -1,7 +1,6 @@
 ---
 name: code-review
 description: Canonical code review guidelines. Use when reviewing code, preparing PRs for review, or giving feedback on changesets. Covers tone, procedures, code quality, changeset scope, and review process.
-argument-hint: [topic]
 license: default
 compatibility: universal
 allowed-tools: Read Grep Glob
@@ -34,16 +33,16 @@ Based on spec PE-ALL-005.
 
 ## Procedures
 
-- CI builds and PPA uploads must **succeed**
+- CI builds must **succeed**
 - **Ticket numbers** included in commits where needed
-- Commit messages must be **usefully descriptive** — "Fixed Bug 12345" is not sufficient; include a sentence or two about what changed and why
+- Pull request descriptions must be **usefully descriptive** — "Fixed Bug 12345" is not sufficient; include a sentence or two about what changed and why
 - Two **Signed-off-by** tags from Canonical reviewers (use judgement: trivial patches may need only one)
 
 ---
 
 ## Code Quality
 
-- All patches must follow the **code style and conventions** of the upstream project
+- All patches must follow the **code style and conventions** of the appropriate project
 - Look for cases where end-user function behaviour **diverges from upstream** — ask for clarification and push for upstreamable implementations
 
 ---
