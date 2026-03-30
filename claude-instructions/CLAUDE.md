@@ -8,6 +8,7 @@ Before working on tasks, check for relevant skills in `.claude/skills/`. Availab
 - `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
 - `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
 - `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+- `juju-doctor` — `.claude/skills/juju-doctor/SKILL.md` — validate deployments with probes
 
 Read the appropriate SKILL.md before starting any related work.
 
