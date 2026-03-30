@@ -8,6 +8,7 @@ Before working on tasks, check for relevant skills in `.claude/skills/`. Availab
 - `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
 - `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
 - `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+- `migrate-to-jubilant` - `.claude/skills/migrate-to-jubilant/SKILL.md` - tools for migrating charm integration tests from pytest-operator and python-libjuju, or from pytest-jubilant 1.x, to pytest-jubilant 2.0 and Jubilant
 
 Read the appropriate SKILL.md before starting any related work.
 
