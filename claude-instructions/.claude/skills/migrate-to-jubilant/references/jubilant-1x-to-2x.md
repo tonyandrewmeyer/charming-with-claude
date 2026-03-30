@@ -50,7 +50,7 @@ These removals reflect the [design philosophy](https://github.com/canonical/pyte
 
 | 1.x | 2.0 | Notes |
 |---|---|---|
-| Logs always dumped on failure | Logs **not** dumped by default | Pass `--juju-dump-logs` to enable |
+| Logs always dumped | Logs **not** dumped by default | Pass `--juju-dump-logs` to enable |
 | N/A | Last 1000 lines to stderr on failure | Always happens if any tests fail |
 
 ## Model Naming
