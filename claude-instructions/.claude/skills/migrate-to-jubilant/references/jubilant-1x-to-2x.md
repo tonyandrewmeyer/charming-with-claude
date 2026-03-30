@@ -57,7 +57,7 @@ These removals reflect the [design philosophy](https://github.com/canonical/pyte
 
 | 1.x | 2.0 | Notes |
 |---|---|---|
-| `test-<randomhex>-<module>` | `jubilant-<randomhex>-<module>` | Default prefix changed |
+| `<module>-<randomhex>-<suffix>` or `<user prefix>-<suffix>` | `jubilant-<randomhex>-<module>-<suffix>` or `<user prefix>-<module>-<suffix>` | Default prefix changed |
 | `--model <name>` | `--juju-model <prefix>` | Prefix is combined with module name |
 
 In 2.0, each module gets its own model with the naming scheme `<prefix>-<module>`. The `--juju-model` value sets the prefix; the module name is always appended. This means models are not shared between modules even when using `--juju-model`.
