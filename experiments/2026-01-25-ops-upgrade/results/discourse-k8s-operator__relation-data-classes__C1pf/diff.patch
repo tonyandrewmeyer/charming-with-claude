@@ -1,0 +1,45 @@
+diff --git a/src/charm.py b/src/charm.py
+index fb2ae96..f199407 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -5,6 +5,7 @@
+ """Charm for Discourse on kubernetes."""
+ 
+ import base64
++import dataclasses
+ import hashlib
+ import logging
+ import os.path
+@@ -66,6 +67,15 @@ class MissingRedisRelationDataError(Exception):
+     """Custom exception to be raised in case of malformed/missing redis relation data."""
+ 
+ 
++@dataclasses.dataclass
++class RedisAppData:
++    """Data from the redis application relation bag."""
++
++    leader_host: str = dataclasses.field(
++        default="", metadata={"alias": "leader-host"}
++    )
++
++
+ class DiscourseCharm(CharmBase):
+     """Charm for Discourse on kubernetes."""
+ 
+@@ -415,13 +425,13 @@ class DiscourseCharm(CharmBase):
+         relation = self.model.get_relation(self.redis.relation_name)
+         if not relation:
+             raise MissingRedisRelationDataError("No redis relation data")
+-        relation_app_data = relation.data[relation.app]
++        app_data = relation.load(RedisAppData, relation.app, decoder=str)
+         relation_unit_data = self.redis.relation_data
+ 
+         try:
+             redis_hostname = str(
+-                relation_app_data["leader-host"]
+-                if relation_app_data.get("leader-host")
++                app_data.leader_host
++                if app_data.leader_host
+                 else relation_unit_data["hostname"]
+             )
+             redis_port = int(relation_unit_data["port"])

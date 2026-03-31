@@ -1,0 +1,258 @@
+● List directory .
+  └ 38 files found
+
+● View actions.yaml
+  $ cat /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/actions.yaml
+  └ 23 lines...
+
+● Find main charm files
+  $ cat /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/src/charm.py 2>/dev/null ||
+  find /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/src -name "*.py" | head -20
+  └ 11 lines...
+
+● Find action parameter usage in charm.py
+  $ grep -n "event.params\|ActionEvent\|action_params\|\.params\["
+  /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/src/charm.py | head -40
+  └ 15 lines...
+
+● Find action handler methods
+  $ grep -n "def.*action\|_on_.*action\|ActionEvent"
+  /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/src/charm.py
+  └ 7 lines...
+
+● web_search: ops 2.23.0 ActionEvent load_params dataclass pydantic action parameters Python charm
+  └ {"type":"text","text":{"value":"In ops 2.23.0 (the Operator Framework for Juj...
+
+● Read src/charm.py lines 890-1000
+  └ 110 lines read
+
+● Check ops version
+  $ python3 -c "import ops; print(ops.__version__)" 2>/dev/null || pip show ops 2>/dev/null | grep
+  Version
+  └ 2 lines...
+
+● Check ops version in requirements
+  $ grep -n "^ops\|ops=="
+  /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/requirements.txt
+  └ 2 lines...
+
+● Read src/charm.py lines 1-50
+  └ 49 lines read
+
+● Find class definitions and constants
+  $ grep -n "EMAIL_LIST_SEPARATOR\|EMAIL_LIST_MAX\|^class "
+  /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/src/charm.py | head -20
+  └ 9 lines...
+
+Now I have a clear picture. I'll add dataclasses for both action parameter sets and update the handlers to use `event.load_params()`.
+
+● Read src/charm.py lines 10-16
+  └ 7 lines read
+
+● Edit src/charm.py (+1)
+
+Now add the dataclasses after the constants block:
+
+● Read src/charm.py lines 48-58
+  └ 11 lines read
+
+● Edit src/charm.py (+15)
+
+Now update `_add_admin_action` to use `event.load_params()`:
+
+● Edit src/charm.py (+5 -4)
+
+Now update `_execute_anonymize_cmd` and `_anonymize_user_action`:
+
+● Edit src/charm.py (+4 -3)
+
+● Read src/charm.py lines 990-1020
+  └ 31 lines read
+
+● Edit src/charm.py (+4 -3)
+
+Now let's verify the changes look correct and run the tests:
+
+● Verify no remaining event.params references
+  $ grep -n "event.params\|load_params\|AddAdminParams\|AnonymizeUserParams"
+  /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/src/charm.py
+  └ 7 lines...
+
+All `event.params` references are replaced. Let's run the tests to verify nothing is broken:
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && pip install -q tox && tox
+  -e unit -- -x -q 2>&1 | tail -30
+  └ 21 lines...
+
+● Check if tox is already installed
+  $ which tox && tox --version
+  └ 5 lines...
+
+● Run unit tests with tox
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && tox -e unit -- -x -q 2>&1
+  | tail -40
+  └ 41 lines...
+
+The tests need to be updated to mock `load_params`. Let me look at the test file:
+
+● View action tests
+  $ cat
+  /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/tests/unit_harness/test_actions.py
+  └ 394 lines...
+
+● Check if load_params is on ActionEvent
+  $ python3 -c "from ops.charm import ActionEvent; print(dir(ActionEvent))" | tr ',' '\n' | grep -i
+  load
+  └ 2 lines...
+
+● Test MagicMock with ActionEvent spec
+  $ python3 -c "
+  from unittest.mock import MagicMock
+  from ops.charm import ActionEvent
+  e = MagicMock(spec=ActionEvent)
+  print(hasattr(e, 'load_params'))...
+  └ 5 lines...
+
+The tests use `MagicMock(spec=ActionEvent)` and set `event.params = {...}`, but now the code calls `event.load_params(...)`. I need to update the tests to configure `load_params` to return the correct dataclass instance:
+
+● Read tests/unit_harness/test_actions.py lines 1-20
+  └ 20 lines read
+
+● Edit tests/unit_harness/test_actions.py (+7 -1)
+
+Now update each test to configure `load_params`. The tests with `add-admin` params:
+
+✗ Edit tests/unit_harness/test_actions.py
+  Multiple matches found
+
+● Read tests/unit_harness/test_actions.py lines 80-135
+  └ 56 lines read
+
+✗ Edit tests/unit_harness/test_actions.py
+  Multiple matches found
+
+● Read tests/unit_harness/test_actions.py lines 131-230
+  └ 100 lines read
+
+● Read tests/unit_harness/test_actions.py lines 95-130
+  └ 35 lines read
+
+I'll use a Python script to do these targeted edits precisely:
+
+● Update add-admin tests to use load_params
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && python3 - <<'EOF'
+  import re
+
+  with open("tests/unit_harness/test_actions.py", "r") as f:
+      content = f.read()...
+  └ 134 lines...
+
+Now update the anonymize-user tests:
+
+● Read tests/unit_harness/test_actions.py lines 276-320
+  └ 45 lines read
+
+● Read tests/unit_harness/test_actions.py lines 320-415
+  └ 82 lines read
+
+● Update anonymize-user tests to use load_params
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && python3 - <<'EOF'
+  with open("tests/unit_harness/test_actions.py", "r") as f:
+      content = f.read()
+
+  # test_anonymize_user...
+  └ 81 lines...
+
+● Run unit tests
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && tox -e unit -- -x -q 2>&1
+  | tail -20
+  └ 20 lines...
+
+● Get full traceback for load_params error
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && tox -e unit -- -x -q -s
+  2>&1 | grep -A 5 "load_params"
+  └ 18 lines...
+
+● Check tox config
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && cat tox.ini | head -30
+  └ 31 lines...
+
+● Find ops package in tox env
+  $ ls /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/.tox/unit/lib/python*/site-pa
+  ckages/ops/__init__.py 2>/dev/null | head -3
+  └ 2 lines...
+
+● Check ops version in tox env
+  $ python3 -c "
+  import sys
+  sys.path.insert(0, '/tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/.tox/unit/
+  lib/python3.12/site-packages')
+  import ops...
+  └ 7 lines...
+
+The tox env has ops 2.21.1 — `load_params` isn't there yet. I need to update the test deps to require `ops>=2.23.0`:
+
+● Find ops dependency in tox.ini
+  $ grep -n "ops" /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/tox.ini
+  └ 2 lines...
+
+● View requirements.txt
+  $ cat /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2/requirements.txt
+  └ 3 lines...
+
+● Read tox.ini lines 120-145
+  └ 26 lines read
+
+● Edit tox.ini (+1 -1)
+
+Also update `requirements.txt` to reflect the minimum version:
+
+● Edit requirements.txt (+1 -1)
+
+● Run unit tests with updated ops version
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && tox -e unit -- -x -q 2>&1
+  | tail -15
+  └ 16 lines...
+
+All 42 tests pass. Let me do a final review of the changes:
+
+● Show changed files summary
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && git --no-pager diff --stat
+  └ 6 lines...
+
+● Show charm.py diff
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && git --no-pager diff
+  src/charm.py
+  └ 119 lines...
+
+Now commit the changes:
+
+● Commit changes
+  $ cd /tmp/ops-upgrade-experiment/indico-operator__action-classes__C2 && git add -A && git commit
+   -m "Use ActionEvent.load_params() with dataclasses for action params
+
+  Replace raw event.params dict access with typed dataclasses and
+  ActionEvent.load_params(), as introduced in ops 2.23.0....
+  └ 12 lines...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+
+Execution failed: Error: Failed to get response from the AI model; retried 5 times (total retry wait time: 5.8423304783833245 seconds) Last error: Unknown error
+
+Total usage est:        1 Premium request
+API time spent:         4m 31.764s
+Total session time:     5m 40.018s
+Total code changes:     +38 -13
+Breakdown by AI model:
+ claude-sonnet-4.6       1.7m in, 14.6k out, 1.6m cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/indico-operator__action-classes__C2/transcript.md

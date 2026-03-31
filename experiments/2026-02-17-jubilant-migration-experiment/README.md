@@ -211,6 +211,14 @@ These are all things the AI was able to fix once it could see the CI output. The
 
 The [harness-to-scenario migration experiment](../2026-03-05-harness-to-scenario-migration/) explores the same core question — how much does an AI model need to be guided to perform a mechanical test migration? — but for unit tests rather than integration tests. It compares a bare prompt against a detailed skill for migrating from the deprecated `ops.testing.Harness` to state-transition tests (`ops.testing` / Scenario), and is a much smaller study (2 runs on a single charm). The conclusions broadly align: a bare prompt does a creditable job, and a well-crafted skill offers modest but meaningful improvements.
 
+## Post-script: Charmkeeper
+
+Since this experiment was conducted, the [Charmkeeper](https://github.com/seb4stien/charmkeeper) project has published a dedicated [integration test agent](https://github.com/seb4stien/charmkeeper/blob/main/.github/agents/charmkeeper-integration-tests.md) for writing, updating, and migrating integration tests to Jubilant. Charmkeeper is a custom agent designed to automate charm maintenance and modernisation — it analyses charm repositories and proposes standardisation improvements via draft PRs, covering unit tests, integration tests, and Terraform modules.
+
+The integration test agent takes a more opinionated approach than our experiment's single-prompt strategy. It provides structured conventions around fixtures, test organisation, dependency management (including Renovate configuration for tracking charm revisions), and maintains a "learnings" folder to accumulate organisational knowledge across runs — letting the agent improve over time as it encounters new patterns.
+
+This wasn't evaluated as part of our experiment because it wasn't available at the time, but it's well worth investigating — particularly if you're looking for an ongoing, agent-based workflow for charm maintenance rather than one-off migrations.
+
 ## TL;DR but somehow got this far down, how does this help you?
 
 See [guidance.md](guidance.md) for a practical, step-by-step guide to using Copilot for your own migration.

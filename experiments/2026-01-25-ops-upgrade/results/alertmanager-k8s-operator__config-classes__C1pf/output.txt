@@ -1,0 +1,137 @@
+● Find Python source files and config options
+  $ find /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/src -type f
+  -name "*.py" | head -20 && echo "---" && cat
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/charmcraft.yaml | grep
+   -A 100 "^config:"
+  └ 75 lines...
+
+● Read the main charm file
+  $ cat /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/src/charm.py
+  └ 671 lines...
+
+Now let me check the tests and existing imports:
+
+● Find tests and all config access patterns
+  $ find /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/tests -name
+  "*.py" | head -20 && grep -r "self\.config\|model\.config"
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/src/ --include="*.py"
+  -n
+  └ 25 lines...
+
+● Check test config usage and pyproject dependencies
+  $ grep -n "config" /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/tes
+  ts/unit/test_charm.py | head -40 && echo "---" && cat
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/pyproject.toml | grep
+  -A5 "dependencies\|pydantic"
+  └ 62 lines...
+
+Now I have a clear picture. Let me implement the config class:
+
+● Create src/config.py (+19)
+
+Now update `charm.py`:
+
+● Edit src/charm.py (+1 -1)
+
+● Edit src/charm.py (+1)
+
+● Edit src/charm.py (+1)
+
+● Edit src/charm.py (+2 -2)
+
+● Edit src/charm.py (+3 -3)
+
+Now let's run the tests to verify:
+
+● Run lint and unit tests
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && tox -e
+  lint,unit 2>&1 | tail -50
+  └ 51 lines...
+
+The `load_config` method isn't available in the current ops version. Let me check:
+
+● Check ops version
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && uv run
+  --frozen python -c "import ops; print(ops.__version__)"
+  └ 3 lines...
+
+● Check ops dependency constraint
+  $ grep "ops"
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/pyproject.toml
+  └ 3 lines...
+
+● Check ops version in lockfile
+  $ grep -A2 "name = \"ops\""
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/uv.lock | head -10
+  └ 11 lines...
+
+● Find ops package entry in lockfile
+  $ grep -B2 -A5 '^name = "ops"'
+  /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf/uv.lock | head -30
+  └ 8 lines...
+
+I need to upgrade ops to >= 2.23.0. Let me update the lockfile:
+
+● Upgrade ops to >= 2.23.0
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && uv add
+  "ops>=2.23.0" 2>&1 | tail -20
+  └ 7 lines...
+
+● Run lint and unit tests again
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && tox -e
+  lint,unit 2>&1 | tail -30
+  └ 31 lines...
+
+Let me check if these test failures pre-existed my changes:
+
+● Check baseline test failures before changes
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && git stash &&
+  tox -e unit 2>&1 | tail -20
+  └ 22 lines...
+
+Good - baseline with ops 3.6.0 passes all tests. Let me restore my changes:
+
+● Restore my changes
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && git stash pop
+  └ 16 lines...
+
+The issue is that `self.typed_config` in `__init__` becomes stale when Harness tests call `update_config`. I need to make it a property that calls `load_config` fresh each time:
+
+● Edit src/charm.py (-1)
+
+Now add a `typed_config` property. I'll add it near the other properties:
+
+● Edit src/charm.py (+5)
+
+● Run lint and unit tests
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && tox -e
+  lint,unit 2>&1 | tail -20
+  └ 20 lines...
+
+All 57 tests pass. Let me show the final diff:
+
+● Show final diff
+  $ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__config-classes__C1pf && git --no-pager
+   diff src/ pyproject.toml
+  └ 78 lines...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+
+Execution failed: Error: Failed to get response from the AI model; retried 5 times (total retry wait time: 6.13999259778355 seconds) Last error: Unknown error
+
+Total usage est:        1 Premium request
+API time spent:         3m 36.869s
+Total session time:     10m 11.483s
+Total code changes:     +32 -7
+Breakdown by AI model:
+ claude-sonnet-4.6       949.1k in, 11.4k out, 846.1k cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/alertmanager-k8s-operator__config-classes__C1pf/transcript.md

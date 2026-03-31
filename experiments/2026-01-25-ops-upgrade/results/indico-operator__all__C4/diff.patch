@@ -1,0 +1,320 @@
+diff --git a/charmcraft.yaml b/charmcraft.yaml
+index 23ac971..f0fcea5 100644
+--- a/charmcraft.yaml
++++ b/charmcraft.yaml
+@@ -7,7 +7,7 @@ type: "charm"
+ bases:
+   - build-on:
+     - name: "ubuntu"
+-      channel: "20.04"
++      channel: "22.04"
+     run-on:
+     - name: "ubuntu"
+-      channel: "20.04"
++      channel: "22.04"
+diff --git a/pyproject.toml b/pyproject.toml
+index 185119a..1e6b640 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -13,7 +13,7 @@ branch = true
+ # Formatting tools configuration
+ [tool.black]
+ line-length = 99
+-target-version = ["py38"]
++target-version = ["py310"]
+ 
+ [tool.coverage.report]
+ fail_under = 97
+diff --git a/requirements.txt b/requirements.txt
+index d0c8a70..981dbbf 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,2 +1,2 @@
+ pydantic==1.10.26
+-ops>=2.0.0,<3.0.0
++ops>=3.0.0
+diff --git a/src/charm.py b/src/charm.py
+index 1040d7d..231bf3e 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -22,11 +22,6 @@ from charms.loki_k8s.v0.loki_push_api import LogProxyConsumer
+ from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+ from charms.redis_k8s.v0.redis import RedisRelationCharmEvents, RedisRequires
+-from ops.charm import ActionEvent, CharmBase, HookEvent, PebbleReadyEvent, RelationDepartedEvent
+-from ops.jujuversion import JujuVersion
+-from ops.main import main
+-from ops.model import ActiveStatus, BlockedStatus, Container, MaintenanceStatus, WaitingStatus
+-from ops.pebble import ExecError
+ 
+ from database_observer import DatabaseObserver
+ from s3_observer import S3Observer
+@@ -53,7 +48,7 @@ class InvalidRedisNameError(Exception):
+     """Represents invalid redis name error."""
+ 
+ 
+-class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attributes
++class IndicoOperatorCharm(ops.CharmBase):  # pylint: disable=too-many-instance-attributes
+     """Charm for Indico on kubernetes.
+ 
+     Attrs:
+@@ -200,17 +195,17 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             If the needed relations have been established.
+         """
+         if self.redis_broker.relation_data is None:
+-            self.unit.status = WaitingStatus("Waiting for redis-broker availability")
++            self.unit.status = ops.WaitingStatus("Waiting for redis-broker availability")
+             return False
+         if self.redis_cache.relation_data is None:
+-            self.unit.status = WaitingStatus("Waiting for redis-cache availability")
++            self.unit.status = ops.WaitingStatus("Waiting for redis-cache availability")
+             return False
+         if self.database.uri is None:
+-            self.unit.status = WaitingStatus("Waiting for database availability")
++            self.unit.status = ops.WaitingStatus("Waiting for database availability")
+             return False
+         return True
+ 
+-    def _on_pebble_ready(self, event: PebbleReadyEvent) -> None:
++    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:
+         """Handle the on pebble ready event for the containers.
+ 
+         Args:
+@@ -221,13 +216,13 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             return
+         self._config_pebble(event.workload)
+ 
+-    def _config_pebble(self, container: Container) -> None:
++    def _config_pebble(self, container: ops.Container) -> None:
+         """Apply pebble configurations to a container.
+ 
+         Args:
+             container: Container to be configured by Pebble.
+         """
+-        self.unit.status = MaintenanceStatus(f"Adding {container.name} layer to pebble")
++        self.unit.status = ops.MaintenanceStatus(f"Adding {container.name} layer to pebble")
+         if container.name == "indico":
+             # Plugins need to be installed before adding the layer so that
+             # they are included in the corresponding env vars
+@@ -259,13 +254,13 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             container.add_layer(container.name, nginx_config, combine=True)
+             nginx_exporter_config = self._get_nginx_prometheus_exporter_pebble_config(container)
+             container.add_layer("nginx", nginx_exporter_config, combine=True)
+-        self.unit.status = MaintenanceStatus(f"Starting {container.name} container")
++        self.unit.status = ops.MaintenanceStatus(f"Starting {container.name} container")
+         container.pebble.replan_services()
+         if self._are_pebble_instances_ready():
+             self.unit.set_workload_version(self._get_indico_version())
+-            self.unit.status = ActiveStatus()
++            self.unit.status = ops.ActiveStatus()
+         else:
+-            self.unit.status = WaitingStatus("Waiting for pebble")
++            self.unit.status = ops.WaitingStatus("Waiting for pebble")
+ 
+     def _get_logrotate_config(self) -> ops.pebble.LayerDict:
+         """Generate logrotate pebble layer.
+@@ -288,7 +283,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         }
+         return typing.cast(ops.pebble.LayerDict, layer)
+ 
+-    def _get_indico_pebble_config(self, container: Container) -> ops.pebble.LayerDict:
++    def _get_indico_pebble_config(self, container: ops.Container) -> ops.pebble.LayerDict:
+         """Generate pebble config for the indico container.
+ 
+         Args:
+@@ -322,7 +317,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         }
+         return typing.cast(ops.pebble.LayerDict, layer)
+ 
+-    def _get_celery_pebble_config(self, container: Container) -> ops.pebble.LayerDict:
++    def _get_celery_pebble_config(self, container: ops.Container) -> ops.pebble.LayerDict:
+         """Generate pebble config for the celery container.
+ 
+         Args:
+@@ -516,7 +511,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         }
+         return typing.cast(ops.pebble.LayerDict, layer)
+ 
+-    def _get_installed_plugins(self, container: Container) -> List[str]:
++    def _get_installed_plugins(self, container: ops.Container) -> List[str]:
+         """Return plugins currently installed.
+ 
+         Args:
+@@ -546,7 +541,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             secret_value = secret.get_content().get("secret-key")
+         return secret_value
+ 
+-    def _get_indico_env_config(self, container: Container) -> Dict:
++    def _get_indico_env_config(self, container: ops.Container) -> Dict:
+         """Return an envConfig with some core configuration.
+ 
+         Args:
+@@ -648,7 +643,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             }
+         return env_config
+ 
+-    def _get_indico_env_config_str(self, container: Container) -> Dict[str, str]:
++    def _get_indico_env_config_str(self, container: ops.Container) -> Dict[str, str]:
+         """Get indico environment config.
+ 
+         Args:
+@@ -677,7 +672,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             }
+         return {}
+ 
+-    def _on_config_changed(self, event: HookEvent) -> None:
++    def _on_config_changed(self, event: ops.HookEvent) -> None:
+         """Handle changes in configuration.
+ 
+         Args:
+@@ -686,12 +681,12 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         if not self._are_relations_ready(event):
+             return
+         if not self._are_pebble_instances_ready():
+-            self.unit.status = WaitingStatus("Waiting for pebble")
++            self.unit.status = ops.WaitingStatus("Waiting for pebble")
+             return
+-        self.model.unit.status = MaintenanceStatus("Configuring pod")
++        self.model.unit.status = ops.MaintenanceStatus("Configuring pod")
+         is_valid, error = self._is_configuration_valid()
+         if not is_valid:
+-            self.model.unit.status = BlockedStatus(error)
++            self.model.unit.status = ops.BlockedStatus(error)
+             return
+         for container_name in self.model.unit.containers:
+             self._config_pebble(self.unit.get_container(container_name))
+@@ -711,11 +706,11 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         remote_url = ""
+         try:
+             remote_url, _ = process.wait_output()
+-        except ExecError as ex:
++        except ops.pebble.ExecError as ex:
+             logging.debug(ex)
+         return remote_url.rstrip()
+ 
+-    def _install_plugins(self, container: Container, plugins: List[str]) -> None:
++    def _install_plugins(self, container: ops.Container, plugins: List[str]) -> None:
+         """Install the external plugins.
+ 
+         Args:
+@@ -756,7 +751,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         version = findall("[0-9.]+", version_string)
+         return version[0] if version else ""
+ 
+-    def _exec_cmd_in_custom_dir(self, container: Container, command: List[str]) -> None:
++    def _exec_cmd_in_custom_dir(self, container: ops.Container, command: List[str]) -> None:
+         """Execute command in indico customization directory.
+ 
+         Args:
+@@ -772,7 +767,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         )
+         process.wait_output()
+ 
+-    def _download_customization_changes(self, container: Container) -> None:
++    def _download_customization_changes(self, container: ops.Container) -> None:
+         """Clone the remote repository with the customization changes.
+ 
+         Args:
+@@ -833,7 +828,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+                 results["plugin-updates"] = plugins
+         return results
+ 
+-    def _refresh_external_resources_action(self, event: ActionEvent) -> None:
++    def _refresh_external_resources_action(self, event: ops.ActionEvent) -> None:
+         """Refresh external resources and report action result.
+ 
+         Args:
+@@ -862,7 +857,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         if peer_relation and not peer_relation.data[self.app].get("celery-unit"):
+             peer_relation.data[self.app].update({"celery-unit": self.unit.name})
+ 
+-    def _on_peer_relation_departed(self, event: RelationDepartedEvent) -> None:
++    def _on_peer_relation_departed(self, event: ops.RelationDepartedEvent) -> None:
+         """Handle the peer relation departed event.
+ 
+         Args:
+@@ -890,12 +885,12 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         Returns:
+             If secrets are supported or not.
+         """
+-        juju_version = JujuVersion.from_environ()
++        juju_version = ops.JujuVersion.from_environ()
+         # Because we're only using secrets in a peer relation we don't need to
+         # check if the other end of a relation also supports secrets...
+         return juju_version.has_secrets
+ 
+-    def _add_admin_action(self, event: ActionEvent) -> None:
++    def _add_admin_action(self, event: ops.ActionEvent) -> None:
+         """Add a new user to Indico.
+ 
+         Args:
+@@ -922,7 +917,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             try:
+                 output = process.wait_output()
+                 event.set_results({"user": f"{event.params['email']}", "output": output})
+-            except ExecError as ex:
++            except ops.pebble.ExecError as ex:
+                 logger.exception("Action add-admin failed: %s", ex.stdout)
+ 
+                 event.fail(
+@@ -930,7 +925,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+                     f"Failed to create admin {event.params['email']}: {ex.stdout!r}"
+                 )
+ 
+-    def _execute_anonymize_cmd(self, event: ActionEvent) -> Iterator[str]:
++    def _execute_anonymize_cmd(self, event: ops.ActionEvent) -> Iterator[str]:
+         """Execute anonymize command for each email.
+ 
+         Args:
+@@ -953,7 +948,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+                 logger.error(
+                     "Action anonymize-user failed: cannot connect to the Indico workload container"
+                 )
+-                self.unit.status = WaitingStatus(
++                self.unit.status = ops.WaitingStatus(
+                     "Waiting to be able to connect to workload container"
+                 )
+                 return
+@@ -967,13 +962,13 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             try:
+                 out = process.wait_output()
+                 yield out[0].replace("\n", "")
+-            except ExecError as ex:
++            except ops.pebble.ExecError as ex:
+                 logger.exception("Action anonymize-user failed: %s", ex.stdout)
+                 fail_msg = f"Failed to anonymize user {event.params['email']}: {ex.stdout!r}"
+                 event.fail("Failed to anonymize one or more users, please verify the results.")
+                 yield fail_msg
+ 
+-    def _anonymize_user_action(self, event: ActionEvent) -> None:
++    def _anonymize_user_action(self, event: ops.ActionEvent) -> None:
+         """Anonymize user in Indico.
+ 
+         If find an error, the action will fail. All the results will be set until the error
+@@ -1000,4 +995,4 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+ 
+ 
+ if __name__ == "__main__":  # pragma: no cover
+-    main(IndicoOperatorCharm, use_juju_for_storage=True)
++    ops.main.main(IndicoOperatorCharm, use_juju_for_storage=True)
+diff --git a/tox.ini b/tox.ini
+index 4639e64..61d1621 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -121,12 +121,15 @@ commands =
+ 
+ [testenv:unit]
+ description = Run unit tests
++setenv =
++    {[testenv]setenv}
++    SCENARIO_BARE_CHARM_ERRORS = true
+ deps =
+     cosl
+     coverage[toml]
+     pytest
+     pytest-mock
+-    ops[testing]==2.21.1
++    ops[testing]==3.6.0
+     -r{toxinidir}/requirements.txt
+ commands =
+     coverage run --source={[vars]src_path} \

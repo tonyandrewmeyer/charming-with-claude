@@ -1,0 +1,267 @@
+diff --git a/src/charm.py b/src/charm.py
+index 1040d7d..0f22cd2 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -12,7 +12,7 @@ import os
+ import secrets
+ import typing
+ from re import findall
+-from typing import Any, Dict, Iterator, List, Optional, Tuple
++from typing import Any, Dict, Iterator, List, Optional
+ from urllib.parse import urlparse
+ 
+ import charms.loki_k8s.v0.loki_push_api
+@@ -32,7 +32,7 @@ from database_observer import DatabaseObserver
+ from s3_observer import S3Observer
+ from saml_observer import SamlObserver
+ from smtp_observer import SmtpObserver
+-from state import CharmConfigInvalidError, ProxyConfig, State
++from state import CharmConfig, CharmConfigInvalidError, ProxyConfig, State
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -62,6 +62,15 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+ 
+     on = RedisRelationCharmEvents()
+ 
++    @property
++    def typed_config(self) -> CharmConfig:
++        """Return the current charm configuration as a typed object.
++
++        Returns:
++            The current charm configuration.
++        """
++        return self.load_config(CharmConfig)
++
+     def __init__(self, *args):
+         """Construct.
+ 
+@@ -152,25 +161,13 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             for container_name in self.model.unit.containers
+         )
+ 
+-    def _is_configuration_valid(self) -> Tuple[bool, str]:
+-        """Validate charm configuration.
+-
+-        Returns:
+-            Tuple containing as first element whether the configuration is valid.
+-            and a string with the error, if any, as second element.
+-        """
+-        site_url = typing.cast(str, self.config["site_url"])
+-        if site_url and not urlparse(site_url).hostname:
+-            return False, "Configuration option site_url is not valid"
+-        return True, ""
+-
+     def _get_external_hostname(self) -> str:
+         """Extract and return hostname from site_url or default to [application name].local.
+ 
+         Returns:
+             The site URL defined as part of the site_url configuration or a default value.
+         """
+-        site_url = typing.cast(str, self.config["site_url"])
++        site_url = self.typed_config.site_url
+         if not site_url or not (hostname := urlparse(site_url).hostname):
+             return f"{self.app.name}.local"
+         return hostname
+@@ -181,7 +178,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         Returns:
+             The HTTP schema.
+         """
+-        site_url = typing.cast(str, self.config["site_url"])
++        site_url = self.typed_config.site_url
+         return urlparse(site_url).scheme if site_url else "http"
+ 
+     def _get_external_port(self) -> Optional[int]:
+@@ -190,7 +187,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         Returns:
+             The port number.
+         """
+-        site_url = typing.cast(str, self.config["site_url"])
++        site_url = self.typed_config.site_url
+         return urlparse(site_url).port
+ 
+     def _are_relations_ready(self, _) -> bool:
+@@ -232,8 +229,8 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             # Plugins need to be installed before adding the layer so that
+             # they are included in the corresponding env vars
+             plugins = (
+-                typing.cast(str, self.config["external_plugins"]).split(",")
+-                if self.config["external_plugins"]
++                self.typed_config.external_plugins.split(",")
++                if self.typed_config.external_plugins
+                 else []
+             )
+             self._install_plugins(container, plugins)
+@@ -561,15 +558,15 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             "ATTACHMENT_STORAGE": "default",
+             "CELERY_BROKER": self._get_redis_url("redis-broker"),
+             "CE_ACCEPT_CONTENT": "json,pickle",
+-            "CUSTOMIZATION_DEBUG": self.config["customization_debug"],
+-            "ENABLE_ROOMBOOKING": self.config["enable_roombooking"],
++            "CUSTOMIZATION_DEBUG": self.typed_config.customization_debug,
++            "ENABLE_ROOMBOOKING": self.typed_config.enable_roombooking,
+             "INDICO_AUTH_PROVIDERS": str({}),
+             "INDICO_DB_URI": self.database.uri,
+             "INDICO_EXTRA_PLUGINS": ",".join(available_plugins),
+             "INDICO_IDENTITY_PROVIDERS": str({}),
+-            "INDICO_NO_REPLY_EMAIL": self.config["indico_no_reply_email"],
+-            "INDICO_PUBLIC_SUPPORT_EMAIL": self.config["indico_public_support_email"],
+-            "INDICO_SUPPORT_EMAIL": self.config["indico_support_email"],
++            "INDICO_NO_REPLY_EMAIL": self.typed_config.indico_no_reply_email,
++            "INDICO_PUBLIC_SUPPORT_EMAIL": self.typed_config.indico_public_support_email,
++            "INDICO_SUPPORT_EMAIL": self.typed_config.indico_support_email,
+             "LANG": "C.UTF-8",
+             "LC_ALL": "C.UTF-8",
+             "LC_LANG": "C.UTF-8",
+@@ -608,7 +605,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             saml_config: Dict[str, Any] = {
+                 "strict": True,
+                 "sp": {
+-                    "entityId": self.config["site_url"],
++                    "entityId": self.typed_config.site_url,
+                 },
+                 "idp": {
+                     "entityId": self.state.saml_config.entity_id,
+@@ -688,11 +685,15 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         if not self._are_pebble_instances_ready():
+             self.unit.status = WaitingStatus("Waiting for pebble")
+             return
+-        self.model.unit.status = MaintenanceStatus("Configuring pod")
+-        is_valid, error = self._is_configuration_valid()
+-        if not is_valid:
+-            self.model.unit.status = BlockedStatus(error)
++        try:
++            _ = self.typed_config
++        except ValueError as exc:
++            from pydantic import ValidationError  # pylint: disable=import-outside-toplevel
++
++            msg = exc.errors()[0]["msg"] if isinstance(exc, ValidationError) else str(exc)
++            self.model.unit.status = BlockedStatus(msg)
+             return
++        self.model.unit.status = MaintenanceStatus("Configuring pod")
+         for container_name in self.model.unit.containers:
+             self._config_pebble(self.unit.get_container(container_name))
+ 
+@@ -779,7 +780,7 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             container: Container in which the download will be performed.
+         """
+         current_remote_url = self._get_current_customization_url()
+-        if current_remote_url != self.config["customization_sources_url"]:
++        if current_remote_url != self.typed_config.customization_sources_url:
+             logging.debug(
+                 "Removing old contents from directory %s. Previous repository: '%s'",
+                 INDICO_CUSTOMIZATION_DIR,
+@@ -789,17 +790,17 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+             process.wait_output()
+             process = container.exec(["mkdir", INDICO_CUSTOMIZATION_DIR], user="indico")
+             process.wait_output()
+-            if self.config["customization_sources_url"]:
++            if self.typed_config.customization_sources_url:
+                 logging.debug(
+                     "New URL repo for customization %s. Cloning contents",
+-                    self.config["customization_sources_url"],
++                    self.typed_config.customization_sources_url,
+                 )
+                 self._exec_cmd_in_custom_dir(
+                     container,
+                     [
+                         "git",
+                         "clone",
+-                        typing.cast(str, self.config["customization_sources_url"]),
++                        self.typed_config.customization_sources_url,
+                         ".",
+                     ],
+                 )
+@@ -817,8 +818,8 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+         container = self.unit.get_container("indico")
+         if container.can_connect():
+             self._download_customization_changes(container)
+-            if self.config["customization_sources_url"]:
+-                logging.debug("Pulling changes from %s", self.config["customization_sources_url"])
++            if self.typed_config.customization_sources_url:
++                logging.debug("Pulling changes from %s", self.typed_config.customization_sources_url)
+                 self._exec_cmd_in_custom_dir(
+                     container,
+                     ["git", "pull"],
+@@ -826,9 +827,9 @@ class IndicoOperatorCharm(CharmBase):  # pylint: disable=too-many-instance-attri
+                 logging.debug("Reloading uWSGI")
+                 self._exec_cmd_in_custom_dir(container, ["touch", UWSGI_TOUCH_RELOAD])
+                 results["customization-changes"] = True
+-            if self.config["external_plugins"]:
+-                logging.debug("Upgrading external plugins %s", self.config["external_plugins"])
+-                plugins = typing.cast(str, self.config["external_plugins"]).split(",")
++            if self.typed_config.external_plugins:
++                logging.debug("Upgrading external plugins %s", self.typed_config.external_plugins)
++                plugins = self.typed_config.external_plugins.split(",")
+                 self._install_plugins(container, plugins)
+                 results["plugin-updates"] = plugins
+         return results
+diff --git a/src/state.py b/src/state.py
+index 2400dae..bf9a085 100644
+--- a/src/state.py
++++ b/src/state.py
+@@ -7,13 +7,14 @@ import dataclasses
+ import logging
+ import os
+ from typing import Dict, List, Optional, Tuple
++from urllib.parse import urlparse
+ 
+ import ops
+ from charms.saml_integrator.v0.saml import SamlRelationData
+ from charms.smtp_integrator.v0.smtp import SmtpRelationData, TransportSecurity
+ 
+ # pylint: disable=no-name-in-module
+-from pydantic import AnyHttpUrl, BaseModel, Field, HttpUrl, ValidationError
++from pydantic import AnyHttpUrl, BaseModel, Field, HttpUrl, ValidationError, validator
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -38,6 +39,48 @@ class CharmConfigInvalidError(CharmStateBaseError):
+         self.msg = msg
+ 
+ 
++class CharmConfig(BaseModel):  # pylint: disable=too-few-public-methods
++    """Charm configuration.
++
++    Attributes:
++        customization_debug: Enable debug for custom templates.
++        customization_sources_url: URL for the git repository containing the customization files.
++        enable_roombooking: Enable the room booking plugin.
++        external_plugins: Comma separated list of external plugins to be installed.
++        indico_no_reply_email: Email address used when sending no-reply emails.
++        indico_public_support_email: Email address shown to users on the Contact page.
++        indico_support_email: Email address of the technical manager of the Indico instance.
++        site_url: URL through which Indico is accessed by users.
++    """
++
++    customization_debug: bool = False
++    customization_sources_url: str = ""
++    enable_roombooking: bool = False
++    external_plugins: str = ""
++    indico_no_reply_email: str = "noreply@mydomain.local"
++    indico_public_support_email: str = "support@mydomain.local"
++    indico_support_email: str = "support-tech@mydomain.local"
++    site_url: str = ""
++
++    @validator("site_url")
++    @classmethod
++    def validate_site_url(cls, value: str) -> str:
++        """Validate site_url is a valid URL if provided.
++
++        Args:
++            value: The site_url value to validate.
++
++        Returns:
++            The validated site_url value.
++
++        Raises:
++            ValueError: if site_url is set but does not contain a valid hostname.
++        """
++        if value and not urlparse(value).hostname:
++            raise ValueError("Configuration option site_url is not valid")
++        return value
++
++
+ class ProxyConfig(BaseModel):  # pylint: disable=too-few-public-methods
+     """Configuration for accessing Indico through proxy.
+ 

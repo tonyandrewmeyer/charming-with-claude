@@ -1,0 +1,57 @@
+diff --git a/src/charm.py b/src/charm.py
+index fb2ae96..6caf49a 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -14,6 +14,7 @@ import typing
+ from collections import namedtuple
+ 
+ import ops
++import pydantic
+ from charms.data_platform_libs.v0.data_interfaces import (
+     DatabaseCreatedEvent,
+     DatabaseEndpointsChangedEvent,
+@@ -66,6 +67,19 @@ class MissingRedisRelationDataError(Exception):
+     """Custom exception to be raised in case of malformed/missing redis relation data."""
+ 
+ 
++class _RedisAppRelationData(pydantic.BaseModel):
++    """Redis app relation data bag."""
++
++    leader_host: str = pydantic.Field(default="", alias="leader-host")
++
++
++class _RedisUnitRelationData(pydantic.BaseModel):
++    """Redis unit relation data bag."""
++
++    hostname: str = ""
++    port: int = 0
++
++
+ class DiscourseCharm(CharmBase):
+     """Charm for Discourse on kubernetes."""
+ 
+@@ -413,18 +427,15 @@ class DiscourseCharm(CharmBase):
+             MissingRedisRelationDataError if the some of redis relation data is malformed/missing
+         """
+         relation = self.model.get_relation(self.redis.relation_name)
+-        if not relation:
++        if not relation or not relation.units:
+             raise MissingRedisRelationDataError("No redis relation data")
+-        relation_app_data = relation.data[relation.app]
+-        relation_unit_data = self.redis.relation_data
+ 
+         try:
+-            redis_hostname = str(
+-                relation_app_data["leader-host"]
+-                if relation_app_data.get("leader-host")
+-                else relation_unit_data["hostname"]
+-            )
+-            redis_port = int(relation_unit_data["port"])
++            app_data = relation.load(_RedisAppRelationData, relation.app, decoder=str)
++            unit = next(iter(relation.units))
++            unit_data = relation.load(_RedisUnitRelationData, unit, decoder=str)
++            redis_hostname = str(app_data.leader_host or unit_data.hostname)
++            redis_port = unit_data.port
+         except (KeyError, ValueError) as exc:
+             raise MissingRedisRelationDataError(
+                 "Either 'leader-host' or 'hostname' and 'port' are mandatory"

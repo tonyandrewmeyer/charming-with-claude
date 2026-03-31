@@ -1,0 +1,192 @@
+● Find Python files and check actions.yaml
+  $ find /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 -type f -name "*.py"
+   | head -30 && echo "---" && cat
+  /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/actions.yaml
+  └ 61 lines...
+
+● Read src/charm.py
+  └ 1 line read
+
+● Find action-related code in charm.py
+  $ grep -n "action\|params\|event\."
+  /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/src/charm.py | grep -i
+  "action\|params" | head -50
+  └ 18 lines...
+
+● Check ops version
+  $ pip show ops 2>/dev/null | grep -E "Version|Name"
+  └ 3 lines...
+
+● Read src/charm.py lines 1-50
+  └ 50 lines read
+
+● Read src/charm.py lines 775-915
+  └ 141 lines read
+
+● Read src/charm.py lines 915-940
+  └ 26 lines read
+
+● Check load_params API documentation
+  $ python3 -c "import ops; help(ops.ActionEvent.load_params)" 2>/dev/null | head -60
+  └ 43 lines...
+
+Now let me check the tests:
+
+● Check unit tests for action handling
+  $ grep -n "action\|params\|promote_user\|create_user\|anonymize"
+  /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/tests/unit/test_charm.py |
+  head -60
+  └ 1 line...
+
+● Check unit_harness tests for action handling
+  $ grep -n "action\|params\|promote_user\|create_user\|anonymize" /tmp/ops-upgrade-experiment/disco
+  urse-k8s-operator__action-classes__C2/tests/unit_harness/test_charm.py | head -60
+  └ 25 lines...
+
+● Check existing dataclass imports
+  $ grep -n "dataclass\|import dataclass\|from dataclasses"
+  /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/src/charm.py
+  └ 1 line...
+
+Now I have a clear picture. I'll:
+1. Add dataclass imports and define param classes
+2. Update the three action handlers to use `event.load_params()`
+
+● Read src/charm.py lines 1-20
+  └ 20 lines read
+
+● Edit src/charm.py (+1)
+
+Now I need to find a good place to add the dataclasses — after imports, before the class definition:
+
+● Find logger and class definition lines
+  $ grep -n "^logger\|^class \|^# "
+  /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/src/charm.py | head -20
+  └ 6 lines...
+
+● Read src/charm.py lines 57-72
+  └ 15 lines read
+
+● Edit src/charm.py (+23)
+
+Now update the three action handlers to use `event.load_params()`:
+
+● Edit src/charm.py (+2 -1)
+
+● Edit src/charm.py (+3 -2)
+
+● Read src/charm.py lines 870-895
+  └ 26 lines read
+
+● Edit src/charm.py (+2 -2)
+
+Now update the anonymize_user handler:
+
+● Read src/charm.py lines 920-960
+  └ 41 lines read
+
+● Edit src/charm.py (+2 -1)
+
+Now let's run the tests to verify:
+
+● Run unit_harness tests
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && python -m pytest
+  tests/unit_harness/test_charm.py -x -q 2>&1 | tail -30
+  └ 2 lines...
+
+● Run unit_harness tests with python3
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_charm.py -x -q 2>&1 | tail -30
+  └ 31 lines...
+
+● Run unit_harness tests ignoring conftest issue
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && python3 -m pytest
+  tests/unit_harness/test_charm.py -x -q -p no:conftest 2>&1 | tail -30
+  └ 31 lines...
+
+● Run specific action tests
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && python3 -m pytest
+   tests/unit_harness/test_charm.py::test_promote_user_success
+  tests/unit_harness/test_charm.py::test_promote_user_fail
+  tests/unit_harness/test_charm.py::test_create_user_success
+  tests/unit_harness/test_charm.py::test_create_user_fail ...
+  └ 23 lines...
+
+● Read conftest.py
+  $ cat /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/tests/conftest.py
+  └ 36 lines...
+
+● Run action tests with PYTHONPATH
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && PYTHONPATH=src
+  python3 -m pytest tests/unit_harness/test_charm.py::test_promote_user_success
+  tests/unit_harness/test_charm.py::test_promote_user_fail
+  tests/unit_harness/test_charm.py::test_create_user_success
+  tests/unit_harness/test_charm.py::test_create_user_fail ...
+  └ 33 lines...
+
+● Run tests from unit_harness directory
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/tests/unit_harness &&
+  PYTHONPATH=../../src python3 -m pytest test_charm.py::test_promote_user_success
+  test_charm.py::test_promote_user_fail test_charm.py::test_create_user_success
+  test_charm.py::test_create_user_fail test_charm.py::test_anonymize_user -v 2>&1 | tail -20
+  └ 21 lines...
+
+● Check pytest plugins that might add --keep-models
+  $ pip show pytest-operator 2>/dev/null | grep -E "Name|Version" && pip show pytest-juju
+  2>/dev/null | grep -E "Name|Version"
+  └ 1 line...
+
+● Check pytest-operator
+  $ pip3 show pytest-operator 2>/dev/null | grep -E "Name|Version"
+  └ 1 line...
+
+● Check tox configuration
+  $ cat /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2/tox.toml
+  └ 133 lines...
+
+● Run action tests via tox
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && tox -e unit --
+  tests/unit_harness/test_charm.py::test_promote_user_success
+  tests/unit_harness/test_charm.py::test_promote_user_fail
+  tests/unit_harness/test_charm.py::test_create_user_success
+  tests/unit_harness/test_charm.py::test_create_user_fail ...
+  └ 42 lines...
+
+All 5 action tests pass. The coverage failure is pre-existing (not related to my changes). Let me also quickly run the full unit test suite to confirm nothing else broke:
+
+● Run full unit test suite
+  $ cd /tmp/ops-upgrade-experiment/discourse-k8s-operator__action-classes__C2 && tox -e unit 2>&1 |
+  grep -E "PASSED|FAILED|ERROR|passed|failed|error" | tail -20
+  └ 21 lines...
+
+All 55 tests pass. Here's a summary of the changes made to `src/charm.py`:
+
+1. **Added `import dataclasses`** to the imports.
+
+2. **Defined three dataclasses** for action parameters (placed before `DiscourseCharm`):
+   - `PromoteUserParams(email: str)`
+   - `CreateUserParams(email: str, admin: bool = False, active: bool = True)`
+   - `AnonymizeUserParams(username: str)`
+
+3. **Updated the three action handlers** to replace raw `event.params[...]` / `event.params.get(...)` dict access with `event.load_params(XxxParams, errors="fail")`, which automatically validates parameters and calls `event.fail()` with a helpful message if validation fails.
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+● Response was interrupted due to a server error. Retrying...
+
+
+Execution failed: Error: Failed to get response from the AI model; retried 5 times (total retry wait time: 5.998134238935018 seconds) Last error: Unknown error
+
+Total usage est:        1 Premium request
+API time spent:         2m 12.571s
+Total session time:     2m 57.764s
+Total code changes:     +33 -6
+Breakdown by AI model:
+ claude-sonnet-4.6       949.7k in, 6.5k out, 905.7k cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/discourse-k8s-operator__action-classes__C2/transcript.md

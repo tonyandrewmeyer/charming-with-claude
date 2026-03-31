@@ -1,0 +1,262 @@
+diff --git a/lib/charms/alertmanager_k8s/v0/alertmanager_remote_configuration.py b/lib/charms/alertmanager_k8s/v0/alertmanager_remote_configuration.py
+index 100ff0f..0a635da 100644
+--- a/lib/charms/alertmanager_k8s/v0/alertmanager_remote_configuration.py
++++ b/lib/charms/alertmanager_k8s/v0/alertmanager_remote_configuration.py
+@@ -24,7 +24,8 @@ the `RemoteConfigurationRequirer`.
+ 
+ import json
+ import logging
+-from typing import Optional, Tuple
++from dataclasses import dataclass
++from typing import Any, List, Optional, Tuple
+ 
+ import yaml
+ from ops.charm import CharmBase
+@@ -38,13 +39,24 @@ LIBAPI = 0
+ 
+ # Increment this PATCH version before using `charmcraft publish-lib` or reset
+ # to 0 if you are raising the major API version
+-LIBPATCH = 4
++LIBPATCH = 5
+ 
+ logger = logging.getLogger(__name__)
+ 
+ DEFAULT_RELATION_NAME = "remote-configuration"
+ 
+ 
++@dataclass
++class _RemoteConfigData:
++    alertmanager_config: Optional[dict] = None
++    alertmanager_templates: Optional[List[str]] = None
++
++
++def _json_or_empty(v: Any) -> str:
++    """Encode a value as JSON, or return an empty string for None (which deletes the key)."""
++    return "" if v is None else json.dumps(v)
++
++
+ class ConfigReadError(Exception):
+     """Raised if Alertmanager configuration can't be read."""
+ 
+@@ -218,17 +230,15 @@ class RemoteConfigurationRequirer(Object):
+         """
+         remote_configuration_relation = self._charm.model.get_relation(self._relation_name)
+         if remote_configuration_relation and remote_configuration_relation.app:
+-            try:
+-                config_raw = remote_configuration_relation.data[remote_configuration_relation.app][
+-                    "alertmanager_config"
+-                ]
+-                config = yaml.safe_load(config_raw)
+-                if config_main_keys_are_valid(config):
+-                    return config
+-            except KeyError:
++            data = remote_configuration_relation.load(
++                _RemoteConfigData, remote_configuration_relation.app
++            )
++            if data.alertmanager_config is None:
+                 logger.warning(
+                     "Remote config provider relation exists, but no config has been provided."
+                 )
++            elif config_main_keys_are_valid(data.alertmanager_config):
++                return data.alertmanager_config
+         return None
+ 
+     @property
+@@ -241,19 +251,17 @@ class RemoteConfigurationRequirer(Object):
+         Returns:
+             list: Alertmanager templates
+         """
+-        templates = None
+         remote_configuration_relation = self._charm.model.get_relation(self._relation_name)
+         if remote_configuration_relation and remote_configuration_relation.app:
+-            try:
+-                templates_raw = remote_configuration_relation.data[
+-                    remote_configuration_relation.app
+-                ]["alertmanager_templates"]
+-                templates = json.loads(templates_raw)
+-            except KeyError:
++            data = remote_configuration_relation.load(
++                _RemoteConfigData, remote_configuration_relation.app
++            )
++            if data.alertmanager_templates is None:
+                 logger.warning(
+                     "Remote config provider relation exists, but no templates have been provided."
+                 )
+-        return templates
++            return data.alertmanager_templates
++        return None
+ 
+ 
+ class AlertmanagerConfigurationBrokenEvent(EventBase):
+@@ -417,9 +425,11 @@ class RemoteConfigurationProvider(Object):
+             return
+         config, templates = self._prepare_relation_data(alertmanager_config)
+         if config_main_keys_are_valid(config):
++            data = _RemoteConfigData(
++                alertmanager_config=config, alertmanager_templates=templates or []
++            )
+             for relation in self._charm.model.relations[self._relation_name]:
+-                relation.data[self._charm.app]["alertmanager_config"] = json.dumps(config)
+-                relation.data[self._charm.app]["alertmanager_templates"] = json.dumps(templates)
++                relation.save(data, self._charm.app, encoder=_json_or_empty)
+         else:
+             logger.warning("Invalid Alertmanager configuration. Ignoring...")
+             self._clear_relation_data()
+@@ -474,5 +484,4 @@ class RemoteConfigurationProvider(Object):
+     def _clear_relation_data(self) -> None:
+         """Clears relation data bag."""
+         for relation in self._charm.model.relations[self._relation_name]:
+-            relation.data[self._charm.app]["alertmanager_config"] = ""
+-            relation.data[self._charm.app]["alertmanager_templates"] = ""
++            relation.save(_RemoteConfigData(), self._charm.app, encoder=_json_or_empty)
+diff --git a/lib/charms/alertmanager_k8s/v1/alertmanager_dispatch.py b/lib/charms/alertmanager_k8s/v1/alertmanager_dispatch.py
+index d35df0b..8b19329 100644
+--- a/lib/charms/alertmanager_k8s/v1/alertmanager_dispatch.py
++++ b/lib/charms/alertmanager_k8s/v1/alertmanager_dispatch.py
+@@ -25,15 +25,13 @@ class SomeApplication(CharmBase):
+ ```
+ """
+ import logging
+-from typing import Dict, Optional, Set
++from typing import Optional, Set
+ from urllib.parse import urlparse
+ 
+ import ops
+ import pydantic
+ from ops.charm import CharmBase, RelationEvent, RelationJoinedEvent, RelationRole
+ from ops.framework import EventBase, EventSource, Object, ObjectEvents
+-from ops.model import Relation
+-from pydantic import computed_field
+ 
+ # The unique Charmhub library identifier, never change it
+ LIBID = "37f1ca6f8fe84e3092ebbf6dc2885310"
+@@ -43,7 +41,7 @@ LIBAPI = 1
+ 
+ # Increment this PATCH version before using `charmcraft publish-lib` or reset
+ # to 0 if you are raising the major API version
+-LIBPATCH = 2
++LIBPATCH = 3
+ 
+ PYDEPS = ["pydantic>=2"]
+ 
+@@ -62,21 +60,6 @@ class _ProviderSchemaV0(pydantic.BaseModel):
+ class _ProviderSchemaV1(pydantic.BaseModel):
+     url: str
+ 
+-    @computed_field
+-    @property
+-    def public_address(self) -> Optional[str]:
+-        # v0 relic
+-        parsed = urlparse(self.url)
+-        port = ":" + str(parsed.port) if parsed.port else ""
+-        return f"{parsed.hostname}{port}{parsed.path}"
+-
+-    @computed_field
+-    @property
+-    def scheme(self) -> Optional[str]:
+-        # v0 relic
+-        parsed = urlparse(self.url)
+-        return parsed.scheme
+-
+ 
+ class ClusterChanged(EventBase):
+     """Event raised when an alertmanager cluster is changed.
+@@ -230,19 +213,18 @@ class AlertmanagerConsumer(RelationManagerBase):
+ 
+         alertmanagers: Set[str] = set()
+         for unit in relation.units:
+-            if rel_data := relation.data[unit]:
+-                try:  # v1
+-                    data = _ProviderSchemaV1(**rel_data)
+-                except pydantic.ValidationError as ev1:
+-                    try:  # v0
+-                        data = _ProviderSchemaV0(**rel_data)
+-                    except pydantic.ValidationError as ev0:
+-                        logger.warning("Relation data failed validation for v1: %s", ev1)
+-                        logger.warning("Relation data failed validation for v0: %s", ev0)
+-                    else:
+-                        alertmanagers.add(f"{data.scheme}://{data.public_address}")
+-                else:
+-                    alertmanagers.add(data.url)
++            if not relation.data[unit]:
++                continue
++            try:  # v1
++                data = relation.load(_ProviderSchemaV1, unit, decoder=str)
++                alertmanagers.add(data.url)
++            except pydantic.ValidationError as ev1:
++                try:  # v0
++                    data = relation.load(_ProviderSchemaV0, unit, decoder=str)
++                    alertmanagers.add(f"{data.scheme}://{data.public_address}")
++                except pydantic.ValidationError as ev0:
++                    logger.warning("Relation data failed validation for v1: %s", ev1)
++                    logger.warning("Relation data failed validation for v0: %s", ev0)
+         return alertmanagers
+ 
+     def _on_relation_departed(self, _):
+@@ -319,19 +301,6 @@ class AlertmanagerProvider(RelationManagerBase):
+         """
+         self._update_relation_data(event)
+ 
+-    def _generate_relation_data(self, relation: Relation) -> Dict[str, str]:
+-        """Helper function to generate relation data in the correct format.
+-
+-        Addresses are without scheme.
+-        """
+-        # FIXME when `_external_url` is an ingress URL, we have a problem: we get the same URL for
+-        #  both units, because alertmanager is ingress per app. On prometheus side we can
+-        #  deduplicate so that the config file only has one entry, but ideally the
+-        #  "alertmanagers.[].static_configs.targets" section in the prometheus config should list
+-        #  all units.
+-        data = _ProviderSchemaV1(url=self._external_url)
+-        return data.model_dump()
+-
+     def _update_relation_data(self, event: Optional[RelationEvent] = None):
+         """Helper function for updating relation data bags.
+ 
+@@ -343,6 +312,12 @@ class AlertmanagerProvider(RelationManagerBase):
+             event: The event whose data bag needs to be updated. If it is None, update data bags of
+               all relations.
+         """
++        # FIXME when `_external_url` is an ingress URL, we have a problem: we get the same URL for
++        #  both units, because alertmanager is ingress per app. On prometheus side we can
++        #  deduplicate so that the config file only has one entry, but ideally the
++        #  "alertmanagers.[].static_configs.targets" section in the prometheus config should list
++        #  all units.
++        data = _ProviderSchemaV1(url=self._external_url)
+         if event is None:
+             # update all existing relation data
+             # a single consumer charm's unit may be related to multiple providers
+@@ -351,13 +326,10 @@ class AlertmanagerProvider(RelationManagerBase):
+                 # relation, for which we get the following error:
+                 # ops.model.ModelError: b'ERROR relation 17 not found (not found)\n'
+                 # when trying to `network-get alerting`.
+-                relation.data[self.charm.unit].update(self._generate_relation_data(relation))
+-
++                relation.save(data, self.charm.unit, encoder=str)
+         else:
+             # update relation data only for the newly joined relation
+-            event.relation.data[self.charm.unit].update(
+-                self._generate_relation_data(event.relation)
+-            )
++            event.relation.save(data, self.charm.unit, encoder=str)
+ 
+     def update(self, *, external_url: str):
+         """Update data pertaining to this relation manager (similar args to __init__)."""
+diff --git a/src/charm.py b/src/charm.py
+index ae92826..dee035d 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -69,6 +69,13 @@ class TLSConfig:
+     private_key: str
+ 
+ 
++@dataclass
++class _PeerUnitData:
++    """Data stored in the peer relation's unit data bag."""
++
++    private_address: str = ""
++
++
+ @trace_charm(
+     tracing_endpoint="_charm_tracing_endpoint",
+     server_cert="_charm_tracing_ca_cert",
