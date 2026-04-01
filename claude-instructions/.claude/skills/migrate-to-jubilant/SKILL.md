@@ -210,7 +210,7 @@ Run these checks after migrating. Fix any failures before proceeding.
 
 2. **Import check** — verify no remaining imports of old libraries:
    ```bash
-   grep -rn "from pytest_operator\|from juju\.\|import juju\b\|OpsTest\|python.libjuju" tests/
+   grep -rn "from pytest_operator\|from juju\b\|from juju import\|import juju\b\|OpsTest" tests/
    ```
 
 3. **Integration tests** (if a Juju environment is available):
