@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_A_sonnet_run2",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 173159,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 172042,
+    "duration_api_ms": 202700,
+    "num_turns": 3,
+    "result": "Here's how to add a relation between two applications and verify data was exchanged using **jubilant**:\n\n---\n\n## Adding a Relation\n\nUse `juju.integrate()`, which maps directly to `juju integrate` on the CLI:\n\n```python\n# Simple integration (endpoint auto-detected)\njuju.integrate('mydb', 'myapp')\n\n# With an explicit endpoint\njuju.integrate('myapp', 'postgresql-k8s:database')\n\n# Multiple integrations\njuju.integrate('blog', 'mysql')\njuju.integrate('blog', 'redis')\n```\n\nThe order of arguments doesn't matter. Endpoints (`app:endpoint`) are only needed when there's ambiguity between two apps.\n\n---\n\n## Verifying Data Was Exchanged\n\njubilant offers three complementary approaches:\n\n### 1. Check relation topology via `status.apps`\n\nAfter calling `juju.wait()`, inspect the `relations` field to confirm the wiring:\n\n```python\nstatus = juju.wait(jubilant.all_active)\n\nassert status.apps['mydb'].relations['db'][0].related_app == 'myapp'\nassert status.apps['myapp'].relations['db'][0].related_app == 'mydb'\n```\n\nThis confirms the relation exists and which interface/scope it uses, but **not** the actual databag contents.\n\n### 2. Check unit/app status messages (indirect, most common)\n\nCharms typically update their status message in response to relation events. Assert on those messages:\n\n```python\nstatus = juju.wait(jubilant.all_active)\n\nassert status.apps['mydb'].app_status.message == 'relation created'\nassert status.apps['myapp'].app_status.message == 'relation changed: key=value'\n```\n\n### 3. Read relation data directly via `juju.exec()` (most explicit)\n\nRun `relation-get` inside a unit to inspect the actual databag:\n\n```python\ntask = juju.exec('relation-get -r 0 mykey mydb/0', unit='myapp/0')\nassert 'myvalue' in task.stdout\n```\n\n---\n\n## Full Example\n\n```python\nimport jubilant\nimport pytest\nfrom typing import Generator\n\n@pytest.fixture(scope='module')\ndef juju(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, None, None]:\n    with jubilant.temp_model() as juju:\n        yield juju\n        if request.session.testsfailed:\n            print(juju.debug_log(limit=1000))\n\ndef test_relation(juju: jubilant.Juju):\n    juju.deploy('./mydb.charm')\n    juju.deploy('./myapp.charm')\n\n    # Add the relation\n    juju.integrate('mydb', 'myapp')\n\n    # Wait for both apps to settle\n    status = juju.wait(jubilant.all_active)\n\n    # 1. Verify topology\n    assert status.apps['mydb'].relations['db'][0].related_app == 'myapp'\n\n    # 2. Verify data exchange via status messages\n    assert status.apps['myapp'].app_status.message == 'relation changed: key=value'\n\n    # 3. Verify data exchange directly (optional, most explicit)\n    task = juju.exec('relation-get -r 0 mykey mydb/0', unit='myapp/0')\n    assert 'myvalue' in task.stdout\n\n    # Remove the relation when done\n    juju.remove_relation('mydb', 'myapp')\n    juju.wait(lambda s: not s.apps['myapp'].relations)\n```\n\n---\n\n## Quick Reference\n\n| Task | API |\n|---|---|\n| Add a relation | `juju.integrate('app1', 'app2:endpoint')` |\n| Remove a relation | `juju.remove_relation('app1', 'app2')` |\n| Wait for active | `juju.wait(jubilant.all_active)` |\n| Check relation wiring | `status.apps['app'].relations['ep'][0].related_app` |\n| Check data (indirect) | `status.apps['app'].app_status.message` |\n| Check data (direct) | `juju.exec('relation-get ...', unit='app/0')` |\n\nThe most common pattern in practice is **`juju.integrate()` \u2192 `juju.wait(jubilant.all_active)` \u2192 assert on status messages**, since well-written charms surface relation state through their status.",
+    "stop_reason": "end_turn",
+    "session_id": "4679cecf-fa1a-4ebc-aafc-16c918895f3f",
+    "total_cost_usd": 0.48330105,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4108,
+      "cache_read_input_tokens": 18021,
+      "output_tokens": 1618,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4108,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 72111,
+        "outputTokens": 4960,
+        "cacheReadInputTokens": 68420,
+        "cacheCreationInputTokens": 41412,
+        "webSearchRequests": 2,
+        "costUSD": 0.175518,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-sonnet-4-6": {
+        "inputTokens": 1166,
+        "outputTokens": 6255,
+        "cacheReadInputTokens": 320771,
+        "cacheCreationInputTokens": 30461,
+        "webSearchRequests": 0,
+        "costUSD": 0.30778305,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "b2cd662c-2dc2-4a44-84a6-45ae701657e2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:31:49+1300"
+}

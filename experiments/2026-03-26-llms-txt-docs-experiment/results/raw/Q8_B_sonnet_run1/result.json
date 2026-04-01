@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_B_sonnet_run1",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 35294,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 34165,
+    "duration_api_ms": 36299,
+    "num_turns": 2,
+    "result": "## Pebble Change/Task Model\n\nPebble uses a **Change/Task** hierarchy to track operations:\n\n- A **Change** is a container for a logical operation (e.g., start services, exec a command). It has an `id`, `kind`, `status`, `ready` flag, and a list of Tasks.\n- A **Task** is a single unit of work within a Change (e.g., starting one specific service).\n\n### Change statuses (`ops.pebble.ChangeStatus`)\n\n`Do` \u2192 `Doing` \u2192 `Done` (success path)\n`Undo` \u2192 `Undoing` \u2192 `Error` / `Abort` / `Hold` / `Wait`\n\n### Checking completion\n\n**Blocking wait** \u2014 the preferred approach:\n\n```python\nchange_id = container.replan()  # or start_services(), etc.\nchange = container.get_plan()   # ... ops returns Change directly for some calls\n```\n\nMost `ops.Container` methods (e.g., `replan()`, `start()`, `stop()`) block until the change completes by default. For the raw Pebble client, use:\n\n```python\nchange = client.wait_change(change_id, timeout=60, delay=0.1)\n# Raises ops.pebble.TimeoutError if it exceeds timeout\nif change.status == ops.pebble.ChangeStatus.DONE:\n    ...  # success\n```\n\n**Manual polling** \u2014 if you need non-blocking behaviour:\n\n```python\nchange = client.get_change(change_id)\nif change.ready:\n    ...  # finished (Done, Error, or Abort)\n\n# Or list all in-progress changes:\nchanges = client.get_changes(select=ops.pebble.ChangeState.IN_PROGRESS)\n```\n\n### Key point for charm authors\n\nIn practice, `ops.Container` wraps most operations and handles waiting automatically \u2014 you rarely call `wait_change()` directly. It becomes relevant when you use `container.exec()` and want to track a long-running process via `Process.wait()` or `Process.wait_output()`, or when interacting with the Pebble client directly.",
+    "stop_reason": "end_turn",
+    "session_id": "401734eb-5d2d-407c-9205-244226632bbf",
+    "total_cost_usd": 0.108348,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8317,
+      "cache_read_input_tokens": 29881,
+      "output_tokens": 788,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8317,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 788,
+        "cacheReadInputTokens": 29881,
+        "cacheCreationInputTokens": 8317,
+        "webSearchRequests": 0,
+        "costUSD": 0.05199105,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 36142,
+        "outputTokens": 1501,
+        "cacheReadInputTokens": 8562,
+        "cacheCreationInputTokens": 9483,
+        "webSearchRequests": 0,
+        "costUSD": 0.05635695,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ce503086-e783-45bb-9e9a-96970525198f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:14:50+1300"
+}

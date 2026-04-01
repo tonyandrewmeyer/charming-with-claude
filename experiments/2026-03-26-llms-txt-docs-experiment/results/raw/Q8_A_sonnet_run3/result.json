@@ -1,0 +1,57 @@
+{
+  "session_id": "Q8_A_sonnet_run3",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 23488,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 17539,
+    "duration_api_ms": 17509,
+    "num_turns": 1,
+    "result": "## Pebble Change/Task Model\n\nPebble uses an **asynchronous operation model** based on **Changes** and **Tasks**:\n\n### Core Concepts\n\n- **Task**: A single unit of work (e.g., \"start service X\", \"run command Y\"). Tasks have a state, progress, log, and optional data.\n- **Change**: A group of one or more related Tasks that together represent a higher-level operation (e.g., \"restart services A, B, C\"). A Change succeeds only when **all** its Tasks succeed.\n\n### Change/Task States\n\n| State | Meaning |\n|-------|---------|\n| `Doing` | Currently in progress |\n| `Done` | Completed successfully |\n| `Error` | Failed |\n| `Hold` | Waiting (e.g., dependency not met) |\n| `Undo` | Being rolled back |\n| `Undone` | Rolled back successfully |\n\n### How Pebble Operations Work\n\nMost Pebble API calls that trigger work (e.g., `start`, `stop`, `replan`, `exec`) return a **Change ID** immediately \u2014 the operation runs asynchronously in the background.\n\n```python\n# Example: starting a service returns a change ID\nchange_id = client.start_services([\"myservice\"])  # non-blocking\n```\n\n---\n\n### Checking if a Long-Running Operation Has Completed\n\nYou have several options:\n\n#### 1. **`wait_change()` \u2014 Block until done (simplest)**\n```python\nchange = client.wait_change(change_id)\nif change.err:\n    raise RuntimeError(f\"Change failed: {change.err}\")\n```\nThis blocks the calling thread until the Change reaches a terminal state (`Done`, `Error`, or `Undone`). Optionally accepts a `timeout` parameter.\n\n#### 2. **`get_change()` \u2014 Poll manually**\n```python\nimport time\n\nwhile True:\n    change = client.get_change(change_id)\n    if change.ready:          # True when in a terminal state\n        break\n    time.sleep(0.5)\n\nif change.err:\n    raise RuntimeError(f\"Change failed: {change.err}\")\n```\n`change.ready` is `True` when the change has finished (regardless of success/failure).\n\n#### 3. **`get_changes()` \u2014 List/filter multiple changes**\n```python\nchanges = client.get_changes(select=ChangeState.ALL)\nfor change in changes:\n    print(change.id, change.kind, change.status, change.ready)\n```\n\n---\n\n### In the `ops` Library (Charm Context)\n\nWhen writing Juju charms with the `ops` library, the container's Pebble client is accessed via:\n\n```python\ncontainer = self.unit.get_container(\"mycontainer\")\n# High-level ops methods handle waiting internally, e.g.:\ncontainer.start(\"myservice\")   # blocks until done by default\ncontainer.replan()             # reconfigures + starts services\n```\n\nThe `ops` library wraps `wait_change()` for you in most cases, but if you call lower-level Pebble client methods directly via `container.get_plan()` / `container._pebble`, you'll need to manage change tracking yourself.\n\n---\n\n### Key Takeaway\n\n| Method | Use When |\n|--------|----------|\n| `wait_change(id)` | You want to block until one specific operation finishes |\n| `get_change(id).ready` | You want to poll without blocking (e.g., in a loop) |\n| `get_changes()` | You want to inspect the history/status of multiple changes |",
+    "stop_reason": "end_turn",
+    "session_id": "cae1fac0-9b2f-4aa9-8657-58e7d556ebcd",
+    "total_cost_usd": 0.02061615,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1069,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 937,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1069,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 937,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1069,
+        "webSearchRequests": 0,
+        "costUSD": 0.02061615,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "95f6d910-4f50-4b3f-9d70-cf11bd70da2e"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:05:50+1300"
+}

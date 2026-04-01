@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_C_sonnet_run2",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 68696,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 67573,
+    "duration_api_ms": 62997,
+    "num_turns": 8,
+    "result": "Now I have enough information to give a thorough answer. Here's a comprehensive breakdown:\n\n---\n\n## TLS Certificates Library (v4) \u2014 Events & Certificate Requests\n\n### Events Emitted\n\nThe v4 library (from `charms.tls_certificates_interface.v4.tls_certificates`) deliberately has a **minimal event surface** on the requirer side \u2014 only one custom event:\n\n---\n\n#### `certificate_available` \u2192 `CertificateAvailableEvent`\n\n> *\"Charm Event triggered when a TLS certificate is available.\"*\n\n**Emitted when:** The provider has placed a signed certificate in the relation data that:\n- Matches one of the requirer's outstanding CSRs\n- Has not been revoked\n- Validates against the stored private key\n\n**Payload attributes:**\n\n| Attribute | Type | Description |\n|---|---|---|\n| `certificate` | `Certificate` | The issued certificate |\n| `certificate_signing_request` | `CertificateSigningRequest` | The CSR that was signed |\n| `ca` | `Certificate` | The CA certificate |\n| `chain` | `List[Certificate]` | The full certificate chain |\n\n---\n\n### Internal/Framework Events the Library Listens To\n\nThe library wires up handlers to several Juju framework events internally (your charm doesn't emit these):\n\n| Framework Event | Handler | What it does |\n|---|---|---|\n| `<relation>_relation_created` | `_configure()` | Sends initial CSRs to the provider |\n| `<relation>_relation_changed` | `_configure()` | Picks up newly issued certificates |\n| `secret_expired` | `_on_secret_expired()` | Triggers certificate renewal when a Juju secret tracking a cert is about to expire |\n| `secret_remove` | `_on_secret_remove()` | Cleans up old secret revisions after renewal |\n| Custom `refresh_events` | `_configure()` | Any events you pass at init time (e.g. `config_changed`) |\n\n> **Note:** The provider side (`TLSCertificatesProvidesV4`) does not emit any custom events. It listens to `relation_joined`, `relation_changed`, and `update_status` to manage and revoke certificates.\n\n---\n\n### When Should a Charm Request a New Certificate?\n\nThe library handles most of this **automatically**, but here are the key moments:\n\n#### 1. **Relation creation (automatic)**\nWhen the TLS relation is first established, `_configure()` fires and the library sends a CSR to the provider. No charm action needed.\n\n#### 2. **Certificate renewal \u2014 near expiry (automatic)**\nThe library uses Juju secrets with an expiry time calculated from the `renewal_relative_time` parameter (default: **`0.9`**, i.e. 90% of the certificate's validity period). When the secret expires, `secret_expired` fires and the library automatically sends a renewal CSR.\n\n#### 3. **Private key regeneration (explicit)**\nCall `requirer.regenerate_private_key()`. This removes all existing CSRs and issues fresh ones \u2014 use this if your private key is compromised or as part of a rotation policy.\n\n#### 4. **Explicit renewal (explicit)**\nCall `requirer.renew_certificate(certificate)` to immediately request a new certificate for a specific existing certificate.\n\n#### 5. **Attribute change (via `refresh_events`)**\nIf your charm's certificate attributes can change (e.g. a new SANs list from config), pass relevant events like `config_changed` in the `refresh_events` parameter when constructing `TLSCertificatesRequiresV4`. The library will reconcile and re-request as needed:\n\n```python\nself.tls = TLSCertificatesRequiresV4(\n    self,\n    relationship_name=\"certificates\",\n    certificate_requests=[...],\n    refresh_events=[self.on.config_changed],\n    renewal_relative_time=0.9,  # renew at 90% of validity period\n)\n```\n\n---\n\n### Summary\n\nYour charm's primary job is to **handle `certificate_available`** and install the cert/key/chain. The library takes care of requesting, renewing, and cleaning up certificates automatically around that.",
+    "stop_reason": "end_turn",
+    "session_id": "4de6ebd4-0ae1-426b-b8d3-da43e6a75734",
+    "total_cost_usd": 0.17662565,
+    "usage": {
+      "input_tokens": 11,
+      "cache_creation_input_tokens": 4537,
+      "cache_read_input_tokens": 73623,
+      "output_tokens": 2156,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4537,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 11,
+        "outputTokens": 2156,
+        "cacheReadInputTokens": 73623,
+        "cacheCreationInputTokens": 4537,
+        "webSearchRequests": 0,
+        "costUSD": 0.07147365,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 97462,
+        "outputTokens": 1538,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.105152,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "6d5aa97c-4906-4ff4-b1d7-06b74cbc75e5"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:34:12+1300"
+}

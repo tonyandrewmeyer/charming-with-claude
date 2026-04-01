@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_A_opus_run1",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 25178,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 24015,
+    "duration_api_ms": 24006,
+    "num_turns": 1,
+    "result": "Here's a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target:\n\n```yaml\n# Layer: 001-my-service.yaml\nsummary: My application service layer\ndescription: |\n  Defines the main application service with health checking,\n  environment configuration, and log forwarding.\n\nservices:\n  my-app:\n    summary: My application service\n    description: Main application HTTP server\n    command: /usr/bin/my-app --config /etc/my-app/config.yaml\n    startup: enabled\n    after:\n      - database-migrator\n    override: replace\n    user: _daemon\n    group: _daemon\n    working-dir: /opt/my-app\n\n    # --- Environment Variables ---\n    environment:\n      APP_PORT: \"8080\"\n      APP_ENV: production\n      LOG_LEVEL: info\n      DB_HOST: postgres.internal\n      DB_PORT: \"5432\"\n      SECRET_KEY_FILE: /run/secrets/app-key\n\n    # --- HTTP Health Check ---\n    on-check-failure:\n      health-check: restart   # restart the service if the check fails\n\n    # --- Log Target Reference ---\n    # (logs from this service are forwarded to the target below)\n\nchecks:\n  health-check:\n    override: replace\n    level: alive              # marks the container as \"alive\" in Kubernetes\n    period: 30s               # run the check every 30 seconds\n    timeout: 5s               # each probe must respond within 5 seconds\n    threshold: 3              # 3 consecutive failures \u2192 check is \"down\"\n    http:\n      url: http://localhost:8080/health\n      headers:\n        Accept: application/json\n        X-Probe: pebble\n\n  readiness-check:\n    override: replace\n    level: ready              # marks the container as \"ready\" in Kubernetes\n    period: 10s\n    timeout: 3s\n    threshold: 2\n    http:\n      url: http://localhost:8080/ready\n\nlog-targets:\n  application-logs:\n    override: replace\n    type: loki                # forward logs to a Grafana Loki endpoint\n    location: http://loki.monitoring:3100/loki/api/v1/push\n    services:\n      - my-app                # only forward logs from the my-app service\n    labels:\n      app: my-app\n      environment: production\n      cluster: juju-cluster\n```\n\n### Key sections explained\n\n| Section | Purpose |\n|---|---|\n| **`services.my-app`** | Defines the long-running process, its command, startup order (`after`), user/group, and working directory. |\n| **`environment`** | Injects key-value pairs into the service's environment. Values must be strings (quote numeric values). |\n| **`checks.health-check`** | An HTTP probe that `GET`s `/health` every 30 s. The `level: alive` flag ties it to Kubernetes liveness. Three consecutive failures trigger the `on-check-failure` action (`restart`). |\n| **`checks.readiness-check`** | A second HTTP probe for readiness \u2014 Kubernetes won't route traffic until this passes. |\n| **`log-targets.application-logs`** | Streams `stdout`/`stderr` from `my-app` to a Loki endpoint with custom labels for filtering. Pebble supports `loki` and `syslog` target types. |\n| **`on-check-failure`** | Maps a named check to an action: `restart`, `shutdown`, or `ignore`. Here, a failing health check auto-restarts the service. |\n\n### Using this in a Juju charm\n\nIn your charm's `src/charm.py`, you would add this layer via the Pebble API:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    container = event.workload\n    layer = container.get_plan().to_dict()\n\n    new_layer = {\n        \"services\": {\n            \"my-app\": {\n                \"override\": \"replace\",\n                \"command\": \"/usr/bin/my-app --config /etc/my-app/config.yaml\",\n                \"startup\": \"enabled\",\n                \"environment\": {\n                    \"APP_PORT\": \"8080\",\n                    \"APP_ENV\": \"production\",\n                    \"LOG_LEVEL\": \"info\",\n                },\n                \"on-check-failure\": {\"health-check\": \"restart\"},\n            }\n        },\n        \"checks\": {\n            \"health-check\": {\n                \"override\": \"replace\",\n                \"level\": \"alive\",\n                \"period\": \"30s\",\n                \"timeout\": \"5s\",\n                \"threshold\": 3,\n                \"http\": {\"url\": \"http://localhost:8080/health\"},\n            }\n        },\n    }\n\n    container.add_layer(\"my-app\", new_layer, combine=True)\n    container.replan()\n```\n\nThis gives you a production-ready Pebble layer with automatic restarts on health-check failure, structured log forwarding, and clean environment configuration.",
+    "stop_reason": "end_turn",
+    "session_id": "f699fec8-a255-4e74-9957-d1b41b0ddf1a",
+    "total_cost_usd": 0.04318074999999999,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1073,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1287,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1073,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1287,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1073,
+        "webSearchRequests": 0,
+        "costUSD": 0.04318074999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "25efdaa1-7f12-4a1e-963d-97ad34c455c7"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:32:43+1300"
+}

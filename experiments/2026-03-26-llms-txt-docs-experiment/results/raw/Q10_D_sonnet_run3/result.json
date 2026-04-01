@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_D_sonnet_run3",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 50614,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 49404,
+    "duration_api_ms": 48876,
+    "num_turns": 2,
+    "result": "Here's complete integration test code using Jubilant:\n\n```python\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    with jubilant.temp_model() as juju:\n        yield juju\n\n\ndef test_deploy(juju: jubilant.Juju):\n    juju.deploy(\"./my-charm.charm\", app=\"my-app\")\n    juju.integrate(\"my-app\", \"some-relation\")  # if needed\n\n    status = juju.wait(\n        jubilant.all_active,\n        error=jubilant.any_error,\n        timeout=300,\n    )\n\n    assert status.apps[\"my-app\"].app_status.current == \"active\"\n    for unit in status.apps[\"my-app\"].units.values():\n        assert unit.workload_status.current == \"active\"\n        assert unit.juju_status.current == \"idle\"\n```\n\nKey points:\n\n- **`jubilant.temp_model()`** creates a temporary Juju model and destroys it on exit \u2014 use `scope=\"module\"` so all tests in the file share one model.\n- **`juju.wait(jubilant.all_active, error=jubilant.any_error, timeout=300)`** polls until all apps are active/idle, raising immediately on error, or after 300 seconds.\n- The returned `Status` object lets you assert on specific app and unit statuses after waiting.\n\nFor a charm that needs a relation (e.g. ingress or database) before it becomes active:\n\n```python\ndef test_deploy_with_relation(juju: jubilant.Juju):\n    juju.deploy(\"./my-charm.charm\", app=\"my-app\")\n    juju.deploy(\"nginx-ingress-integrator\", trust=True)\n    juju.integrate(\"my-app:ingress\", \"nginx-ingress-integrator\")\n\n    status = juju.wait(\n        lambda s: jubilant.all_active(s, \"my-app\", \"nginx-ingress-integrator\"),\n        error=jubilant.any_error,\n        timeout=300,\n    )\n\n    unit = next(iter(status.apps[\"my-app\"].units.values()))\n    assert unit.workload_status.current == \"active\"\n    assert unit.public_address  # has an IP\n```\n\nThe `lambda` form of `all_active` lets you scope the check to specific apps.",
+    "stop_reason": "end_turn",
+    "session_id": "e477f3e2-67f6-420e-a3af-e179020f2975",
+    "total_cost_usd": 0.14343725000000002,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8928,
+      "cache_read_input_tokens": 29980,
+      "output_tokens": 839,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8928,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 839,
+        "cacheReadInputTokens": 29980,
+        "cacheCreationInputTokens": 8928,
+        "webSearchRequests": 0,
+        "costUSD": 0.055077,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 54888,
+        "outputTokens": 3102,
+        "cacheReadInputTokens": 47060,
+        "cacheCreationInputTokens": 10605,
+        "webSearchRequests": 0,
+        "costUSD": 0.08836025,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "aac0ca09-ba99-40f8-a345-9b92628c9753"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:41:02+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_A_opus_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 25598,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 24477,
+    "duration_api_ms": 24460,
+    "num_turns": 1,
+    "result": "## Using `ops.CollectStatusEvent`\n\nThe `collect-status` events let you centralize status-setting logic instead of scattering `self.unit.status = ...` calls across every hook handler. The framework calls your collect-status handler **after every event**, and it automatically picks the \"worst\" status if multiple are added.\n\n### Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm demonstrating CollectStatusEvent usage.\"\"\"\n\nimport ops\n\n\nclass MyAppCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Register the collect-status handler\n        framework.observe(self.on.collect_unit_status, self._on_collect_status)\n\n        # Normal event handlers \u2014 no status-setting needed here\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on[\"db\"].relation_joined, self._on_db_joined)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Single place to evaluate and report unit status.\n\n        Called automatically after every hook. Add one or more statuses;\n        the framework keeps the highest-priority (worst) one:\n          error > blocked > waiting > maintenance > active\n        \"\"\"\n        # Check 1: is a required config value set?\n        if not self.config.get(\"api-key\"):\n            event.add_status(ops.BlockedStatus(\"missing required config: api-key\"))\n\n        # Check 2: is the required relation present?\n        if not self.model.get_relation(\"db\"):\n            event.add_status(ops.WaitingStatus(\"waiting for db relation\"))\n\n        # Check 3: is the workload actually running?\n        container = self.unit.get_container(\"myapp\")\n        if container.can_connect():\n            service = container.get_service(\"myapp\")\n            if not service.is_running():\n                event.add_status(ops.BlockedStatus(\"workload is not running\"))\n        else:\n            event.add_status(ops.WaitingStatus(\"waiting for Pebble\"))\n            return  # no point checking further\n\n        # If nothing is wrong, report active\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n    # --- Normal handlers (no status logic!) ---\n\n    def _on_install(self, event: ops.InstallEvent):\n        # Just do install work; status is handled by collect_status\n        pass\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        container = self.unit.get_container(\"myapp\")\n        if container.can_connect():\n            container.add_layer(\"myapp\", self._pebble_layer(), combine=True)\n            container.replan()\n\n    def _on_db_joined(self, event: ops.RelationJoinedEvent):\n        pass\n\n    def _pebble_layer(self) -> dict:\n        return {\n            \"services\": {\n                \"myapp\": {\n                    \"override\": \"replace\",\n                    \"command\": \"/bin/myapp\",\n                    \"startup\": \"enabled\",\n                    \"environment\": {\"API_KEY\": self.config[\"api-key\"]},\n                }\n            }\n        }\n\n\nif __name__ == \"__main__\":\n    ops.main(MyAppCharm)\n```\n\n### Key Points\n\n| Concept | Detail |\n|---|---|\n| **Event name** | `self.on.collect_unit_status` (per-unit) or `self.on.collect_app_status` (app-level, leader only) |\n| **`event.add_status()`** | Call it multiple times \u2014 the framework keeps the **worst** status automatically |\n| **Priority order** | `error` > `blocked` > `waiting` > `maintenance` > `active` |\n| **When it fires** | Automatically, **after every Juju event** \u2014 you never emit it yourself |\n| **Main benefit** | Hook handlers stay focused on their job; all status logic lives in one place, eliminating stale/contradictory statuses |\n\n### Before vs. After\n\n**Without** `CollectStatusEvent` (old pattern \u2014 scattered and error-prone):\n```python\ndef _on_config_changed(self, event):\n    if not self.config.get(\"api-key\"):\n        self.unit.status = ops.BlockedStatus(\"missing api-key\")\n        return\n    self.unit.status = ops.ActiveStatus()  # might overwrite a valid \"waiting\"\n\ndef _on_relation_joined(self, event):\n    self.unit.status = ops.ActiveStatus()  # might overwrite a valid \"blocked\"\n```\n\n**With** `CollectStatusEvent`: each handler just does its work, and the single `_on_collect_status` method evaluates the *complete* picture every time.",
+    "stop_reason": "end_turn",
+    "session_id": "c93fe938-8f17-4e13-98ac-dccdd6b63d56",
+    "total_cost_usd": 0.042886999999999995,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1066,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1277,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1066,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1277,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1066,
+        "webSearchRequests": 0,
+        "costUSD": 0.042886999999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "d2355660-3838-43f0-95d8-9096e0828171"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:52:12+1300"
+}

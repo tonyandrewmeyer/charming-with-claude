@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_B_opus_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 29854,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 28703,
+    "duration_api_ms": 28648,
+    "num_turns": 5,
+    "result": "The project doesn't have a charm scaffolded yet. Here's the `_on_pebble_ready` handler implementation. This follows the Ops patterns from CLAUDE.md \u2014 using Pebble layers, pulling DB credentials from a relation, and adding an HTTP health check:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    \"\"\"Configure the workload container when Pebble is ready.\"\"\"\n    container = event.workload\n    if not self._database_ready():\n        event.defer()\n        return\n\n    env = self._get_database_env()\n    command = self.config.get(\"command\", \"/usr/bin/default-workload\")\n\n    layer = ops.pebble.Layer({\n        \"summary\": \"workload layer\",\n        \"services\": {\n            \"workload\": {\n                \"override\": \"replace\",\n                \"summary\": \"workload service\",\n                \"command\": command,\n                \"startup\": \"enabled\",\n                \"environment\": env,\n                \"on-check-failure\": {\"health\": \"restart\"},\n            },\n        },\n        \"checks\": {\n            \"health\": {\n                \"override\": \"replace\",\n                \"period\": \"30s\",\n                \"timeout\": \"5s\",\n                \"threshold\": 3,\n                \"http\": {\"url\": \"http://localhost:8080/health\"},\n            },\n        },\n    })\n\n    container.add_layer(\"workload\", layer, combine=True)\n    container.replan()\n    self.unit.status = ops.ActiveStatus()\n\n\ndef _database_ready(self) -> bool:\n    \"\"\"Check whether the database relation has provided credentials.\"\"\"\n    relation = self.model.get_relation(\"database\")\n    if not relation:\n        self.unit.status = ops.WaitingStatus(\"waiting for database relation\")\n        return False\n    data = relation.data.get(relation.app, {})\n    if not all(k in data for k in (\"host\", \"port\", \"database\", \"username\", \"password\")):\n        self.unit.status = ops.WaitingStatus(\"waiting for database credentials\")\n        return False\n    return True\n\n\ndef _get_database_env(self) -> dict[str, str]:\n    \"\"\"Build environment variables from the database relation data.\"\"\"\n    relation = self.model.get_relation(\"database\")\n    assert relation is not None  # noqa: S101 - guarded by _database_ready\n    data = relation.data[relation.app]\n    return {\n        \"DB_HOST\": data[\"host\"],\n        \"DB_PORT\": data[\"port\"],\n        \"DB_NAME\": data[\"database\"],\n        \"DB_USER\": data[\"username\"],\n        \"DB_PASSWORD\": data[\"password\"],\n    }\n```\n\nKey points:\n\n- **Config-driven command**: The service command comes from `self.config[\"command\"]`, which should be declared in `charmcraft.yaml` under `config.options`.\n- **Database relation**: Environment variables are pulled from the `database` relation's app data bag. If the relation isn't ready, the event is deferred and the unit enters `WaitingStatus`.\n- **HTTP health check**: Pebble checks `http://localhost:8080/health` every 30s, with a restart-on-failure policy via `on-check-failure`.\n- **No bare `except`**: Errors propagate naturally; Juju will put the unit in error state.\n- **Stateless**: All state comes from config and relation data \u2014 nothing is persisted locally.\n\nYou'd wire this up in `__init__` with:\n\n```python\nself.framework.observe(self.on[\"workload\"].pebble_ready, self._on_pebble_ready)\n```\n\nAnd the corresponding `charmcraft.yaml` entries would include:\n\n```yaml\ncontainers:\n  workload:\n    resource: oci-image\n\nresources:\n  oci-image:\n    type: oci-image\n\nconfig:\n  options:\n    command:\n      type: string\n      default: \"/usr/bin/default-workload\"\n      description: The command to run in the workload container.\n\nrequires:\n  database:\n    interface: mysql_client\n    optional: true\n```\n\nWant me to scaffold a full charm with this handler, tests, and `charmcraft.yaml`?",
+    "stop_reason": "end_turn",
+    "session_id": "56f5098f-348c-443e-9d8f-aabfaee6ecd9",
+    "total_cost_usd": 0.11126775,
+    "usage": {
+      "input_tokens": 5,
+      "cache_creation_input_tokens": 8123,
+      "cache_read_input_tokens": 48798,
+      "output_tokens": 1443,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8123,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 5,
+        "outputTokens": 1443,
+        "cacheReadInputTokens": 48798,
+        "cacheCreationInputTokens": 8123,
+        "webSearchRequests": 0,
+        "costUSD": 0.11126775,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c001d1f9-1b79-424f-8280-5cc4d160e282"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:30:57+1300"
+}

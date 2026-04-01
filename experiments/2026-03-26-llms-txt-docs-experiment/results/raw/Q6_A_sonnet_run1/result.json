@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_A_sonnet_run1",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 42556,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 41474,
+    "duration_api_ms": 41394,
+    "num_turns": 3,
+    "result": "Here's a breakdown of everything in the layer and why each piece matters for a Juju charm:\n\n---\n\n## Layer Structure\n\n### `services.myapp` \u2014 the workload process\n\n| Field | Value | Why |\n|---|---|---|\n| `command` | `/usr/bin/myapp --config \u2026` | Full path + args for the process Pebble manages |\n| `startup` | `enabled` | Starts automatically; the charm typically calls `container.replan()` rather than starting manually |\n| `override` | `replace` | This layer wins over any base layer for the same service name |\n| `on-failure` | `restart` | Auto-heals crashes without charm intervention |\n| `on-check-failure` | `{http-health: restart}` | Ties the HTTP check to a restart action \u2014 the key must match a name in `checks:` |\n| `user` / `group` | `myapp` | Drops root privileges \u2014 best practice for OCI workloads |\n\n### `environment` \u2014 custom env vars\n\nAll values are injected into the process's environment at start time. Numbers and booleans **must be quoted** (`\"8080\"`, `\"true\"`) because YAML would otherwise parse them as non-strings, which Pebble rejects. In a real charm you'd populate these dynamically:\n\n```python\n# ops charm pattern\nlayer = pebble.Layer({\n    \"services\": {\n        \"myapp\": {\n            \"environment\": {\n                \"DB_HOST\": self.model.config[\"db-host\"],\n                \"APP_PORT\": str(self.model.config[\"port\"]),\n            }\n        }\n    }\n})\ncontainer.add_layer(\"myapp\", layer, combine=True)\n```\n\n### `checks.http-health` \u2014 HTTP health check\n\n| Field | Purpose |\n|---|---|\n| `level: alive` | Marks the process as alive/dead. Use `ready` if you also want readiness gating |\n| `period: 10s` | Check frequency |\n| `timeout: 3s` | Per-attempt deadline (must be < `period`) |\n| `threshold: 3` | Failures needed before the check flips to \"down\" and triggers `on-check-failure` |\n| `headers` | Optional \u2014 useful to pass auth tokens or content negotiation hints |\n\n### `log-targets.loki-logging` \u2014 log forwarding\n\nPebble captures **stdout + stderr** of every listed service and ships them as log streams to a Loki push endpoint. The `labels` become Loki stream selectors, so you can query with:\n\n```logql\n{app=\"myapp\", environment=\"production\"}\n```\n\nIn a charm using the [`loki-push-api`](https://charmhub.io/loki-k8s) relation, the `location` URL is obtained from relation data at runtime and the layer is re-added via `container.add_layer(\u2026, combine=True)`.",
+    "stop_reason": "end_turn",
+    "session_id": "8a9b2373-c803-4292-8f40-5b81ef0134c8",
+    "total_cost_usd": 0.0495501,
+    "usage": {
+      "input_tokens": 5,
+      "cache_creation_input_tokens": 3600,
+      "cache_read_input_tokens": 28717,
+      "output_tokens": 1828,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3600,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 5,
+        "outputTokens": 1828,
+        "cacheReadInputTokens": 28717,
+        "cacheCreationInputTokens": 3600,
+        "webSearchRequests": 0,
+        "costUSD": 0.0495501,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "73c5dda8-9ab1-4771-9932-65e1abcdcc22"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:42:55+1300"
+}

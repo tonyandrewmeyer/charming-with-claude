@@ -1,0 +1,67 @@
+{
+  "session_id": "S3_C_sonnet_run2",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 133985,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 132759,
+    "duration_api_ms": 135380,
+    "num_turns": 18,
+    "result": "I now have everything I need. The key facts from the documentation are:\n\n- **`relation-joined`** fires once when a remote unit first joins \u2014 the right place to publish our data\n- **Relation databag** is written via `relation.data[self.unit][key] = value`\n- **FQDN** is best obtained with `socket.getfqdn()` (Python stdlib); the ops `Network` object exposes IP addresses but not hostnames directly\n- The charm declares its `provides` endpoint in `charmcraft.yaml` with an `interface` name\n\nHere is the complete charm:\n\n---\n\n### `charmcraft.yaml`\n\n```yaml\nname: my-provider-charm\ntype: charm\nsummary: Charm that exposes an endpoint address over a custom relation interface.\ndescription: |\n  When a remote application joins the 'my-service' relation this charm\n  publishes the unit's fully-qualified domain name under the 'endpoint' key\n  so that consumers can reach the service.\n\nbases:\n  - build-on:\n      - name: ubuntu\n        channel: \"22.04\"\n    run-on:\n      - name: ubuntu\n        channel: \"22.04\"\n\nprovides:\n  # 'my-service' is the relation endpoint name.\n  # 'my-custom-interface' is the shared interface contract both sides agree on.\n  my-service:\n    interface: my-custom-interface\n```\n\n---\n\n### `requirements.txt`\n\n```\nops>=2.0.0\n```\n\n---\n\n### `src/charm.py`\n\n```python\n#!/usr/bin/env python3\n# Copyright 2026 Canonical Ltd.\n# SPDX-License-Identifier: Apache-2.0\n\n\"\"\"Charm that publishes the unit FQDN over a custom relation interface.\"\"\"\n\nimport logging\nimport socket\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\n\nclass MyProviderCharm(ops.CharmBase):\n    \"\"\"Charm that provides service-endpoint data to related applications.\n\n    Relation interface: my-custom-interface\n    Relation endpoint:  my-service  (role: provides)\n\n    Data published in the *unit* databag\n    ------------------------------------\n    endpoint : str\n        The fully-qualified domain name of this unit.  Consumers should use\n        this value to open connections to the service running on this unit.\n    \"\"\"\n\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # ------------------------------------------------------------------ #\n        # Core lifecycle                                                        #\n        # ------------------------------------------------------------------ #\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n        # ------------------------------------------------------------------ #\n        # Relation events for the 'my-service' provides endpoint              #\n        # ------------------------------------------------------------------ #\n        # relation_joined  \u2013 fires once for every remote *unit* that joins.\n        #                    This is where we write our advertised data so the\n        #                    remote unit sees it as soon as possible.\n        self.framework.observe(\n            self.on.my_service_relation_joined,\n            self._on_my_service_relation_joined,\n        )\n\n        # relation_changed \u2013 fires after relation_joined and again whenever\n        #                    the *remote* side updates its databag.  We re-\n        #                    publish here to handle any late-binding scenarios\n        #                    (e.g. unit address change after join).\n        self.framework.observe(\n            self.on.my_service_relation_changed,\n            self._on_my_service_relation_changed,\n        )\n\n    # ---------------------------------------------------------------------- #\n    # Helpers                                                                  #\n    # ---------------------------------------------------------------------- #\n\n    def _publish_endpoint(self, relation: ops.Relation) -> None:\n        \"\"\"Write the unit FQDN into *our* unit databag for *relation*.\n\n        Only the local unit may write to its own unit-scoped databag.\n        Writing is idempotent: if the value has not changed ops will not\n        trigger a spurious relation-changed event on the remote side.\n\n        Args:\n            relation: The :class:`ops.Relation` whose databag to update.\n        \"\"\"\n        fqdn = socket.getfqdn()\n        current = relation.data[self.unit].get(\"endpoint\")\n\n        if current == fqdn:\n            logger.debug(\n                \"Relation %s/%d: endpoint already set to %r \u2014 skipping write.\",\n                relation.name,\n                relation.id,\n                fqdn,\n            )\n            return\n\n        logger.info(\n            \"Relation %s/%d: publishing endpoint=%r.\",\n            relation.name,\n            relation.id,\n            fqdn,\n        )\n        relation.data[self.unit][\"endpoint\"] = fqdn\n\n    # ---------------------------------------------------------------------- #\n    # Event handlers                                                           #\n    # ---------------------------------------------------------------------- #\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        \"\"\"Perform one-time installation tasks.\"\"\"\n        self.unit.status = ops.MaintenanceStatus(\"Installing charm\")\n        # TODO: install any packages / binaries your service needs here.\n        self.unit.status = ops.ActiveStatus()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        \"\"\"React to configuration changes.\n\n        If the FQDN itself can change at runtime (rare, but possible in some\n        cloud environments), re-publishing on config-changed ensures all\n        existing relations stay up to date.\n        \"\"\"\n        for relation in self.model.relations[\"my-service\"]:\n            self._publish_endpoint(relation)\n\n    def _on_my_service_relation_joined(\n        self, event: ops.RelationJoinedEvent\n    ) -> None:\n        \"\"\"A new remote unit has joined the relation \u2014 publish our endpoint.\n\n        relation-joined fires exactly once per remote unit.  At this point\n        the remote unit's own databag may be empty (it has not yet had a\n        chance to write), but we can already write *our* data so the remote\n        side sees it immediately in the subsequent relation-changed hook.\n\n        Args:\n            event: The join event carrying the relation and remote unit info.\n        \"\"\"\n        logger.info(\n            \"Unit %s joined relation %s/%d \u2014 publishing endpoint.\",\n            event.unit.name,\n            event.relation.name,\n            event.relation.id,\n        )\n        self._publish_endpoint(event.relation)\n\n    def _on_my_service_relation_changed(\n        self, event: ops.RelationChangedEvent\n    ) -> None:\n        \"\"\"Remote unit updated its databag \u2014 ensure our side is still current.\n\n        This handler is intentionally lightweight: it delegates to the same\n        helper used by relation-joined so the logic stays in one place.\n\n        Args:\n            event: The change event carrying the relation and remote unit info.\n        \"\"\"\n        self._publish_endpoint(event.relation)\n\n\nif __name__ == \"__main__\":\n    ops.main(MyProviderCharm)\n```\n\n---\n\n### How it all fits together\n\n| Concept | Detail |\n|---|---|\n| **Endpoint role** | `provides` \u2014 this charm is the data *publisher* |\n| **Interface name** | `my-custom-interface` \u2014 must match the `requires` side |\n| **Databag owner** | `relation.data[self.unit]` \u2014 unit-scoped, written by this unit only |\n| **FQDN source** | `socket.getfqdn()` \u2014 OS-level FQDN, no external call needed |\n| **Write guard** | Skips the write when the value is unchanged to avoid spurious remote `relation-changed` events |\n| **`relation_joined` vs `relation_changed`** | `joined` fires once per remote unit (ideal for initial publish); `changed` re-publishes in case the FQDN evolves later |\n\n**Consumer side** reads the value like this:\n\n```python\n# On the requires side:\nfor relation in self.model.relations[\"my-service\"]:\n    for unit in relation.units:          # remote units\n        fqdn = relation.data[unit].get(\"endpoint\")\n        if fqdn:\n            logger.info(\"Provider is reachable at %s\", fqdn)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "caaf1545-7c19-4a35-8644-134268855653",
+    "total_cost_usd": 0.25575254999999997,
+    "usage": {
+      "input_tokens": 297,
+      "cache_creation_input_tokens": 7799,
+      "cache_read_input_tokens": 160241,
+      "output_tokens": 4715,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7799,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 297,
+        "outputTokens": 4715,
+        "cacheReadInputTokens": 160241,
+        "cacheCreationInputTokens": 7799,
+        "webSearchRequests": 0,
+        "costUSD": 0.14893455,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 95668,
+        "outputTokens": 2230,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.106818,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "22d12898-72a5-43f2-8fc8-83465537ccf6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:06:36+1300"
+}

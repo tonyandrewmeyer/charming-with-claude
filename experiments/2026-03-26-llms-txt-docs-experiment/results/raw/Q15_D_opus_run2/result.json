@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_D_opus_run2",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 41434,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 40139,
+    "duration_api_ms": 39940,
+    "num_turns": 4,
+    "result": "## `charmlibs.pathops`\n\nThe `pathops` charm library provides a `pathlib`-compatible interface for working with both local and container filesystems in Juju charms. It lets you write unified code that works for both machine charms (local filesystem) and Kubernetes charms (Pebble container filesystem).\n\n### `ContainerPath`\n\n`ContainerPath` gives you remote filesystem access to a Kubernetes workload container via Pebble, using an API that mirrors `pathlib.Path`.\n\n**Creating a path:**\n\n```python\nimport ops\nfrom charms.operator_libs_linux.v0 import pathops  # or wherever the lib is vendored\n\n# From a container reference (e.g. in a charm event handler):\ncontainer = self.unit.get_container(\"myworkload\")\nconfig_path = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n```\n\nPaths must be absolute \u2014 relative paths raise `RelativePathError`. You can join paths with `/`:\n\n```python\nbase = pathops.ContainerPath(\"/etc/myapp\", container=container)\nconfig_path = base / \"config.yaml\"\n```\n\n**Reading and writing:**\n\n```python\n# Read\ncontent = config_path.read_text()\ndata = config_path.read_bytes()\n\n# Write (with optional ownership/permissions)\nconfig_path.write_text(\"key: value\\n\", user=\"root\", group=\"root\")\n```\n\n**Other operations:**\n\n```python\nconfig_path.exists()\nconfig_path.is_file()\nconfig_path.mkdir(user=\"myapp\", group=\"myapp\")\nconfig_path.unlink()\n\n# Directory traversal\nfor child in base.iterdir():\n    ...\n```\n\n### `ensure_contents()`\n\nAn idempotent helper that ensures a file has the desired content, permissions, and ownership \u2014 only writing if something actually changed.\n\n```python\nchanged = pathops.ensure_contents(\n    path=config_path,          # ContainerPath or LocalPath\n    source=\"key: value\\n\",    # str, bytes, or file-like object\n    mode=0o644,                # file permissions (default)\n    user=\"root\",\n    group=\"root\",\n)\n# Returns True if any changes were made, False if already up-to-date\n```\n\nThis is particularly useful in charm event handlers where you want to avoid unnecessary restarts:\n\n```python\nconfig_path = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\nconfig_changed = pathops.ensure_contents(config_path, new_config_text, user=\"myapp\", group=\"myapp\")\nif config_changed:\n    container.restart(\"myapp\")\n```\n\n### `LocalPath` and `PathProtocol`\n\n- **`LocalPath`** extends `pathlib.PosixPath` with the same extended `user`/`group`/`mode` parameters, for use in machine charms.\n- **`PathProtocol`** is a typing protocol you can use in type annotations when your code should accept either path type.\n\n### Key caveats\n\n- `ContainerPath.glob()` does not support recursive `**` patterns.\n- `ContainerPath` raises `PebbleConnectionError` if the container is unreachable.\n- `ContainerPath.read_text()` normalises newlines to `\\n` by default.\n\nFull reference: [documentation.ubuntu.com/charmlibs/reference/charmlibs/pathops/](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/pathops/)",
+    "stop_reason": "end_turn",
+    "session_id": "242a5ef9-2be1-4e73-bb01-1c161ee1003e",
+    "total_cost_usd": 0.15690900000000002,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 9594,
+      "cache_read_input_tokens": 69475,
+      "output_tokens": 1231,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9594,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 1231,
+        "cacheReadInputTokens": 69475,
+        "cacheCreationInputTokens": 9594,
+        "webSearchRequests": 0,
+        "costUSD": 0.125515,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 26209,
+        "outputTokens": 1037,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.031394,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "dcc96627-24d2-43f9-bc32-f1756f021b19"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:34:46+1300"
+}

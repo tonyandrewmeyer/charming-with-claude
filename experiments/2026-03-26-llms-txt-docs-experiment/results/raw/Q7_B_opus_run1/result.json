@@ -1,0 +1,57 @@
+{
+  "session_id": "Q7_B_opus_run1",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 131017,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 129866,
+    "duration_api_ms": 125041,
+    "num_turns": 2,
+    "result": "\n\n## Pebble Notices\n\nPebble notices allow the workload to signal events back to the charm. Each notice is uniquely identified by the combination of **user ID**, **type**, and **key**. If the same notice fires again, its occurrence count is incremented rather than creating a new one. Notices are persisted to disk across Pebble restarts.\n\n### Notice Types\n\nThere are three types (available as `ops.pebble.NoticeType`):\n\n| Type | Enum | Description |\n|------|------|-------------|\n| `custom` | `NoticeType.CUSTOM` | Client-reported notices via `pebble notify`. Key must be in `example.com/path` format. |\n| `change-update` | `NoticeType.CHANGE_UPDATE` | Recorded when a Pebble change is spawned or its status updates. Key is the change ID. |\n| `warning` | \u2014 | Pebble warnings, where the key is the warning message. |\n\nOnly **custom** notices are observable by charms.\n\n### Creating Notices\n\n**From the workload CLI:**\n```bash\npebble notify canonical.com/postgresql/backup-done path=/tmp/mydb.sql --repeat-after=1h\n```\n\n**From Python (`ops.pebble.Client`):**\n```python\ncontainer.pebble.notify(\n    type=ops.pebble.NoticeType.CUSTOM,\n    key=\"example.com/mykey\",\n    data={\"foo\": \"bar\"},\n    repeat_after=datetime.timedelta(hours=1),\n)\n```\n\nThe `repeat-after` duration throttles how often the notice re-fires \u2014 a repeat only occurs if the interval has elapsed since the last one.\n\n### Observing Notices in a Charm\n\nThe event is `PebbleCustomNoticeEvent`, observed via `self.on[\"<container>\"].pebble_custom_notice`:\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(\n            self.on[\"db\"].pebble_custom_notice,\n            self._on_notice,\n        )\n\n    def _on_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        if event.notice.key == \"canonical.com/postgresql/backup-done\":\n            path = event.notice.last_data[\"path\"]\n            f = event.workload.pull(path, encoding=None)\n            # handle the backup file...\n```\n\nKey properties on the event:\n- **`event.notice`** \u2014 has `key`, `last_data`, `id`, `type`, `first_occurred`, `last_occurred`, `occurrences`, `repeat_after`, `expire_after`\n- **`event.workload`** \u2014 the `Container` object\n\nYou can also query notices programmatically: `container.get_notice(id)` or `container.get_notices(types=..., keys=...)`.\n\n### Unit Testing\n\n```python\ndef test_backup_notice():\n    ctx = testing.Context(MyCharm)\n    notice = testing.Notice(\n        \"canonical.com/postgresql/backup-done\",\n        last_data={\"path\": \"/tmp/mydb.sql\"},\n    )\n    container = testing.Container(\"db\", can_connect=True, notices=[notice])\n    state_in = testing.State(containers={container})\n\n    state_out = ctx.run(\n        ctx.on.pebble_custom_notice(container, notice),\n        state_in,\n    )\n    # assert on state_out...\n```\n\n**Note:** This feature requires Juju 3.6 or later.",
+    "stop_reason": "end_turn",
+    "session_id": "d99afd39-004e-4f8f-afcf-8f35f5c66597",
+    "total_cost_usd": 0.6204895,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9507,
+      "cache_read_input_tokens": 30059,
+      "output_tokens": 1235,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9507,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 16,
+        "outputTokens": 6446,
+        "cacheReadInputTokens": 307494,
+        "cacheCreationInputTokens": 48882,
+        "webSearchRequests": 0,
+        "costUSD": 0.6204895,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "589a9aef-d3cd-417e-9c41-0cc1741a142a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:28:55+1300"
+}

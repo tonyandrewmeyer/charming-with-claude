@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_D_sonnet_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 299173,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 298100,
+    "duration_api_ms": 312340,
+    "num_turns": 5,
+    "result": "Here's the standard pattern for implementing the **provider side** of a relation using a charmlib interface library:\n\n## Pattern Overview\n\nCharmlib interface libraries follow a consistent structure:\n\n1. **Pydantic models** define what data goes in each databag\n2. A **`ProviderData`** (or similarly named) class manages writing to the databag\n3. The library emits **custom events** your charm observes \u2014 not raw Juju relation events\n\n---\n\n## Step 1: Fetch the library\n\n```bash\ncharmcraft fetch-lib charms.some_lib.v0.some_interface\n```\n\nDeclare it in `charmcraft.yaml`:\n\n```yaml\ncharm-libs:\n  - lib: some_lib.some_interface\n    version: \"0\"\n```\n\n---\n\n## Step 2: Wire up in `charm.py`\n\n```python\nimport ops\nfrom charms.some_lib.v0.some_interface import SomeProvides, SomeRequestedEvent\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        self.some_provides = SomeProvides(self, relation_name=\"some-relation\")\n\n        framework.observe(\n            self.some_provides.on.some_requested,\n            self._on_some_requested,\n        )\n\n    def _on_some_requested(self, event: SomeRequestedEvent) -> None:\n        if not self.unit.is_leader():\n            return\n\n        # Read what the requirer asked for\n        requested_thing = event.requested_thing\n\n        # Provision it, then publish the result back\n        self.some_provides.set_credentials(\n            relation_id=event.relation.id,\n            username=\"user\",\n            password=\"secret\",\n        )\n        self.some_provides.set_endpoints(\n            relation_id=event.relation.id,\n            endpoints=\"host:port\",\n        )\n```\n\n---\n\n## Key rules\n\n| Rule | Why |\n|------|-----|\n| Check `self.unit.is_leader()` before writing app databag data | Only the leader can write `relation.data[self.app]` |\n| Observe the library's **custom events**, not `relation_changed` | The library filters noise; your handler only fires when there's something actionable |\n| Use the library's **setter methods** rather than writing to `relation.data` directly | The library handles Juju Secrets for sensitive fields (Juju 3+) and serialisation |\n| Do not write unit databag data unless the interface spec requires it | Most interfaces use app-level data; mixing them causes confusion |\n\n---\n\n## Writing your own library\n\nIf you're creating a new interface library (rather than consuming an existing one), the structure is:\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\n\nimport ops\nimport pydantic\n\n\nclass ProviderAppData(pydantic.BaseModel):\n    \"\"\"Data the provider writes to the app databag.\"\"\"\n    endpoint: str\n    username: str\n\n\nclass SomeRequestedEvent(ops.RelationEvent):\n    \"\"\"Fired when a requirer joins and requests provisioning.\"\"\"\n\n\nclass SomeProviderEvents(ops.ObjectEvents):\n    some_requested = ops.EventSource(SomeRequestedEvent)\n\n\nclass SomeProvides(ops.Object):\n    on = SomeProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        charm.framework.observe(\n            charm.on[relation_name].relation_joined, self._on_joined\n        )\n\n    def _on_joined(self, event: ops.RelationJoinedEvent) -> None:\n        self.on.some_requested.emit(event.relation)\n\n    def set_endpoint(self, relation_id: int, endpoint: str, username: str) -> None:\n        if not self._charm.unit.is_leader():\n            return\n        relation = self._charm.model.get_relation(self._relation_name, relation_id)\n        if relation is None:\n            return\n        relation.data[self._charm.app].update(\n            ProviderAppData(endpoint=endpoint, username=username).model_dump()\n        )\n```\n\n---\n\nThe existing charmlibs (e.g. `data-platform-libs`, `nginx-ingress-integrator`) are good references \u2014 the source is in the `lib/` directory of each charm's repository.",
+    "stop_reason": "end_turn",
+    "session_id": "677b1288-ce28-44ff-99e3-81427a472333",
+    "total_cost_usd": 0.71242305,
+    "usage": {
+      "input_tokens": 13,
+      "cache_creation_input_tokens": 12307,
+      "cache_read_input_tokens": 94945,
+      "output_tokens": 2223,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12307,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 13,
+        "outputTokens": 2223,
+        "cacheReadInputTokens": 94945,
+        "cacheCreationInputTokens": 12307,
+        "webSearchRequests": 0,
+        "costUSD": 0.10801875000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 314978,
+        "outputTokens": 21297,
+        "cacheReadInputTokens": 442013,
+        "cacheCreationInputTokens": 78992,
+        "webSearchRequests": 4,
+        "costUSD": 0.6044043,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "42203f30-d99c-4a74-9dfc-1324f86c0fdd"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:13:49+1300"
+}

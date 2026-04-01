@@ -1,0 +1,57 @@
+{
+  "session_id": "Q13_A_sonnet_run3",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 19745,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 18435,
+    "duration_api_ms": 18425,
+    "num_turns": 1,
+    "result": "## Using the Ingress Library (Requires Side)\n\nThe ingress library is typically provided by the `traefik-k8s` charm. Here's how to set up the **requires** side in your charm.\n\n### 1. Fetch the Library\n\n```bash\ncharmcraft fetch-lib charms.traefik_k8s.v2.ingress\n```\n\n### 2. `metadata.yaml` / `charmcraft.yaml`\n\nDeclare the relation endpoint:\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n```\n\n### 3. `src/charm.py`\n\n```python\n#!/usr/bin/env python3\n\nimport ops\nfrom charms.traefik_k8s.v2.ingress import (\n    IngressPerAppReadyEvent,\n    IngressPerAppRequirer,\n    IngressPerAppRevokedEvent,\n)\n\n\nclass MyCharm(ops.CharmBase):\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Instantiate the requirer, declaring the port your app listens on.\n        # strip_prefix=True removes the path prefix that ingress adds,\n        # so your app receives requests at \"/\" instead of \"/model-name-app-name/\".\n        self.ingress = IngressPerAppRequirer(\n            self,\n            relation_name=\"ingress\",   # must match metadata.yaml\n            port=8080,                 # port your workload listens on\n            strip_prefix=True,         # optional \u2014 strips the routed path prefix\n        )\n\n        # React to ingress becoming ready (URL is now available)\n        framework.observe(self.ingress.on.ready, self._on_ingress_ready)\n\n        # React to ingress being revoked (relation removed / URL gone)\n        framework.observe(self.ingress.on.revoked, self._on_ingress_revoked)\n\n    def _on_ingress_ready(self, event: IngressPerAppReadyEvent) -> None:\n        \"\"\"Ingress is configured \u2014 a URL has been assigned.\"\"\"\n        url = event.url                 # the full URL assigned by the ingress provider\n        self.unit.status = ops.ActiveStatus(f\"Ingress ready: {url}\")\n\n        # You can also query it at any time (not just in this event):\n        # url = self.ingress.url\n\n    def _on_ingress_revoked(self, event: IngressPerAppRevokedEvent) -> None:\n        \"\"\"Ingress relation was removed \u2014 no longer externally reachable.\"\"\"\n        self.unit.status = ops.WaitingStatus(\"Ingress revoked, waiting for relation\")\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n### Key Points\n\n| Concept | Detail |\n|---|---|\n| **`IngressPerAppRequirer`** | One URL shared across all units of your app (most common) |\n| **`IngressPerUnitRequirer`** | One URL *per unit* \u2014 use when each unit needs its own endpoint |\n| **`port`** | The port your workload container is listening on |\n| **`strip_prefix`** | Set `True` so your app doesn't need to handle the `/model-app/` prefix |\n| **`self.ingress.url`** | Property you can call anytime to get the current URL (`None` if not ready) |\n| **`limit: 1`** | Prevents accidentally relating to multiple ingress providers |\n\n### Checking the URL Proactively\n\nYou can read `self.ingress.url` outside of events \u2014 useful in `_on_pebble_ready` or config-changed:\n\n```python\ndef _on_pebble_ready(self, event):\n    url = self.ingress.url   # None if ingress not yet related\n    if url:\n        # pass the URL to your workload config\n        ...\n```",
+    "stop_reason": "end_turn",
+    "session_id": "0f2b8d45-32bd-4cc7-ad65-9111eb2bf196",
+    "total_cost_usd": 0.02306115,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1065,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1101,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1065,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1101,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1065,
+        "webSearchRequests": 0,
+        "costUSD": 0.02306115,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "5ff57e27-b301-4e00-a003-79fe791ff061"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:24:54+1300"
+}

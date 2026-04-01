@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_E_sonnet_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 58400,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 57177,
+    "duration_api_ms": 58958,
+    "num_turns": 8,
+    "result": "Here's a complete explanation and example of using `ops.CollectStatusEvent`:\n\n---\n\n## `ops.CollectStatusEvent` \u2014 How It Works\n\n`CollectStatusEvent` is the **recommended, idiomatic way** to set charm status in modern ops. Instead of calling `self.unit.status = ...` scattered throughout your hooks, you centralise all status logic in one place.\n\n### Two Events to Observe\n\n| Event | Who handles it | What it sets |\n|---|---|---|\n| `collect_unit_status` | All units | Unit status |\n| `collect_app_status` | **Leader unit only** | Application status |\n\nAfter every hook runs (whether observed or not), Juju fires these events. The framework collects all statuses added via `event.add_status(...)` and **sets the highest-priority one automatically**.\n\n### Status Priority (highest \u2192 lowest)\n\n```\nblocked > maintenance > waiting > active\n```\n\nIf multiple statuses share the same priority, the **first one added wins**.\n\n---\n\n## Complete Example\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Observe the events that trigger status collection\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Observe normal charm lifecycle events\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on.db_relation_changed, self._on_db_relation_changed)\n\n    # \u2500\u2500 Normal event handlers (no status setting here) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        self._install_service()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        self._reconfigure_service()\n\n    def _on_db_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        self._connect_to_db(event.relation)\n\n    # \u2500\u2500 Centralised status logic \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Called after every hook; add all relevant statuses and the\n        framework will pick the highest-priority one to display.\"\"\"\n\n        # Check required config\n        if not self.config.get(\"api-key\"):\n            event.add_status(ops.BlockedStatus('api-key config must be set'))\n\n        # Check required relation\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.BlockedStatus('database relation required'))\n\n        # Check if we are mid-install\n        if not self._service_installed():\n            event.add_status(ops.MaintenanceStatus('installing service'))\n\n        # Check if we are waiting on a related app\n        if not self._db_ready():\n            event.add_status(ops.WaitingStatus('waiting for database'))\n\n        # All good \u2014 if nothing higher-priority was added, this wins\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Only called on the leader unit; sets the application-level status.\"\"\"\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.BlockedStatus('database relation required'))\n            return\n\n        event.add_status(ops.ActiveStatus('ready'))\n\n    # \u2500\u2500 Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _service_installed(self) -> bool:\n        return self._stored.installed  # type: ignore\n\n    def _db_ready(self) -> bool:\n        rel = self.model.get_relation(\"database\")\n        if rel is None:\n            return False\n        return bool(rel.data[rel.app].get(\"endpoints\"))\n\n    def _install_service(self) -> None:\n        # ... install logic ...\n        self._stored.installed = True  # type: ignore\n\n    def _reconfigure_service(self) -> None:\n        pass  # ... reconfigure logic ...\n\n    def _connect_to_db(self, relation: ops.Relation) -> None:\n        pass  # ... connect logic ...\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n## Key Rules\n\n1. **Never** call `event.add_status(ops.ErrorStatus(...))` or `event.add_status(ops.UnknownStatus())` \u2014 these will raise a `TypeError`.\n2. **Every code path** in your handler should call `add_status` at least once so a status is always set.\n3. You can call `add_status` **multiple times** in one handler \u2014 this is the whole point. Each component/check adds its own status, and the framework resolves the winner.\n4. You can **observe `collect_unit_status` in subordinate objects** (e.g. a `ops.Object` subclass managing a sub-component), making each component self-contained:\n\n```python\nclass DatabaseComponent(ops.Object):\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, 'database')\n        charm.framework.observe(\n            charm.on.collect_unit_status, self._on_collect_unit_status\n        )\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        if not self._connected:\n            event.add_status(ops.WaitingStatus('waiting for database'))\n        else:\n            event.add_status(ops.ActiveStatus())\n```\n\nThis pattern keeps status logic co-located with the component that owns it, rather than centralised in the main charm class.",
+    "stop_reason": "end_turn",
+    "session_id": "c64d4d53-151c-4a43-961d-202b887318c4",
+    "total_cost_usd": 0.14882215,
+    "usage": {
+      "input_tokens": 377,
+      "cache_creation_input_tokens": 2781,
+      "cache_read_input_tokens": 51538,
+      "output_tokens": 2238,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2781,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 377,
+        "outputTokens": 2238,
+        "cacheReadInputTokens": 51538,
+        "cacheCreationInputTokens": 2781,
+        "webSearchRequests": 0,
+        "costUSD": 0.060591149999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 80826,
+        "outputTokens": 1481,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.088231,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "68b36c17-3111-4cf4-9a6c-ed4ac99f5b7b"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:00:08+1300"
+}

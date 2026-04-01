@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_A_sonnet_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 160755,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 159626,
+    "duration_api_ms": 238191,
+    "num_turns": 3,
+    "result": "## `charmlibs.pathops` \u2014 Overview\n\n`charmlibs.pathops` (installed as `charmlibs-pathops`) is a library that provides a **`pathlib`-like interface for both local filesystem paths and Pebble-based workload container paths** in Juju charms. Its core purpose is to let you write filesystem logic once that works across both **Kubernetes charms** (files in a Pebble container) and **machine charms** (files on the local OS).\n\n---\n\n## Installation & Import\n\nAdd to `requirements.txt`:\n```\ncharmlibs-pathops\n```\n\nImport in your charm:\n```python\nfrom charmlibs import pathops\n```\n\n---\n\n## Public API\n\n| Symbol | Purpose |\n|---|---|\n| `pathops.ContainerPath` | Pathlib-like paths into a **Pebble workload container** (K8s) |\n| `pathops.LocalPath` | Pathlib-like paths on the **local filesystem** (machine) |\n| `pathops.PathProtocol` | `typing.Protocol` for substrate-agnostic type annotations |\n| `pathops.ensure_contents` | Idempotently write a file (only if content/perms changed) |\n| `pathops.PebbleConnectionError` | Alias for `ops.pebble.ConnectionError` |\n| `pathops.RelativePathError` | Raised when `ContainerPath` is given a relative path |\n\n---\n\n## `ContainerPath`\n\n`ContainerPath` wraps an `ops.Container` object and proxies all filesystem operations through the **Pebble file API**. It is the K8s equivalent of `pathlib.PosixPath`.\n\n### Construction\n\n```python\ncontainer = self.unit.get_container(\"myapp\")\n\n# Two equivalent forms:\nroot = pathops.ContainerPath(\"/\", container=container)\ncfg  = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n# Path joining with / operator (just like pathlib):\ncfg = root / \"etc\" / \"myapp\" / \"config.yaml\"\n```\n\n### Key methods\n\n```python\n# Read\ncfg.read_text()            # \u2192 str\ncfg.read_bytes()           # \u2192 bytes\n\n# Write (with optional permissions and ownership)\ncfg.write_text(\"data\\n\", mode=0o640, user=\"myapp\", group=\"myapp\")\ncfg.write_bytes(b\"data\\n\", mode=0o640, user=\"root\",  group=\"root\")\n\n# Directories\ncfg.parent.mkdir(parents=True, exist_ok=True, mode=0o750)\n\n# Stat checks\ncfg.exists()               # \u2192 bool\ncfg.is_file()              # \u2192 bool\ncfg.is_dir()               # \u2192 bool\n\n# Ownership\ncfg.owner()                # \u2192 str  e.g. \"root\"\ncfg.group()                # \u2192 str  e.g. \"myapp\"\n\n# Directory listing\nfor p in root.iterdir():   # yields ContainerPath objects\n    print(p.name)\n\n# Deletion\ncfg.unlink(missing_ok=True)\nsome_dir.rmdir()\n\n# Path info (same as pathlib)\ncfg.name        # \"config.yaml\"\ncfg.stem        # \"config\"\ncfg.suffix      # \".yaml\"\ncfg.parent      # ContainerPath(\"/etc/myapp\")\ncfg.parts       # (\"/\", \"etc\", \"myapp\", \"config.yaml\")\n```\n\n### Important constraints\n- **Absolute paths only** \u2014 relative paths raise `RelativePathError` (Pebble requirement)\n- **No recursive `**` glob** support\n- **No `open()`**, `chmod()`, hardlinks, or symlinks\n- Any operation may raise `PebbleConnectionError` if the container isn't ready\n\n---\n\n## `ensure_contents`\n\nThis is the workhorse helper. It **idempotently** ensures a file has the right content, permissions, and ownership \u2014 only writing if something has actually changed.\n\n### Signature\n\n```python\ndef ensure_contents(\n    path: str | os.PathLike[str] | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,\n    user: str | None = None,\n    group: str | None = None,\n) -> bool:   # True = something changed; False = already correct\n```\n\n### Logic (simplified)\n\n```\n1. Read current file info (permissions, owner, group, content).\n2. If file is missing OR any attribute differs \u2192 write the file, create parents if needed.\n3. Return True if a write happened, False if everything was already correct.\n```\n\n### Usage examples\n\n```python\n# --- Write raw bytes from the charm's bundled files ---\nchanged = pathops.ensure_contents(\n    path=self.workload_root / \"etc/myapp/config.yaml\",\n    source=(self.charm_dir / \"files/config.yaml\").read_bytes(),\n    mode=0o640,\n    user=\"myapp\",\n    group=\"myapp\",\n)\nif changed:\n    container.replan()  # restart or reload only when needed\n\n# --- Write a rendered string ---\nrendered = self._render_config()   # returns str\nchanged = pathops.ensure_contents(\n    path=self.workload_root / \"etc/myapp/config.yaml\",\n    source=rendered,               # str is accepted directly\n    mode=0o644,\n)\n\n# --- Write from a file-like object ---\nwith open(\"local_file.conf\", \"rb\") as f:\n    pathops.ensure_contents(path=container_path / \"etc/app.conf\", source=f)\n```\n\n---\n\n## The Cross-Substrate Pattern\n\nThe real power of `pathops` is writing charm logic once that works on both K8s and machine substrates. Set `self.workload_root` to the right type for each substrate, then use `PathProtocol` in your helper functions:\n\n```python\n# In your charm's __init__:\nif self.unit.get_container(\"myapp\"):          # K8s charm\n    container = self.unit.get_container(\"myapp\")\n    self.workload_root = pathops.ContainerPath(\"/\", container=container)\nelse:                                          # machine charm\n    self.workload_root = pathops.LocalPath(\"/\")\n\n\n# Substrate-agnostic helper \u2014 annotate with PathProtocol:\ndef _configure_app(workload_root: pathops.PathProtocol, config: dict) -> bool:\n    return pathops.ensure_contents(\n        path=workload_root / \"etc/myapp/config.yaml\",\n        source=yaml.dump(config),\n        mode=0o640,\n        user=\"myapp\",\n        group=\"myapp\",\n    )\n\n\n# Called identically for both substrates:\nchanged = self._configure_app(self.workload_root, self.config)\nif changed:\n    container.replan()\n```\n\n---\n\n## Default Permission Constants\n\n| Constant | Value | Used for |\n|---|---|---|\n| `DEFAULT_WRITE_MODE` | `0o644` | Files written by `write_bytes` / `ensure_contents` |\n| `DEFAULT_MKDIR_MODE` | `0o755` | Directories created by `mkdir` |\n\nThese match Pebble's own defaults, so behaviour is consistent between `ContainerPath` and `LocalPath`.",
+    "stop_reason": "end_turn",
+    "session_id": "785b8905-bc02-4cac-bf54-d2f51dbffc84",
+    "total_cost_usd": 0.6255998500000001,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 5686,
+      "cache_read_input_tokens": 18036,
+      "output_tokens": 2296,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5686,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 159216,
+        "outputTokens": 11392,
+        "cacheReadInputTokens": 242199,
+        "cacheCreationInputTokens": 92298,
+        "webSearchRequests": 5,
+        "costUSD": 0.4057684000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-sonnet-4-6": {
+        "inputTokens": 2153,
+        "outputTokens": 6351,
+        "cacheReadInputTokens": 144379,
+        "cacheCreationInputTokens": 19945,
+        "webSearchRequests": 0,
+        "costUSD": 0.21983144999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0dffcf40-046b-4608-8a7d-f6aa6e136fbe"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:17:43+1300"
+}

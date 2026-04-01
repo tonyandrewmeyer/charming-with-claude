@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_C_opus_run3",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 81286,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 75484,
+    "duration_api_ms": 86043,
+    "num_turns": 12,
+    "result": "Here's a complete guide to deploying a charm and waiting for active/idle using **Jubilant**:\n\n## Complete Test Code\n\n```python\nimport jubilant\nimport pytest\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Create a temporary Juju model that's cleaned up after all tests.\"\"\"\n    with jubilant.temp_model() as juju:\n        yield juju\n\n\ndef test_deploy(juju: jubilant.Juju):\n    \"\"\"Deploy a charm and wait for it to reach active status.\"\"\"\n    juju.deploy(\"snappass-test\")\n    juju.wait(jubilant.all_active)\n```\n\nThat's the minimal case. Here are more advanced patterns:\n\n### Wait for specific apps only\n\n```python\ndef test_deploy_specific(juju: jubilant.Juju):\n    juju.deploy(\"snappass-test\")\n    juju.wait(lambda status: jubilant.all_active(status, \"snappass-test\"))\n```\n\n### Multiple apps with integrations\n\n```python\ndef test_active_apps(juju: jubilant.Juju):\n    for app in [\"blog\", \"mysql\", \"redis\"]:\n        juju.deploy(app)\n    juju.integrate(\"blog\", \"mysql\")\n    juju.integrate(\"blog\", \"redis\")\n    juju.wait(\n        lambda status: jubilant.all_active(status, \"blog\", \"mysql\", \"redis\"),\n    )\n```\n\n### Custom wait condition with error detection\n\n```python\ndef test_custom_wait(juju: jubilant.Juju):\n    juju.deploy(\"myapp\")\n    juju.deploy(\"yourapp\")\n\n    def ready(status: jubilant.Status) -> bool:\n        return (\n            status.apps[\"myapp\"].is_active\n            and status.apps[\"yourapp\"].is_blocked\n            and \"waiting\" in status.apps[\"yourapp\"].app_status.message\n        )\n\n    juju.wait(ready, error=jubilant.any_error)\n```\n\n### Deploy a local charm with config and trust\n\n```python\ndef test_deploy_local(juju: jubilant.Juju):\n    juju.deploy(\n        \"./my-charm_amd64.charm\",\n        app=\"my-app\",\n        config={\"name\": \"My Wiki\"},\n        trust=True,\n        num_units=3,\n    )\n    juju.wait(jubilant.all_active)\n```\n\n## Key API Details\n\n| Concept | Details |\n|---|---|\n| **`juju.wait(ready, ...)`** | Polls `juju status` until `ready(status)` returns `True` **3 consecutive times** (configurable via `successes=`) |\n| **`timeout`** | Defaults to **180 seconds**; override per-call with `timeout=` or at init via `Juju(wait_timeout=)` |\n| **`error=`** | Optional callable; if it returns `True`, a `WaitError` is raised immediately instead of waiting for timeout |\n| **`delay=`** | Seconds between polls (default `1.0`) |\n\n## Built-in Wait Helpers\n\n- **`jubilant.all_active`** / `all_blocked` / `all_maintenance` / `all_waiting`\n- **`jubilant.any_error`** / `any_active` / `any_blocked`\n- **`jubilant.all_agents_idle`** \u2014 checks if unit *agents* (not workload) are idle\n\nAll accept `(status, *apps)` \u2014 pass app names to filter, or omit to check everything.\n\n## Installation\n\n```bash\npip install jubilant\n```\n\nSources:\n- [Jubilant documentation](https://documentation.ubuntu.com/jubilant/)\n- [Getting started with Jubilant](https://documentation.ubuntu.com/jubilant/tutorial/getting-started/)\n- [Jubilant API reference](https://documentation.ubuntu.com/jubilant/reference/jubilant/)\n- [GitHub - canonical/jubilant](https://github.com/canonical/jubilant/)\n- [jubilant on PyPI](https://pypi.org/project/jubilant/1.0.0b3/)",
+    "stop_reason": "end_turn",
+    "session_id": "f70b0480-1e73-4ef8-be1d-27c9da524f95",
+    "total_cost_usd": 0.28373225,
+    "usage": {
+      "input_tokens": 51,
+      "cache_creation_input_tokens": 7306,
+      "cache_read_input_tokens": 76364,
+      "output_tokens": 2086,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7306,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 51,
+        "outputTokens": 2086,
+        "cacheReadInputTokens": 76364,
+        "cacheCreationInputTokens": 7306,
+        "webSearchRequests": 0,
+        "costUSD": 0.1362495,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 81069,
+        "outputTokens": 2918,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 25459,
+        "webSearchRequests": 2,
+        "costUSD": 0.14748275,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ccda3897-941e-41df-984a-1bff31da28d9"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:56:47+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_E_sonnet_run3",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 27003,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 25669,
+    "duration_api_ms": 25659,
+    "num_turns": 1,
+    "result": "Here is a complete, well-annotated Pebble layer YAML covering all three requirements:\n\n```yaml\nsummary: Application layer\n\ndescription: |\n  Pebble layer for the application service, including an HTTP health\n  check, custom environment variables, and a Loki-compatible log target.\n\nservices:\n  myapp:\n    override: replace        # Replace any previous layer's definition of this service\n    summary: My application service\n    command: /usr/bin/myapp --config /etc/myapp/config.yaml\n    startup: enabled         # Start automatically when Pebble starts\n    user: myapp              # Run as a non-root user\n    group: myapp\n    working-dir: /var/lib/myapp\n\n    environment:\n      # Custom environment variables injected at runtime\n      APP_ENV: production\n      APP_PORT: \"8080\"\n      LOG_LEVEL: info\n      DATABASE_URL: postgres://myapp:secret@localhost:5432/myappdb\n      FEATURE_FLAG_NEW_UI: \"true\"\n\n    # Reference the health check defined in the checks section below\n    # The service will only be considered ready once this check passes\n    on-check-failure:\n      http-alive: restart    # Restart the service if the check fails\n\nchecks:\n  http-alive:\n    override: replace\n    level: alive             # 'alive' or 'ready' \u2014 used by Juju's get_check() / wait_for()\n    period: 10s              # How often to run the check (default: 10s)\n    timeout: 3s              # How long to wait for a response (default: 3s)\n    threshold: 3             # Consecutive failures before marking unhealthy (default: 3)\n    http:\n      url: http://localhost:8080/health\n      headers:\n        Accept: application/json\n\n  http-ready:\n    override: replace\n    level: ready             # Signals the app has finished initialising\n    period: 15s\n    timeout: 5s\n    threshold: 2\n    http:\n      url: http://localhost:8080/ready\n\nlog-targets:\n  loki:\n    override: replace\n    type: loki               # Supported types: loki, syslog\n    location: http://loki-gateway:3100/loki/api/v1/push\n    services: [myapp]        # Which services to forward logs from; use [all] for every service\n    labels:\n      # Static labels attached to every log line sent to this target\n      app: myapp\n      environment: production\n      juju_unit: myapp/0\n```\n\n---\n\n### Key points explained\n\n| Section | What it does |\n|---|---|\n| `services[].override: replace` | Tells Pebble to completely replace (not merge) any earlier layer's definition of this service. Use `merge` when you only want to patch specific fields. |\n| `services[].environment` | Key/value pairs set in the service process's environment. In a charm you typically populate these from `self.config`, relation data, or secrets. |\n| `services[].on-check-failure` | Wires a named check to an action (`restart`, `shutdown`, `ignore`). Juju operators commonly use `restart` so the container self-heals. |\n| `checks[].level` | `alive` maps to the Kubernetes *liveness* probe concept; `ready` maps to *readiness*. Juju's `Container.get_check()` and `pebble_ready` event rely on these. |\n| `log-targets[].type: loki` | Streams service stdout/stderr to a Loki-compatible endpoint. Requires Pebble \u2265 1.1. Use the `grafana-agent` sidecar charm in production deployments. |\n\n### Typical charm usage\n\n```python\n# ops/charm handler \u2014 push the layer and (re)start the service\ndef _on_config_changed(self, event):\n    container = self.unit.get_container(\"myapp\")\n    layer = self._build_pebble_layer()        # returns the YAML above as a dict/Layer\n    container.add_layer(\"myapp\", layer, combine=True)\n    container.replan()                         # starts or restarts only if config changed\n```",
+    "stop_reason": "end_turn",
+    "session_id": "e43663da-af57-4845-b6a5-0a0bed0a66e5",
+    "total_cost_usd": 0.020367299999999998,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 9561,
+      "output_tokens": 1166,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1166,
+        "cacheReadInputTokens": 9561,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.020367299999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "53da4138-7827-4fac-a53e-60482a9af865"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:41:01+1300"
+}

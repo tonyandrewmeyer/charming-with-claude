@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_C_opus_run2",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 82119,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 80977,
+    "duration_api_ms": 83921,
+    "num_turns": 13,
+    "result": "Here's a comprehensive overview of `charmlibs.pathops`:\n\n---\n\n## What is `charmlibs.pathops`?\n\n`charmlibs.pathops` is a charm library that provides a **pathlib-like interface for both local and `ops.Container` (Pebble) filesystem paths**. It lets you manipulate files inside a Kubernetes workload container (via Pebble) using the same familiar API you'd use with Python's `pathlib` for local files.\n\nThe key abstractions are:\n\n| Class/Function | Purpose |\n|---|---|\n| **`ContainerPath`** | A `pathlib`-style path for files *inside* a Pebble workload container |\n| **`LocalPath`** | A `pathlib.PosixPath` subclass for local files, extended with `mode`/`user`/`group` support |\n| **`PathProtocol`** | A `Protocol` you can use in type hints where either path type is accepted |\n| **`ensure_contents()`** | A helper that idempotently writes a file only if its content/permissions have changed |\n\n---\n\n## `ContainerPath`\n\n`ContainerPath` wraps Pebble's file operations behind a `pathlib`-style API. **Only absolute paths are allowed** (a `RelativePathError` is raised otherwise).\n\n### Construction\n\n```python\nfrom charmlibs.pathops import ContainerPath\n\ncontainer = self.unit.get_container('myworkload')\n\n# All equivalent:\npath = ContainerPath('/etc/myapp/config.yaml', container=container)\npath = ContainerPath('/', 'etc', 'myapp', 'config.yaml', container=container)\n```\n\n### Common operations\n\n```python\n# Reading\ncontent = path.read_text()\ndata = path.read_bytes()\n\n# Writing (with optional ownership/permissions)\npath.write_text('key: value\\n', mode=0o644, user='root', group='root')\npath.write_bytes(b'\\x00\\x01', mode=0o600)\n\n# Directory creation\nContainerPath('/etc/myapp', container=container).mkdir(user='root', group='root')\n\n# Checking existence / type\npath.exists()    # True/False\npath.is_file()\npath.is_dir()\n\n# Listing / globbing\nfor child in ContainerPath('/etc/myapp', container=container).iterdir():\n    print(child)\n\nfor match in ContainerPath('/etc/myapp', container=container).glob('*.yaml'):\n    print(match)\n\n# Deletion\npath.unlink()           # delete a file\npath.rmdir()            # delete an empty directory\n\n# Path manipulation (no I/O)\npath.parent             # ContainerPath('/etc/myapp')\npath.name               # 'config.yaml'\npath.with_suffix('.j2') # ContainerPath('/etc/myapp/config.yaml.j2')\n```\n\n> **Note:** `ContainerPath` methods raise `PebbleConnectionError` if the container isn't reachable (e.g., during early startup before `pebble-ready`).\n\n---\n\n## `ensure_contents()`\n\nThis is an **idempotent helper** that writes a file only if something actually needs to change (content, mode, or ownership). It returns `True` if changes were made, `False` otherwise \u2014 which is perfect for determining whether to restart a service.\n\n### Signature\n\n```python\nensure_contents(\n    path: str | os.PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    mode: int = 0o644,\n    user: str | None = None,\n    group: str | None = None,\n) \u2192 bool\n```\n\n### Typical charm usage\n\n```python\nfrom charmlibs.pathops import ContainerPath, ensure_contents\n\nclass MyCharm(ops.CharmBase):\n    def _on_config_changed(self, event):\n        container = self.unit.get_container('myworkload')\n        if not container.can_connect():\n            event.defer()\n            return\n\n        config_path = ContainerPath('/etc/myapp/config.yaml', container=container)\n        new_config = self._render_config()\n\n        # Only returns True if the file was actually changed\n        changed = ensure_contents(\n            config_path,\n            new_config,\n            mode=0o644,\n            user='_daemon',\n            group='_daemon',\n        )\n\n        if changed:\n            container.restart('myservice')\n```\n\nThis pattern avoids unnecessary service restarts \u2014 the service is only restarted when the config file actually changed.\n\n---\n\n## Why use it instead of raw `Container.push()`?\n\n| Raw Pebble API | `charmlibs.pathops` |\n|---|---|\n| `container.push('/etc/app/conf', data)` | `path.write_text(data)` |\n| `container.pull('/etc/app/conf').read()` | `path.read_text()` |\n| No idempotency check | `ensure_contents()` skips writes when nothing changed |\n| Separate API for local vs. container files | `PathProtocol` unifies both \u2014 great for machine+k8s charms |\n\nIn short, `charmlibs.pathops` gives you a cleaner, more Pythonic API for file management, built-in idempotency via `ensure_contents()`, and a unified interface (`PathProtocol`) that makes it easy to write charm code that works on both Kubernetes and machine substrates.",
+    "stop_reason": "end_turn",
+    "session_id": "d6b27aca-7a13-4b63-b1d0-3a0669843027",
+    "total_cost_usd": 0.22298949999999998,
+    "usage": {
+      "input_tokens": 13,
+      "cache_creation_input_tokens": 5782,
+      "cache_read_input_tokens": 98368,
+      "output_tokens": 2628,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5782,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 13,
+        "outputTokens": 2628,
+        "cacheReadInputTokens": 98368,
+        "cacheCreationInputTokens": 5782,
+        "webSearchRequests": 0,
+        "costUSD": 0.15108649999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 61778,
+        "outputTokens": 2025,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.071903,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2cd457dc-925c-4af3-b36f-e739673748c4"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:30:25+1300"
+}

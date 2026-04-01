@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_C_opus_run3",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 82165,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 81036,
+    "duration_api_ms": 89253,
+    "num_turns": 10,
+    "result": "Now I have a complete picture. Here's the answer:\n\n---\n\n## Adding a Relation and Verifying Data Exchange with Jubilant\n\n### 1. Adding a Relation with `integrate()`\n\nThe `integrate()` method creates a relation between two applications:\n\n```python\nimport jubilant\n\njuju = jubilant.Juju()\n\n# Deploy two applications\njuju.deploy('blog')\njuju.deploy('mysql')\njuju.wait(jubilant.all_active)\n\n# Integrate them (order doesn't matter)\njuju.integrate('blog', 'mysql')\n\n# Wait for everything to settle after the relation is established\njuju.wait(jubilant.all_active)\n```\n\nYou can also **specify endpoints** explicitly when multiple relation endpoints exist between the two apps:\n\n```python\njuju.integrate('blog:database', 'mysql:db')\n```\n\nFor **cross-model relations**, prefix the app with the model name:\n\n```python\njuju.integrate('mymodel.mysql', 'blog')\n```\n\n### 2. Verifying the Relation Exists\n\nAfter integrating, you can check that the relation was created by inspecting `status()`:\n\n```python\nstatus = juju.status()\n\n# status.apps['blog'].relations is a dict[str, list[AppStatusRelation]]\n# Keys are endpoint names, values are lists of AppStatusRelation objects\nrelations = status.apps['blog'].relations\nprint(relations)\n# e.g. {'database': [AppStatusRelation(related_app='mysql', interface='mysql', scope='global')]}\n```\n\nEach `AppStatusRelation` has three fields:\n| Field | Type | Description |\n|---|---|---|\n| `related_app` | `str` | Name of the related application |\n| `interface` | `str` | The interface type (e.g. `'mysql'`) |\n| `scope` | `str` | Relation scope (e.g. `'global'`) |\n\n### 3. Verifying Data Was Actually Exchanged\n\nJubilant doesn't have a dedicated relation-databag inspection method, but you can use `cli()` to call any Juju command directly, such as `show-unit`, which includes relation data:\n\n```python\nimport json\n\n# Use cli() to get detailed unit info including relation data\nraw = juju.cli('show-unit', 'mysql/0', '--format', 'json')\nunit_info = json.loads(raw)\n\n# Inspect the relation data bags\nrelation_info = unit_info['mysql/0'].get('relation-info', [])\nfor rel in relation_info:\n    endpoint = rel['endpoint']\n    related_units = rel.get('related-units', {})\n    print(f\"Endpoint: {endpoint}\")\n    for unit_name, unit_data in related_units.items():\n        print(f\"  {unit_name} data: {unit_data.get('data', {})}\")\n```\n\n### Full Integration Test Example\n\nHere's a complete pytest-based integration test:\n\n```python\nimport json\nimport jubilant\nimport pytest\n\n@pytest.fixture(scope='module')\ndef juju():\n    with jubilant.temp_model() as juju:\n        yield juju\n\ndef test_blog_mysql_relation(juju: jubilant.Juju):\n    # Deploy both apps\n    juju.deploy('blog')\n    juju.deploy('mysql')\n    juju.wait(jubilant.all_active)\n\n    # Create the relation\n    juju.integrate('blog', 'mysql')\n    juju.wait(jubilant.all_active)\n\n    # Verify the relation exists in status\n    status = juju.status()\n    blog_relations = status.apps['blog'].relations\n    assert 'database' in blog_relations\n    assert blog_relations['database'][0].related_app == 'mysql'\n\n    # Verify data was exchanged via show-unit\n    raw = juju.cli('show-unit', 'mysql/0', '--format', 'json')\n    unit_info = json.loads(raw)\n    relation_info = unit_info['mysql/0'].get('relation-info', [])\n    assert len(relation_info) > 0, \"No relation data found\"\n```\n\n### Removing a Relation\n\nTo tear down a relation, use `remove_relation()` (the inverse of `integrate()`):\n\n```python\njuju.remove_relation('blog', 'mysql')\n```",
+    "stop_reason": "end_turn",
+    "session_id": "9eed5941-ba77-4324-a538-10ff1dfb0e6e",
+    "total_cost_usd": 0.2879851,
+    "usage": {
+      "input_tokens": 13,
+      "cache_creation_input_tokens": 5678,
+      "cache_read_input_tokens": 100006,
+      "output_tokens": 2338,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5678,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 13,
+        "outputTokens": 2338,
+        "cacheReadInputTokens": 100006,
+        "cacheCreationInputTokens": 5678,
+        "webSearchRequests": 0,
+        "costUSD": 0.1440055,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 120663,
+        "outputTokens": 2950,
+        "cacheReadInputTokens": 52891,
+        "cacheCreationInputTokens": 2622,
+        "webSearchRequests": 0,
+        "costUSD": 0.1439796,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "e03bdade-2776-4cd2-933a-c6e0d7526092"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:59:30+1300"
+}

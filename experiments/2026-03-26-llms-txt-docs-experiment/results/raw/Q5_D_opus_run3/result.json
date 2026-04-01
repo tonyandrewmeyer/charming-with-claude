@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_D_opus_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 63102,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 61653,
+    "duration_api_ms": 61351,
+    "num_turns": 9,
+    "result": "`CollectStatusEvent` lets you centralise all status logic in one handler that runs after every Juju event. Instead of scattering `self.unit.status = ...` calls across handlers, you call `event.add_status()` one or more times, and Ops picks the highest-priority status automatically.\n\n**Priority order** (highest first): `BlockedStatus` > `WaitingStatus` > `MaintenanceStatus` > `ActiveStatus`\n\n### Complete example\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.collect_unit_status, self._on_collect_status)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        # ... other event observers\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent) -> None:\n        # Check configuration is valid.\n        if not self.config.get(\"api-key\"):\n            event.add_status(ops.BlockedStatus(\"missing required config: api-key\"))\n\n        # Check required relations.\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.BlockedStatus(\"waiting for database relation\"))\n\n        # Check workload container (Kubernetes charms).\n        container = self.unit.get_container(\"myapp\")\n        if not container.can_connect():\n            event.add_status(ops.WaitingStatus(\"waiting for container\"))\n            return\n\n        # Check workload service.\n        try:\n            service = container.get_service(\"myapp\")\n        except ops.pebble.APIError:\n            event.add_status(ops.MaintenanceStatus(\"service not yet configured\"))\n            return\n\n        if not service.is_running():\n            event.add_status(ops.WaitingStatus(\"service not running\"))\n            return\n\n        # All good.\n        event.add_status(ops.ActiveStatus())\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        # Just do the work \u2014 no need to set status here.\n        self._configure_workload()\n```\n\nKey points:\n\n- Observe `self.on.collect_unit_status` (or `self.on.collect_app_status` for app-level status on the leader).\n- Call `event.add_status()` as many times as you like \u2014 Ops selects the highest-priority one.\n- Always include an `ActiveStatus()` call at the end so the charm reports active when nothing is wrong.\n- Your other event handlers no longer need to set status at all, keeping them focused on their actual work.",
+    "stop_reason": "end_turn",
+    "session_id": "ff64222c-f133-41fb-a66d-0bc890d29a93",
+    "total_cost_usd": 0.21703925000000002,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 10445,
+      "cache_read_input_tokens": 150588,
+      "output_tokens": 1505,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10445,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 12,
+        "outputTokens": 1505,
+        "cacheReadInputTokens": 150588,
+        "cacheCreationInputTokens": 10445,
+        "webSearchRequests": 0,
+        "costUSD": 0.17826025,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 34704,
+        "outputTokens": 815,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.038779,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "634212e7-fd7a-47f7-845d-84da1d548c74"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:20:12+1300"
+}

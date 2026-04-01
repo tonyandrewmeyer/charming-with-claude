@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_A_sonnet_run1",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 158816,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 157685,
+    "duration_api_ms": 157566,
+    "num_turns": 10,
+    "result": "All three files are written. Here's a full walkthrough of the design:\n\n---\n\n## `src/charm.py` \u2014 complete design walkthrough\n\n### `_on_pebble_ready` \u2014 the primary handler\n\n```\ncontainer = event.workload   \u2190 the live container handle from the event\n```\n\nThe handler follows a strict **validate \u2192 gather \u2192 apply \u2192 start** sequence:\n\n#### Step 1 \u2014 Validate config\n```python\ncommand = self._get_workload_command()  # reads \"workload-command\" config option\nif not command:\n    self.unit.status = ops.BlockedStatus(\"Config option 'workload-command' is required\")\n    return\n```\nNo command \u2192 `BlockedStatus`. The operator must supply the config before anything starts.\n\n#### Step 2 \u2014 Gather DB environment variables\n```python\ndb_env = self._get_database_env()\nif db_env is None:          # relation present but credentials not published yet\n    event.defer()           # re-queue, don't Block \u2014 creds will arrive soon\n    return\n```\n`_get_database_env()` uses a **three-way return**:\n\n| Return value | Meaning |\n|---|---|\n| `{}` (empty dict) | No DB relation joined \u2014 DB is optional, proceed |\n| `None` | Relation joined but remote unit hasn't published credentials yet \u2192 **defer** |\n| `{...}` (populated dict) | Full credentials available \u2192 inject into service env |\n\nThe dict contains `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and a pre-built `DATABASE_URL` DSN.\n\n#### Step 3 \u2014 Build the Pebble layer\n`_build_layer()` constructs a `Layer` dict with two sections:\n\n**Service:**\n```yaml\nservices:\n  workload:\n    override: replace        # always wins over any base layer\n    command: <from config>\n    startup: enabled\n    environment:\n      DB_HOST: \u2026\n      DATABASE_URL: postgresql://\u2026\n```\n\n**HTTP health check:**\n```yaml\nchecks:\n  workload-http-health:\n    override: replace\n    level: alive             # Pebble RESTARTS the service on failure\n    period: 10s\n    timeout: 3s\n    threshold: 3             # 3 consecutive failures before action\n    http:\n      url: http://localhost:8080/health   # port + path from config\n```\n\n`level: alive` means Pebble will automatically restart the service if the check fails 3 times in a row \u2014 no custom restart logic needed.\n\n#### Step 4 \u2014 Start / replan\n```python\nif container.get_service(WORKLOAD_SERVICE).is_running():\n    container.replan()   # apply layer changes to a running service\nelse:\n    container.start(WORKLOAD_SERVICE)\n```\n\n---\n\n### Lifecycle coverage\n\n| Event | Handler | Behaviour |\n|---|---|---|\n| `pebble_ready` | `_on_pebble_ready` | Full configure + start |\n| `config_changed` | `_on_config_changed` \u2192 `_reconcile` | Re-applies layer + replan |\n| `database-relation-joined/changed` | `_on_database_relation_changed` \u2192 `_reconcile` | Re-applies layer with new env |\n| `database-relation-broken` | `_on_database_relation_broken` | Stops service, enters BlockedStatus |\n\n`_reconcile()` is the shared reconciliation path for secondary handlers \u2014 it guards with `container.can_connect()` and defers if Pebble isn't ready yet, so it composes safely with `_on_pebble_ready`.\n\n---\n\n### Config options (`charmcraft.yaml`)\n\n| Option | Default | Purpose |\n|---|---|---|\n| `workload-command` | `\"\"` (required) | Binary/command to run |\n| `http-port` | `8080` | Health check URL port |\n| `health-check-path` | `\"/health\"` | Health check URL path |",
+    "stop_reason": "end_turn",
+    "session_id": "09da56c1-6875-4723-9f18-a8bd2a4516d4",
+    "total_cost_usd": 0.26084865,
+    "usage": {
+      "input_tokens": 11,
+      "cache_creation_input_tokens": 12587,
+      "cache_read_input_tokens": 121148,
+      "output_tokens": 11818,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12587,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 11,
+        "outputTokens": 11818,
+        "cacheReadInputTokens": 121148,
+        "cacheCreationInputTokens": 12587,
+        "webSearchRequests": 0,
+        "costUSD": 0.26084865,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1ff0d768-32ec-4315-8023-58f299567cea"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:33:43+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q2_A_sonnet_run2",
+  "question_id": "Q2",
+  "category": "ops_api",
+  "question": "How do you access relation data for a specific remote unit? Show the code.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 17720,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 16542,
+    "duration_api_ms": 16533,
+    "num_turns": 1,
+    "result": "## Accessing Relation Data for a Specific Remote Unit\n\nIn a Juju charm, you access relation data for a specific remote unit via the **`ops` framework** using the `relation.data[unit]` mapping. Here's how:\n\n---\n\n### Basic Access Pattern\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(self.on.my_relation_changed, self._on_relation_changed)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        # The specific remote unit that triggered this event\n        remote_unit = event.unit  # ops.Unit object\n\n        # Access that unit's relation data\n        unit_data = event.relation.data[remote_unit]\n\n        # Read a specific key\n        address = unit_data.get(\"private-address\")\n        port = unit_data.get(\"port\", \"8080\")  # with default\n\n        if address:\n            self.unit.status = ops.ActiveStatus(f\"Connected to {address}:{port}\")\n```\n\n---\n\n### Iterating Over All Remote Units\n\n```python\ndef _on_relation_changed(self, event: ops.RelationChangedEvent):\n    relation = event.relation\n\n    # Iterate over all remote units currently in the relation\n    for remote_unit in relation.units:\n        unit_data = relation.data[remote_unit]\n\n        hostname = unit_data.get(\"hostname\")\n        port     = unit_data.get(\"port\")\n\n        if hostname and port:\n            print(f\"{remote_unit.name} -> {hostname}:{port}\")\n```\n\n---\n\n### Accessing Data Across All Relations\n\n```python\ndef _get_all_remote_data(self):\n    results = []\n\n    # self.model.relations[\"my-relation\"] returns a list of Relation objects\n    for relation in self.model.relations[\"my-relation\"]:\n        for remote_unit in relation.units:\n            data = relation.data[remote_unit]\n            results.append({\n                \"unit\":     remote_unit.name,\n                \"hostname\": data.get(\"hostname\"),\n                \"port\":     data.get(\"port\"),\n            })\n\n    return results\n```\n\n---\n\n### Key Concepts\n\n| Object | Description |\n|---|---|\n| `relation.data` | A `RelationData` mapping \u2014 keyed by `Unit` or `Application` |\n| `relation.data[event.unit]` | Data bag for the **specific remote unit** that triggered the event |\n| `relation.units` | `set[Unit]` \u2014 all **remote** units currently in the relation |\n| `relation.app` | The remote **application** (for app-level relation data) |\n| `.get(\"key\", default)` | Safe read; returns `None` if key is absent (no `KeyError`) |\n\n---\n\n### Also: Reading Remote Application Data\n\n```python\n# Application-level data (set by the remote app, not individual units)\nremote_app_data = event.relation.data[event.app]\ndb_uri = remote_app_data.get(\"db-uri\")\n```\n\n> **Note:** `relation.data` values are **read-only for remote units/apps**. You can only **write** to `relation.data[self.unit]` (your own unit's bag) or `relation.data[self.app]` (your app's bag, leader only).",
+    "stop_reason": "end_turn",
+    "session_id": "00edaebf-b43a-47c1-b20c-d31a203f79a6",
+    "total_cost_usd": 0.0196074,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1060,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 872,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1060,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 872,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1060,
+        "webSearchRequests": 0,
+        "costUSD": 0.0196074,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "3afc5fab-0978-4a83-9b43-b42a8378e848"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:02:47+1300"
+}

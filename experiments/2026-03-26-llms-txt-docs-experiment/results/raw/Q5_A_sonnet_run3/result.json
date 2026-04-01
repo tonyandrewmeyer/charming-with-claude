@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_A_sonnet_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 31924,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 30776,
+    "duration_api_ms": 30766,
+    "num_turns": 1,
+    "result": "## Using `ops.CollectStatusEvent` in a Juju Charm\n\n`CollectStatusEvent` is the **recommended modern approach** for setting charm status. Instead of imperatively calling `self.unit.status = ...` throughout your code, you observe `collect_app_status` and/or `collect_unit_status` events and let the framework aggregate statuses automatically.\n\n### How it works\n\n- You register one or more handlers for `collect_app_status` / `collect_unit_status`.\n- Each handler calls `event.add_status(...)` with whatever status it wants to report.\n- The framework picks the **worst** (highest-priority) status: `Blocked > Maintenance > Waiting > Active`.\n- If no handler adds a status, the charm defaults to `ActiveStatus`.\n\n---\n\n### Complete Example\n\n```python\n# src/charm.py\n\"\"\"A minimal charm demonstrating CollectStatusEvent.\"\"\"\n\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Observe the status collection events\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n        # Observe normal lifecycle events\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on.db_relation_changed, self._on_db_relation_changed)\n\n    # \u2500\u2500 Status collectors \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Aggregate application-level status from all subsystems.\"\"\"\n\n        # Check peer relation / leadership quorum\n        if not self._peers_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for peer units\"))\n\n        # Check a required relation\n        if not self.model.relations[\"db\"]:\n            event.add_status(ops.BlockedStatus(\"missing relation: db\"))\n            return  # No point checking further if DB is absent\n\n        if not self._db_credentials_available():\n            event.add_status(ops.WaitingStatus(\"waiting for database credentials\"))\n\n        # If nothing bad was added, the framework defaults to ActiveStatus.\n        # You can also be explicit:\n        # event.add_status(ops.ActiveStatus(\"ready\"))\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Aggregate unit-level status (e.g. service health).\"\"\"\n\n        if not self._service_running():\n            event.add_status(ops.MaintenanceStatus(\"service not yet started\"))\n            return\n\n        if not self._service_healthy():\n            event.add_status(ops.BlockedStatus(\"service unhealthy \u2013 check logs\"))\n            return\n\n        # Optionally surface a friendly ready message\n        version = self._get_version()\n        event.add_status(ops.ActiveStatus(f\"ready (v{version})\"))\n\n    # \u2500\u2500 Lifecycle handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        \"\"\"Install dependencies; status is reported via collectors, not here.\"\"\"\n        self.unit.status = ops.MaintenanceStatus(\"installing\")  # \u2190 only during the hook itself\n        self._install_packages()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        self._reconfigure()\n\n    def _on_db_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        self._store_db_credentials(event.relation)\n\n    # \u2500\u2500 Private helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _peers_ready(self) -> bool:\n        peer_rel = self.model.get_relation(\"peers\")\n        return peer_rel is not None and len(peer_rel.units) > 0\n\n    def _db_credentials_available(self) -> bool:\n        rel = self.model.relations.get(\"db\")\n        if not rel:\n            return False\n        remote_data = rel[0].data.get(rel[0].app, {})\n        return bool(remote_data.get(\"host\") and remote_data.get(\"password\"))\n\n    def _service_running(self) -> bool:\n        container = self.unit.get_container(\"myapp\")\n        return container.can_connect() and container.get_service(\"myapp\").is_running()\n\n    def _service_healthy(self) -> bool:\n        # e.g. hit a health-check endpoint via pebble exec or a socket\n        return True\n\n    def _get_version(self) -> str:\n        return \"1.2.3\"\n\n    def _install_packages(self) -> None:\n        pass\n\n    def _reconfigure(self) -> None:\n        pass\n\n    def _store_db_credentials(self, relation: ops.Relation) -> None:\n        pass\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n### Status Priority (highest \u2192 lowest)\n\n| Priority | Status class | Typical meaning |\n|---|---|---|\n| 1 (worst) | `BlockedStatus` | Operator action required |\n| 2 | `MaintenanceStatus` | Charm is doing work |\n| 3 | `WaitingStatus` | Waiting on another unit/relation |\n| 4 (best) | `ActiveStatus` | All good |\n\n---\n\n### Key Rules\n\n| Rule | Detail |\n|---|---|\n| **`collect_app_status`** | Sets `Application.status`; only the **leader** unit's handler takes effect. |\n| **`collect_unit_status`** | Sets `Unit.status`; runs on **every** unit independently. |\n| **Multiple `add_status` calls** | All statuses are compared; worst one wins. |\n| **`MaintenanceStatus` during a hook** | Still fine to set `self.unit.status = MaintenanceStatus(...)` at the top of long-running hooks so operators see progress *during* execution. |\n| **No `add_status` call** | Framework automatically uses `ActiveStatus(\"\")`. |\n\nThis pattern keeps status logic **centralized and declarative**, making it easy to reason about what the charm will report without tracing imperative assignments scattered across many handlers.",
+    "stop_reason": "end_turn",
+    "session_id": "dc4fdc7d-82d6-4649-bb9e-aef7fc626844",
+    "total_cost_usd": 0.032004899999999996,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1066,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1697,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1066,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1697,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1066,
+        "webSearchRequests": 0,
+        "costUSD": 0.032004899999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a8b1d981-0f09-4863-8365-78fe01326e57"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:41:43+1300"
+}

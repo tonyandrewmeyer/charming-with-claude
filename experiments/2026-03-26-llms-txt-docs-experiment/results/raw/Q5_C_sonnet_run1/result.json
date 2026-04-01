@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_C_sonnet_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 72976,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 71846,
+    "duration_api_ms": 72307,
+    "num_turns": 11,
+    "result": "Here's a complete explanation and example of using `ops.CollectStatusEvent` to set charm status.\n\n---\n\n## `ops.CollectStatusEvent` \u2014 How It Works\n\n`CollectStatusEvent` is the **recommended** way to set charm status in modern ops. Instead of imperatively calling `self.unit.status = ...` scattered throughout your hooks, you consolidate all status logic in dedicated handlers that fire **automatically at the end of every hook**.\n\nThere are two events:\n\n| Event | Fires on | Sets |\n|---|---|---|\n| `collect_app_status` | Leader unit only | Application status |\n| `collect_unit_status` | Every unit | Unit status |\n\nThe framework collects all statuses added via `event.add_status()` and **automatically picks the highest-priority one**:\n\n```\nblocked > maintenance > waiting > active\n```\n\nIf multiple statuses share the same priority, the **first one added wins**.\n\n---\n\n## Complete Example\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    \"\"\"A charm with database and HTTP components.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Observe status collection events\n        self.framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n        # Regular lifecycle hooks \u2014 no status-setting needed here\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n        # Sub-components also observe status events independently\n        self.database = DatabaseComponent(self)\n        self.webserver = WebserverComponent(self)\n\n    def _on_install(self, event: ops.InstallEvent):\n        # Just do the work \u2014 status will be set by collect-status handlers\n        self._install_packages()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        self._apply_config()\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Set application status (leader unit only).\"\"\"\n        if not self._is_database_relation_present():\n            event.add_status(ops.BlockedStatus(\"missing: database relation\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Set unit status (all units).\"\"\"\n        if not self._is_installed():\n            event.add_status(ops.MaintenanceStatus(\"installing packages\"))\n            return\n        if not self._is_configured():\n            event.add_status(ops.WaitingStatus(\"waiting for configuration\"))\n            return\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n    # --- helpers (illustrative) ---\n    def _install_packages(self): ...\n    def _apply_config(self): ...\n    def _is_installed(self) -> bool: ...\n    def _is_configured(self) -> bool: ...\n    def _is_database_relation_present(self) -> bool: ...\n\n\nclass DatabaseComponent(ops.Object):\n    \"\"\"A sub-component that manages database connectivity.\"\"\"\n\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"database\")\n        # Each component observes status events independently!\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        if not self._can_connect():\n            event.add_status(ops.BlockedStatus(\"cannot connect to database\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _can_connect(self) -> bool: ...\n\n\nclass WebserverComponent(ops.Object):\n    \"\"\"A sub-component that manages the HTTP server.\"\"\"\n\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"webserver\")\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        port = self.model.config.get(\"port\")\n        if not port:\n            event.add_status(ops.BlockedStatus('please set the \"port\" config option'))\n            return\n        if not self._is_running():\n            event.add_status(ops.WaitingStatus(\"starting webserver\"))\n            return\n        event.add_status(ops.ActiveStatus(f\"listening on port {port}\"))\n\n    def _is_running(self) -> bool: ...\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n## Key Points\n\n1. **Never set `self.unit.status` directly in hooks** \u2014 let `collect_unit_status` handle it. This keeps all status logic in one place and ensures it's always up to date.\n\n2. **Multiple handlers can observe the same event.** In the example above, `MyCharm`, `DatabaseComponent`, and `WebserverComponent` all add statuses. The framework picks the worst (highest-priority) one \u2014 e.g., if `DatabaseComponent` adds `BlockedStatus` and `WebserverComponent` adds `WaitingStatus`, the unit ends up `blocked`.\n\n3. **Each code path must call `add_status()` at least once**, including the \"happy path\" (`ActiveStatus`). If no status is added, the status won't be updated.\n\n4. **`collect_app_status` only fires on the leader unit.** Non-leaders should only use `collect_unit_status`.\n\n5. **Forbidden statuses:** You cannot pass `ops.ErrorStatus` or `ops.UnknownStatus` to `add_status()` \u2014 these are reserved for internal framework use.",
+    "stop_reason": "end_turn",
+    "session_id": "c51fc489-1145-41f0-921f-7fa46b805d3a",
+    "total_cost_usd": 0.17731589999999997,
+    "usage": {
+      "input_tokens": 49,
+      "cache_creation_input_tokens": 4584,
+      "cache_read_input_tokens": 76533,
+      "output_tokens": 2572,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4584,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 49,
+        "outputTokens": 2572,
+        "cacheReadInputTokens": 76533,
+        "cacheCreationInputTokens": 4584,
+        "webSearchRequests": 0,
+        "costUSD": 0.0788769,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 87384,
+        "outputTokens": 2211,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.098439,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a8e4bed8-22a5-4f10-b41a-d80f8a9d130f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:02:28+1300"
+}

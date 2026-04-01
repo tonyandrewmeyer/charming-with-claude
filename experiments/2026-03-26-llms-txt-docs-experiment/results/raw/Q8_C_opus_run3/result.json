@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_C_opus_run3",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 117482,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 111650,
+    "duration_api_ms": 110314,
+    "num_turns": 25,
+    "result": "Now I have all the information. Here's a comprehensive answer:\n\n---\n\n## Pebble Change/Task Model\n\nWhen Pebble performs a potentially long-running operation (starting/stopping a service, running an exec command, etc.), it creates a **Change** containing one or more **Tasks** to track the operation's progress.\n\n### Change\n\nA `Change` is the top-level unit representing an operation. It has these key attributes:\n\n| Attribute | Description |\n|---|---|\n| `id` | Unique `ChangeID` (a string) |\n| `kind` | What operation it represents (see `ChangeKind` below) |\n| `summary` | Human-readable description |\n| `status` | Current status string (see statuses below) |\n| `tasks` | List of `Task` objects that make up this change |\n| **`ready`** | **Boolean \u2014 `True` when the change is finished (success or error)** |\n| `err` | Error string, or `None` if no error |\n| `spawn_time` | When the change was created |\n| `ready_time` | When it became ready (or `None` if still in progress) |\n\n**Change kinds** (`ChangeKind`): `start`, `stop`, `restart`, `replan`, `exec`, `recover-check`, `perform-check`.\n\n### Task\n\nA `Task` is a single step within a change. Attributes:\n\n| Attribute | Description |\n|---|---|\n| `id` | Unique `TaskID` |\n| `kind` | Type of task |\n| `summary` | Human-readable description |\n| `status` | Current status string |\n| `log` | List of log messages from this task |\n| `progress` | `TaskProgress(label, done, total)` for tracking progress |\n| `spawn_time` / `ready_time` | Timing information |\n\n### Statuses (`ChangeStatus`)\n\nBoth changes and tasks go through these statuses:\n\n| Status | Meaning |\n|---|---|\n| `Hold` | Paused, perhaps due to error on another task |\n| `Do` | Ready to start |\n| `Doing` | Currently running |\n| **`Done`** | **Completed successfully** |\n| `Abort` | Should stop and undo |\n| `Undo` | Should be undone (probably due to error) |\n| `Undoing` | Currently being undone |\n| **`Error`** | **Errored out during execution or undo** |\n| `Wait` | Succeeded, but waiting on an external event |\n\nA change is **\"ready\"** (i.e., `change.ready == True`) when it reaches a terminal state: `Done`, `Error`, or `Undone`.\n\n### Checking If a Long-Running Operation Has Completed\n\nThe `ops` library provides three key `Client` methods:\n\n#### 1. `wait_change()` \u2014 Block until ready (preferred)\n\n```python\n# Most operations (start, stop, restart, replan) call this internally.\n# But you can also use it directly:\nchange_id = container.start_services([\"myservice\"], timeout=0)  # timeout=0 returns immediately\nchange = container.pebble.wait_change(change_id, timeout=60.0)\n\nif change.err:\n    logger.error(\"Change failed: %s\", change.err)\nelse:\n    logger.info(\"Change completed successfully\")\n```\n\n`wait_change` uses the efficient `/v1/changes/{id}/wait` endpoint (server-side blocking) if supported, otherwise falls back to polling. It raises `TimeoutError` if the timeout is exceeded.\n\n#### 2. `get_change()` \u2014 Poll a specific change\n\n```python\nchange = container.pebble.get_change(change_id)\nif change.ready:\n    if change.err:\n        # handle error\n    else:\n        # success!\n```\n\n#### 3. `get_changes()` \u2014 List changes by state\n\n```python\nfrom ops.pebble import ChangeState\n\n# Get all in-progress changes (default)\nin_progress = container.pebble.get_changes(ChangeState.IN_PROGRESS)\n\n# Get all completed (\"ready\") changes\ncompleted = container.pebble.get_changes(ChangeState.READY)\n\n# Get everything\nall_changes = container.pebble.get_changes(ChangeState.ALL)\n\n# Filter by service\nsvc_changes = container.pebble.get_changes(ChangeState.ALL, service=\"myservice\")\n```\n\n### Error Handling\n\nWhen a change finishes with an error, `ChangeError` is raised. It includes the error message and appends any task logs:\n\n```python\ntry:\n    container.start_services([\"myservice\"])\nexcept ops.pebble.ChangeError as e:\n    logger.error(\"Failed: %s\", e)       # includes task logs\n    logger.error(\"Change: %s\", e.change) # the full Change object\n```\n\n### Key Insight\n\nMost `Container` methods like `start_services()`, `stop_services()`, `restart_services()`, and `replan_services()` already call `wait_change()` internally with a default `timeout=30.0`. You only need to manage changes manually when:\n- You pass `timeout=0` to get the `ChangeID` back immediately (fire-and-forget)\n- You need to track progress of a long-running operation\n- You need custom timeout/retry logic",
+    "stop_reason": "end_turn",
+    "session_id": "efdb5ea2-850d-4818-b1f4-f37d7d26b84f",
+    "total_cost_usd": 0.30147875,
+    "usage": {
+      "input_tokens": 95,
+      "cache_creation_input_tokens": 13547,
+      "cache_read_input_tokens": 202824,
+      "output_tokens": 4131,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13547,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 95,
+        "outputTokens": 4131,
+        "cacheReadInputTokens": 202824,
+        "cacheCreationInputTokens": 13547,
+        "webSearchRequests": 0,
+        "costUSD": 0.28983075,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 6938,
+        "outputTokens": 942,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.011647999999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "7ba521fa-1034-4c44-a969-46f61c527b92"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:54:23+1300"
+}

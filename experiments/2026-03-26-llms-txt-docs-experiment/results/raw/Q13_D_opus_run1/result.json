@@ -1,0 +1,67 @@
+{
+  "session_id": "Q13_D_opus_run1",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 108797,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 107388,
+    "duration_api_ms": 105069,
+    "num_turns": 2,
+    "result": "\n\nHere's how to use the ingress library on the **requires** side (i.e., your charm wants ingress from Traefik):\n\n### 1. Add the relation to `charmcraft.yaml`\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n```\n\nAlso fetch the library:\n\n```yaml\ncharm-libs:\n  - lib: traefik_k8s.ingress\n    version: \"2\"\n```\n\nThen run `charmcraft fetch-libs`.\n\n### 2. Use `IngressPerAppRequirer` in your charm\n\n```python\nimport ops\n\nfrom charms.traefik_k8s.v2.ingress import (\n    IngressPerAppReadyEvent,\n    IngressPerAppRequirer,\n    IngressPerAppRevokedEvent,\n)\n\n\nclass SomeCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.ingress = IngressPerAppRequirer(self, port=80)\n        self.framework.observe(self.ingress.on.ready, self._on_ingress_ready)\n        self.framework.observe(self.ingress.on.revoked, self._on_ingress_revoked)\n\n    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):\n        logger.info(\"Ingress URL: %s\", event.url)\n\n    def _on_ingress_revoked(self, event: IngressPerAppRevokedEvent):\n        logger.info(\"Ingress revoked\")\n```\n\n### Key constructor options\n\n| Parameter | Description |\n|---|---|\n| `port` | Service port \u2014 if set, data is auto-published |\n| `strip_prefix` | Tell Traefik to strip the path prefix (`False` by default) |\n| `redirect_https` | Redirect HTTP to HTTPS (`False` by default) |\n| `scheme` | `\"http\"`, `\"https\"`, or `\"h2c\"` |\n\n### Useful properties/methods\n\n- **`self.ingress.url`** \u2014 the ingress URL (or `None` if not ready)\n- **`self.ingress.is_ready()`** \u2014 whether the provider has sent a valid URL\n- **`self.ingress.provide_ingress_requirements(port=8080)`** \u2014 manually publish requirements (alternative to passing `port` in the constructor)\n\n### 3. Deploy with Traefik\n\n```bash\njuju deploy traefik-k8s --trust\njuju integrate some-charm:ingress traefik-k8s:ingress\n```",
+    "stop_reason": "end_turn",
+    "session_id": "b0c5acd3-13c8-4606-9d65-71a4865bd505",
+    "total_cost_usd": 0.43686899999999995,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9153,
+      "cache_read_input_tokens": 30153,
+      "output_tokens": 887,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9153,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 19,
+        "outputTokens": 3465,
+        "cacheReadInputTokens": 191496,
+        "cacheCreationInputTokens": 33592,
+        "webSearchRequests": 0,
+        "costUSD": 0.392418,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 35161,
+        "outputTokens": 1858,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.04445099999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "e54413c6-bb41-4baa-ab66-cffb344894d1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:36:55+1300"
+}

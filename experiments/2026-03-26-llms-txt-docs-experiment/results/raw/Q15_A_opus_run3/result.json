@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_A_opus_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 79037,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 77772,
+    "duration_api_ms": 71501,
+    "num_turns": 2,
+    "result": "\n\n## `charmlibs.pathops` \u2014 A `pathlib`-like Interface for Workload Containers\n\n`charmlibs.pathops` provides a unified, `pathlib`-style API for managing files on both the **local filesystem** and inside **Pebble-based workload containers**. It lets you read, write, and manage files in a Kubernetes sidecar container using the same familiar Python path semantics.\n\n---\n\n### Core Concepts\n\n| Export | Purpose |\n|---|---|\n| `ContainerPath` | A path object that operates on a remote Pebble container (via `ops.Container`) |\n| `LocalPath` | A path object for the local filesystem (extends `pathlib.PosixPath`) |\n| `PathProtocol` | A typing `Protocol` so you can write code that works with *either* path type |\n| `ensure_contents()` | A helper that idempotently ensures a file exists with the right content, permissions, and ownership |\n\n---\n\n### `ContainerPath`\n\n`ContainerPath` wraps an `ops.Container` and provides path operations over Pebble. It **only supports absolute paths**.\n\n```python\nimport ops\nfrom charmlibs import pathops\n\nclass MyCharm(ops.CharmBase):\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent):\n        container = self.unit.get_container(\"my-workload\")\n\n        # Create a ContainerPath\n        config = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n        # Write a file (with optional mode, user, group)\n        config.write_text(\"key: value\\n\", mode=0o644, user=\"root\", group=\"root\")\n\n        # Read it back\n        contents = config.read_text()\n\n        # Navigate with `/` just like pathlib\n        base = pathops.ContainerPath(\"/etc/myapp\", container=container)\n        other = base / \"other.conf\"\n        other.write_bytes(b\"data\")\n\n        # Directory operations\n        base.mkdir(parents=True, exist_ok=True)\n        for child in base.iterdir():\n            print(child.name)\n\n        # Check existence\n        if config.exists():\n            config.unlink()\n```\n\n**Key differences from `pathlib.Path`:**\n- Only absolute paths are allowed (raises `RelativePathError` otherwise).\n- `write_text()`, `write_bytes()`, and `mkdir()` accept extra `mode`, `user`, and `group` keyword arguments.\n- No `open()` method \u2014 use `read_text()`/`read_bytes()`/`write_text()`/`write_bytes()` directly.\n- Default permissions: files are `0o644`, directories are `0o755` (matching Pebble defaults).\n\n---\n\n### `ensure_contents()`\n\nThis is the **idempotent file-management workhorse**. It checks whether a file already has the desired content, permissions, and ownership \u2014 and only writes if something differs. It returns `True` if changes were made, `False` if the file was already correct.\n\n```python\ndef ensure_contents(\n    path: str | os.PathLike[str] | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,\n    user: str | None = None,\n    group: str | None = None,\n) -> bool: ...\n```\n\n**Typical usage in a charm:**\n\n```python\nfrom charmlibs import pathops\n\nclass MyCharm(ops.CharmBase):\n    def _configure(self, event):\n        container = self.unit.get_container(\"my-workload\")\n        workload_root = pathops.ContainerPath(\"/\", container=container)\n\n        # Read the template from the charm's own filesystem\n        template = (pathops.LocalPath(\"/\") / \"templates\" / \"app.conf\").read_text()\n\n        # Ensure the workload container has the right config\n        changed = pathops.ensure_contents(\n            path=workload_root / \"etc/myapp/app.conf\",\n            source=template,\n            mode=0o640,\n            user=\"appuser\",\n            group=\"appgroup\",\n        )\n\n        if changed:\n            # Restart or signal the workload to reload\n            container.restart(\"my-service\")\n```\n\n**What `ensure_contents` does under the hood:**\n1. Converts `source` to bytes (handles `str`, `bytes`, file-like objects).\n2. Checks if the file exists and already matches the desired content, mode, user, and group.\n3. If everything matches \u2192 returns `False` (no-op).\n4. Otherwise, creates parent directories if needed, writes the file, and returns `True`.\n\nThis makes it perfect for `config-changed` handlers where you only want to restart a service if the config actually changed.\n\n---\n\n### Writing Type-Agnostic Code with `PathProtocol`\n\nIf you want to write helper functions that work for both machine charms (local filesystem) and Kubernetes charms (Pebble containers), type-annotate with `PathProtocol`:\n\n```python\nfrom charmlibs import pathops\n\ndef write_config(root: pathops.PathProtocol, content: str) -> None:\n    path = root / \"etc\" / \"myapp\" / \"config.yaml\"\n    path.parent.mkdir(parents=True, exist_ok=True)\n    path.write_text(content, mode=0o644)\n\n# Works with either:\nwrite_config(pathops.LocalPath(\"/\"), config_str)           # machine charm\nwrite_config(pathops.ContainerPath(\"/\", container=c), config_str)  # k8s charm\n```\n\n---\n\n### Quick Reference\n\n| Operation | Example |\n|---|---|\n| Create path | `ContainerPath(\"/etc/app\", container=c)` |\n| Join paths | `path / \"subdir\" / \"file.txt\"` |\n| Read file | `path.read_text()` / `path.read_bytes()` |\n| Write file | `path.write_text(\"...\", mode=0o644, user=\"root\")` |\n| Make directory | `path.mkdir(parents=True, exist_ok=True)` |\n| List directory | `for child in path.iterdir(): ...` |\n| Glob | `path.glob(\"*.conf\")` |\n| Check existence | `path.exists()` / `path.is_file()` / `path.is_dir()` |\n| Delete | `path.unlink()` (file) / `path.rmdir()` (empty dir) |\n| Idempotent write | `ensure_contents(path, source, mode=0o644)` \u2192 `bool` |",
+    "stop_reason": "end_turn",
+    "session_id": "f8c42fb3-936a-4d78-a040-3934e3006d03",
+    "total_cost_usd": 0.19029045,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3288,
+      "cache_read_input_tokens": 18218,
+      "output_tokens": 1869,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3288,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1869,
+        "cacheReadInputTokens": 18218,
+        "cacheCreationInputTokens": 3288,
+        "webSearchRequests": 0,
+        "costUSD": 0.07641400000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 59,
+        "outputTokens": 3961,
+        "cacheReadInputTokens": 176712,
+        "cacheCreationInputTokens": 61073,
+        "webSearchRequests": 0,
+        "costUSD": 0.11387644999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0cb5fb4f-0c54-462b-8e55-001c0a69fd4f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:56:32+1300"
+}

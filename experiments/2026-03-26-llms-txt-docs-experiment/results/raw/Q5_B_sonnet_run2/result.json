@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_B_sonnet_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 21674,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 20560,
+    "duration_api_ms": 20549,
+    "num_turns": 1,
+    "result": "`CollectStatusEvent` lets you centralise status logic in one place rather than scattering `self.unit.status = ...` calls across event handlers. Ops collects all statuses set during the event and picks the \"worst\" one automatically.\n\n## How it works\n\n1. Observe `collect_unit_status` (and/or `collect_app_status` for the leader).\n2. In the handler, call `event.add_status(...)` \u2014 you can call it multiple times.\n3. Ops picks the highest-priority status: `BlockedStatus` > `WaitingStatus` > `MaintenanceStatus` > `ActiveStatus`.\n\n## Complete example\n\n```python\n\"\"\"Example charm using CollectStatusEvent.\"\"\"\n\nfrom __future__ import annotations\n\nimport dataclasses\nimport logging\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\n\n@dataclasses.dataclass\nclass CharmConfig:\n    port: int\n    api_key: str\n\n    @classmethod\n    def from_charm(cls, charm: ops.CharmBase) -> CharmConfig:\n        return cls(\n            port=charm.config.get(\"port\"),\n            api_key=charm.config.get(\"api-key\", \"\"),\n        )\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n        self._pebble_service_name = \"myapp\"\n\n        framework.observe(self.on.myapp_pebble_ready, self._on_pebble_ready)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        self._configure_workload(event.workload)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        container = self.unit.get_container(\"myapp\")\n        if container.can_connect():\n            self._configure_workload(container)\n\n    def _configure_workload(self, container: ops.Container) -> None:\n        config = CharmConfig.from_charm(self)\n        layer = ops.pebble.Layer({\n            \"services\": {\n                self._pebble_service_name: {\n                    \"override\": \"replace\",\n                    \"command\": \"/usr/bin/myapp\",\n                    \"environment\": {\n                        \"PORT\": str(config.port),\n                        \"API_KEY\": config.api_key,\n                    },\n                }\n            }\n        })\n        container.add_layer(self._pebble_service_name, layer, combine=True)\n        container.replan()\n\n    # --- Status collection ---\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        # Check each concern independently and add a status for each.\n        # Ops will surface the worst one.\n\n        container = self.unit.get_container(\"myapp\")\n        if not container.can_connect():\n            event.add_status(ops.WaitingStatus(\"waiting for Pebble\"))\n            return  # No point checking further if Pebble isn't ready\n\n        config = CharmConfig.from_charm(self)\n        if not config.api_key:\n            event.add_status(ops.BlockedStatus(\"api-key config required\"))\n\n        try:\n            service = container.get_service(self._pebble_service_name)\n        except ops.ModelError:\n            event.add_status(ops.WaitingStatus(\"service not yet started\"))\n            return\n\n        if not service.is_running():\n            event.add_status(ops.WaitingStatus(\"service not running\"))\n            return\n\n        # Everything looks good\n        event.add_status(ops.ActiveStatus())\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n## Key points\n\n- **No need to set status elsewhere** \u2014 remove `self.unit.status = ...` from event handlers; let `collect_unit_status` own all status decisions.\n- **Early return is fine** \u2014 if a prerequisite fails (e.g. Pebble not ready), returning early avoids misleading statuses from later checks.\n- **Multiple `add_status` calls** \u2014 useful when independent subsystems each have their own health check; Ops picks the worst automatically.\n- **App status** \u2014 for the leader unit, also observe `collect_app_status` and call `event.add_status(...)` there to set `self.app.status`.",
+    "stop_reason": "end_turn",
+    "session_id": "ccf79832-e6b8-4e83-bdb1-a4d5523ca4c0",
+    "total_cost_usd": 0.04976655,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7339,
+      "cache_read_input_tokens": 11271,
+      "output_tokens": 1257,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7339,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1257,
+        "cacheReadInputTokens": 11271,
+        "cacheCreationInputTokens": 7339,
+        "webSearchRequests": 0,
+        "costUSD": 0.04976655,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "912d6a95-18c2-461b-90ce-08de9d488a1a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:36:40+1300"
+}

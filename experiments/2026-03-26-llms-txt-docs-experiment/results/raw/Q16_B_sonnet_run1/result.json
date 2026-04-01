@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_B_sonnet_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 69008,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 67659,
+    "duration_api_ms": 66418,
+    "num_turns": 2,
+    "result": "The pattern depends on whether you're **consuming an existing library** or **authoring a new one**.\n\n## Using an existing library (most common)\n\nFetch the library:\n```bash\ncharmcraft fetch-lib charms.some_charm.v0.some_interface\n```\n\nIn `charmcraft.yaml`:\n```yaml\nprovides:\n  my-relation:\n    interface: some_interface\n    optional: true\n\ncharm-libs:\n  - lib: some_charm.some_interface\n    version: \"0\"\n```\n\nIn `src/charm.py`, instantiate the `Provides` class and observe its events:\n```python\nimport charms.some_charm.v0.some_interface as some_interface\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.my_relation = some_interface.MyInterfaceProvides(self, \"my-relation\")\n        framework.observe(self.my_relation.on.some_request, self._on_some_request)\n\n    def _on_some_request(self, event: some_interface.SomeRequestEvent) -> None:\n        # Respond to the requirer, e.g. set data via the event or the library's API\n        self.my_relation.set_data(event.relation, {...})\n```\n\n## Authoring your own library\n\nIf no library exists for the interface, you create one in `lib/charms/<your_charm>/v0/<name>.py`. The canonical pattern is:\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\nimport ops\n\nDEFAULT_RELATION_NAME = \"my-relation\"\n\nclass MyInterfaceRequestedEvent(ops.RelationEvent):\n    pass\n\nclass MyInterfaceProviderEvents(ops.CharmEvents):\n    requested = ops.EventSource(MyInterfaceRequestedEvent)\n\nclass MyInterfaceProvides(ops.Object):\n    on = MyInterfaceProviderEvents()  # type: ignore\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str = DEFAULT_RELATION_NAME):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n        charm.framework.observe(\n            charm.on[relation_name].relation_changed, self._on_relation_changed\n        )\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        self.on.requested.emit(event.relation, app=event.app, unit=event.unit)\n\n    def set_data(self, relation: ops.Relation, data: dict[str, str]) -> None:\n        relation.data[self._charm.app].update(data)\n```\n\nKey points:\n- **Custom events** wrap raw Juju relation events and expose them semantically to the charm author.\n- The library sets data on `relation.data[self._charm.app]` (app-level) or `relation.data[self._charm.unit]` (unit-level).\n- The provider library ships with the provider charm; consumers `charmcraft fetch-lib` it.\n- A corresponding `MyInterfaceRequires` class (consuming side) lives in the same file.\n\n## What to look at for real examples\n\nThe [Charmhub interface libraries](https://charmhub.io/interfaces) and the [data-platform-libs](https://github.com/canonical/data-platform-libs) repo are the best reference implementations to study \u2014 particularly `data_interfaces.py`, which has a full provider/requirer split with custom events, versioning, and schema validation.",
+    "stop_reason": "end_turn",
+    "session_id": "648392ed-389d-438c-8fbb-15df3a33237f",
+    "total_cost_usd": 0.13663905,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9108,
+      "cache_read_input_tokens": 29875,
+      "output_tokens": 1485,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9108,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1485,
+        "cacheReadInputTokens": 29875,
+        "cacheCreationInputTokens": 9108,
+        "webSearchRequests": 0,
+        "costUSD": 0.06541050000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 263,
+        "outputTokens": 2960,
+        "cacheReadInputTokens": 244568,
+        "cacheCreationInputTokens": 25367,
+        "webSearchRequests": 0,
+        "costUSD": 0.07122855,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "e68ce9dc-c42d-4306-b8ee-4779771c79a3"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:23:30+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "S3_C_opus_run1",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 86828,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 85649,
+    "duration_api_ms": 79800,
+    "num_turns": 17,
+    "result": "Here's the complete charm, broken into two files:\n\n---\n\n### `charmcraft.yaml` \u2014 Metadata\n\nDeclares the charm and a **provides** relation named `endpoint-info` using a custom interface of the same name:\n\n```yaml\nprovides:\n  endpoint-info:\n    interface: endpoint-info\n```\n\nAny remote charm that **requires** the `endpoint-info` interface can integrate with this charm.\n\n---\n\n### `src/charm.py` \u2014 Charm class\n\n```python\nclass EndpointProviderCharm(ops.CharmBase):\n```\n\nKey points:\n\n| Concept | How it's used |\n|---|---|\n| **Event observation** | `framework.observe(self.on[\"endpoint-info\"].relation_joined, ...)` registers a handler for when a remote unit joins the relation. |\n| **Setting relation data** | `event.relation.data[self.unit][\"endpoint\"] = fqdn` writes to *this unit's* bucket on the relation \u2014 the only bucket a unit is allowed to write to. |\n| **Getting the FQDN** | `socket.getfqdn()` returns the fully-qualified domain name of the machine the unit is running on. The `ops` `Network`/`Binding` classes expose IP addresses but not hostnames, so `socket.getfqdn()` is the standard approach. |\n| **Status** | After publishing, the unit is set to `ActiveStatus(\"endpoint published\")` so operators can confirm it worked via `juju status`. |\n\nThe remote (requiring) charm can then read the endpoint in its own `relation-changed` handler:\n\n```python\nfor unit in event.relation.units:\n    endpoint = event.relation.data[unit].get(\"endpoint\")\n```",
+    "stop_reason": "end_turn",
+    "session_id": "3cf1dab9-db5e-453a-8b67-19243940a9a5",
+    "total_cost_usd": 0.269107,
+    "usage": {
+      "input_tokens": 92,
+      "cache_creation_input_tokens": 6506,
+      "cache_read_input_tokens": 141277,
+      "output_tokens": 2769,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6506,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 92,
+        "outputTokens": 2769,
+        "cacheReadInputTokens": 141277,
+        "cacheCreationInputTokens": 6506,
+        "webSearchRequests": 0,
+        "costUSD": 0.18098599999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 81416,
+        "outputTokens": 1341,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.088121,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ce00ffc1-b88d-4d06-a535-7d798ddc68b1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:50:25+1300"
+}

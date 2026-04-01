@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_C_sonnet_run1",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 108859,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 107785,
+    "duration_api_ms": 105382,
+    "num_turns": 17,
+    "result": "Here's a comprehensive breakdown of `charmlibs.pathops` and how to use `ContainerPath` and `ensure_contents`:\n\n---\n\n## What is `charmlibs.pathops`?\n\n`charmlibs-pathops` is a Canonical charm library that provides a **`pathlib`-like interface** for managing files on both local filesystems and **workload container filesystems** (via the Pebble API). It lets you write the same file-management code whether you're targeting a machine charm, the charm container on Kubernetes, or a sidecar workload container.\n\nInstall it by adding `charmlibs-pathops` to your `requirements.txt`, then import it:\n\n```python\nfrom charmlibs import pathops\n```\n\n---\n\n## Core Classes\n\n### `ContainerPath` \u2014 for Kubernetes workload containers\n\nBacked by the **Pebble file API**. Requires absolute paths only.\n\n```python\n# In your charm's __init__ or a hook handler:\ncontainer = self.unit.get_container(\"myapp\")\nworkload_root = pathops.ContainerPath(\"/\", container=container)\n```\n\nOnce you have a root, navigate with `/` just like `pathlib`:\n\n```python\nconfig_file = workload_root / \"etc\" / \"myapp\" / \"config.yaml\"\n```\n\n#### Key methods\n\n| Method | Description |\n|---|---|\n| `read_text()` | Read a file as a UTF-8 string |\n| `read_bytes()` | Read a file as raw bytes |\n| `write_text(data, *, mode, user, group)` | Write a string to a file |\n| `write_bytes(data, *, mode, user, group)` | Write bytes to a file |\n| `mkdir(mode, parents, exist_ok, *, user, group)` | Create a directory |\n| `exists()` / `is_file()` / `is_dir()` | Existence checks |\n| `unlink(missing_ok=False)` | Delete a file |\n| `rmdir()` | Remove a directory |\n| `iterdir()` | List directory contents |\n| `glob(pattern)` | Pattern matching (no `**` recursive glob) |\n| `owner()` / `group()` | Get ownership info |\n\n> **Permissions are set at write time**, not via a separate `chmod()` call. Pass `mode`, `user`, and `group` directly to `write_text`, `write_bytes`, or `mkdir`.\n\n```python\nworkload_root / \"etc/myapp/config.yaml\").write_text(\n    data=\"key: value\\n\",\n    mode=0o640,\n    user=\"myapp\",\n    group=\"myapp\",\n)\n```\n\n#### Exceptions to handle\n\n```python\ntry:\n    config = (workload_root / \"etc/myapp/config.yaml\").read_text()\nexcept pathops.PebbleConnectionError:\n    # Container not yet ready \u2014 defer the event\n    event.defer()\n    return\nexcept FileNotFoundError:\n    # File doesn't exist yet\n    ...\n```\n\n---\n\n### `LocalPath` \u2014 for local / machine charm paths\n\nA drop-in superset of `pathlib.PosixPath` with the same `mode`/`user`/`group` arguments added to `write_text`, `write_bytes`, and `mkdir`:\n\n```python\ncharm_root = pathops.LocalPath(self.charm_dir)\ntemplate = (charm_root / \"templates\" / \"config.yaml\").read_bytes()\n```\n\n---\n\n### `PathProtocol` \u2014 write deployment-agnostic code\n\nUse this as the type annotation when a function should work with **either** a `LocalPath` or a `ContainerPath`:\n\n```python\ndef render_config(path: pathops.PathProtocol) -> None:\n    (path / \"etc/myapp/config.yaml\").write_text(\"key: value\\n\")\n```\n\n---\n\n## `ensure_contents` \u2014 the idiomatic way to manage config files\n\n```python\nensure_contents(\n    path: str | os.PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,    # default permissions\n    user: str | None = None,\n    group: str | None = None,\n) -> bool   # True if the file was created or changed\n```\n\n`ensure_contents` is the preferred way to push configuration files into a workload. It:\n1. **Creates** the file if it doesn't exist.\n2. **Updates** it if the content, permissions, or ownership differ.\n3. **Returns `True`** only when something actually changed \u2014 letting you conditionally restart the workload.\n\n### Typical charm pattern\n\n```python\nfrom charmlibs import pathops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.charm_root = pathops.LocalPath(self.charm_dir)\n        framework.observe(self.on.myapp_pebble_ready, self._on_pebble_ready)\n        framework.observe(self.on.config_changed, self._reconfigure)\n\n    def _get_workload_root(self):\n        container = self.unit.get_container(\"myapp\")\n        return pathops.ContainerPath(\"/\", container=container)\n\n    def _on_pebble_ready(self, event):\n        self._reconfigure(event)\n\n    def _reconfigure(self, event):\n        try:\n            workload_root = self._get_workload_root()\n        except pathops.PebbleConnectionError:\n            event.defer()\n            return\n\n        # Read a template bundled with the charm\n        template = (self.charm_root / \"templates\" / \"config.yaml\").read_bytes()\n\n        # Push to the workload container \u2014 only restarts if content changed\n        changed = pathops.ensure_contents(\n            path=workload_root / \"etc\" / \"myapp\" / \"config.yaml\",\n            source=template,\n            mode=0o640,\n            user=\"myapp\",\n            group=\"myapp\",\n        )\n\n        if changed:\n            container = self.unit.get_container(\"myapp\")\n            container.restart(\"myapp\")   # or use Pebble replan\n```\n\n---\n\n## Summary\n\n| Need | Use |\n|---|---|\n| Read/write files in a workload container | `ContainerPath` |\n| Read/write files on the local charm machine | `LocalPath` |\n| Type-hint code that works for either | `PathProtocol` |\n| Idiomatic config push + conditional restart | `ensure_contents()` |\n| Handle container not ready | Catch `PebbleConnectionError` and `event.defer()` |\n\nThe key insight is `ensure_contents`' boolean return value: it gives you a clean, declarative way to **only restart your workload when configuration actually changes**, avoiding unnecessary disruption.",
+    "stop_reason": "end_turn",
+    "session_id": "19ea46ef-5f22-405f-b44b-f7df93b8ae4e",
+    "total_cost_usd": 0.24042439999999998,
+    "usage": {
+      "input_tokens": 16,
+      "cache_creation_input_tokens": 7760,
+      "cache_read_input_tokens": 145958,
+      "output_tokens": 3592,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7760,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 16,
+        "outputTokens": 3592,
+        "cacheReadInputTokens": 145958,
+        "cacheCreationInputTokens": 7760,
+        "webSearchRequests": 0,
+        "costUSD": 0.12681540000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 97324,
+        "outputTokens": 3257,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.113609,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "d5c983cc-124c-4508-b81c-9b3668111eff"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T21:59:53+1300"
+}

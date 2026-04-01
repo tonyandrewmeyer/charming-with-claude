@@ -1,0 +1,67 @@
+{
+  "session_id": "Q13_C_opus_run3",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 53557,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 52109,
+    "duration_api_ms": 50032,
+    "num_turns": 8,
+    "result": "Here's how to use the **ingress library** on the **requires** (requirer) side of your charm:\n\n---\n\n## 1. Fetch the library\n\n```bash\ncharmcraft fetch-lib charms.traefik_k8s.v2.ingress\n```\n\n## 2. Declare the relation in `metadata.yaml`\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n```\n\n## 3. Use `IngressPerAppRequirer` in your charm\n\n```python\nfrom charms.traefik_k8s.v2.ingress import (\n    IngressPerAppRequirer,\n    IngressPerAppReadyEvent,\n    IngressPerAppRevokedEvent,\n)\n\nclass MyCharm(CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # Request ingress on port 80\n        self.ingress = IngressPerAppRequirer(self, port=80)\n\n        # Observe lifecycle events\n        self.framework.observe(\n            self.ingress.on.ready, self._on_ingress_ready\n        )\n        self.framework.observe(\n            self.ingress.on.revoked, self._on_ingress_revoked\n        )\n\n    def _on_ingress_ready(self, event: IngressPerAppReadyEvent):\n        logger.info(\"Ingress is ready at: %s\", event.url)\n        # e.g. update config, set status, etc.\n\n    def _on_ingress_revoked(self, event: IngressPerAppRevokedEvent):\n        logger.info(\"Ingress revoked\")\n        # handle loss of ingress\n```\n\n## Key API\n\n| Member | Description |\n|---|---|\n| `IngressPerAppRequirer(charm, port=...)` | Constructor. `port` is required. Optional kwargs: `host`, `ip`, `strip_prefix`, `redirect_https`, `scheme`. |\n| `.url` | Property returning the full ingress URL (or `None` if not ready). |\n| `.is_ready()` | Returns `True` when the provider (e.g. Traefik) has sent valid data. |\n| `.on.ready` | Event fired when the ingress URL becomes available. |\n| `.on.revoked` | Event fired when ingress is removed. |\n\n## How it works\n\n1. Your charm creates `IngressPerAppRequirer`, which automatically publishes your app's ingress requirements (host, port, scheme) over the `ingress` relation.\n2. When you `juju integrate my-app traefik-k8s`, Traefik reads those requirements, configures a route, and writes the resulting URL back.\n3. Your charm receives an `IngressPerAppReadyEvent` with the URL available via `event.url` (or `self.ingress.url` at any time).",
+    "stop_reason": "end_turn",
+    "session_id": "fde34391-ac6d-480e-a009-ae3b6249c8a5",
+    "total_cost_usd": 0.13226425,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 3767,
+      "cache_read_input_tokens": 83007,
+      "output_tokens": 1466,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3767,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 12,
+        "outputTokens": 1466,
+        "cacheReadInputTokens": 83007,
+        "cacheCreationInputTokens": 3767,
+        "webSearchRequests": 0,
+        "costUSD": 0.10175725,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 25367,
+        "outputTokens": 1028,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.030507000000000003,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0e3b1ca6-61a0-47b0-9613-f66348b6e846"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:25:05+1300"
+}

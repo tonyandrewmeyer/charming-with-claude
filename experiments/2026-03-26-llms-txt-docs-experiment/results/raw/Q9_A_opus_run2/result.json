@@ -1,0 +1,57 @@
+{
+  "session_id": "Q9_A_opus_run2",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 23333,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 22147,
+    "duration_api_ms": 22140,
+    "num_turns": 1,
+    "result": "## Pebble Log Forwarding to Loki\n\nPebble supports forwarding workload logs to a Loki instance via its **layer configuration**. Here's how it works:\n\n### Layer YAML Example\n\n```yaml\nlog-targets:\n  loki-log-target:\n    override: merge\n    type: loki\n    location: http://loki:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      app: my-workload\n      environment: production\n```\n\n### Key Fields\n\n| Field | Description |\n|---|---|\n| **`type`** | Must be `loki` for Loki forwarding. |\n| **`location`** | The full URL of the Loki push endpoint. Typically `http://<host>:3100/loki/api/v1/push`. |\n| **`services`** | List of service names whose stdout/stderr logs to forward. Use `[all]` to capture all services. |\n| **`override`** | Controls how this layer merges with others \u2014 `replace` or `merge`. |\n| **`labels`** | Optional key-value map added as Loki labels to every log entry from this target. |\n\n### Protocol Details\n\nPebble uses **Loki's HTTP Push API** (`POST /loki/api/v1/push`). Specifically:\n\n- **Protocol**: HTTP(S) \u2014 not the gRPC/Protobuf endpoint.\n- **Format**: Pebble sends logs as JSON in the Loki push API format (streams with timestamp+line entries).\n- **No Promtail needed**: Pebble acts as a direct log shipper, bypassing the need for a Promtail sidecar.\n- **TLS**: Use an `https://` location URL if Loki is behind TLS. Pebble does not currently support client-certificate authentication.\n\n### How This Is Typically Used in a Charm\n\nIn a Juju charm, the Loki URL comes from the `loki-push-api` relation. The [`loki_push_api`](https://charmhub.io/loki-k8s/libraries/loki_push_api) library provides the endpoint, and your charm dynamically builds the Pebble layer:\n\n```python\ndef _pebble_layer(self) -> ops.pebble.LayerDict:\n    layer: ops.pebble.LayerDict = {\n        \"services\": {\n            \"my-workload\": {\n                \"override\": \"replace\",\n                \"command\": \"/bin/myapp\",\n                \"startup\": \"enabled\",\n            }\n        },\n        \"log-targets\": {},\n    }\n\n    # Add a log target for each Loki endpoint from the relation\n    for i, endpoint in enumerate(self._loki_endpoints):\n        layer[\"log-targets\"][f\"loki-{i}\"] = {\n            \"override\": \"replace\",\n            \"type\": \"loki\",\n            \"location\": endpoint[\"url\"],\n            \"services\": [\"all\"],\n            \"labels\": {\n                \"charm\": \"my-charm\",\n                \"juju_model\": self.model.name,\n                \"juju_unit\": self.unit.name,\n            },\n        }\n\n    return layer\n```\n\n### Multiple Targets\n\nYou can define **multiple `log-targets`** in the same layer \u2014 Pebble will fan out logs to all of them:\n\n```yaml\nlog-targets:\n  loki-primary:\n    type: loki\n    location: http://loki-primary:3100/loki/api/v1/push\n    services: [all]\n  loki-secondary:\n    type: loki\n    location: http://loki-secondary:3100/loki/api/v1/push\n    services: [my-critical-service]\n```\n\n### Buffering & Retry Behavior\n\n- Pebble **buffers** log entries in a ring buffer (in memory) and retries on transient failures.\n- If Loki is unreachable for an extended period, the oldest entries in the buffer are dropped.\n- There is currently no on-disk persistence of unsent logs.\n\nThis approach keeps your charm's observability stack clean \u2014 no sidecar log agents needed, just a Pebble layer update whenever the Loki relation data changes.",
+    "stop_reason": "end_turn",
+    "session_id": "c1519092-5b8e-4eab-815c-7567a25b1260",
+    "total_cost_usd": 0.03819325,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1071,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1088,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1071,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1088,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1071,
+        "webSearchRequests": 0,
+        "costUSD": 0.03819325,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "44103fd7-bc79-4b8d-afe0-6c7d95db758f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:50:41+1300"
+}

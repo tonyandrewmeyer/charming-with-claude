@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_C_sonnet_run1",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 67026,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 65789,
+    "duration_api_ms": 68477,
+    "num_turns": 8,
+    "result": "Here is a comprehensive breakdown of the TLS Certificates Interface library (v4) \u2014 its events and the guidance on when to request new certificates:\n\n---\n\n## Events Emitted\n\n### Requirer-side event\n\n| Event | Class | When it fires |\n|---|---|---|\n| `certificate_available` | `CertificateAvailableEvent` | When the provider has issued a certificate that matches a pending CSR and the certificate validates against the requirer's private key |\n\n**`CertificateAvailableEvent` carries:**\n- `certificate` \u2014 the issued certificate (PEM)\n- `certificate_signing_request` \u2014 the original CSR\n- `ca` \u2014 the CA certificate\n- `chain` \u2014 the full certificate chain\n- `chain_as_pem()` \u2014 helper method to get the chain as a single PEM string\n\nThe event container class is `CertificatesRequirerCharmEvents`, which your charm must set as its `on` if you're not using the library's automatic wiring.\n\n---\n\n## When a Charm Should Request a New Certificate\n\n### 1. **Initial deployment / relation joined**\nThe library handles this automatically. When you instantiate `TLSCertificatesRequiresV4`, pass a list of `CertificateRequestAttributes`. The library submits CSRs to the provider as soon as the relation is established.\n\n```python\nself.tls = TLSCertificatesRequiresV4(\n    charm=self,\n    relationship_name=\"certificates\",\n    certificate_requests=[\n        CertificateRequestAttributes(common_name=\"myservice.example.com\")\n    ],\n)\n```\n\n### 2. **Automatic renewal near expiry**\nThe library watches Juju secrets expiry (the certificate is stored as a secret). When the secret expires \u2014 controlled by the `renewal_relative_time` parameter (default `0.9`, i.e. at 90% of the certificate's validity period) \u2014 the library automatically re-issues the CSR. No charm code is needed for this.\n\n### 3. **Manual / forced renewal**\nCall `renew_certificate(certificate)` when you need to force immediate renewal of a specific certificate, e.g. after detecting a compromise:\n\n```python\ncert, key = self.tls.get_assigned_certificate(my_request)\nself.tls.renew_certificate(cert)\n```\n\n### 4. **Private key rotation**\nCall `regenerate_private_key()` to generate a brand-new private key. This automatically invalidates existing certificates and re-submits all CSRs:\n\n```python\nself.tls.regenerate_private_key()\n```\n\n### 5. **On custom refresh events**\nPass a list of charm events via the `refresh_events` constructor argument. Whenever any of those events fire, the library calls `sync()` internally to reconcile relation data \u2014 re-requesting certificates for any CSRs not yet fulfilled:\n\n```python\nTLSCertificatesRequiresV4(\n    charm=self,\n    relationship_name=\"certificates\",\n    certificate_requests=[...],\n    refresh_events=[self.on.config_changed, self.on.upgrade_charm],\n)\n```\n\n---\n\n## Summary of the Certificate Lifecycle\n\n```\nRelation created\n      \u2502\n      \u25bc\nLibrary submits CSR \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n      \u2502                                                \u2502\n      \u25bc                                                \u2502\nProvider issues cert                                   \u2502\n      \u2502                                                \u2502\n      \u25bc                                                \u2502\ncertificate_available fires \u2192 charm installs cert      \u2502\n      \u2502                                                \u2502\n      \u25bc                                                \u2502\nSecret nears expiry (at renewal_relative_time)         \u2502\n  OR renew_certificate() called                        \u2502\n  OR regenerate_private_key() called       \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n  OR refresh_events fire with outstanding CSR\n```\n\nIn short: **you don't normally need to manually request certificates** \u2014 the library handles initial issuance and time-based renewal automatically. You only intervene explicitly for forced renewal or key rotation.",
+    "stop_reason": "end_turn",
+    "session_id": "272b9bc4-91d7-4cbd-a489-e9449937385c",
+    "total_cost_usd": 0.18523695,
+    "usage": {
+      "input_tokens": 211,
+      "cache_creation_input_tokens": 4669,
+      "cache_read_input_tokens": 62514,
+      "output_tokens": 1980,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4669,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 211,
+        "outputTokens": 1980,
+        "cacheReadInputTokens": 62514,
+        "cacheCreationInputTokens": 4669,
+        "webSearchRequests": 0,
+        "costUSD": 0.06659595,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 109231,
+        "outputTokens": 1882,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.118641,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "53c6ff1e-f3da-4d7e-bd95-390bb6b69658"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:56:35+1300"
+}

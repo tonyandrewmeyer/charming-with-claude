@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_B_opus_run1",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 28438,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 27293,
+    "duration_api_ms": 27274,
+    "num_turns": 3,
+    "result": "There's no existing charm code yet. I'll write a `_on_pebble_ready` handler that follows the CLAUDE.md conventions. Here's the implementation:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    \"\"\"Configure the workload container when Pebble is ready.\"\"\"\n    container = event.workload\n    if not self._database_ready():\n        event.defer()\n        return\n\n    config = CharmConfig.from_charm(self)\n    layer = ops.pebble.Layer({\n        \"services\": {\n            self._service_name: {\n                \"override\": \"replace\",\n                \"summary\": f\"{self.app.name} service\",\n                \"command\": config.command,\n                \"startup\": \"enabled\",\n                \"environment\": self._database_environment(),\n                \"on-check-failure\": {\"health\": \"restart\"},\n            },\n        },\n        \"checks\": {\n            \"health\": {\n                \"override\": \"replace\",\n                \"level\": \"alive\",\n                \"period\": \"30s\",\n                \"timeout\": \"5s\",\n                \"threshold\": 3,\n                \"http\": {\n                    \"url\": f\"http://localhost:{config.port}/health\",\n                },\n            },\n        },\n    })\n    container.add_layer(self._service_name, layer, combine=True)\n    container.replan()\n    self.unit.status = ops.ActiveStatus()\n```\n\nAnd the supporting pieces it relies on:\n\n```python\nimport dataclasses\nimport typing\n\nimport ops\n\n\n@dataclasses.dataclass(frozen=True)\nclass CharmConfig:\n    \"\"\"Validated charm configuration.\"\"\"\n\n    command: str\n    port: int\n\n    @classmethod\n    def from_charm(cls, charm: ops.CharmBase) -> \"CharmConfig\":\n        return cls(\n            command=typing.cast(str, charm.config[\"command\"]),\n            port=int(typing.cast(str, charm.config.get(\"port\", \"8080\"))),\n        )\n```\n\nIn the charm class:\n\n```python\nclass MyCharm(ops.CharmBase):\n    _service_name = \"workload\"\n\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n        self.framework.observe(self.on[\"workload\"].pebble_ready, self._on_pebble_ready)\n        self.framework.observe(self.on[\"database\"].relation_changed, self._on_config_changed)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _database_ready(self) -> bool:\n        \"\"\"Check if the database relation has provided connection details.\"\"\"\n        relation = self.model.get_relation(\"database\")\n        if relation is None:\n            return False\n        data = relation.data.get(relation.app)\n        if data is None:\n            return False\n        return \"host\" in data and \"password\" in data\n\n    def _database_environment(self) -> dict[str, str]:\n        \"\"\"Build environment variables from the database relation data.\"\"\"\n        relation = self.model.get_relation(\"database\")\n        if relation is None:\n            return {}\n        data = relation.data.get(relation.app, {})\n        return {\n            \"DB_HOST\": data.get(\"host\", \"\"),\n            \"DB_PORT\": data.get(\"port\", \"5432\"),\n            \"DB_NAME\": data.get(\"database\", \"\"),\n            \"DB_USER\": data.get(\"user\", \"\"),\n            \"DB_PASSWORD\": data.get(\"password\", \"\"),\n        }\n\n    def _on_config_changed(self, event: ops.EventBase) -> None:\n        \"\"\"Re-apply the Pebble layer when config or relations change.\"\"\"\n        container = self.unit.get_container(\"workload\")\n        if container.can_connect():\n            self._on_pebble_ready(event)  # type: ignore[arg-type]\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        # ... as above\n```\n\nKey points about this implementation:\n\n- **Command from config**: `config.command` is read from the charm's `command` config option via the `CharmConfig` dataclass.\n- **Environment from database relation**: `_database_environment()` extracts connection details from the `database` relation's app data and maps them to `DB_*` environment variables.\n- **HTTP health check**: A Pebble-native HTTP check hits `http://localhost:{port}/health` every 30s. The `on-check-failure` directive tells Pebble to restart the service if the check fails.\n- **Deferred if not ready**: If the database relation isn't available yet, the event is deferred so Juju retries once relation data arrives.\n- **Replan on changes**: Both `config-changed` and `relation-changed` events trigger a replan so the layer stays current.\n\nThe corresponding `charmcraft.yaml` would need:\n\n```yaml\nconfig:\n  options:\n    command:\n      type: string\n      description: The command to run in the workload container.\n    port:\n      type: int\n      default: 8080\n      description: The port the workload listens on for HTTP traffic.\n\ncontainers:\n  workload:\n    resource: oci-image\n\nresources:\n  oci-image:\n    type: oci-image\n    description: OCI image for the workload.\n\nrequires:\n  database:\n    interface: postgresql_client\n    optional: true\n```",
+    "stop_reason": "end_turn",
+    "session_id": "6cea09d4-4d6d-4528-a2a8-d0daca3b575c",
+    "total_cost_usd": 0.10041475,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 7613,
+      "cache_read_input_tokens": 30077,
+      "output_tokens": 1511,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7613,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 4,
+        "outputTokens": 1511,
+        "cacheReadInputTokens": 30077,
+        "cacheCreationInputTokens": 7613,
+        "webSearchRequests": 0,
+        "costUSD": 0.10041475,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "82de4357-02be-41d2-b958-add9e80fa67d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:42:12+1300"
+}

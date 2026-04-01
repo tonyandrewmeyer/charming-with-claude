@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_D_sonnet_run1",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 38663,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 37552,
+    "duration_api_ms": 37488,
+    "num_turns": 3,
+    "result": "Here's what the handler does and why each piece is structured this way:\n\n---\n\n### `_on_pebble_ready` flow\n\n```\n1. Validate config  \u2192  BlockedStatus on error\n2. Fetch DB env     \u2192  WaitingStatus if relation data is absent/incomplete\n3. Add Pebble layer \u2192  combine=True merges with any existing layers\n4. replan()         \u2192  starts / restarts the service only when needed\n5. ActiveStatus\n```\n\n---\n\n### Key design decisions\n\n**`_build_layer` returns a `LayerDict`** (`src/charm.py:108`) with three top-level keys:\n\n| Section | Purpose |\n|---|---|\n| `services.workload.command` | The value of the `command` config option |\n| `services.workload.environment` | Credentials pulled from the `database` relation |\n| `checks.workload-ready` | HTTP health check against `localhost:8080/health` |\n\nThe health check uses `\"level\": \"ready\"` so Pebble marks the service ready only after the HTTP probe succeeds.\n\n**`_database_env`** (`src/charm.py:83`) reads the remote *application* data bag \u2014 that's where relation libraries (e.g. `data-platform-libs`) publish credentials. It returns `None` if any field is missing, which causes a `WaitingStatus` rather than a partial configuration.\n\n**`_on_database_relation_changed`** (`src/charm.py:54`) mirrors the same logic so the layer is replanned whenever credentials change, without duplicating the full setup path.\n\n**`CharmConfig.from_charm`** (`src/charm.py:17`) raises `ValueError` on bad config so the caller can translate it into a `BlockedStatus` \u2014 keeps `try`/`except` scopes minimal as required by CLAUDE.md.\n\n---\n\n### Things you'll want to adjust\n\n- **Health check URL/port** \u2014 change `http://localhost:8080/health` in `_build_layer` to match your workload.\n- **Relation data keys** \u2014 `host`, `port`, `dbname`, `username`, `password` match the [data-platform-libs](https://github.com/canonical/data-platform-libs) convention; adjust if your database library uses different keys.\n- **Container name** \u2014 `WORKLOAD_CONTAINER = \"workload\"` must match the container name in `charmcraft.yaml`.",
+    "stop_reason": "end_turn",
+    "session_id": "aafd13d6-b8f2-47fd-8a60-7016e44c7fcd",
+    "total_cost_usd": 0.08375864999999999,
+    "usage": {
+      "input_tokens": 5,
+      "cache_creation_input_tokens": 9789,
+      "cache_read_input_tokens": 49583,
+      "output_tokens": 2144,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9789,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 5,
+        "outputTokens": 2144,
+        "cacheReadInputTokens": 49583,
+        "cacheCreationInputTokens": 9789,
+        "webSearchRequests": 0,
+        "costUSD": 0.08375864999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "43525630-e5a3-4b59-9b80-a8e023e8ad75"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:47:05+1300"
+}

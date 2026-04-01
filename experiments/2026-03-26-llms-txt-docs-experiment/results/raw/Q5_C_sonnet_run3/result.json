@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_C_sonnet_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 193721,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 192607,
+    "duration_api_ms": 268850,
+    "num_turns": 2,
+    "result": "## Using `ops.CollectStatusEvent` to Set Charm Status\n\n`CollectStatusEvent` is the modern, recommended way to report charm status in ops \u2265 2.5.0. Instead of calling `self.unit.status = ...` imperiously throughout your code, you register handlers for `collect_unit_status` (and optionally `collect_app_status` on the leader), call `event.add_status()` in each handler, and the framework **automatically picks the highest-priority status**.\n\n---\n\n### Status Priority (highest \u2192 lowest)\n\n| Priority | Class | When to use |\n|---|---|---|\n| 1 (highest) | `BlockedStatus` | Needs manual intervention |\n| 2 | `MaintenanceStatus` | Charm is actively doing work |\n| 3 | `WaitingStatus` | Waiting on an integrated charm |\n| 4 (lowest) | `ActiveStatus` | All good |\n\n---\n\n### Complete Example\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    \"\"\"A charm with modular status reporting via CollectStatusEvent.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Instantiate sub-components; each registers its OWN status handler.\n        self.database = DatabaseComponent(self)\n        self.webserver = WebserverComponent(self)\n\n        # The charm itself also observes collect_unit_status.\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n        # collect_app_status fires only on the leader unit.\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Your regular event handlers \u2014 no more self.unit.status = ... here!\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    # ------------------------------------------------------------------ #\n    # Regular event handlers                                               #\n    # ------------------------------------------------------------------ #\n\n    def _on_install(self, event: ops.InstallEvent):\n        self._do_install()          # status is set by collect_unit_status\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        self._apply_config()        # status is set by collect_unit_status\n\n    # ------------------------------------------------------------------ #\n    # Status handlers                                                      #\n    # ------------------------------------------------------------------ #\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Top-level charm status checks.\"\"\"\n        if not self._is_installed():\n            event.add_status(ops.MaintenanceStatus(\"installing\"))\n            return                  # return early so Active isn't also added\n\n        # Always add a status \u2014 every code path must call add_status().\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Application-level status \u2014 only runs on the leader.\"\"\"\n        degraded = self._count_degraded_units()\n        if degraded:\n            event.add_status(ops.WaitingStatus(f\"{degraded} unit(s) not ready\"))\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n    # ------------------------------------------------------------------ #\n    # Helpers (stubbed)                                                    #\n    # ------------------------------------------------------------------ #\n\n    def _do_install(self): ...\n    def _apply_config(self): ...\n    def _is_installed(self) -> bool: return True\n    def _count_degraded_units(self) -> int: return 0\n\n\n# ------------------------------------------------------------------ #\n# Sub-components \u2014 each independently reports its own status         #\n# ------------------------------------------------------------------ #\n\nclass DatabaseComponent(ops.Object):\n    \"\"\"Manages the database relation and reports its own status.\"\"\"\n\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"database\")\n        # Register directly against the charm's event bus.\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        if not self.model.relations.get(\"db\"):\n            event.add_status(ops.BlockedStatus(\"integrate with a database\"))\n            return\n\n        if not self._db_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for database\"))\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n    def _db_ready(self) -> bool: return True\n\n\nclass WebserverComponent(ops.Object):\n    \"\"\"Manages the webserver and reports its own status.\"\"\"\n\n    def __init__(self, charm: ops.CharmBase):\n        super().__init__(charm, \"webserver\")\n        self.framework.observe(charm.on.collect_unit_status, self._on_collect_status)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        port = self.model.config.get(\"port\")\n        if not port:\n            event.add_status(ops.BlockedStatus('set the \"port\" config option'))\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n### How the framework resolves the final status\n\nAfter every hook runs successfully, `collect_unit_status` fires and **all** registered handlers are called in registration order. Each calls `add_status()` one or more times. The framework then picks the **highest-priority** status from everything that was added:\n\n```\nDatabaseComponent  \u2192 BlockedStatus(\"integrate with a database\")   \u2190 priority 1\nWebserverComponent \u2192 BlockedStatus('set the \"port\" config option') \u2190 priority 1 (same, first wins)\nMyCharm itself     \u2192 ActiveStatus()                                \u2190 priority 4\n\nFinal unit status  \u2192 BlockedStatus(\"integrate with a database\")   \u2705\n```\n\n---\n\n### Key rules to remember\n\n1. **Every code path must call `add_status()` at least once** \u2014 if a handler returns without adding a status, the framework has nothing to evaluate from that handler.\n2. **Use `return` after adding a high-priority status** to avoid also adding `ActiveStatus()` in the same handler (though the priority system would discard it anyway, early return is cleaner).\n3. **`collect_app_status` is leader-only** \u2014 only register handlers for it when the check is application-wide (e.g., \"how many units are degraded?\").\n4. **Do not pass `ErrorStatus` or `UnknownStatus`** to `add_status()` \u2014 they are internal and will raise `InvalidStatusError`.\n5. **Stop calling `self.unit.status = ...` directly** \u2014 let `collect_unit_status` own all status transitions for consistency.",
+    "stop_reason": "end_turn",
+    "session_id": "1226ed4c-9183-462f-8d48-896870faeb18",
+    "total_cost_usd": 1.1037188500000004,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4050,
+      "cache_read_input_tokens": 18058,
+      "output_tokens": 1996,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4050,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1996,
+        "cacheReadInputTokens": 18058,
+        "cacheCreationInputTokens": 4050,
+        "webSearchRequests": 0,
+        "costUSD": 0.050562899999999994,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 292986,
+        "outputTokens": 18334,
+        "cacheReadInputTokens": 411987,
+        "cacheCreationInputTokens": 333841,
+        "webSearchRequests": 21,
+        "costUSD": 1.0531559500000003,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "3cbafc74-d0fc-48f7-b712-a9d9a8102cdb"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:49:49+1300"
+}

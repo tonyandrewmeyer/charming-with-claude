@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_B_sonnet_run2",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 37532,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 36362,
+    "duration_api_ms": 36794,
+    "num_turns": 2,
+    "result": "## Pebble Notices\n\nNotices are Pebble's event/notification subsystem \u2014 a persistent log of occurrences that charms can react to. They survive restarts, track occurrence counts, and have configurable expiry.\n\n### Notice types\n\n| Type | When fired | Key format |\n|---|---|---|\n| `custom` | Workload calls `pebble notify` | Namespaced URL, e.g. `example.com/foo` |\n| `change-update` | A Pebble change is spawned or changes status | The change ID |\n| `warning` | Pebble emits a warning | Human-readable message |\n\n### Ops events\n\nOps surfaces two notice-related events on a container:\n\n- **`pebble_custom_notice`** \u2014 fired when a `custom` notice is created or repeats. This is the main one charms use.\n- `pebble_ready`, `pebble_check_failed`, `pebble_check_recovered` are related but distinct (not notice-based).\n\n### Observing in a charm\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.framework.observe(\n            self.on.mycontainer_pebble_custom_notice,\n            self._on_pebble_custom_notice,\n        )\n\n    def _on_pebble_custom_notice(self, event: ops.PebbleCustomNoticeEvent):\n        notice = event.notice          # ops.Notice object\n        notice.key                     # e.g. \"example.com/foo\"\n        notice.type                    # ops.pebble.NoticeType.CUSTOM\n        notice.last_data               # dict of extra key/value data\n```\n\nThe event is `{container_name}_pebble_custom_notice`, following the same naming pattern as `{container_name}_pebble_ready`.\n\n### Testing with ops.testing\n\n```python\nctx = testing.Context(MyCharm, meta={\"name\": \"my-charm\", \"containers\": {\"mycontainer\": {}}})\n\nnotice = testing.Notice(key=\"example.com/foo\", type=ops.pebble.NoticeType.CUSTOM)\ncontainer = testing.Container(name=\"mycontainer\", can_connect=True)\n\nwith ctx(ctx.on.pebble_custom_notice(container, notice), testing.State(containers={container})) as mgr:\n    mgr.run()\n    # assert on mgr.charm state\n```\n\n### Triggering from a workload\n\nInside the workload container, the `pebble notify` CLI command creates a custom notice:\n\n```bash\npebble notify example.com/my-event somekey=somevalue\n```\n\nPebble then delivers this to the charm via the `pebble_custom_notice` event.",
+    "stop_reason": "end_turn",
+    "session_id": "510d5f12-b87c-46b5-87ca-be4453c10e55",
+    "total_cost_usd": 0.11533244999999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8437,
+      "cache_read_input_tokens": 29879,
+      "output_tokens": 1032,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8437,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1032,
+        "cacheReadInputTokens": 29879,
+        "cacheCreationInputTokens": 8437,
+        "webSearchRequests": 0,
+        "costUSD": 0.056100449999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 32741,
+        "outputTokens": 1549,
+        "cacheReadInputTokens": 13085,
+        "cacheCreationInputTokens": 13950,
+        "webSearchRequests": 0,
+        "costUSD": 0.05923199999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "21e3cc43-9567-43d3-8a42-8c26b385b999"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:35:24+1300"
+}

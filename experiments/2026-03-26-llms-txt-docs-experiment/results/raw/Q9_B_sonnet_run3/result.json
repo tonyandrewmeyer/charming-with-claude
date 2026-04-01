@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_B_sonnet_run3",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 46803,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 41018,
+    "duration_api_ms": 40207,
+    "num_turns": 2,
+    "result": "## Pebble Log Forwarding to Loki\n\n### Layer YAML\n\n```yaml\nlog-targets:\n  loki-receiver:\n    override: merge\n    type: loki\n    location: http://<loki-host>:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      environment: production\n      version: $APP_VERSION\n```\n\n### Key fields\n\n| Field | Required | Notes |\n|---|---|---|\n| `type` | Yes | `loki`, `opentelemetry`, or `syslog` |\n| `location` | Yes | Full URL to the push endpoint |\n| `services` | No | List of service names, or `[all]`; prefix with `-` to exclude |\n| `labels` | No | Arbitrary key/value pairs; values support `$ENV_VAR` substitution |\n| `override` | No | `merge` (default) or `replace` |\n\n### Protocol options\n\n**`loki`** \u2014 Grafana Loki push API\n- Endpoint: `http://<host>:3100/loki/api/v1/push`\n- Pebble automatically adds a `pebble_service` label\n\n**`opentelemetry`** \u2014 OTLP over HTTP\n- Endpoint: `http://<host>:4318`\n- Pebble automatically adds a `service.name` label\n\n**`syslog`** \u2014 RFC 5424 syslog\n- Endpoint: `tcp://<host>:<port>` or `udp://<host>:<port>`\n- SD-ID is set to `pebble@28978`; APP-NAME is set to the service name\n\n### Services list behaviour\n\n```yaml\nservices: [svc1, svc2]   # only these services\nservices: [all]           # every service\nservices: [all, -svc3]    # all except svc3\n```\n\nWhen `override: merge`, service lists are *appended* rather than replaced \u2014 useful when multiple charm layers each add their own services to a shared target.\n\n### In a Kubernetes charm\n\nIn practice you'd push this layer dynamically once you have the Loki URL (typically from a relation), using the Ops/Pebble Python API:\n\n```python\ncontainer.add_layer(\"loki\", {\n    \"log-targets\": {\n        \"loki-receiver\": {\n            \"override\": \"merge\",\n            \"type\": \"loki\",\n            \"location\": f\"http://{loki_host}:3100/loki/api/v1/push\",\n            \"services\": [\"all\"],\n            \"labels\": {\"juju_application\": self.app.name},\n        }\n    }\n}, combine=True)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "24327931-c316-47d2-8b3b-33937353a592",
+    "total_cost_usd": 0.09568840000000002,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8496,
+      "cache_read_input_tokens": 29886,
+      "output_tokens": 924,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8496,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 924,
+        "cacheReadInputTokens": 29886,
+        "cacheCreationInputTokens": 8496,
+        "webSearchRequests": 0,
+        "costUSD": 0.0547038,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 13892,
+        "outputTokens": 2359,
+        "cacheReadInputTokens": 27101,
+        "cacheCreationInputTokens": 10070,
+        "webSearchRequests": 0,
+        "costUSD": 0.040984599999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "90f28031-2f33-4d68-ba9e-48368e37474d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:59:08+1300"
+}

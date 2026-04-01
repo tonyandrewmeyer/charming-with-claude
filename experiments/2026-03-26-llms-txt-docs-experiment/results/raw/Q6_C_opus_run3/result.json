@@ -1,0 +1,67 @@
+{
+  "session_id": "Q6_C_opus_run3",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 38863,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 37726,
+    "duration_api_ms": 37414,
+    "num_turns": 3,
+    "result": "Here is a complete, well-documented Pebble layer YAML:\n\n```yaml\n# Pebble Layer Configuration\n# Defines a service with an HTTP health check, custom env vars, and a log target.\n\nservices:\n  my-webapp:\n    override: replace\n    summary: My web application\n    command: /usr/bin/my-webapp --port 8080\n    startup: enabled\n\n    # Custom environment variables\n    environment:\n      APP_ENV: production\n      APP_PORT: \"8080\"\n      LOG_LEVEL: info\n      DATABASE_URL: postgresql://db:5432/myapp\n\n    # Restart policy\n    on-success: shutdown\n    on-failure: restart\n    backoff-delay: 1s\n    backoff-factor: 2\n    backoff-limit: 30s\n    kill-delay: 5s\n\n    # React to health check failures:\n    # If \"webapp-health\" check fails, restart the service.\n    on-check-failure:\n      webapp-health: restart\n\nchecks:\n  webapp-health:\n    override: replace\n    level: ready                # Mark as \"ready\" (used by Kubernetes-style probes)\n    period: 10s                 # Run check every 10 seconds\n    timeout: 3s                 # Fail if no response within 3 seconds\n    threshold: 3                # 3 consecutive failures before considered down\n    http:\n      url: http://localhost:8080/health\n      headers:\n        Accept: application/json\n\nlog-targets:\n  app-logs:\n    override: replace\n    type: loki                  # Send logs to a Loki endpoint\n    location: http://loki:3100/loki/api/v1/push\n    services:\n      - my-webapp              # Forward logs only from this service (use [all] for every service)\n    labels:\n      app: my-webapp\n      environment: production\n```\n\n### Key concepts in this layer\n\n| Section | Purpose |\n|---|---|\n| **`services.my-webapp`** | Defines the long-running process, its command, startup behaviour, env vars, and what to do on check failure. |\n| **`environment`** | Injects custom key-value pairs into the service's process environment. |\n| **`on-check-failure`** | Links the service to a named check \u2014 here, `restart` is triggered if `webapp-health` fails. |\n| **`checks.webapp-health`** | An **HTTP** health check that GETs `http://localhost:8080/health` and expects a `2xx` response. After 3 consecutive failures (`threshold: 3`), the check is considered down. |\n| **`log-targets.app-logs`** | Forwards stdout/stderr from `my-webapp` to a **Loki** endpoint, with metadata labels attached to every log entry. |\n\n### Other check types you can swap in\n\n```yaml\n# TCP check (port open?)\nchecks:\n  db-reachable:\n    override: replace\n    level: alive\n    tcp:\n      port: 5432\n\n# Exec check (command exits 0?)\nchecks:\n  disk-space:\n    override: replace\n    level: alive\n    exec:\n      command: /usr/bin/check-disk.sh\n```\n\n### Other log target types\n\n- **`type: syslog`** \u2014 forwards to a syslog receiver.\n- **`type: opentelemetry`** \u2014 forwards to an OpenTelemetry collector.\n\nYou can place this YAML in your charm's Pebble layer (typically pushed via `container.add_layer()` in `ops`) and Pebble will manage the service lifecycle, health monitoring, and log forwarding automatically.",
+    "stop_reason": "end_turn",
+    "session_id": "3d3b7fef-4bba-4d04-ba5e-2f24706984e1",
+    "total_cost_usd": 0.065448,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 2396,
+      "cache_read_input_tokens": 28590,
+      "output_tokens": 1173,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2396,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 7,
+        "outputTokens": 1173,
+        "cacheReadInputTokens": 28590,
+        "cacheCreationInputTokens": 2396,
+        "webSearchRequests": 0,
+        "costUSD": 0.05863,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 4648,
+        "outputTokens": 434,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.006818,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0ead20ae-8e9d-40f0-bfee-fe106135fbc3"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:46:01+1300"
+}

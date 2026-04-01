@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_B_sonnet_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 103395,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 102268,
+    "duration_api_ms": 115904,
+    "num_turns": 2,
+    "result": "## `charmlibs.pathops`\n\nThis is a Canonical library ([docs](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/pathops/), [PyPI](https://pypi.org/project/charmlibs-pathops/)) that provides a unified, `pathlib`-like interface for both local and workload container filesystems. The key benefit: you can write path-handling code once and use it in both machine and Kubernetes charms.\n\n---\n\n### `ContainerPath`\n\nA `pathlib.Path`-like object backed by the Pebble file API:\n\n```python\nfrom charmlibs import pathops\n\ncontainer = self.unit.get_container('myapp')\nroot = pathops.ContainerPath('/', container=container)\n\nconfig_dir = root / 'etc/myapp'\nconfig_dir.mkdir(parents=True, exist_ok=True)\n\ntext = config_dir.joinpath('config.yaml').read_text()\n```\n\nKey constraints:\n- **Absolute paths only** \u2014 raises `RelativePathError` otherwise\n- **No symlinks or hardlinks**\n- **`glob()` does not support `'**'`** (no recursive globbing)\n- Raises `PebbleConnectionError` if the container is unreachable\n\n---\n\n### `ensure_contents`\n\nIdempotent helper that writes a file only if the content, mode, or ownership differs from what's already there:\n\n```python\ndef ensure_contents(\n    path: str | os.PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,\n    user: str | None = None,\n    group: str | None = None,\n) -> bool: ...\n```\n\nReturns `True` if anything changed, `False` if the file was already correct. This makes it ideal for triggering conditional restarts:\n\n```python\nconfig_path = pathops.ContainerPath('/etc/myapp', container=container)\n\nchanged = pathops.ensure_contents(\n    path=config_path / 'config.yaml',\n    source=self._render_config().encode(),\n    mode=0o640,\n    user='myapp',\n    group='myapp',\n)\n\nif changed:\n    container.restart('myapp')\n```\n\n---\n\n### Cross-charm abstraction with `PathProtocol`\n\nThe real power is writing workload code that is agnostic to machine vs. Kubernetes:\n\n```python\nimport pathops\n\ndef write_config(root: pathops.PathProtocol, port: int) -> bool:\n    return pathops.ensure_contents(\n        path=root / 'etc/myapp/config.yaml',\n        source=f'port: {port}\\n'.encode(),\n    )\n\n# Kubernetes charm\nwrite_config(pathops.ContainerPath('/', container=container), port=8080)\n\n# Machine charm \u2014 identical call\nwrite_config(pathops.LocalPath('/'), port=8080)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "439cd920-8252-42e6-916f-2edc6ed3091a",
+    "total_cost_usd": 0.35416665,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 10300,
+      "cache_read_input_tokens": 29895,
+      "output_tokens": 1094,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10300,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1094,
+        "cacheReadInputTokens": 29895,
+        "cacheCreationInputTokens": 10300,
+        "webSearchRequests": 0,
+        "costUSD": 0.06402150000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 96878,
+        "outputTokens": 7788,
+        "cacheReadInputTokens": 92159,
+        "cacheCreationInputTokens": 76089,
+        "webSearchRequests": 5,
+        "costUSD": 0.2901451500000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0489c5c4-0207-4293-a097-f96dde51efbb"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:08:35+1300"
+}

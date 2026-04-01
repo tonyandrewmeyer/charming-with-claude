@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_C_opus_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 74195,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 72850,
+    "duration_api_ms": 72231,
+    "num_turns": 9,
+    "result": "Here's a complete explanation and example of using `ops.CollectStatusEvent`:\n\n## What is `CollectStatusEvent`?\n\n`CollectStatusEvent` is fired **at the end of every hook** to let you set your charm's status in one consistent place, rather than scattering `self.unit.status = ...` calls across many event handlers. There are two variants:\n\n| Event | Attribute | Who receives it? |\n|---|---|---|\n| **`collect-unit-status`** | `self.on.collect_unit_status` | Every unit |\n| **`collect-app-status`** | `self.on.collect_app_status` | Leader unit only |\n\nInside the handler, you call **`event.add_status()`** one or more times. The framework then picks the **highest-priority** status and sets it automatically.\n\n**Priority order** (highest \u2192 lowest): `BlockedStatus` > `MaintenanceStatus` > `WaitingStatus` > `ActiveStatus`\n\n---\n\n## Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm that demonstrates CollectStatusEvent usage.\"\"\"\n\nimport ops\n\n\nclass MyDatabaseCharm(ops.CharmBase):\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Observe the collect-status events\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Observe other lifecycle events as usual\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    # \u2500\u2500 Status collection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called at the end of every hook to evaluate unit status.\"\"\"\n\n        # Check multiple conditions; add_status() can be called many times.\n        # The framework will pick the highest-priority status automatically.\n\n        if not self._snap_installed():\n            event.add_status(ops.BlockedStatus(\"database snap not installed\"))\n            return\n\n        if not self._config_valid():\n            event.add_status(ops.BlockedStatus(\"invalid config: missing 'port'\"))\n            return\n\n        if not self._database_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for database to start\"))\n            return\n\n        # Everything looks good\n        event.add_status(ops.ActiveStatus(\"database is ready\"))\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called on the leader at the end of every hook to evaluate app status.\"\"\"\n        if not self._has_minimum_replicas():\n            event.add_status(ops.BlockedStatus(\"need at least 3 replicas\"))\n        else:\n            event.add_status(ops.ActiveStatus())\n\n    # \u2500\u2500 Other event handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_install(self, event: ops.InstallEvent):\n        # Do installation work \u2014 no need to set status here!\n        self._install_snap()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # React to config \u2014 no need to set status here!\n        self._apply_config()\n\n    # \u2500\u2500 Helper methods \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _snap_installed(self) -> bool: ...\n    def _config_valid(self) -> bool: ...\n    def _database_ready(self) -> bool: ...\n    def _has_minimum_replicas(self) -> bool: ...\n    def _install_snap(self): ...\n    def _apply_config(self): ...\n\n\nif __name__ == \"__main__\":\n    ops.main(MyDatabaseCharm)\n```\n\n---\n\n### Key points\n\n1. **Centralised status logic.** Instead of setting `self.unit.status = ...` in every handler (which is error-prone and order-dependent), you put all the logic in one `collect_unit_status` handler that runs after every hook.\n\n2. **Call `event.add_status()` \u2014 not `self.unit.status`**. The framework collects all added statuses and applies the highest-priority one automatically.\n\n3. **Multiple `add_status()` calls are fine.** If you add both `WaitingStatus` and `BlockedStatus`, the framework picks `BlockedStatus` (higher priority). For equal-priority statuses, the first one added wins.\n\n4. **`collect_app_status` only fires on the leader.** Use it for application-wide status. `collect_unit_status` fires on every unit.\n\n5. **Other handlers become simpler.** Your `install`, `config-changed`, `relation-joined`, etc. handlers only need to do their work \u2014 status is determined centrally after they finish.",
+    "stop_reason": "end_turn",
+    "session_id": "1e4da36b-fa99-4750-baa8-aa0607b87878",
+    "total_cost_usd": 0.1661535,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 3842,
+      "cache_read_input_tokens": 83844,
+      "output_tokens": 2136,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3842,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 12,
+        "outputTokens": 2136,
+        "cacheReadInputTokens": 83844,
+        "cacheCreationInputTokens": 3842,
+        "webSearchRequests": 0,
+        "costUSD": 0.11939450000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 42209,
+        "outputTokens": 910,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.046759,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "89ab0a2b-1589-4212-9538-44d6264f91c4"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:47:35+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q8_B_opus_run1",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 17478,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 15973,
+    "duration_api_ms": 15962,
+    "num_turns": 1,
+    "result": "Pebble uses a **change/task model** for operations that may take time (e.g. starting/stopping services, running exec commands). Here's how it works:\n\n## The Model\n\n- A **change** represents a high-level operation (e.g. \"start service\"). Each change has an ID and a status.\n- A **task** is a unit of work within a change. A change can have multiple tasks.\n- Statuses: `Doing`, `Done`, `Error`, `Hold`, etc.\n\n## In the Python API (ops.pebble)\n\nWhen you call methods like `container.start()` or `container.stop()`, Pebble handles waiting automatically \u2014 these are synchronous wrappers.\n\nFor **`container.exec()`**, the returned `ExecProcess` object lets you interact with the running process:\n\n```python\nprocess = container.exec([\"long-running-command\"])\n# Block until complete:\nstdout, stderr = process.wait_output()\n```\n\nFor lower-level control, you can work with changes directly via the Pebble client:\n\n```python\nclient = container.get_pebble()\n\n# Start a service (returns a ChangeID)\nchange_id = client.start_services([\"myservice\"])\n\n# Poll/wait for completion\nchange = client.wait_change(change_id)\nif change.err:\n    raise RuntimeError(f\"Failed: {change.err}\")\n```\n\n## Key Methods\n\n- **`client.wait_change(change_id, timeout=None)`** \u2014 blocks until the change reaches a final state (`Done` or `Error`). This is the standard way to wait for completion.\n- **`client.get_change(change_id)`** \u2014 non-blocking check of a change's current status. Useful if you want to poll manually.\n- **`change.ready`** \u2014 boolean property indicating whether the change has reached a terminal state.\n- **`change.status`** \u2014 the current status string.\n- **`change.err`** \u2014 error message if the change failed.\n\n## Typical Pattern in a Charm\n\nIn most charm code, you don't interact with changes directly \u2014 the `Container` methods (`start`, `stop`, `replan`, `exec`) handle this for you. You only need the change/task model when doing something more advanced or when you need non-blocking behaviour.\n\n```python\n# Usually sufficient:\ncontainer.replan()\n\n# For exec with output:\nprocess = container.exec([\"migrate\", \"--run\"])\nstdout, stderr = process.wait_output()\n```",
+    "stop_reason": "end_turn",
+    "session_id": "f86a23de-bee2-4178-8d5a-d5d7ca870fab",
+    "total_cost_usd": 0.068296,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7336,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 670,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7336,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 670,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7336,
+        "webSearchRequests": 0,
+        "costUSD": 0.068296,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "edb67202-382b-492a-b3fb-5fbd32eb32b6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:51:44+1300"
+}

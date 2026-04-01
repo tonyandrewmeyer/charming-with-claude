@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_E_sonnet_run3",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 95640,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 94329,
+    "duration_api_ms": 114075,
+    "num_turns": 2,
+    "result": "## TLS Certificates Library \u2014 Events & Certificate Requests\n\nThe TLS certificates library (specifically `charms.tls_certificates_interface.v4` or the newer `charmlibs.interfaces.tls_certificates`) emits the following events:\n\n---\n\n### Events Emitted\n\n| Event | When it fires |\n|---|---|\n| `certificate_available` | A requested certificate has been issued and is ready to use |\n| `certificate_expiring` | A certificate is nearing its expiry date |\n| `certificate_invalidated` | A certificate has been revoked or is otherwise no longer valid |\n| `all_certificates_invalidated` | All certificates have been revoked (e.g. the provider relation was removed) |\n\nYour charm observes these on the requirer object, e.g.:\n\n```python\nself.certificates = TLSCertificatesRequiresV4(\n    charm=self,\n    relationship_name=\"certificates\",\n    certificate_requests=[self._get_certificate_request_attributes()],\n    mode=Mode.UNIT,\n    refresh_events=[self.on.config_changed],  # re-request on config change\n)\n\nself.framework.observe(self.certificates.on.certificate_available, self._on_certificate_available)\nself.framework.observe(self.certificates.on.certificate_expiring, self._on_certificate_expiring)\nself.framework.observe(self.certificates.on.certificate_invalidated, self._on_certificate_invalidated)\nself.framework.observe(self.certificates.on.all_certificates_invalidated, self._on_all_certificates_invalidated)\n```\n\n---\n\n### When to Request a New Certificate\n\n| Situation | How to trigger |\n|---|---|\n| **Relation joined** | Automatic \u2014 the library handles this when the `certificates` relation is first established |\n| **Config change** (e.g. new hostname/domain) | Pass the Juju event to `refresh_events=[self.on.config_changed]` in the constructor |\n| **Certificate expiring** | Handle `certificate_expiring` and call `self.certificates.renew_certificate(...)` |\n| **Certificate invalidated** | Handle `certificate_invalidated` and re-request via `self.certificates.sync()` |\n| **Programmatic refresh** | Call `self.certificates.sync()` at any point to reconcile outstanding requests |\n\n---\n\n### Key Pattern\n\n```python\ndef _on_certificate_available(self, event):\n    cert, key = self.certificates.get_assigned_certificate(\n        certificate_request=self._get_certificate_request_attributes()\n    )\n    # Write cert/key to disk, configure the workload, etc.\n\ndef _on_certificate_expiring(self, event):\n    # Library can auto-renew, or you can call sync() to force it\n    self.certificates.sync()\n\ndef _on_certificate_invalidated(self, event):\n    # Remove the cert from disk, update workload config, set waiting status\n    self._remove_certificate()\n```\n\n---\n\n### Version Note\n\n> \u26a0\ufe0f `charms.tls_certificates_interface.v4` is **deprecated**. New charms should use **`charmlibs.interfaces.tls_certificates`**, which is the actively maintained successor and will receive future updates and fixes.",
+    "stop_reason": "end_turn",
+    "session_id": "8ec716a8-41ff-4b90-8027-530b343b007b",
+    "total_cost_usd": 0.3935386,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 1107,
+      "cache_read_input_tokens": 19104,
+      "output_tokens": 1123,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1107,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1123,
+        "cacheReadInputTokens": 19104,
+        "cacheCreationInputTokens": 1107,
+        "webSearchRequests": 0,
+        "costUSD": 0.026745449999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 151542,
+        "outputTokens": 6804,
+        "cacheReadInputTokens": 76799,
+        "cacheCreationInputTokens": 90841,
+        "webSearchRequests": 6,
+        "costUSD": 0.36679315000000007,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1873e598-b23f-4fec-8781-f64ccd790540"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:26:43+1300"
+}

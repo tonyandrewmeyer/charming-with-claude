@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_C_opus_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 84726,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 83561,
+    "duration_api_ms": 88069,
+    "num_turns": 8,
+    "result": "Here's the correct way to implement the **provider side** of a relation using charm libraries, based on the official Ops documentation:\n\n---\n\n## 1. Design Your Interface Data Model\n\nStart by defining the data your provider will put into the relation databag, using **Pydantic models**:\n\n```python\nimport pydantic\n\nclass MyProviderAppData(pydantic.BaseModel):\n    \"\"\"Data the provider shares over the relation.\"\"\"\n    connection_string: str = pydantic.Field(\n        description=\"The connection string for the database.\",\n    )\n    version: str = pydantic.Field(\n        description=\"The version of the database.\",\n    )\n```\n\n## 2. Define Custom Events\n\nCustom events wrap low-level Juju relation events into higher-level, meaningful events. They **must** inherit from `ops.EventBase` (not `ops.RelationEvent`) and implement `snapshot`/`restore` for persistence:\n\n```python\nimport ops\n\nclass DatabaseAvailableEvent(ops.EventBase):\n    \"\"\"Emitted when a requirer joins and the database is ready.\"\"\"\n\n    def __init__(self, handle: ops.Handle, *, relation: ops.Relation):\n        super().__init__(handle)\n        self._relation = relation\n\n    def snapshot(self) -> dict[str, Any]:\n        data = super().snapshot()\n        data['relation_name'] = self._relation.name\n        data['relation_id'] = self._relation.id\n        return data\n\n    def restore(self, snapshot: dict[str, Any]):\n        super().restore(snapshot)\n        self._relation = self.framework.model.get_relation(\n            snapshot['relation_name'], snapshot['relation_id'])\n```\n\n## 3. Create the Events Container\n\nGroup your events into an `ObjectEvents` subclass:\n\n```python\nclass DatabaseProviderEvents(ops.ObjectEvents):\n    \"\"\"Events for the Database provider.\"\"\"\n    database_available = ops.EventSource(DatabaseAvailableEvent)\n```\n\n## 4. Implement the Provider `ops.Object`\n\nThe provider class is an `ops.Object` subclass that:\n- Observes raw Juju relation events internally\n- Emits custom events to the charm\n- Publishes data to the relation databag using `relation.save()`\n\n```python\nclass DatabaseProvider(ops.Object):\n    on = DatabaseProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str = 'database'):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        # Observe low-level Juju relation events\n        self.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        # Publish provider data when a requirer joins\n        self._publish(event.relation)\n        self.on.database_available.emit(relation=event.relation)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        # React to data from the requirer if needed\n        ...\n\n    def _publish(self, relation: ops.Relation):\n        \"\"\"Serialize and write provider app data to the relation databag.\"\"\"\n        data = MyProviderAppData(\n            connection_string='postgresql://db:5432/mydb',\n            version='14.2',\n        )\n        relation.save(data, self._charm.app)\n```\n\nKey points:\n- **`relation.save(data, self._charm.app)`** serializes the Pydantic model into the app databag (uses JSON by default).\n- The corresponding requirer would read it back with **`relation.load(MyProviderAppData, self._charm.app)`**.\n\n## 5. Use the Library in a Charm\n\nThe charm instantiates the provider object and observes its custom events:\n\n```python\nfrom charms.my_db_charm.v0.database_lib import DatabaseProvider, DatabaseAvailableEvent\n\nclass MyDatabaseCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.db_provider = DatabaseProvider(self, 'database')\n        framework.observe(self.db_provider.on.database_available,\n                          self._on_database_available)\n\n    def _on_database_available(self, event: DatabaseAvailableEvent):\n        self.unit.status = ops.ActiveStatus('database ready')\n```\n\nAnd in `charmcraft.yaml` / `metadata.yaml`, declare the relation:\n\n```yaml\nprovides:\n  database:\n    interface: my_database\n```\n\n## Important Best Practices\n\n| Rule | Rationale |\n|---|---|\n| **Don't inherit custom events from `RelationEvent`** | Load data from Juju in the originating handler and pass it explicitly to your custom event. |\n| **Always implement `snapshot()` / `restore()`** | Events may be re-emitted (deferred), so they must be serializable. |\n| **Never mutate charm status from the library** | Use return values or raise exceptions \u2014 let the charm decide its own status. |\n| **Use Pydantic models + `relation.save()`/`relation.load()`** | This gives you validated, typed data and clean serialization. |\n| **Check `charm-relation-interfaces`** | Before creating a new interface, see if a spec already exists at [github.com/canonical/charm-relation-interfaces](https://github.com/canonical/charm-relation-interfaces). |",
+    "stop_reason": "end_turn",
+    "session_id": "b8fd2876-c700-43ce-95e9-b6ece5556e20",
+    "total_cost_usd": 0.1989125,
+    "usage": {
+      "input_tokens": 11,
+      "cache_creation_input_tokens": 6850,
+      "cache_read_input_tokens": 74498,
+      "output_tokens": 2236,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6850,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 11,
+        "outputTokens": 2236,
+        "cacheReadInputTokens": 74498,
+        "cacheCreationInputTokens": 6850,
+        "webSearchRequests": 0,
+        "costUSD": 0.13601649999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 42206,
+        "outputTokens": 4138,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.06289600000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "cd2dc8cc-c913-47b1-8c83-7f5d6af0af23"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:06:51+1300"
+}

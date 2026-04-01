@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_E_sonnet_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 138745,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 137561,
+    "duration_api_ms": 147526,
+    "num_turns": 2,
+    "result": "## `charmlibs.pathops`\n\n`charmlibs.pathops` is a Python charm library that provides a **`pathlib`-style API** for file operations that works uniformly across both **machine charms** (local filesystem) and **Kubernetes charms** (Pebble-managed workload containers). The key idea is that charm code written against the `PathProtocol` interface works transparently with either `LocalPath` or `ContainerPath`.\n\nInstall it via `pip install charmlibs-pathops` (or declare it as a charm dependency).\n\n---\n\n## `ContainerPath`\n\n`ContainerPath` mirrors `pathlib.PurePosixPath` but tunnels all filesystem I/O through the **Ops Pebble API** into a workload container.\n\n### Construction\n\n```python\nfrom charmlibs.pathops import ContainerPath\n\ncontainer = self.unit.get_container(\"myapp\")\n\n# Single string\npath = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n# Multiple segments (joined, like pathlib)\npath = ContainerPath(\"/\", \"etc\", \"myapp\", \"config.yaml\", container=container)\n```\n\n> **Important:** Only absolute paths are accepted. A relative path raises `RelativePathError` immediately at construction time.\n\n### Key Methods\n\n| Method | Description |\n|---|---|\n| `path / \"subdir\"` | Join path segments with `/` operator |\n| `path.parent` | Parent directory as a `ContainerPath` |\n| `path.exists()` | Check if the path exists |\n| `path.is_file()` / `is_dir()` | Type checks |\n| `path.read_text()` | Read file as a UTF-8 string |\n| `path.read_bytes()` | Read file as raw bytes |\n| `path.write_text(data, mode=None, user=None, group=None)` | Write a string |\n| `path.write_bytes(data, mode=None, user=None, group=None)` | Write bytes |\n| `path.mkdir(parents=False, exist_ok=False, user=None, group=None)` | Create directory |\n| `path.unlink(missing_ok=False)` | Delete a file |\n| `path.iterdir()` | Yield directory contents |\n| `path.glob(\"*.conf\")` | List matching paths (`**` not supported) |\n| `path.owner()` / `path.group()` | Owner/group name |\n\n> **Note:** There is no separate `chmod()`. Permissions are always set at write/mkdir time via the `mode=`, `user=`, and `group=` keyword arguments.\n\n---\n\n## `ensure_contents`\n\n`ensure_contents` is the **idiomatic, idempotent way** to manage config files in a charm. It only writes the file when something has actually changed, and returns a `bool` that tells you whether it did.\n\n### Signature\n\n```python\nfrom charmlibs.pathops import ensure_contents\n\nensure_contents(\n    path: str | os.PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    mode: int = 0o644,          # default: 420 decimal\n    user: str | None = None,\n    group: str | None = None,\n) -> bool\n```\n\n### Behaviour\n\n1. Reads the **current** file content and metadata (if the file exists).\n2. **Compares** them to `source`, `mode`, `user`, and `group`.\n3. Only **writes** if something differs.\n4. Returns `True` if a write occurred, `False` if nothing changed.\n\nThis makes it safe to call on every charm event without unnecessary disk I/O or service disruptions.\n\n---\n\n## Practical Example: Config-Driven Service Restart\n\nThe canonical pattern is to use `ensure_contents`'s return value to gate service restarts \u2014 only restart when a file *actually* changed:\n\n```python\nimport ops\nfrom charmlibs.pathops import ContainerPath, ensure_contents\n\nclass MyAppCharm(ops.CharmBase):\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        container = self.unit.get_container(\"myapp\")\n\n        if not container.can_connect():\n            event.defer()\n            return\n\n        config_path = ContainerPath(\"/etc/myapp/config.ini\", container=container)\n\n        # Ensure parent directory exists with correct ownership\n        config_path.parent.mkdir(parents=True, exist_ok=True, user=\"myapp\", group=\"myapp\")\n\n        # Render config from charm config/relations\n        new_config = self._render_config()\n\n        # Write only if content or permissions differ\n        changed = ensure_contents(\n            config_path,\n            new_config,\n            mode=0o640,\n            user=\"myapp\",\n            group=\"myapp\",\n        )\n\n        if changed:\n            container.restart(\"myapp\")  # \u2190 only fires when something actually changed\n            self.unit.status = ops.ActiveStatus(\"config updated\")\n        else:\n            self.unit.status = ops.ActiveStatus(\"config unchanged\")\n\n    def _render_config(self) -> str:\n        return f\"\"\"\\\n[server]\nport = {self.config['port']}\nlog_level = {self.config['log-level']}\n\"\"\"\n```\n\n---\n\n## Writing Polymorphic Charm Code\n\nBecause both `LocalPath` and `ContainerPath` implement `PathProtocol`, you can write helper functions that work for **both machine and Kubernetes charms** without any `if/else`:\n\n```python\nfrom charmlibs.pathops import PathProtocol, LocalPath, ContainerPath, ensure_contents\n\ndef push_config(path: PathProtocol, content: str) -> bool:\n    \"\"\"Works with both LocalPath and ContainerPath.\"\"\"\n    path.parent.mkdir(parents=True, exist_ok=True, user=\"myapp\", group=\"myapp\")\n    return ensure_contents(path, content, mode=0o640, user=\"myapp\", group=\"myapp\")\n\n# Machine charm\npush_config(LocalPath(\"/etc/myapp/config.ini\"), \"key=value\\n\")\n\n# Kubernetes charm\ncontainer = self.unit.get_container(\"myapp\")\npush_config(ContainerPath(\"/etc/myapp/config.ini\", container=container), \"key=value\\n\")\n```\n\n---\n\n## Summary\n\n| Concept | Purpose |\n|---|---|\n| `ContainerPath` | `pathlib`-compatible path that talks to a Pebble workload container |\n| `LocalPath` | `pathlib`-compatible path for the local machine filesystem |\n| `PathProtocol` | Shared interface \u2014 write once, run on machine or K8s |\n| `ensure_contents()` | Idempotent file writer \u2014 returns `True` only if the file changed |\n\nThe golden rule: **always check `container.can_connect()` before using `ContainerPath`**, and use `ensure_contents`'s `bool` return value to avoid unnecessary service restarts.",
+    "stop_reason": "end_turn",
+    "session_id": "9d97193b-7fdb-4c79-b4c8-f8a6ec790c3d",
+    "total_cost_usd": 0.26954320000000004,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4006,
+      "cache_read_input_tokens": 19136,
+      "output_tokens": 2143,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4006,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 486,
+        "outputTokens": 6682,
+        "cacheReadInputTokens": 65509,
+        "cacheCreationInputTokens": 13063,
+        "webSearchRequests": 0,
+        "costUSD": 0.17032695,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 55175,
+        "outputTokens": 3300,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 14033,
+        "webSearchRequests": 1,
+        "costUSD": 0.09921624999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "07190539-22f3-4089-8b8a-62e6e236a894"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:55:43+1300"
+}

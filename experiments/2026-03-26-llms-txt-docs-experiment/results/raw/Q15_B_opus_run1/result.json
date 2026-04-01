@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_B_opus_run1",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 84162,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 82475,
+    "duration_api_ms": 79592,
+    "num_turns": 3,
+    "result": "\n\n`charmlibs-pathops` is a library from Canonical that provides a `pathlib`-like interface for managing files in both local filesystems and Pebble workload containers.\n\n## Installation\n\nAdd `charmlibs-pathops` to your charm's dependencies:\n\n```\npip install charmlibs-pathops\n```\n\n## Core Concepts\n\n### `ContainerPath`\n\nA `pathlib.Path`-like object that operates on files inside a Pebble workload container. Only supports absolute paths.\n\n```python\nimport ops\nfrom charmlibs import pathops\n\ncontainer = self.unit.get_container(\"myapp\")\nconfig_path = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n# Read/write just like pathlib\nconfig_path.write_text(\"key: value\\n\", mode=0o644, user=\"myapp\", group=\"myapp\")\ncontents = config_path.read_text()\n\n# Path joining with /\nroot = pathops.ContainerPath(\"/\", container=container)\nconf = root / \"etc\" / \"myapp\" / \"config.yaml\"\n\n# Directory creation\nconf.parent.mkdir(parents=True, exist_ok=True)\n```\n\n### `LocalPath`\n\nSame interface but for local files (machine charms). Extends `pathlib.PosixPath` with `mode`, `user`, `group` keyword arguments.\n\n### `PathProtocol`\n\nA typing protocol for writing code that works with either path type \u2014 useful for workload modules shared between machine and Kubernetes charms:\n\n```python\nfrom charmlibs import pathops\n\ndef write_config(root: pathops.PathProtocol) -> None:\n    path = root / \"etc\" / \"myapp\" / \"config.yaml\"\n    path.write_text(\"key: value\\n\", mode=0o644)\n```\n\n### `ensure_contents`\n\nThe key helper for idempotent config management. It writes a file only if the content, permissions, or ownership differ from what's already on disk, and returns `True` if changes were made:\n\n```python\nfrom charmlibs import pathops\n\ndef update_config(self):\n    changed = pathops.ensure_contents(\n        path=self.root / \"etc\" / \"myapp\" / \"config.yaml\",\n        source=self._render_config(),\n        mode=0o644,\n        user=\"myapp\",\n        group=\"myapp\",\n    )\n    if changed:\n        # Only restart the service if the config actually changed\n        container.replan()\n```\n\nThis pattern is particularly useful in charm event handlers, where the same handler may fire multiple times \u2014 `ensure_contents` makes it safe and efficient to call repeatedly without unnecessary service restarts.\n\n## Key Notes\n\n- `ContainerPath` only accepts **absolute paths** (raises `RelativePathError` otherwise).\n- There is no `chmod` method \u2014 permissions are set at write/mkdir time via `mode`, `user`, and `group` kwargs (a Pebble limitation).\n- Documentation is at `documentation.ubuntu.com/charmlibs/reference/charmlibs/pathops/`.",
+    "stop_reason": "end_turn",
+    "session_id": "66c14bfc-4999-4b6d-a05e-8ba7ab306ab7",
+    "total_cost_usd": 0.3238535,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9301,
+      "cache_read_input_tokens": 30075,
+      "output_tokens": 1102,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9301,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 15,
+        "outputTokens": 3318,
+        "cacheReadInputTokens": 102268,
+        "cacheCreationInputTokens": 25386,
+        "webSearchRequests": 0,
+        "costUSD": 0.2928215,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 27227,
+        "outputTokens": 761,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.031032,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2b4597f1-8251-45eb-a1f3-863d741b9ddf"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:10:51+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "S3_E_sonnet_run1",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 91338,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 89753,
+    "duration_api_ms": 84644,
+    "num_turns": 14,
+    "result": "All **4 tests pass**. Here's a full walkthrough of every design decision:\n\n---\n\n## File layout\n\n```\n.\n\u251c\u2500\u2500 charmcraft.yaml          # build & metadata\n\u251c\u2500\u2500 src/\n\u2502   \u2514\u2500\u2500 charm.py             # charm class\n\u2514\u2500\u2500 tests/\n    \u2514\u2500\u2500 test_charm.py        # unit tests (ops.testing.Harness)\n```\n\n---\n\n## `src/charm.py` \u2013 key points\n\n### Relation name constant\n```python\nRELATION_NAME = \"endpoint-provider\"\n```\nDefined once and reused everywhere so it stays in sync with `charmcraft.yaml`.\n\n### Events observed\n| Event | Why |\n|---|---|\n| `relation_joined` | Fires once per remote unit that joins \u2014 the **primary** place to publish data so consumers see it immediately in their own `relation-changed` hook |\n| `relation_changed` | Catches any follow-up changes that arrive after the initial join |\n| `config_changed` | Re-publishes to all existing relations if charm config ever affects what the endpoint should be |\n\n### Writing relation data\n```python\nrelation.data[self.unit][\"endpoint\"] = fqdn\n```\nJuju's relation data model is a **bucket-per-unit/application**. A unit is only permitted to write into **its own bucket** (`self.unit`). Writing to any other bucket raises a `RelationDataError` at runtime, so this is the only safe target.\n\n### FQDN source\n```python\nsocket.getfqdn()\n```\n`socket.getfqdn()` consults `/etc/hosts` and DNS (in that order) and returns the fully-qualified name \u2014 exactly what Juju operators expect as a routable endpoint address.\n\n---\n\n## `charmcraft.yaml` \u2013 key points\n\n```yaml\nprovides:\n  endpoint-provider:\n    interface: endpoint-info\n```\n* **`provides`** declares this charm as the *server* side of the relation. Consumer charms list `endpoint-provider` under their own **`requires`** block and set `interface: endpoint-info` to match.\n* No `limit:` key is set, so any number of consumer applications may relate simultaneously.",
+    "stop_reason": "end_turn",
+    "session_id": "58ba6802-e1cc-48da-8db1-8046fdcd7639",
+    "total_cost_usd": 0.1627443,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 11970,
+      "cache_read_input_tokens": 143316,
+      "output_tokens": 4988,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11970,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 14,
+        "outputTokens": 4988,
+        "cacheReadInputTokens": 143316,
+        "cacheCreationInputTokens": 11970,
+        "webSearchRequests": 0,
+        "costUSD": 0.1627443,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "be40c7c8-2c54-402a-96b4-b09084d0293d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:24:46+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_B_sonnet_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 16757,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 15678,
+    "duration_api_ms": 15667,
+    "num_turns": 1,
+    "result": "`CollectStatusEvent` is the modern, declarative approach to setting charm status. Instead of imperatively assigning `self.unit.status = ...` throughout your event handlers, you observe `collect_unit_status` (and/or `collect_app_status`) and set statuses there. Ops picks the highest-priority status automatically.\n\n## Complete Example\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        # For leader-controlled app status:\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        # Add as many statuses as apply \u2014 Ops picks the worst one.\n        if not self._workload_installed():\n            event.add_status(ops.BlockedStatus(\"workload not installed\"))\n\n        if not self._config_valid():\n            event.add_status(ops.BlockedStatus(\"invalid configuration\"))\n\n        if not self._workload_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for workload to start\"))\n\n        # If nothing was added, the unit becomes Active automatically.\n        # You can also explicitly add ActiveStatus with a message:\n        # event.add_status(ops.ActiveStatus(\"ready\"))\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        # Only the leader's calls to event.add_status take effect for app status.\n        if not self._relation_data_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for relation data\"))\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        # No status assignment here \u2014 just do the work.\n        self._install_workload()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        # No status assignment here either.\n        self._reconfigure_workload()\n\n    def _workload_installed(self) -> bool: ...\n    def _config_valid(self) -> bool: ...\n    def _workload_ready(self) -> bool: ...\n    def _relation_data_ready(self) -> bool: ...\n    def _install_workload(self) -> None: ...\n    def _reconfigure_workload(self) -> None: ...\n```\n\n## Priority Order\n\nWhen multiple statuses are added, Ops selects the highest priority:\n\n| Priority | Status |\n|----------|--------|\n| 1 (highest) | `ErrorStatus` |\n| 2 | `BlockedStatus` |\n| 3 | `MaintenanceStatus` |\n| 4 | `WaitingStatus` |\n| 5 | `ActiveStatus` |\n\nSo if you add both `WaitingStatus` and `BlockedStatus`, the unit will show `BlockedStatus`.\n\n## Key Points\n\n- `collect_unit_status` fires after every event \u2014 Ops re-evaluates status automatically.\n- `collect_app_status` only uses statuses added by the **leader unit**.\n- Never assign `self.unit.status = ...` directly in event handlers when using this pattern; it will be overwritten by the collect event.\n- If no status is added at all, the unit defaults to `ActiveStatus(\"\")`.",
+    "stop_reason": "end_turn",
+    "session_id": "ebcab586-f411-4892-ab39-4310e89f0d71",
+    "total_cost_usd": 0.04612155,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7339,
+      "cache_read_input_tokens": 11271,
+      "output_tokens": 1014,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7339,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1014,
+        "cacheReadInputTokens": 11271,
+        "cacheCreationInputTokens": 7339,
+        "webSearchRequests": 0,
+        "costUSD": 0.04612155,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4e3a427c-75cb-42f4-b082-93e6db5a1e39"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:23:35+1300"
+}

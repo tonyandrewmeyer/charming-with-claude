@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_D_sonnet_run2",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 254527,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 253482,
+    "duration_api_ms": 292867,
+    "num_turns": 6,
+    "result": "Here's a comprehensive overview based on the actual source code:\n\n---\n\n## `charmlibs.pathops`\n\nA `pathlib`-like library for managing filesystem paths in charms, with a unified interface that works for both machine charms (local filesystem) and Kubernetes charms (Pebble container filesystem).\n\n### Installation\n\nAdd to `charmcraft.yaml` (it's a Python package, not a Charmhub lib):\n\n```yaml\n# in pyproject.toml or requirements\ncharmlibs-pathops\n```\n\n### Core Classes\n\n**`LocalPath`** \u2014 extends `pathlib.PosixPath`, used in machine charms.  \n**`ContainerPath`** \u2014 wraps `ops.model.Container` + a path, used in Kubernetes charms.  \n**`PathProtocol`** \u2014 a `Protocol` you can use as a type hint when writing code that works with both.\n\n```python\nimport charmlibs.pathops\n\n# Machine charm\npath = charmlibs.pathops.LocalPath(\"/etc/myapp/config.yaml\")\n\n# Kubernetes charm\ncontainer = self.unit.get_container(\"myapp\")\npath = charmlibs.pathops.ContainerPath(container, \"/etc/myapp/config.yaml\")\n```\n\nPaths must be **absolute** \u2014 relative paths raise `RelativePathError`.\n\n---\n\n### `ContainerPath` \u2014 Key API\n\nUnder the hood it calls Pebble's `container.push()`, `container.pull()`, `container.make_dir()`, etc., and translates Pebble `APIError`/`ChangeError` into standard Python exceptions (`FileNotFoundError`, `PermissionError`, etc.).\n\n```python\ncontainer = self.unit.get_container(\"myapp\")\ncfg = charmlibs.pathops.ContainerPath(container, \"/etc/myapp/config.yaml\")\n\n# Path navigation (same as pathlib)\nparent = cfg.parent          # ContainerPath for /etc/myapp\nchild  = cfg.parent / \"tls\" / \"cert.pem\"\n\n# Read / write\ncfg.write_text(\"key: value\\n\", mode=0o640, user=\"myapp\", group=\"myapp\")\ncfg.write_bytes(b\"...\",        mode=0o640, user=\"myapp\")\ncontent = cfg.read_text()\nraw     = cfg.read_bytes()\n\n# Directory ops\ncfg.parent.mkdir(parents=True, exist_ok=True, mode=0o750, user=\"myapp\")\ncfg.parent.rmdir()   # must be empty\n\n# Inspection\ncfg.exists()    # bool\ncfg.is_file()   # bool\ncfg.is_dir()    # bool\ncfg.owner()     # str | None\ncfg.group()     # str | None\n\n# Iteration / glob (no ** recursive glob)\nfor p in cfg.parent.iterdir():\n    print(p)\nfor p in cfg.parent.glob(\"*.yaml\"):\n    print(p)\n```\n\nDefault permissions: `0o644` for files, `0o755` for directories (more restrictive than `pathlib`).\n\n---\n\n### `ensure_contents` \u2014 Idempotent Config Management\n\nThis is the key helper for charm configuration management. It:\n1. Reads the current file (if it exists)\n2. Compares content, permissions, and ownership\n3. Only writes if something differs\n4. Returns `True` if modified, `False` if already up-to-date\n\n```python\nimport charmlibs.pathops\n\ndef _configure(self, container: ops.Container) -> bool:\n    \"\"\"Push config; return True if a service restart is needed.\"\"\"\n    cfg_path = charmlibs.pathops.ContainerPath(container, \"/etc/myapp/config.yaml\")\n    new_config = self._render_config()\n\n    return charmlibs.pathops.ensure_contents(\n        path=cfg_path,\n        source=new_config,       # str, bytes, or file-like object\n        mode=0o640,\n        user=\"myapp\",\n        group=\"myapp\",\n    )\n```\n\nTypical charm usage in an event handler:\n\n```python\ndef _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n    container = self.unit.get_container(\"myapp\")\n    if not container.can_connect():\n        event.defer()\n        return\n\n    changed = charmlibs.pathops.ensure_contents(\n        path=charmlibs.pathops.ContainerPath(container, \"/etc/myapp/config.yaml\"),\n        source=self._render_config(),\n        mode=0o640,\n        user=\"myapp\",\n    )\n    if changed:\n        container.restart(\"myapp\")\n```\n\n---\n\n### Writing type-agnostic charm code\n\nUse `PathProtocol` as the type hint when you want a helper that works in both machine and Kubernetes charms:\n\n```python\ndef _push_config(path: charmlibs.pathops.PathProtocol, data: str) -> bool:\n    return charmlibs.pathops.ensure_contents(path, data, mode=0o640)\n```\n\n---\n\n### Notable limitations\n\n- No relative paths\n- No `open()` method\n- No symlink manipulation\n- No recursive `**` glob\n- No `stat()`",
+    "stop_reason": "end_turn",
+    "session_id": "8a588068-17ea-41c8-b48b-12d07f7d72c7",
+    "total_cost_usd": 0.49996910000000006,
+    "usage": {
+      "input_tokens": 18,
+      "cache_creation_input_tokens": 32943,
+      "cache_read_input_tokens": 120862,
+      "output_tokens": 2498,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 32943,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 18,
+        "outputTokens": 2498,
+        "cacheReadInputTokens": 120862,
+        "cacheCreationInputTokens": 32943,
+        "webSearchRequests": 0,
+        "costUSD": 0.19731885,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 61088,
+        "outputTokens": 37543,
+        "cacheReadInputTokens": 195860,
+        "cacheCreationInputTokens": 27409,
+        "webSearchRequests": 0,
+        "costUSD": 0.30265025000000007,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "de5d5b82-6b43-4e2a-b343-ad159374d0cf"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:14:30+1300"
+}

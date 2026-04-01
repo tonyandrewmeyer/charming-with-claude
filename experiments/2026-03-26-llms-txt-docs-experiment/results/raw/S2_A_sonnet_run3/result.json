@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_A_sonnet_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 213489,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 212369,
+    "duration_api_ms": 211703,
+    "num_turns": 17,
+    "result": "Everything looks great. Here's a full walk-through of what was written across three files:\n\n---\n\n## Files created / updated\n\n```\n/tmp/charm/\n\u251c\u2500\u2500 charmcraft.yaml                  \u2190 updated\n\u251c\u2500\u2500 src/\n\u2502   \u2514\u2500\u2500 charm.py                    \u2190 updated (core handler)\n\u2514\u2500\u2500 tests/\n    \u2514\u2500\u2500 unit/\n        \u2514\u2500\u2500 test_charm.py           \u2190 new (13 tests)\n```\n\n---\n\n## `src/charm.py` \u2014 design decisions\n\n### `_on_pebble_ready` (the primary handler)\n```\ncontainer = event.workload   # the ops.Container from the event\n```\nIt delegates to two private helpers so that `config_changed` and `relation_changed` can reuse the exact same reconciliation path without duplication.\n\n### Guard: `_is_ready(container) \u2192 bool`\nThree ordered checks \u2014 any failure sets the right status and returns `False`:\n\n| Condition | Status set |\n|---|---|\n| `container.can_connect()` fails | `WaitingStatus(\"Waiting for Pebble to be ready\")` |\n| `workload-command` config is empty | `BlockedStatus(\"Required config 'workload-command' is not set\")` |\n| Database relation missing/incomplete | `WaitingStatus(\"Waiting for database relation data\")` |\n\n### Relation data: `_database_env() \u2192 dict[str, str]`\nReads `host`, `port`, `dbname`, `user`, `password` from the remote unit's relation data and returns them as:\n\n| Env var | Source |\n|---|---|\n| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | individual keys |\n| `DATABASE_URL` | composed PostgreSQL DSN |\n\nReturns `{}` (falsy) when the relation is absent or credentials are incomplete \u2014 so `_is_ready` can use it as a truthiness check.\n\n### Layer builder: `_build_pebble_layer() \u2192 LayerDict`\nAssembles the full Pebble plan dict:\n- **Service** \u2013 `command` from config, `startup: enabled`, `environment` merged from static values + DB vars (`override: replace` so reruns are idempotent).\n- **Check** \u2013 `level: ready` HTTP GET on `http://localhost:<http-port><health-check-path>`, 30 s period, 5 s timeout, threshold of 3.\n\n### Configurator: `_configure_workload(container)`\n1. Sets `MaintenanceStatus` while working.  \n2. Calls `container.add_layer(..., combine=True)` \u2014 layers are merged, not replaced, preserving any layers from subordinate charms.  \n3. Calls `container.replan()` \u2014 starts the service on first run, restarts it only if the plan changed, no-ops otherwise.  \n4. Calls `_set_status_from_health()` to surface check results.\n\n### Status from health: `_set_status_from_health(container)`\nQueries `container.get_checks(level=READY)` and checks for `CheckStatus.DOWN`. Sets `ActiveStatus` with a descriptive message listing any failing check names. Falls back gracefully to plain `ActiveStatus` when the checks API is unavailable (older Pebble builds).",
+    "stop_reason": "end_turn",
+    "session_id": "0b77d2fe-6d29-44d3-91eb-933a58b19362",
+    "total_cost_usd": 0.37456305,
+    "usage": {
+      "input_tokens": 16,
+      "cache_creation_input_tokens": 22899,
+      "cache_read_input_tokens": 247496,
+      "output_tokens": 14293,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 22899,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 16,
+        "outputTokens": 14293,
+        "cacheReadInputTokens": 247496,
+        "cacheCreationInputTokens": 22899,
+        "webSearchRequests": 0,
+        "costUSD": 0.37456305,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1001191b-6199-4ab9-ac7f-ae32bdf33fc1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:37:54+1300"
+}
