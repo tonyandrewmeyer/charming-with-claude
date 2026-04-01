@@ -66,7 +66,7 @@ To develop a charm:
 1. Research the workload. Does it suit a machine charm or a Kubernetes charm? What configuration should the charm set with suitable defaults, and what should it make available to Juju users? What actions make sense for the charm? What other charms should the charm work with (ingress, databases, and so on). Make sure you have read the Juju, Pebble, and Ops documentation mentioned above.
 2. Run `charmcraft init --profile=machine --force` or `charmcraft init --profile=kubernetes --force`. This will scaffold the local directory with the files needed for the charm.
 
-At this point, you should plan for charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
+At this point, you should plan the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
 
 Continuing:
 
