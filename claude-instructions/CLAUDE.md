@@ -40,7 +40,7 @@ Charms have three forms of tests:
 
 * State transition tests, which we refer to as unit tests. These use [ops.testing](https://documentation.ubuntu.com/ops/latest/reference/ops-testing.html). Each test prepares by creating a `testing.Context` object and a `testing.State` object that describes the Juju state when the event is run, then acts by using `ctx.run` to run an event, then asserts on the output state, which is returned by `ctx.run`.
 * Functional tests (machine charms only). These validate the workload interaction code using the real workload but without using Juju.
-* Integration tests, which use a real Juju controller. Snap install `concierge` and run `concierge prepare -p dev` to set up a development environment, and use [Jubilant](https://documentation.ubuntu.com/jubilant/reference/jubilant/) to run Juju CLI commands to validate the expected behaviour.
+* Integration tests, which use a real Juju controller. Snap install `concierge` and run `sudo concierge prepare -p dev` to set up a development environment, and use [Jubilant](https://documentation.ubuntu.com/jubilant/reference/jubilant/) to run Juju CLI commands to validate the expected behaviour.
 
 The focus of the tests is ensuring that the *charm* behaves as expected. It is *not* testing the functionality of the workload itself, other than validating that the charm has configured it correctly.
 
