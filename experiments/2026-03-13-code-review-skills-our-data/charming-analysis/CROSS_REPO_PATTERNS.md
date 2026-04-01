@@ -580,7 +580,7 @@ grep -rn "CONNECT_URI" --include="*.py"
 
 ---
 
-### 2.11. Missing f-string Prefix
+### 2.11. Missing String Interpolation
 
 **Description:** Strings containing `{variable}` interpolation braces that lack the `f` prefix, causing literal `{variable_name}` to appear in output instead of the variable's value.
 
@@ -598,6 +598,16 @@ jaas_config = 'oauth.config.id="{listener.name}"'
 **After (fixed):**
 ```python
 jaas_config = f'oauth.config.id="{listener.name}"'
+```
+
+**Important:** When the missing interpolation is in a `logger.*()` call, the correct fix is %-style formatting with separate arguments, **not** adding an `f` prefix. Logging should never use f-strings because it defeats lazy evaluation and prevents log aggregation tools from grouping equivalent messages.
+
+```python
+# Wrong fix:
+logger.info(f"Invalid proxy hostname: {proxy_host}")
+
+# Correct fix:
+logger.info("Invalid proxy hostname: %s", proxy_host)
 ```
 
 **What to search for:**
@@ -941,11 +951,11 @@ Teams with lower adoption (K8s at 35%, Commercial Systems at 62%) use freeform m
 - **False positive:** When the value genuinely cannot be 0, empty, or False
 - **Fix:** `if self.config['port'] is not None:`
 
-#### AP-002: Missing f-string Prefix
+#### AP-002: Missing String Interpolation
 - **Search:** `grep -Prn "(?<!')'{[a-z_]+\." --include="*.py" | grep -v "f'" | grep -v '"""'`
 - **Bug:** `'value={self.name}'` produces literal `{self.name}` in output
 - **False positive:** Regex patterns, format strings used with `.format()`
-- **Fix:** Add `f` prefix: `f'value={self.name}'`
+- **Fix:** For `logger.*()` calls, use %-style args: `logger.info("value=%s", self.name)` (never add `f` prefix to logger calls). For other strings, add `f` prefix: `f'value={self.name}'`
 
 #### AP-003: Boolean from Environment Variable
 - **Search:** `grep -rn "bool(os\.getenv" --include="*.py"`
@@ -1210,6 +1220,12 @@ Teams with lower adoption (K8s at 35%, Commercial Systems at 62%) use freeform m
 - **Bug:** Modifying dict while iterating causes RuntimeError
 - **False positive:** When iterating over a copy
 - **Fix:** Iterate over `.items()` or a copy of the keys
+
+#### AP-065: Quoted Integer Arguments in Shell Commands
+- **Search:** `grep -rn 'revision=\\"' --include="*.py"` or similar patterns with quoted numeric CLI args
+- **Bug:** Spurious quotes around integer values in shell command strings, e.g., `f'snap refresh pkg --revision="{rev}"'`
+- **False positive:** When the command is passed through a shell (`bash -c`, `/bin/sh -c`), the shell strips the quotes, so a quoted plain integer is harmless at runtime. Not a false positive per se — it is still wrong to have the quotes, and would be dangerous if the value could be an arbitrary string subject to shell expansion — but the practical impact for integer snap revisions passed through bash is nil.
+- **Fix:** Remove the spurious quotes: `f'snap refresh pkg --revision={rev}'`. Better still, avoid the shell entirely: `subprocess.run(["snap", "refresh", pkg, f"--revision={rev}"])`
 
 ---
 

@@ -25,11 +25,11 @@ Concrete grep patterns to find bugs in charm code. For each pattern: what to sea
 - **False positive:** When the value genuinely cannot be 0, empty, or False (e.g., required name field)
 - **Fix:** `if self.config['port'] is not None:`
 
-### AP-002: Missing f-string prefix
+### AP-002: Missing string interpolation
 - **Search:** Look for strings containing `{self.` or `{event.` or `{model.` without `f` prefix
 - **Bug:** `'value={self.name}'` produces literal text
 - **False positive:** Regex patterns, `.format()` strings, log format strings with `%s`
-- **Fix:** Add `f` prefix: `f'value={self.name}'`
+- **Fix:** For `logger.*()` calls, use %-style args: `logger.info("value=%s", self.name)` (never add `f` prefix to logger calls — it defeats lazy evaluation and log aggregation). For other strings, add `f` prefix: `f'value={self.name}'`
 
 ### AP-003: Boolean from environment variable
 - **Search:** `bool(os.getenv` or `bool(os.environ`
@@ -419,6 +419,13 @@ Concrete grep patterns to find bugs in charm code. For each pattern: what to sea
 - **Bug:** `container.exec(["rm", "-f", "dir/*.yaml"])` passes `*` as a literal character because Pebble's exec does not invoke a shell. No files match the literal filename `dir/*.yaml`, so nothing is deleted.
 - **False positive:** When the `*` is part of a fixed filename, not a glob
 - **Fix:** Use shell: `container.exec(["/bin/sh", "-c", "rm -f dir/*.yaml"])` or use `container.list_files()` + `container.remove_path()`
+
+### AP-065: Quoted integer arguments in shell commands
+- **Search:** `subprocess.run(["bash", "-c",` or `container.exec(["/bin/sh", "-c",` with quoted integers like `--revision="{var}"`
+- **Bug:** Spurious quotes around integer values in shell command strings (e.g., `f'snap refresh pkg --revision="{rev}"'`)
+- **False positive:** When the command is passed through a shell (`bash -c`, `/bin/sh -c`), the shell strips the quotes, so a quoted plain integer is harmless at runtime. Also safe when the value is guaranteed to be an integer.
+- **Severity:** Low — technically wrong and would be dangerous if the value could contain shell metacharacters, but harmless for integer snap revisions passed through bash. Worth cleanup but not a runtime bug.
+- **Fix:** Remove the spurious quotes: `f'snap refresh pkg --revision={rev}'`. Better still, avoid the shell entirely: `subprocess.run(["snap", "refresh", pkg, f"--revision={rev}"])`
 
 ### AP-062: DeepDiff `is not None` instead of truthiness
 - **Search:** `DeepDiff(` followed by `is not None`
