@@ -51,9 +51,7 @@ juju-doctor operates on three types of Juju artifacts:
 **Scriptlet probes** (Python): Functions named after artifact types that receive data indexed by model name.
 
 ```python
-from typing import Dict
-
-def status(juju_statuses: Dict[str, Dict]):
+def status(juju_statuses: dict[str, dict]):
     """Validate that all units are active/idle."""
     for model_name, status_data in juju_statuses.items():
         apps = status_data.get("applications", {})
