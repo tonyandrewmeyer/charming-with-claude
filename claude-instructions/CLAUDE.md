@@ -110,4 +110,4 @@ For example, to deploy the charm: `juju deploy ./{charm-name}.charm`, to scale u
 * Imports go at the top of modules, never inside of classes or methods.
 * Always use British English for comments and documentation, not American English. If possible, rephrase to avoid using words that are spelt differently in American English.
 
-If you need to run `apt` or `snap` or manage `system`, then you should the charm libraries from [charmlibs](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/).
+If you need to run `apt` or `snap` or manage `system`, then you should use the charm libraries from [charmlibs](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/).
