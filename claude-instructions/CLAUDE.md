@@ -57,7 +57,7 @@ GitHub workflows should be created for:
 
 A pre-commit configuration should be added that has the standard pre-commit checks and also `ruff check` and `ruff format check`. Dependabot should be configured to open PRs for security updates.
 
-All tool usage, whether in GitHub actions, pre-commit, or tox, should be pinned to the same versions (locked to a hash in the lock file) identified in `pyproject.toml`.
+All tool usage, whether in GitHub actions, pre-commit, or tox, should use the tool versions declared in `pyproject.toml` and locked (including hashes) in the lock file (for example `uv.lock`), and these environments should install from the lock file to guarantee consistent tool versions everywhere.
 
 ## Process
 
