@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before working on tasks, check for relevant skills in `.claude/skills/`. Available skills:
 - `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
 - `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
-- `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+- `migrate-to-jubilant` - `.claude/skills/migrate-to-jubilant/SKILL.md` - tools for migrating charm integration tests from pytest-operator and python-libjuju, or from pytest-jubilant 1.x, to pytest-jubilant 2.0 and Jubilant
+- `jhack` — `.claude/skills/jhack/SKILL.md` — diagnostic tools for charming
 - `juju-doctor` — `.claude/skills/juju-doctor/SKILL.md` — validate deployments with probes
 - `go-standards` — `.claude/skills/go-standards/SKILL.md` — Canonical Go coding standards
 - `cli-standards` — `.claude/skills/cli-standards/SKILL.md` — Canonical CLI design standards
