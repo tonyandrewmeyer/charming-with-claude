@@ -196,7 +196,6 @@ Ignore: `*.charm`, `__pycache__/`, `.tox/`, `venv/`, `.claude/settings.local.jso
 
 ## Common Patterns
 
-### Multi-Base Builds
 
 Pack for specific base: `charmcraft pack --bases-index=0`
 
