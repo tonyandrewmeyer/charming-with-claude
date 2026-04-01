@@ -5,6 +5,9 @@ description: >
   Handles migration from pytest-operator (python-libjuju) or from
   pytest-jubilant 1.x. Covers async removal, fixture replacement,
   API translation, dependency updates, and verification.
+  license: Apache-2.0
+  compatibility: any version of pytest-operator, or v1.x of pytest-jubilant
+  allowed-tools: Read
 ---
 
 # Migrate Integration Tests to Jubilant + pytest-jubilant 2.0
