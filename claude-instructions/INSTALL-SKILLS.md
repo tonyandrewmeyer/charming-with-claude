@@ -1,12 +1,30 @@
 # Installing the Charming Skills
 
-Quick guide to installing and using the charmcraft or jhack skills with Claude. The examples use the `charmcraft` skill - simply replace that with `jhack` for the jhack skill.
+Quick guide to installing and using the skills from this repository with Claude. The examples use the `charmcraft` skill — simply replace that with any other skill name (e.g. `jhack`, `concierge`, `juju-doctor`).
 
 ## For Claude Code
 
-### Method 1: Personal Skills (Recommended)
+### Method 1: npx skills (Recommended)
 
-Install globally for all your projects:
+Use the [`npx skills`](https://github.com/vercel-labs/skills) tool to discover and install skills directly from this repository:
+
+```bash
+# Install all skills interactively
+npx skills add tonyandrewmeyer/charming-with-claude
+
+# Install a specific skill non-interactively
+npx skills add tonyandrewmeyer/charming-with-claude --skill charmcraft -a claude-code -y
+
+# Install globally (available in all projects)
+npx skills add tonyandrewmeyer/charming-with-claude --skill charmcraft -g
+
+# List available skills in this repository
+npx skills list tonyandrewmeyer/charming-with-claude
+```
+
+### Method 2: Personal Skills
+
+Install globally for all your projects by copying:
 
 ```bash
 # Copy to personal skills directory
@@ -19,7 +37,7 @@ ls -la ~/.claude/skills/charmcraft/
 
 The skill will now be available in all Claude Code sessions.
 
-### Method 2: Project-Specific
+### Method 3: Project-Specific
 
 Install for a specific project only:
 
@@ -39,7 +57,7 @@ ls -la .claude/skills/charmcraft/
 
 The skill will only be available when working in this project directory.
 
-### Method 3: Symlink (For Development)
+### Method 4: Symlink (For Development)
 
 If you're actively developing the skill:
 

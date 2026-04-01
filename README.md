@@ -25,6 +25,7 @@ The goal is not to produce production-ready charms, but to evaluate and enhance 
 
 ```
 charming-with-claude/
+├── skills/                    # Symlink to claude-instructions/.claude/skills/
 ├── claude-instructions/       # Reusable Claude Code configuration
 │   ├── CLAUDE.md              # Template guidance for charm projects
 │   ├── README.md              # Guidance for using the Claude configuration
