@@ -362,8 +362,11 @@ Rather than raising on the first failure, collect all errors and report them tog
 def status(juju_statuses: dict[str, dict]):
     errors = []
     for model, data in juju_statuses.items():
-        # ... validation logic ...
-        if problem:
+        # Example validation logic: ensure each model has at least one application
+        applications = data.get("applications", {})
+        if not applications:
+            context = f"model {model}"
+            description = "no applications found in juju status"
             errors.append(f"{context}: {description}")
     if errors:
         raise Exception(f"Found {len(errors)} issues:\n" + "\n".join(errors))
