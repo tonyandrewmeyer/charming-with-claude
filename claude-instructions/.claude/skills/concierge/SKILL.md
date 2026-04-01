@@ -375,8 +375,8 @@ concierge prepare --help
 concierge --version
 
 # Logging
-concierge prepare -p dev -v        # Verbose
-concierge prepare -p dev --trace   # Trace (very detailed)
+sudo concierge prepare -p dev -v        # Verbose
+sudo concierge prepare -p dev --trace   # Trace (very detailed)
 
 # Dry run
 sudo concierge prepare -p dev --dry-run
