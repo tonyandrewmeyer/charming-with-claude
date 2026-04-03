@@ -1,0 +1,45 @@
+diff --git a/src/charm.py b/src/charm.py
+index ae92826..639b5b1 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -13,6 +13,7 @@ from types import SimpleNamespace
+ from typing import List, Optional, Tuple, cast
+ from urllib.parse import urlparse
+ 
++import ops
+ import yaml
+ from charms.alertmanager_k8s.v0.alertmanager_remote_configuration import (
+     RemoteConfigurationRequirer,
+@@ -43,7 +44,6 @@ from ops.model import (
+     ActiveStatus,
+     BlockedStatus,
+     MaintenanceStatus,
+-    OpenedPort,
+     Relation,
+     WaitingStatus,
+ )
+@@ -266,20 +266,10 @@ class AlertmanagerCharm(CharmBase):
+ 
+     def set_ports(self):
+         """Open necessary (and close no longer needed) workload ports."""
+-        planned_ports = {
+-            OpenedPort("tcp", self._ports.api),
+-            OpenedPort("tcp", self._ports.ha),
+-        }
+-        actual_ports = self.unit.opened_ports()
+-
+-        # Ports may change across an upgrade, so need to sync
+-        ports_to_close = actual_ports.difference(planned_ports)
+-        for p in ports_to_close:
+-            self.unit.close_port(p.protocol, p.port)
+-
+-        new_ports_to_open = planned_ports.difference(actual_ports)
+-        for p in new_ports_to_open:
+-            self.unit.open_port(p.protocol, p.port)
++        self.unit.set_ports(
++            ops.Port("tcp", self._ports.api),
++            ops.Port("tcp", self._ports.ha),
++        )
+ 
+     @property
+     def _catalogue_item(self) -> CatalogueItem:

@@ -1,0 +1,71 @@
+diff --git a/src/charm.py b/src/charm.py
+index 1831c69..0354883 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -25,7 +25,15 @@ from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+ from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
+ from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from ops.charm import ActionEvent, CharmBase, HookEvent, PebbleReadyEvent, UpgradeCharmEvent
++from ops.charm import (
++    ActionEvent,
++    CharmBase,
++    HookEvent,
++    PebbleCheckFailedEvent,
++    PebbleCheckRecoveredEvent,
++    PebbleReadyEvent,
++    UpgradeCharmEvent,
++)
+ from ops.framework import EventBase
+ from ops.main import main
+ from ops.model import ActiveStatus, RelationDataContent, WaitingStatus
+@@ -35,6 +43,7 @@ from yaml import safe_load
+ import exceptions
+ import types_
+ from cos import (
++    _APACHE_EXPORTER_PEBBLE_CHECK,
+     _APACHE_EXPORTER_PEBBLE_SERVICE,
+     APACHE_LOG_PATHS,
+     PROM_EXPORTER_PEBBLE_CONFIG,
+@@ -58,6 +67,7 @@ class WordpressCharm(CharmBase):
+     _PHP_INI_PATH = "/etc/php/8.3/apache2/php.ini"
+     _CONTAINER_NAME = "wordpress"
+     _SERVICE_NAME = "wordpress"
++    _WORDPRESS_READY_CHECK_NAME = "wordpress-ready"
+     _WORDPRESS_USER = "_daemon_"
+     _WORDPRESS_GROUP = "_daemon_"
+     _WORDPRESS_DB_CHARSET = "utf8mb4"
+@@ -193,6 +203,24 @@ class WordpressCharm(CharmBase):
+         self.framework.observe(self.on.wordpress_pebble_ready, self._set_version)
+         self.framework.observe(self.on.wordpress_pebble_ready, self._reconciliation)
+         self.framework.observe(self.on["wordpress-replica"].relation_changed, self._reconciliation)
++        self.framework.observe(self.on.wordpress_pebble_check_failed, self._on_pebble_check_failed)
++        self.framework.observe(
++            self.on.wordpress_pebble_check_recovered, self._on_pebble_check_recovered
++        )
++
++    def _on_pebble_check_failed(self, event: PebbleCheckFailedEvent) -> None:
++        """Handle pebble check failed events."""
++        if event.info.name == self._WORDPRESS_READY_CHECK_NAME:
++            logger.warning("WordPress is not ready")
++        elif event.info.name == _APACHE_EXPORTER_PEBBLE_CHECK.name:
++            logger.warning("Apache exporter is not running")
++
++    def _on_pebble_check_recovered(self, event: PebbleCheckRecoveredEvent) -> None:
++        """Handle pebble check recovered events."""
++        if event.info.name == self._WORDPRESS_READY_CHECK_NAME:
++            logger.info("WordPress is ready")
++        elif event.info.name == _APACHE_EXPORTER_PEBBLE_CHECK.name:
++            logger.info("Apache exporter is running again")
+ 
+     def _set_version(self, _: PebbleReadyEvent) -> None:
+         """Set WordPress application version to Juju charm's app version status."""
+@@ -765,7 +793,7 @@ class WordpressCharm(CharmBase):
+                 }
+             },
+             "checks": {
+-                "wordpress-ready": {
++                self._WORDPRESS_READY_CHECK_NAME: {
+                     "override": "replace",
+                     "level": "alive",
+                     "http": {"url": "http://localhost"},

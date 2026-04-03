@@ -1,0 +1,67 @@
+diff --git a/src/charm.py b/src/charm.py
+index 2913b42..efa3910 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -21,7 +21,14 @@ from charms.nginx_ingress_integrator.v0.nginx_route import (
+     require_nginx_route,
+ )
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from ops.charm import ActionEvent, CharmBase, ConfigChangedEvent, UpgradeCharmEvent
++from ops.charm import (
++    ActionEvent,
++    CharmBase,
++    ConfigChangedEvent,
++    PebbleCheckFailedEvent,
++    PebbleCheckRecoveredEvent,
++    UpgradeCharmEvent,
++)
+ from ops.main import main
+ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+ from tabulate import tabulate  # type: ignore[import-untyped]
+@@ -36,6 +43,8 @@ EXPORTER_CONTAINER_NAME = "nginx-prometheus-exporter"
+ CONTAINER_PORT = 8080
+ REQUIRED_JUJU_CONFIGS = ["backend"]
+ REQUIRED_INGRESS_RELATION_FIELDS = {"service-hostname", "service-name", "service-port"}
++CONTENT_CACHE_CHECK_NAME = CONTAINER_NAME
++NGINX_EXPORTER_CHECK_NAME = "nginx-exporter-up"
+ 
+ 
+ class ContentCacheCharm(CharmBase):
+@@ -73,6 +82,12 @@ class ContentCacheCharm(CharmBase):
+         self.framework.observe(
+             self.on.content_cache_pebble_ready, self._on_content_cache_pebble_ready
+         )
++        self.framework.observe(
++            self.on.content_cache_pebble_check_failed, self._on_pebble_check_failed
++        )
++        self.framework.observe(
++            self.on.content_cache_pebble_check_recovered, self._on_pebble_check_recovered
++        )
+         # Provide ability for Content-cache to be scraped by Prometheus using prometheus_scrape
+         self._metrics_endpoint = MetricsEndpointProvider(
+             self, jobs=[{"static_configs": [{"targets": ["*:9113"]}]}]
+@@ -211,6 +226,24 @@ class ContentCacheCharm(CharmBase):
+         self.model.unit.status = MaintenanceStatus(msg)
+         self.configure_workload_container(event)
+ 
++    def _on_pebble_check_failed(self, event: PebbleCheckFailedEvent) -> None:
++        """Handle pebble check failure events for all containers.
++
++        Args:
++            event: pebble-check-failed event.
++        """
++        if event.info.name in (CONTENT_CACHE_CHECK_NAME, NGINX_EXPORTER_CHECK_NAME):
++            logger.warning("Pebble check %r failed", event.info.name)
++
++    def _on_pebble_check_recovered(self, event: PebbleCheckRecoveredEvent) -> None:
++        """Handle pebble check recovery events for all containers.
++
++        Args:
++            event: pebble-check-recovered event.
++        """
++        if event.info.name in (CONTENT_CACHE_CHECK_NAME, NGINX_EXPORTER_CHECK_NAME):
++            logger.info("Pebble check %r recovered", event.info.name)
++
+     def configure_workload_container(self, event: ConfigChangedEvent | UpgradeCharmEvent) -> None:
+         """Configure/set up workload container inside pod.
+ 

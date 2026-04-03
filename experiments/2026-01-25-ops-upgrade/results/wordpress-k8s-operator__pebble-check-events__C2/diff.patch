@@ -1,0 +1,156 @@
+diff --git a/src/charm.py b/src/charm.py
+index 1831c69..6542e37 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -25,10 +25,18 @@ from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+ from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
+ from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from ops.charm import ActionEvent, CharmBase, HookEvent, PebbleReadyEvent, UpgradeCharmEvent
++from ops.charm import (
++    ActionEvent,
++    CharmBase,
++    HookEvent,
++    PebbleCheckFailedEvent,
++    PebbleCheckRecoveredEvent,
++    PebbleReadyEvent,
++    UpgradeCharmEvent,
++)
+ from ops.framework import EventBase
+ from ops.main import main
+-from ops.model import ActiveStatus, RelationDataContent, WaitingStatus
++from ops.model import ActiveStatus, MaintenanceStatus, RelationDataContent, WaitingStatus
+ from ops.pebble import ExecProcess
+ from yaml import safe_load
+ 
+@@ -193,6 +201,12 @@ class WordpressCharm(CharmBase):
+         self.framework.observe(self.on.wordpress_pebble_ready, self._set_version)
+         self.framework.observe(self.on.wordpress_pebble_ready, self._reconciliation)
+         self.framework.observe(self.on["wordpress-replica"].relation_changed, self._reconciliation)
++        self.framework.observe(
++            self.on.wordpress_pebble_check_failed, self._on_wordpress_pebble_check_failed
++        )
++        self.framework.observe(
++            self.on.wordpress_pebble_check_recovered, self._on_wordpress_pebble_check_recovered
++        )
+ 
+     def _set_version(self, _: PebbleReadyEvent) -> None:
+         """Set WordPress application version to Juju charm's app version status."""
+@@ -1543,6 +1557,30 @@ class WordpressCharm(CharmBase):
+             ]
+         ).wait()
+ 
++    def _on_wordpress_pebble_check_failed(self, event: PebbleCheckFailedEvent) -> None:
++        """Handle Pebble check failure events for the wordpress container.
++
++        Args:
++            event: The PebbleCheckFailedEvent fired when a check exceeds its failure threshold.
++        """
++        if event.info.name == "wordpress-ready":
++            logger.warning("WordPress health check failed, Pebble will attempt to restart")
++            self.unit.status = MaintenanceStatus("WordPress health check failed")
++        elif event.info.name == "apache-exporter-up":
++            logger.warning("Apache exporter health check failed: metrics may be unavailable")
++
++    def _on_wordpress_pebble_check_recovered(self, event: PebbleCheckRecoveredEvent) -> None:
++        """Handle Pebble check recovery events for the wordpress container.
++
++        Args:
++            event: The PebbleCheckRecoveredEvent fired when a previously-failed check recovers.
++        """
++        if event.info.name == "wordpress-ready":
++            logger.info("WordPress health check recovered")
++            self.unit.status = ActiveStatus()
++        elif event.info.name == "apache-exporter-up":
++            logger.info("Apache exporter health check recovered: metrics are available again")
++
+     def _reconciliation(self, _event: EventBase) -> None:
+         """Reconcile the WordPress charm on juju event.
+ 
+diff --git a/tests/unit/test_charm.py b/tests/unit/test_charm.py
+index c610019..abb3bb9 100644
+--- a/tests/unit/test_charm.py
++++ b/tests/unit/test_charm.py
+@@ -1113,3 +1113,82 @@ def test_php_ini(
+         max_input_time = -1
+         """
+     )
++
++
++def test_pebble_check_failed_wordpress_ready(
++    harness: ops.testing.Harness,
++    setup_replica_consensus: typing.Callable[[], dict],
++):
++    """
++    arrange: after WordPress charm is set up and active.
++    act: fire a pebble-check-failed event for the wordpress-ready check.
++    assert: unit status should transition to MaintenanceStatus.
++    """
++    harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
++    setup_replica_consensus()
++    container = harness.model.unit.get_container("wordpress")
++    harness.charm.on.wordpress_pebble_check_failed.emit(container, "wordpress-ready")
++    assert isinstance(harness.model.unit.status, ops.MaintenanceStatus), (
++        "unit should be in MaintenanceStatus when the wordpress-ready check fails"
++    )
++    assert "health check" in harness.model.unit.status.message.lower(), (
++        "status message should mention the health check failure"
++    )
++
++
++def test_pebble_check_recovered_wordpress_ready(
++    harness: ops.testing.Harness,
++    setup_replica_consensus: typing.Callable[[], dict],
++):
++    """
++    arrange: after the wordpress-ready check has failed and the unit is in MaintenanceStatus.
++    act: fire a pebble-check-recovered event for the wordpress-ready check.
++    assert: unit status should transition back to ActiveStatus.
++    """
++    harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
++    setup_replica_consensus()
++    container = harness.model.unit.get_container("wordpress")
++    harness.charm.on.wordpress_pebble_check_failed.emit(container, "wordpress-ready")
++    assert isinstance(harness.model.unit.status, ops.MaintenanceStatus)
++    harness.charm.on.wordpress_pebble_check_recovered.emit(container, "wordpress-ready")
++    assert isinstance(harness.model.unit.status, ops.ActiveStatus), (
++        "unit should return to ActiveStatus after wordpress-ready check recovers"
++    )
++
++
++def test_pebble_check_failed_apache_exporter(
++    harness: ops.testing.Harness,
++    setup_replica_consensus: typing.Callable[[], dict],
++):
++    """
++    arrange: after WordPress charm is set up and active.
++    act: fire a pebble-check-failed event for the apache-exporter-up check.
++    assert: unit status should remain ActiveStatus (exporter failure is non-critical).
++    """
++    harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
++    setup_replica_consensus()
++    container = harness.model.unit.get_container("wordpress")
++    status_before = harness.model.unit.status
++    harness.charm.on.wordpress_pebble_check_failed.emit(container, "apache-exporter-up")
++    assert harness.model.unit.status == status_before, (
++        "unit status should not change when the apache-exporter-up check fails"
++    )
++
++
++def test_pebble_check_recovered_apache_exporter(
++    harness: ops.testing.Harness,
++    setup_replica_consensus: typing.Callable[[], dict],
++):
++    """
++    arrange: after WordPress charm is set up and active.
++    act: fire a pebble-check-recovered event for the apache-exporter-up check.
++    assert: unit status should remain ActiveStatus (exporter recovery is informational only).
++    """
++    harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
++    setup_replica_consensus()
++    container = harness.model.unit.get_container("wordpress")
++    status_before = harness.model.unit.status
++    harness.charm.on.wordpress_pebble_check_recovered.emit(container, "apache-exporter-up")
++    assert harness.model.unit.status == status_before, (
++        "unit status should not change when the apache-exporter-up check recovers"
++    )

@@ -1,0 +1,62 @@
+● Search (grep)
+  │ "open_port|close_port|opened_ports|set_ports" (src)
+  └ 5 lines found
+
+● Read charm.py
+  │ src/charm.py
+  └ L640:670 (29 lines read)
+
+● Search (grep)
+  │ "import ops" (src)
+  └ 3 lines found
+
+● Read charm.py
+  │ src/charm.py
+  └ L1:100 (100 lines read)
+
+Now I have a clear picture. The `_set_ports` method manually diffs planned vs actual ports and calls `open_port`/`close_port`. I'll replace it with `self.unit.set_ports()`.
+
+● Edit charm.py +4 -11
+  └ src/charm.py
+
+Now let me verify the change and run the tests:
+
+● Read charm.py
+  │ src/charm.py
+  └ L648:668 (14 lines read)
+
+● Run lint checks (shell)
+  │ cd /tmp/ops-upgrade-experiment/grafana-k8s-operator__set-ports__C1pf && tox -e lint 2>&1 | tail
+  │ -20
+  └ 21 lines...
+
+● Run unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/grafana-k8s-operator__set-ports__C1pf && tox -e unit 2>&1 | tail
+  │ -30
+  └ 31 lines...
+
+All 122 tests pass. Now let me commit the change:
+
+● Commit the change (shell)
+  │ cd /tmp/ops-upgrade-experiment/grafana-k8s-operator__set-ports__C1pf && git --no-pager diff &&
+  │ git add src/charm.py && git commit -m "refactor: use set_ports() instead of manual open/close
+  │ port diff
+  │
+  │ Replace the manual port diffing logic in _set_ports() with a single…
+  └ 33 lines...
+
+Done. Replaced the manual port-diff logic in `_set_ports()` with the declarative `unit.set_ports()` API:
+
+- **Leader**: `self.unit.set_ports(Port("tcp", WORKLOAD_PORT))` 
+- **Non-leader**: `self.unit.set_ports()` (closes all)
+
+This removes 11 lines of manual diffing, and lint + all 122 unit tests pass.
+
+
+Total usage est:        1 Premium request
+API time spent:         56s
+Total session time:     1m 50s
+Total code changes:     +4 -11
+Breakdown by AI model:
+ claude-sonnet-4.6        207.3k in, 1.9k out, 189.3k cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/grafana-k8s-operator__set-ports__C1pf/transcript.md

@@ -1,0 +1,96 @@
+● Explore Explore current charm port handling
+  │ View all imports at top of charm.py (shell)
+  │   │ grep -n "import\|from"
+  │   │ /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3/src/charm.py | head -50
+  │   └ 35 lines...
+  └ Read charm.py
+      │ src/charm.py
+      └ L42:50 (9 lines read)
+
+● Explore Explore minio-operator set_ports usage
+  │ View configuration schema (shell)
+  │   │ cd /tmp/minio-operator-repo && cat config.yaml
+  │   └ 45 lines...
+  └ Get exact line number of set_ports (shell)
+      │ cd /tmp/minio-operator-repo && grep -n "set_ports" src/charm.py
+      └ 2 lines...
+
+Now I have a clear picture. Let me look at the relevant sections of `charm.py` to make the targeted changes.
+
+● Search (grep)
+  │ "OpenedPort" (src)
+  └ 3 lines found
+
+● View key sections of charm.py (shell)
+  │ sed -n '1,50p'
+  │ /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3/src/charm.py && echo
+  │ "---" && sed -n '85,100p'
+  │ /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3/src/charm.py && echo
+  │ "---" && sed -n '155,165p' …
+  └ 115 lines...
+
+Now I'll make the changes: replace the custom port diff logic with `self.unit.set_ports()`, and clean up the `OpenedPort` import.
+
+● Edit charm.py -1
+  └ src/charm.py
+
+● Edit charm.py +1 -1
+  └ src/charm.py
+
+● Edit charm.py -17
+  └ src/charm.py
+
+Now let's verify the changes look correct and run the tests:
+
+● Verify port-related code after changes (shell)
+  │ grep -n "open_port\|close_port\|opened_ports\|OpenedPort\|set_ports"
+  │ /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3/src/charm.py
+  └ 2 lines...
+
+Clean. Now let's run the tests to make sure nothing is broken:
+
+● Check existing port tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3 && grep -n
+  │ "open_port\|close_port\|opened_ports\|set_ports\|OpenedPort" tests/unit/test_charm.py
+  │ 2>/dev/null | head -40
+  └ 1 line...
+
+● Check tests for port-related code (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3 && grep -rn
+  │ "open_port\|close_port\|opened_ports\|set_ports\|OpenedPort" tests/ 2>/dev/null | head -40
+  └ 1 line...
+
+● Check tox config (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3 && cat tox.ini | head
+  │ -30
+  └ 31 lines...
+
+● Run linting and static checks (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3 && tox -e lint,static
+  │ 2>&1 | tail -30
+  └ 19 lines...
+
+● Run unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3 && tox -e unit 2>&1 |
+  │ tail -20
+  └ 21 lines...
+
+All 57 tests pass. Now commit the changes:
+
+● Commit the changes (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C3 && git --no-pager diff
+  │ && git add src/charm.py && git commit -m "Use Unit.set_ports() instead of
+  │ open_port()/close_port()
+  │
+  │ Replace the custom set_ports() method that manually tracked port diffs…
+  └ 53 lines...
+
+
+Total usage est:        1 Premium request
+API time spent:         3m 44s
+Total session time:     5m 21s
+Total code changes:     +1 -19
+Breakdown by AI model:
+ claude-sonnet-4.6        359.2k in, 4.1k out, 334.3k cached (Est. 1 Premium request)
+ claude-haiku-4.5         356.6k in, 5.9k out, 319.3k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/alertmanager-k8s-operator__set-ports__C3/transcript.md

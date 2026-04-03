@@ -1,0 +1,132 @@
+● Explore Exploring kratos pebble check events
+  └ Agent started in background with agent_id: explore-kratos-pebble-checks. You ...
+
+● Explore Exploring current charm structure
+  └ Agent started in background with agent_id: explore-current-charm. You can use...
+
+● Read (Explore agent — Exploring current charm structure)
+  └ Completed
+
+● Read (Explore agent — Exploring kratos pebble check events)
+  └ Completed
+
+I have everything I need. Let me look at the actual source files before making the changes.
+
+● Read charm.py
+  │ src/charm.py
+  └ 480 lines read
+
+Now I have a clear picture. I'll implement the pattern from kratos: add event imports, define check name constants, register observers for both containers, and implement log-based handlers.
+
+● Edit charm.py +8 -1
+  └ src/charm.py
+
+● Edit charm.py +2
+  └ src/charm.py
+
+Now register the observers in `__init__`:
+
+● Edit charm.py +13
+  └ src/charm.py
+
+Now add the handler methods after `_on_upgrade_charm`:
+
+✗ Edit charm.py
+  │ src/charm.py
+  └ No match found
+
+● Read charm.py
+  │ src/charm.py
+  └ L210:235 (25 lines read)
+
+● Edit charm.py +18
+  └ src/charm.py
+
+Now let's run the tests to verify nothing is broken:
+
+● Install dependencies (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && pip
+  │ install uv -q && uv sync -q 2>&1 | tail -5
+  └ 21 lines...
+
+● Check uv and sync deps (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && which uv
+  │ && uv sync -q 2>&1 | tail -5
+  └ 2 lines...
+
+● Run unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && uv run
+  │ pytest tests/unit/ -x -q 2>&1
+  └ 17 lines...
+
+● Check tox config (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && cat
+  │ tox.toml | head -40
+  └ 41 lines...
+
+● Run unit tests via tox (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && uv run tox
+  │ -e unit 2>&1 | tail -30
+  └ 31 lines...
+
+The errors are pre-existing (the `_NginxRouteCharmEvents` issue). Let me verify these same failures existed before my changes:
+
+● Check if tests fail on original code too (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && git stash
+  │ && uv run tox -e unit 2>&1 | tail -5 && git stash pop
+  └ 15 lines...
+
+The tests pass on original code but fail with my changes. The issue is with `_NginxRouteCharmEvents`. Let me investigate:
+
+● Check metadata.yaml containers (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && cat
+  │ metadata.yaml
+  └ 64 lines...
+
+● Inspect NginxRouteCharmEvents class (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && grep -n
+  │ "NginxRouteCharmEvents\|class.*Events\|PebbleCheck"
+  │ lib/charms/nginx_ingress_integrator/v0/nginx_route.py | head -30
+  └ 3 lines...
+
+The `nginx-prometheus-exporter` container isn't in `metadata.yaml` — it's a pebble layer/service running inside the `content-cache` container. Both checks fire `content_cache_pebble_check_*` events. I need to remove the non-existent exporter container event observers:
+
+● Edit charm.py -7
+  └ src/charm.py
+
+● Run unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && uv run tox
+  │ -e unit 2>&1 | tail -15
+  └ 16 lines...
+
+All 36 tests pass. Now let me also run the linter to ensure code style is clean:
+
+● Run linter (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && uv run tox
+  │ -e lint 2>&1 | tail -10
+  └ 11 lines...
+
+All clean. Let me commit the changes:
+
+● Review final diff (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && git
+  │ --no-pager diff src/charm.py
+  └ 67 lines...
+
+● Commit changes (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C3 && git add
+  │ src/charm.py && git commit -m "feat: handle pebble-check-failed and pebble-check-recovered
+  │ events
+  │
+  │ React to Pebble health check state changes using the ops 2.15.0…
+  └ 11 lines...
+
+
+Total usage est:        1 Premium request
+API time spent:         7m 13s
+Total session time:     6m 44s
+Total code changes:     +41 -8
+Breakdown by AI model:
+ claude-sonnet-4.6        811.0k in, 9.0k out, 723.2k cached (Est. 1 Premium request)
+ claude-haiku-4.5         277.2k in, 6.1k out, 238.7k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/content-cache-k8s-operator__pebble-check-events__C3/transcript.md

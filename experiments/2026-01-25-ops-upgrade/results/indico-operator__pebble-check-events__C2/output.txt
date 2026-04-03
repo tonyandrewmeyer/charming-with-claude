@@ -1,0 +1,245 @@
+● Explore Explore charm structure
+  │ Verify ops version in requirements (shell)
+  │   │ grep -E "ops|pebble"
+  │   │ /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/requirements.txt
+  │   └ 2 lines...
+  └ Show container definitions (shell)
+      │ grep -A 3 "containers:"
+      │ /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/metadata.yaml
+      └ 5 lines...
+
+● Check current ops version and charm structure (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2 && cat requirements.txt
+  │ && echo "---" && grep -n "ops" requirements.txt && echo "---" && head -50 src/charm.py && echo
+  │ "---" && grep -n "pebble\|check\|status\|ready" src/charm.py | head -60
+  └ 117 lines...
+
+✗ Web Search ops 2.15.0 pebble-check-failed pebble-check-recovered events charm implementation exam…
+  └ MCP server 'github-mcp-server': Error: Streamable HTTP error: Error POSTing to endpoint: [HTML
+    error page omitted]
+
+● Check ops version and pebble check events (shell)
+  │ pip show ops 2>/dev/null | head -5; pip install 'ops>=2.15.0,<3.0.0' -q 2>&1 | tail -5; python3
+  │ -c "import ops; print(ops.__version__)" 2>/dev/null; python3 -c "from ops import
+  │ PebbleCheckFailedEvent, PebbleCheckRecoveredEvent; print('Found events')" 2>/dev/null || echo
+  │ "Events not found in current install"
+  └ 13 lines...
+
+● Fetching web content https://ops.readthedocs.io/en/latest/reference/ops.html#ops.PebbleCheckFaile…
+  └ Contents of https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Pebbl...
+
+● Inspect pebble check event structure (shell)
+  │ python3 -c "
+  │ import ops
+  │ # See what attributes PebbleCheckFailedEvent has
+  │ e = ops.PebbleCheckFailedEvent
+  │ print(dir(e))…
+  └ 8 lines...
+
+● Get source of pebble check events (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Find PebbleCheckFailedEvent and PebbleCheckRecoveredEvent
+  │ print('PebbleCheckFailedEvent:', inspect.getsource(ops.PebbleCheckFailedEvent))…
+  └ 30 lines...
+
+● Inspect PebbleCheckEvent base class (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Look at the PebbleCheckEvent base class
+  │ print('PebbleCheckEvent:', inspect.getsource(ops.PebbleCheckEvent))…
+  └ 51 lines...
+
+● View LazyCheckInfo source (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Look at LazyCheckInfo
+  │ print(inspect.getsource(ops.model.LazyCheckInfo))…
+  └ 36 lines...
+
+● View CharmBase source with context (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Look at how check events are registered in CharmBase
+  │ src = inspect.getsource(ops.CharmBase)…
+  └ 105 lines...
+
+● Read charm.py
+  │ src/charm.py
+  └ L224:270 (47 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L80:170 (91 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L291:530 (240 lines read)
+
+Now let me look at the existing tests to understand the testing patterns:
+
+● List test files (shell)
+  │ ls /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/tests/unit/ 2>/dev/null;
+  │ echo "---"; ls
+  │ /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/tests/unit_harness/
+  │ 2>/dev/null
+  └ 5 lines...
+
+● Read unit test files (shell)
+  │ cat /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/tests/unit/conftest.py
+  │ && echo "===" && cat /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/tests/
+  │ unit/test_on_leader_elected.py
+  └ 69 lines...
+
+Now I have everything I need. Let me look at the imports in `charm.py` and the test patterns more closely:
+
+● Read charm.py
+  │ src/charm.py
+  └ L1:55 (53 lines read)
+
+● Check pebble CheckStatus enum (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Check pebble.CheckStatus
+  │ print(inspect.getsource(ops.pebble.CheckStatus))…
+  └ 8 lines...
+
+● Find pebble check event testing API (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Check the testing module for how to trigger pebble check events
+  │ src = inspect.getsource(ops.testing.Context.on.fget if hasattr(ops.testing.Context.on, 'fget')…
+  └ 15 lines...
+
+✗ Find ops testing file (shell)
+  │ python3 -c "
+  │ import ops.testing as t
+  │ import inspect
+  │ # Find what 'on' exposes
+  │ ctx = t.Context.__dict__…
+  └ Permission denied and could not request permission from user
+
+● Find pebble_check in testing.py (shell)
+  │ python3 -c "import ops.testing; print(ops.testing.__file__)" 2>/dev/null && python3 -c "
+  │ import ops.testing
+  │ f = ops.testing.__file__
+  │ import subprocess
+  │ result = subprocess.run(['grep', '-n', 'pebble_check', f], capture_output=True, text=True)…
+  └ 4 lines...
+
+✗ Find pebble check in testing.py (shell)
+  │ grep -n "pebble_check\|CheckFailed\|CheckRecovered\|check_name\|check_info"
+  │ /home/ubuntu/.local/lib/python3.12/site-packages/ops/testing.py 2>/dev/null | head -30
+  └ Permission denied and could not request permission from user
+
+● Search testing source for pebble check API (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ import inspect
+  │
+  │ src = inspect.getsource(ops.testing)…
+  └ 11 lines...
+
+● Search for check mentions in testing (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ import inspect
+  │
+  │ # Look at _Event class and _CharmEvents…
+  └ 10 lines...
+
+● Find pebble event testing API (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ import inspect
+  │
+  │ # Look at the _Event class…
+  └ 30 lines...
+
+● Check available events on Context.on (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ # Try to find how pebble_check events are triggered
+  │ ctx = ops.testing.Context(ops.CharmBase, meta={"name": "test", "containers": {"mycontainer":
+  │ {}}})…
+  └ 6 lines...
+
+● Get source of pebble_check_failed method (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ import inspect
+  │ # Get source of pebble_check_failed method
+  │ ctx = ops.testing.Context(ops.CharmBase, meta={"name": "test", "containers": {"mycontainer": …
+  └ 23 lines...
+
+● Get help for pebble_check_failed (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ import inspect
+  │ # Check what pebble_check_failed returns
+  │ ctx = ops.testing.Context(ops.CharmBase, meta={"name": "test", "containers": {"mycontainer": …
+  └ 19 lines...
+
+● Get CheckInfo source (shell)
+  │ python3 << 'EOF'
+  │ import ops
+  │ import ops.testing as t
+  │ import inspect…
+  └ 141 lines...
+
+● Read charm.py
+  │ src/charm.py
+  └ L175:215 (40 lines read)
+
+● Find _get_indico_version method (shell)
+  │ grep -n "_get_indico_version\|set_workload_version"
+  │ /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C2/src/charm.py | head -20
+  └ 3 lines...
+
+● Read charm.py
+  │ src/charm.py
+  └ L747:780 (34 lines read)
+
+● Check how exec is mocked in unit tests (shell)
+  │ grep -n "patch\|exec\|_get_indico_version" /tmp/ops-upgrade-experiment/indico-operator__pebble-c
+  │ heck-events__C2/tests/unit_harness/test_core.py | head -30
+  └ 31 lines...
+
+● Find status assertions in harness tests (shell)
+  │ grep -n "set_workload_version\|ActiveStatus\|MaintenanceStatus" /tmp/ops-upgrade-experiment/indi
+  │ co-operator__pebble-check-events__C2/tests/unit_harness/test_core.py | head -20
+  └ 2 lines...
+
+● Check Container constructor in testing (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ import inspect
+  │ # How to set up container with exec_handler
+  │ help(ops.testing.Container)…
+  └ 79 lines...
+
+● Check Exec helper for testing (shell)
+  │ python3 << 'EOF'
+  │ import ops.testing
+  │ help(ops.testing.Exec)
+  │ EOF
+  └ 55 lines...
+
+Now I have everything I need. Let me implement the changes:
+
+● Edit requirements.txt +1 -1
+
+● Edit charm.py +9 -1
+  └ src/charm.py
+
+Now add the observers in `__init__`:
+
+● Edit charm.py +10
+  └ src/charm.py
+

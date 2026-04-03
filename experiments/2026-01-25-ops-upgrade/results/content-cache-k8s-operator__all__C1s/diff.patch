@@ -1,0 +1,231 @@
+diff --git a/src/charm.py b/src/charm.py
+index 2913b42..020ba2d 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -21,11 +21,12 @@ from charms.nginx_ingress_integrator.v0.nginx_route import (
+     require_nginx_route,
+ )
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from ops.charm import ActionEvent, CharmBase, ConfigChangedEvent, UpgradeCharmEvent
++from ops.charm import ActionEvent, CharmBase, UpgradeCharmEvent
+ from ops.main import main
+ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+ from tabulate import tabulate  # type: ignore[import-untyped]
+ 
++from config import ContentCacheConfig
+ from file_reader import readlines_reverse
+ 
+ logger = logging.getLogger(__name__)
+@@ -107,6 +108,11 @@ class ContentCacheCharm(CharmBase):
+         )
+         self.framework.observe(self.on.nginx_route_available, self._on_config_changed)
+ 
++    @property
++    def typed_config(self) -> ContentCacheConfig:
++        """Return current charm configuration as a typed dataclass."""
++        return self.load_config(ContentCacheConfig, errors="blocked")
++
+     def _on_content_cache_pebble_ready(self, event) -> None:
+         """Handle content_cache_pebble_ready event and configure workload container.
+ 
+@@ -136,7 +142,7 @@ class ContentCacheCharm(CharmBase):
+         msg = "Configuring workload container (config-changed)"
+         logger.info(msg)
+         self.model.unit.status = MaintenanceStatus(msg)
+-        self.configure_workload_container(event)
++        self.configure_workload_container()
+ 
+     def _report_visits_by_ip_action(self, event: ActionEvent) -> None:
+         """Handle the report-visits-by-ip action.
+@@ -209,14 +215,10 @@ class ContentCacheCharm(CharmBase):
+         msg = "Configuring workload container (upgrade-charm)"
+         logger.info(msg)
+         self.model.unit.status = MaintenanceStatus(msg)
+-        self.configure_workload_container(event)
+-
+-    def configure_workload_container(self, event: ConfigChangedEvent | UpgradeCharmEvent) -> None:
+-        """Configure/set up workload container inside pod.
++        self.configure_workload_container()
+ 
+-        Args:
+-            event: config-changed or upgrade-charm event.
+-        """
++    def configure_workload_container(self) -> None:
++        """Configure/set up workload container inside pod."""
+         missing = sorted(self._missing_charm_configs())
+         if missing:
+             msg = f"Required config(s) empty: {', '.join(missing)}"
+@@ -226,7 +228,7 @@ class ContentCacheCharm(CharmBase):
+         env_config = self._make_env_config()
+         if env_config is None:
+             logger.debug("Ingress hasn't been configured yet, waiting")
+-            event.defer()
++            self.unit.status = WaitingStatus("Waiting for ingress to be configured")
+             return
+         pebble_config = self._make_pebble_config(env_config)
+         nginx_config = self._make_nginx_config(env_config)
+@@ -250,7 +252,6 @@ class ContentCacheCharm(CharmBase):
+                 container.pebble.replan_services()
+         else:
+             self.unit.status = WaitingStatus("Waiting for Pebble to start")
+-            event.defer()
+             return
+ 
+         msg = "Ready"
+@@ -306,7 +307,7 @@ class ContentCacheCharm(CharmBase):
+         Returns:
+             An Ingress config dict.
+         """
+-        config = self.model.config
++        config = self.typed_config
+ 
+         ingress = {
+             "service-hostname": "mysite.local",
+@@ -314,7 +315,7 @@ class ContentCacheCharm(CharmBase):
+             "service-port": CONTAINER_PORT,
+         }
+ 
+-        site = config.get("site")
++        site = config.site
+ 
+         relation = self.model.get_relation("nginx-proxy")
+         if relation:
+@@ -325,13 +326,11 @@ class ContentCacheCharm(CharmBase):
+         if site:
+             ingress["service-hostname"] = site
+ 
+-        client_max_body_size = config.get("client_max_body_size")
+-        if client_max_body_size:
+-            ingress["max-body-size"] = client_max_body_size
++        if config.client_max_body_size:
++            ingress["max-body-size"] = config.client_max_body_size
+ 
+-        tls_secret_name = config.get("tls_secret_name")
+-        if tls_secret_name:
+-            ingress["tls-secret-name"] = tls_secret_name
++        if config.tls_secret_name:
++            ingress["tls-secret-name"] = config.tls_secret_name
+ 
+         return ingress
+ 
+@@ -344,7 +343,7 @@ class ContentCacheCharm(CharmBase):
+         Returns:
+             Charm's environment config
+         """
+-        config = self.model.config
++        config = self.typed_config
+         relation = self.model.get_relation("nginx-proxy")
+         if relation and relation.data[relation.app] and relation.units:
+             if any(
+@@ -366,22 +365,20 @@ class ContentCacheCharm(CharmBase):
+         elif relation:
+             return None
+         else:
+-            backend = str(config["backend"])
+-            backend_site_name = (
+-                str(config["backend_site_name"]) if config.get("backend_site_name") else None
+-            )
++            backend = config.backend
++            backend_site_name = config.backend_site_name or None
+             if not backend_site_name:
+                 backend_site_name = urlparse(backend).hostname
+-            site = str(config["site"]) if config.get("site") else self.app.name
++            site = config.site or self.app.name
+ 
+         cache_all_configs = ""
+-        if not config["cache_all"]:
++        if not config.cache_all:
+             cache_all_configs = "proxy_ignore_headers Cache-Control Expires"
+ 
+-        client_max_body_size = config["client_max_body_size"]
++        client_max_body_size = config.client_max_body_size
+ 
+         proxy_cache_revalidate = "off"
+-        if config.get("proxy_cache_revalidate", False):
++        if config.proxy_cache_revalidate:
+             proxy_cache_revalidate = "on"
+ 
+         env_config = {
+@@ -398,12 +395,12 @@ class ContentCacheCharm(CharmBase):
+             "NGINX_BACKEND": backend,
+             "NGINX_CACHE_ALL": cache_all_configs,
+             "NGINX_BACKEND_SITE_NAME": backend_site_name,
+-            "NGINX_CACHE_INACTIVE_TIME": config.get("cache_inactive_time", "10m"),
+-            "NGINX_CACHE_MAX_SIZE": config.get("cache_max_size", "10G"),
++            "NGINX_CACHE_INACTIVE_TIME": config.cache_inactive_time,
++            "NGINX_CACHE_MAX_SIZE": config.cache_max_size,
+             "NGINX_CACHE_PATH": CACHE_PATH,
+             "NGINX_CACHE_REVALIDATE": proxy_cache_revalidate,
+-            "NGINX_CACHE_USE_STALE": config["cache_use_stale"],
+-            "NGINX_CACHE_VALID": config["cache_valid"],
++            "NGINX_CACHE_USE_STALE": config.cache_use_stale,
++            "NGINX_CACHE_VALID": config.cache_valid,
+             "NGINX_CLIENT_MAX_BODY_SIZE": client_max_body_size,
+             "NGINX_KEYS_ZONE": self._generate_keys_zone(site),
+             "NGINX_SITE_NAME": site,
+@@ -466,12 +463,8 @@ class ContentCacheCharm(CharmBase):
+         relation = self.model.get_relation("nginx-proxy")
+         if relation:
+             return []
+-        config = self.model.config
+-        missing = [
+-            setting
+-            for setting in REQUIRED_JUJU_CONFIGS
+-            if setting not in config or not config[setting]
+-        ]
++        config = self.typed_config
++        missing = [setting for setting in REQUIRED_JUJU_CONFIGS if not getattr(config, setting)]
+ 
+         return sorted(missing)
+ 
+diff --git a/src/config.py b/src/config.py
+new file mode 100644
+index 0000000..5c31241
+--- /dev/null
++++ b/src/config.py
+@@ -0,0 +1,23 @@
++# Copyright 2025 Canonical Ltd.
++# See LICENSE file for licensing details.
++
++"""Configuration class for the Content-cache charm."""
++
++import dataclasses
++
++
++@dataclasses.dataclass(frozen=True)
++class ContentCacheConfig:
++    """Typed representation of charm configuration."""
++
++    site: str = ""
++    backend: str = ""
++    backend_site_name: str = ""
++    cache_all: bool = False
++    cache_inactive_time: str = "10m"
++    cache_max_size: str = "10G"
++    cache_use_stale: str = "error timeout updating http_500 http_502 http_503 http_504"
++    cache_valid: str = "200 1h"
++    client_max_body_size: str = "1m"
++    tls_secret_name: str = ""
++    proxy_cache_revalidate: bool = False
+diff --git a/tests/unit/test_charm.py b/tests/unit/test_charm.py
+index c8514b7..ebe09c1 100644
+--- a/tests/unit/test_charm.py
++++ b/tests/unit/test_charm.py
+@@ -208,6 +208,17 @@ class TestCharm:
+         action = self.harness.charm._report_visits_by_ip()
+         assert action == expected
+ 
++    @mock.patch("ops.model.Container.pull")
++    def test_report_visits_by_ip_action(self, mock_pull):
++        """
++        arrange: some nginx log lines are simulated
++        act: run the report-visits-by-ip action
++        assert: action result contains the expected IP address
++        """
++        mock_pull.return_value = io.StringIO(f"10.10.10.11 - - [{DATE_NOW}")
++        output = self.harness.run_action("report-visits-by-ip")
++        assert "10.10.10.11" in output.results["ips"]
++
+     @pytest.mark.parametrize(
+         "test_input,expected", [(f"10.10.10.11 - - [{DATE_NOW}", "10.10.10.11")]
+     )

@@ -1,0 +1,583 @@
+● Web Search: ops[tracing] ops.tracing.setup() ops.tracing.Tracing() charm OpenTelemetry 2.21.0 how
+to use
+  └ {"type":"text","text":{"value":"To use `ops[tracing]`, specifically the `ops....
+
+● Explore: Explore charm tracing usage
+  ● Read lib/charms/tempo_k8s/v2/tracing.py lines 1-200
+    └ 200 lines read
+  ● Get more details from v2 tracing
+    $ head -100 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/lib/charms/tempo_k8s
+    /v2/tracing.py | tail -50
+    └ 50 lines...
+
+● Read src/charm.py
+  └ 1 line read
+
+● Fetching web content: https://documentation.ubuntu.com/ops/latest/reference/ops-tracing/
+  └ Contents of https://documentation.ubuntu.com/ops/latest/reference/ops-tracing...
+
+● Fetching web content:
+https://discourse.charmhub.io/t/migration-guide-from-charm-tracing-to-ops-tracing/18076
+  └ Contents of https://discourse.charmhub.io/t/migration-guide-from-charm-tracin...
+
+● View charm.py header
+  $ head -100 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/charm.py
+  └ 101 lines...
+
+● View requirements and charmcraft tracing config
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/requirements.txt && echo
+  "---" && grep -A5
+  "binary-python\|build-pack\|cargo\|tracing\|certificate\|charm-tracing\|receive-ca"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/charmcraft.yaml
+  └ 54 lines...
+
+● Check for charm-tracing relation in charmcraft.yaml
+  $ grep -n "charm-tracing\|receive-ca\|certificate_transfer"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/charmcraft.yaml
+  └ 1 line...
+
+● Find tracing-related methods in charm.py
+  $ grep -n "tempo_otlp_http_endpoint\|server_cert\|_internal_url\|receiver_ports\|server_cert_path\
+  |_update_server_cert\|charm_tracing\|tracing\b"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/charm.py | head -60
+  └ 48 lines...
+
+● Read src/charm.py lines 450-490
+  └ 41 lines read
+
+● Find receiver_ports and otlp_http usage
+  $ grep -n "enable_receivers\|otlp_http\|receiver_ports"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/charm.py
+  └ 8 lines...
+
+● Find enable_receivers usage in tempo.py
+  $ grep -n "enable_receivers\|receiver_ports\|otlp_http"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/tempo.py | head -30
+  └ 8 lines...
+
+● Read src/charm.py lines 100-250
+  └ 151 lines read
+
+● List all methods in charm.py
+  $ grep -n "def _\|def [a-z]"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/charm.py | head -50
+  └ 45 lines...
+
+● Read src/charm.py lines 355-410
+  └ 56 lines read
+
+● Check server_cert_path usage in tempo.py
+  $ grep -n "server_cert_path\|server_cert\b"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/tempo.py | head -20
+  └ 4 lines...
+
+● Read src/tempo.py lines 255-275
+  └ 21 lines read
+
+● Check TLS methods in tempo.py
+  $ grep -n "configure_tls\|clear_tls_config\|server_cert_path\|tls_ready"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/tempo.py | head -30
+  └ 13 lines...
+
+Now I have a clear picture. Let me check the test files to understand what might need updating:
+
+● Read src/charm.py lines 498-530
+  └ 33 lines read
+
+● Check test files for tracing references
+  $ find /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests -name "*.py" | head
+  -20 && echo "---" && grep -rn
+  "trace_charm\|charm_tracing\|server_cert\|tempo_otlp_http\|_update_server_cert"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/ 2>/dev/null | head -20
+  └ 42 lines...
+
+● View scenario test conftest and the charm_tracer test
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/conftest.py
+  && echo "---" && cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenari
+  o/test_a_charm_tracer_multi_import_warning.py
+  └ 87 lines...
+
+● View scenario test files for charm_tracing_disabled usage
+  $ head -50
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_charm.py &&
+  echo "---" && head -50 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scena
+  rio/test_ingressed_tracing.py && echo "---" && head -50
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tls.py
+  └ 152 lines...
+
+● View interface conftest for charm_tracing_disabled
+  $ grep -n "charm_tracing_disabled\|charm_tracing"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/interface/conftest.py
+  └ 3 lines...
+
+● Check test framework and tox config
+  $ grep -n "scenario\|ops.testing\|from ops"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tox.ini | head -30 && echo "---"
+  && head -30 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tox.ini
+  └ 37 lines...
+
+● View full interface conftest
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/interface/conftest.py
+  └ 58 lines...
+
+● View full ingressed tracing test
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_ingresse
+  d_tracing.py
+  └ 101 lines...
+
+● Read src/tempo.py lines 100-140
+  └ 41 lines read
+
+● Find is_ready in tempo.py
+  $ grep -n "def is_ready\|def is_tempo_service"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/tempo.py
+  └ 3 lines...
+
+● View integration conftest
+  $ cat
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/integration/conftest.py |
+  head -60
+  └ 61 lines...
+
+● Read src/tempo.py lines 460-475
+  └ 16 lines read
+
+● Check scenario and unit test deps
+  $ grep -A5 "testenv:scenario\|testenv:unit"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tox.ini
+  └ 14 lines...
+
+● Read tests/scenario/test_charm.py lines 1-50
+  └ 50 lines read
+
+● Find charm_tracing_disabled in test_charm.py
+  $ grep -n "charm_tracing_disabled"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_charm.py
+  └ 4 lines...
+
+Now I have everything I need. Let me implement all the changes:
+
+● Todo added: Update src/charm.py
+
+● Read src/charm.py lines 225-234
+  └ 9 lines read
+
+Now let me make all the changes:
+
+● Edit src/charm.py (+1 -1)
+
+● Edit src/charm.py (-5)
+
+● Edit src/charm.py (+1 -1)
+
+Now add the `set_destination()` call right after TracingEndpointProvider initialization:
+
+● Edit src/charm.py (+8)
+
+Now remove the `_update_server_cert()` call and comment from `_on_cert_handler_changed`:
+
+● Edit src/charm.py (-4)
+
+Now remove the `server_cert()` and `_update_server_cert()` methods. Let me view the exact text first:
+
+● Read src/charm.py lines 453-490
+  └ 38 lines read
+
+● Edit src/charm.py (-25)
+
+Now let's also check if `Path` import is still needed (it was used by `_update_server_cert`):
+
+● Check if Path is still used
+  $ grep -n "Path\b" /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/src/charm.py |
+  head -10
+  └ 2 lines...
+
+● Edit src/charm.py (-1)
+
+Now update `requirements.txt`:
+
+● Read requirements.txt
+  └ 19 lines read
+
+● Edit requirements.txt (+1 -6)
+
+Now update `charmcraft.yaml`:
+
+● Find binary packages section in charmcraft.yaml
+  $ grep -n "charm-binary-python-packages\|opentelemetry\|pydantic\|cryptography\|jsonschema"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/charmcraft.yaml
+  └ 6 lines...
+
+● Edit charmcraft.yaml (-1)
+
+Now update the scenario test files — remove `charm_tracing_disabled` usage:
+
+● Edit tests/scenario/test_charm.py (-1)
+
+● Edit tests/scenario/test_charm.py (+2 -4)
+
+Now update `test_ingressed_tracing.py`:
+
+✗ Edit tests/scenario/test_ingressed_tracing.py
+  No match found
+
+● View exact imports in test_ingressed_tracing.py
+  $ head -10 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_ing
+  ressed_tracing.py
+  └ 9 lines...
+
+● Edit tests/scenario/test_ingressed_tracing.py (-1)
+
+Now find and fix the `charm_tracing_disabled` usage in `test_ingressed_tracing.py`:
+
+● Find remaining charm_tracing_disabled usage
+  $ grep -n "charm_tracing_disabled" /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2
+  /tests/scenario/test_ingressed_tracing.py
+  └ 2 lines...
+
+● Read tests/scenario/test_ingressed_tracing.py lines 16-30
+  └ 13 lines read
+
+● Edit tests/scenario/test_ingressed_tracing.py
+
+● Read tests/scenario/test_ingressed_tracing.py lines 13-28
+  └ 16 lines read
+
+● Edit tests/scenario/test_ingressed_tracing.py (+1 -2)
+
+Now update `test_tls.py`:
+
+● Read tests/scenario/test_tls.py
+  └ 133 lines read
+
+● Edit tests/scenario/test_tls.py (-1)
+
+● Edit tests/scenario/test_tls.py (+1 -1)
+
+Now update `tests/interface/conftest.py`:
+
+● Edit tests/interface/conftest.py (+33 -35)
+
+Now delete the old charm_tracer warning test file:
+
+● Delete the old charm_tracing warning test
+  $ rm /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_a_charm_t
+  racer_multi_import_warning.py
+  └ 1 line...
+
+Now update the integration conftest to remove the charm_tracing lib copy:
+
+● Read tests/integration/conftest.py lines 30-55
+  └ 25 lines read
+
+● Edit tests/integration/conftest.py (-1)
+
+Now let's verify the charm.py changes look correct:
+
+● Read src/charm.py lines 1-60
+  └ 60 lines read
+
+● Read src/charm.py lines 96-125
+  └ 30 lines read
+
+Let me fix the import ordering:
+
+● Edit src/charm.py (+1)
+
+● Edit src/charm.py (-1)
+
+Now let's run the scenario tests to verify everything works:
+
+● Install dependencies for testing
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && pip install -q
+  "ops[tracing]" "ops-scenario>=4.0.3,<7.0.0" pydantic>=2 cosl cryptography lightkube
+  lightkube-models tenacity 2>&1 | tail -5
+  └ 1 line...
+
+● Quick sanity check on imports
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && python -c "import
+  ops.tracing; print('ops.tracing OK'); from src.charm import TempoCharm; print('TempoCharm import
+  OK')" 2>&1
+  └ 2 lines...
+
+● Verify imports work
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && python3 -c "import
+  ops.tracing; print('ops.tracing OK')" && PYTHONPATH=lib:src python3 -c "from charm import
+  TempoCharm; print('TempoCharm import OK')" 2>&1
+  └ 4 lines...
+
+● Install ops[tracing] and verify
+  $ pip3 install -q "ops[tracing]" 2>&1 | tail -3 && python3 -c "import ops.tracing;
+  print('ops.tracing OK')" 2>&1
+  └ 6 lines...
+
+● Install ops[tracing] and verify
+  $ pip3 install --break-system-packages -q "ops[tracing]" 2>&1 | tail -5 && python3 -c "import
+  ops.tracing; print('ops.tracing OK')" 2>&1
+  └ 4 lines...
+
+● Install ops[tracing] with verbose output
+  $ pip3 install --break-system-packages "ops[tracing]" 2>&1 | grep -E
+  "error|warning|ops|Successfully" | tail -10
+  └ 11 lines...
+
+● Check if ops.tracing is available
+  $ python3 -c "import ops; print(dir(ops))" 2>&1 | tr ',' '\n' | grep -i trac
+  └ 2 lines...
+
+● Verify ops.tracing.set_destination is accessible
+  $ python3 -c "import ops; print(ops.tracing.set_destination)" 2>&1
+  └ 2 lines...
+
+● Test explicit ops.tracing import
+  $ python3 -c "import ops.tracing; print(ops.tracing.set_destination)" 2>&1
+  └ 4 lines...
+
+● Check alternative import pattern
+  $ python3 -c "from ops import tracing as ops_tracing; print(ops_tracing.set_destination)" 2>&1
+  └ 2 lines...
+
+● Check direct ops.tracing import
+  $ python3 -c "from ops.tracing import set_destination; print(set_destination)" 2>&1
+  └ 4 lines...
+
+`ops.tracing` is a lazy attribute on the `ops` module, not a real submodule. I need to remove the explicit `import ops.tracing` line and just use `ops.tracing` via the existing `import ops`:
+
+● Edit src/charm.py (-1)
+
+Now verify the charm imports cleanly:
+
+● Verify TempoCharm imports cleanly
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src python3
+   -c "from charm import TempoCharm; print('TempoCharm import OK')" 2>&1
+  └ 2 lines...
+
+Now run the scenario tests:
+
+● Run scenario tests
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && pip3 install
+  --break-system-packages -q "ops-scenario>=4.0.3,<7.0.0" pytest 2>&1 | tail -3 &&
+  PYTHONPATH=lib:src python3 -m pytest tests/scenario/ -v --tb short 2>&1
+  └ 61 lines...
+
+The shared test environment has dependency conflicts. Let me set up a proper virtualenv to verify:
+
+● Set up clean virtualenv for testing
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && python3 -m venv
+  /tmp/test-venv && /tmp/test-venv/bin/pip install -q "ops[tracing]>=2.21.0"
+  "ops-scenario>=4.0.3,<7.0.0" pytest pydantic>=2 cosl cryptography lightkube lightkube-models
+  tenacity 2>&1 | tail -5
+  └ 1 line...
+
+✗ Run scenario tests with clean venv
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src
+  /tmp/test-venv/bin/python3 -m pytest tests/scenario/ -v --tb short 2>&1
+  Permission denied and could not request permission from user
+
+● Run scenario tests
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src
+  /tmp/test-venv/bin/pytest tests/scenario/ -v --tb short 2>&1
+  └ 9 lines...
+
+● Install missing deps and run tests
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && /tmp/test-venv/bin/pip
+  install -q "jsonschema" && PYTHONPATH=lib:src /tmp/test-venv/bin/pytest tests/scenario/ -v --tb
+  short 2>&1
+  └ 76 lines...
+
+There are more test files to update. Let me check them:
+
+● List all scenario test files and find charm_tracing usage
+  $ ls /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/ && echo "---"
+   && grep -l "charm_tracing"
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/*.py 2>/dev/null
+  └ 9 lines...
+
+● View all remaining charm_tracing test files
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_charm_
+  tracing.py && echo "===" && cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C
+  2/tests/scenario/test_tracing_legacy.py && echo "===" && cat /tmp/ops-upgrade-experiment/tempo
+  -k8s-operator__ops-tracing__C2/tests/scenario/test_tracing_provider.py && echo "===" && cat
+  /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tracing_re...
+  └ 13 lines...
+
+● View charm_tracing test header
+  $ head -30 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_cha
+  rm_tracing.py
+  └ 31 lines...
+
+● View headers of tracing test files
+  $ head -20 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tra
+  cing_legacy.py && echo "---" && head -20 /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-traci
+  ng__C2/tests/scenario/test_tracing_provider.py && echo "---" && head -20 /tmp/ops-upgrade-experime
+  nt/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tracing_requirer.py
+  └ 63 lines...
+
+● View full tracing_legacy test
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tracing_
+  legacy.py
+  └ 27 lines...
+
+● Check file sizes
+  $ wc -l /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tracin
+  g_provider.py /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_
+  tracing_requirer.py /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario
+  /test_charm_tracing.py
+  └ 5 lines...
+
+● Find all charm_tracing usages in tracing tests
+  $ grep -n "charm_tracing_disabled\|charm_tracing" /tmp/ops-upgrade-experiment/tempo-k8s-operator__
+  ops-tracing__C2/tests/scenario/test_tracing_provider.py && echo "---" && grep -n
+  "charm_tracing_disabled\|charm_tracing" /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracin
+  g__C2/tests/scenario/test_tracing_requirer.py
+  └ 12 lines...
+
+● View full test_tracing_provider.py
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tracing_
+  provider.py
+  └ 49 lines...
+
+● Edit tests/scenario/test_tracing_provider.py (-1)
+
+● Edit tests/scenario/test_tracing_provider.py (+1 -2)
+
+Now update `test_tracing_legacy.py`:
+
+● Edit tests/scenario/test_tracing_legacy.py (-1)
+
+● Edit tests/scenario/test_tracing_legacy.py (+1 -2)
+
+Now handle `test_tracing_requirer.py` which has many `charm_tracing_disabled()` usages:
+
+● View full test_tracing_requirer.py
+  $ cat /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_tracing_
+  requirer.py
+  └ 202 lines...
+
+● Remove charm_tracing_disabled from test_tracing_requirer.py
+  $ python3 - <<'EOF'
+  import re
+
+  # Fix test_tracing_requirer.py
+  with open('/tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test...
+  └ 62 lines...
+
+● Verify charm_tracing_disabled removed
+  $ grep -n "charm_tracing_disabled" /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2
+  /tests/scenario/test_tracing_requirer.py && echo "No more charm_tracing_disabled" || echo "Removed
+   all"
+  └ 2 lines...
+
+Now delete `test_charm_tracing.py` (tests old library-specific behavior):
+
+● Delete test_charm_tracing.py
+  $ rm /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2/tests/scenario/test_charm_tra
+  cing.py
+  └ 1 line...
+
+Now run the scenario tests again:
+
+● Run scenario tests
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:tests
+  /tmp/test-venv/bin/pytest tests/scenario/ -v --tb short 2>&1
+  └ 24 lines...
+
+● Run scenario tests with correct PYTHONPATH
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv/bin/pytest tests/scenario/ -v --tb short 2>&1
+  └ 6 lines...
+
+● Show test results summary
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv/bin/pytest tests/scenario/ -v --tb short 2>&1 | grep -E
+  "PASSED|FAILED|ERROR|error|Error" | head -50
+  └ 51 lines...
+
+● Check installed package versions
+  $ /tmp/test-venv/bin/pip show ops ops-tracing ops-scenario 2>&1 | grep -E "Name:|Version:"
+  └ 7 lines...
+
+● Upgrade ops-scenario for ops 3.x compatibility
+  $ /tmp/test-venv/bin/pip install -q "ops-scenario>=7.0.0" 2>&1 | tail -5 && /tmp/test-venv/bin/pip
+   show ops ops-scenario 2>&1 | grep -E "Name:|Version:"
+  └ 5 lines...
+
+● Run scenario tests with compatible ops-scenario
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv/bin/pytest tests/scenario/ -v --tb short 2>&1 | tail -30
+  └ 24 lines...
+
+● Run scenario tests excluding test_charm.py
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv/bin/pytest tests/scenario/ --ignore=tests/scenario/test_charm.py -v --tb short 2>&1
+   | tail -50
+  └ 51 lines...
+
+● Check test_tls.py errors specifically
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv/bin/pytest tests/scenario/test_tls.py -v --tb short 2>&1 | head -40
+  └ 41 lines...
+
+● Create venv with ops 2.x and scenario 6.x
+  $ python3 -m venv /tmp/test-venv2 && /tmp/test-venv2/bin/pip install -q
+  "ops[tracing]>=2.21.0,<3.0" "ops-scenario>=4.0.3,<7.0.0" pytest pydantic>=2 cosl cryptography
+  lightkube lightkube-models tenacity jsonschema 2>&1 | tail -5
+  └ 1 line...
+
+● Run tests with ops 2.x and scenario 6.x
+  $ /tmp/test-venv2/bin/pip show ops ops-tracing ops-scenario 2>&1 | grep -E "Name:|Version:" &&
+  echo "---" && cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 &&
+  PYTHONPATH=lib:src:. /tmp/test-venv2/bin/pytest tests/scenario/
+  --ignore=tests/scenario/test_charm.py -v --tb short 2>&1 | tail -30
+  └ 38 lines...
+
+● Check specific test failure details
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv2/bin/pytest tests/scenario/test_tls.py::test_tracing_endpoints_with_tls -v --tb
+  long 2>&1 | grep -A 20 "FAILED\|Error\|assert"| head -40
+  └ 41 lines...
+
+✗ Check JujuContext API in ops 2.23.2
+  $ /tmp/test-venv2/bin/python3 -c "import ops.jujucontext; print(dir(ops.jujucontext))" 2>&1 | tr
+  ',' '\n' | grep -i context
+  Permission denied and could not request permission from user
+
+✗ Check JujuContext names
+  $ /tmp/test-venv2/bin/python3 -c "import ops.jujucontext; attrs = [a for a in dir(ops.jujucontext)
+   if 'context' in a.lower()]; print(attrs)"
+  Permission denied and could not request permission from user
+
+● Check JujuContext class name in ops 2.23.2
+  $ grep -r "_JujuContext\|JujuContext"
+  /tmp/test-venv2/lib/python3.12/site-packages/ops/jujucontext.py 2>/dev/null | head -5
+  └ 5 lines...
+
+● Check specific scaling test failure
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src:.
+  /tmp/test-venv2/bin/pytest tests/scenario/test_charm_scaling.py::test_monolithic_status_no_s3 -v
+  --tb long 2>&1 | tail -40
+  └ 40 lines...
+
+✗ Verify charm has no old trace_charm decorator
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 &&
+  /tmp/test-venv2/bin/python3 -c "
+  import sys
+  sys.path.insert(0, 'lib')
+  sys.path.insert(0, 'src')...
+  Permission denied and could not request permission from user
+
+✗ Validate charm changes
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src
+  /tmp/test-venv2/bin/python3 << 'PYEOF'
+  import ops
+  import charm...
+  Permission denied and could not request permission from user
+
+✗ Validate the charm changes
+  $ cd /tmp/ops-upgrade-experiment/tempo-k8s-operator__ops-tracing__C2 && PYTHONPATH=lib:src
+  /tmp/test-venv2/bin/python3 -c "import ops; import charm; print('ops version:', ops.__version__);
+  print('set_destination:', ops.tracing.set_destination); content = open('src/charm.py').read();
+  assert 'trace_charm' not in content; assert 'ops.tracing.set_destination' in content; print('All
+  checks passed')" 2>&1
+  Permission denied and could not request permission from user
+

@@ -1,0 +1,276 @@
+● Check current ops version and dependencies (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat requirements.txt
+  │ && echo "---" && grep -E "ops" tox.ini | head -20
+  └ 5 lines...
+
+● Check latest ops version on PyPI (shell)
+  │ pip index versions ops 2>/dev/null | head -5 || pip install ops --dry-run 2>&1 | head -10
+  └ 5 lines...
+
+● Read main charm file and state (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && head -100
+  │ src/charm.py && echo "---" && head -50 src/state.py
+  └ 152 lines...
+
+● Fetching web content https://github.com/canonical/operator/releases
+  └ Contents of https://github.com/canonical/operator/releases:
+
+● Fetching web content https://github.com/canonical/operator/releases
+  └ Contents of https://github.com/canonical/operator/releases:
+
+● Check charm.py size and pebble check usage (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat src/charm.py | wc
+  │ -l && grep -n
+  │ "pebble_ready\|check\|on_check\|CheckEvent\|pebble_check\|ready_event\|pebble_ready"
+  │ src/charm.py | head -30
+  └ 12 lines...
+
+● Fetching web content https://github.com/canonical/operator/releases
+  └ Contents of https://github.com/canonical/operator/releases:
+
+● Check for pebble check events usage (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && grep -n
+  │ "pebble_check\|CheckEvent\|check_failed\|check_recovered\|check_ready" src/charm.py
+  └ 1 line...
+
+● Check unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat
+  │ tests/unit/test_charm.py 2>/dev/null | head -100 || echo "No unit test file"; ls tests/unit/
+  └ 2 lines...
+
+● Fetching web content https://github.com/canonical/operator/releases/tag/3.0.0
+  └ Contents of https://github.com/canonical/operator/releases/tag/3.0.0:
+
+● Check unit test files (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && ls
+  │ tests/unit_harness/ && cat tests/unit/conftest.py
+  └ 36 lines...
+
+● Fetching web content https://github.com/canonical/operator/releases/tag/3.1.0
+  └ Contents of https://github.com/canonical/operator/releases/tag/3.1.0:
+
+● Fetching web content https://github.com/canonical/operator/releases/tag/3.2.0
+  └ Contents of https://github.com/canonical/operator/releases/tag/3.2.0:
+
+● Fetching web content https://github.com/canonical/operator/releases/tag/3.3.0
+  └ Contents of https://github.com/canonical/operator/releases/tag/3.3.0:
+
+Now let me understand what pebble check events are in ops and look at the current charm's pebble checks:
+
+● Look at pebble checks in charm (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && grep -n "checks"
+  │ src/charm.py | head -40
+  └ 7 lines...
+
+● Check ops pebble check events (shell)
+  │ pip show ops 2>/dev/null | grep -E "Version|Location" && python3 -c "import ops; import
+  │ ops.pebble; print([x for x in dir(ops) if 'check' in x.lower() or 'Check' in x])" 2>/dev/null
+  └ 4 lines...
+
+● Read charm.py
+  │ src/charm.py
+  └ L300:540 (241 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L213:300 (88 lines read)
+
+● Inspect pebble check event classes (shell)
+  │ python3 -c "
+  │ import ops
+  │ # Check what pebble check events exist
+  │ import inspect
+  │ for name in ['PebbleCheckEvent', 'PebbleCheckFailedEvent', 'PebbleCheckRecoveredEvent']:…
+  └ 13 lines...
+
+● Inspect ContainerEvents class (shell)
+  │ python3 -c "
+  │ import ops
+  │ # Check how pebble check events work on containers
+  │ import inspect
+  │ src = inspect.getsource(ops.charm.ContainerEvents)…
+  └ 6 lines...
+
+● List pebble-related events in ops.charm (shell)
+  │ python3 -c "
+  │ import ops
+  │ # Check what events are on ops for pebble
+  │ import ops.charm
+  │ for name in dir(ops.charm):…
+  └ 11 lines...
+
+● Check test files for pebble check events (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && grep -rn
+  │ "pebble_check\|check_failed\|check_recovered\|on_check" tests/ | head -20
+  └ 1 line...
+
+● Inspect PebbleCheckFailedEvent (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # How are check failed/recovered events accessed?
+  │ src = inspect.getsource(ops.PebbleCheckFailedEvent)…
+  └ 16 lines...
+
+● Inspect PebbleCheckEvent source (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ src = inspect.getsource(ops.PebbleCheckEvent)
+  │ print(src[:3000])…
+  └ 34 lines...
+
+● Check how pebble check events are registered (shell)
+  │ python3 -c "
+  │ import ops
+  │ # What are the on-events for pebble check?
+  │ # Check how to register check failed events
+  │ import inspect…
+  └ 10 lines...
+
+● Check CharmBase pebble check event registration (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ src = inspect.getsource(ops.CharmBase)
+  │ lines = src.split('\n')…
+  └ 45 lines...
+
+Now let me look at the full charm to understand status management and imports:
+
+● Read charm.py
+  │ src/charm.py
+  └ L1:50 (49 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L800:1003 (204 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L100:215 (115 lines read)
+
+● Check tox.ini for ops version (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat tox.ini | grep -A
+  │ 5 "ops\|testing"
+  └ 7 lines...
+
+Now let me look at ops.JujuContext and existing tests more carefully:
+
+● Check existing unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat
+  │ tests/unit/test_core.py | head -150
+  └ 2 lines...
+
+● Inspect JujuContext class (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ src = inspect.getsource(ops.JujuContext)
+  │ print(src[:3000])…
+  └ 92 lines...
+
+● Check unit test files (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && ls tests/unit/ && cat
+  │ tests/unit/test_on_leader_elected.py | head -80
+  └ 36 lines...
+
+● Check harness test files (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && ls
+  │ tests/unit_harness/ && head -100 tests/unit_harness/test_core.py
+  └ 103 lines...
+
+● Check JujuVersion usage (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && grep -n
+  │ "JujuVersion\|from_environ\|has_secrets" src/charm.py src/state.py
+  └ 8 lines...
+
+● Check JujuVersion.has_secrets (shell)
+  │ python3 -c "
+  │ import ops
+  │ import inspect
+  │ # Check if JujuVersion still exists in ops 3.x and its relationship to JujuContext
+  │ src = inspect.getsource(ops.JujuVersion)…
+  └ 10 lines...
+
+● Read full tox.ini (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat tox.ini
+  └ 180 lines...
+
+Let me look at how to test pebble check events with ops.testing:
+
+● Find check-related testing utilities (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ import inspect
+  │ # Find check-related things in testing
+  │ for name in dir(ops.testing):…
+  └ 5 lines...
+
+● Inspect ops.testing.CheckInfo (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ import inspect
+  │ # Inspect CheckInfo in testing
+  │ src = inspect.getsource(ops.testing.CheckInfo)…
+  └ 91 lines...
+
+● Find pebble check event methods in testing (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ import inspect
+  │ # Find how to emit pebble check events in testing
+  │ for name in dir(ops.testing.Context.on):…
+  └ 16 lines...
+
+● Check testing CharmEvents for pebble check (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ import inspect
+  │ from charm import IndicoOperatorCharm
+  │ ctx = ops.testing.Context(IndicoOperatorCharm)…
+  └ 23 lines...
+
+● Inspect CharmEvents in testing (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ import inspect
+  │ src = inspect.getsource(ops.testing.CharmEvents)
+  │ print(src[:4000])…
+  └ 120 lines...
+
+● Find pebble events in testing CharmEvents (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ import inspect
+  │ src = inspect.getsource(ops.testing.CharmEvents)
+  │ # Find pebble_check…
+  └ 31 lines...
+
+Now I have all the information needed. Let me also check the existing unit tests for patterns:
+
+● Read unit test conftest (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat
+  │ tests/unit/conftest.py
+  └ 34 lines...
+
+● Read existing unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && cat
+  │ tests/unit/test_on_leader_elected.py && cat tests/unit/__init__.py
+  └ 37 lines...
+
+● Check containers in metadata.yaml (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C4 && grep -A 20
+  │ "containers:" metadata.yaml
+  └ 22 lines...
+
+● Operation cancelled by user
+
+
+Total usage est:        1 Premium request
+API time spent:         14m 27s
+Total session time:     14m 59s
+Total code changes:     +0 -0
+Breakdown by AI model:
+ claude-sonnet-4.6        1.5m in, 10.1k out, 1.5m cached (Est. 1 Premium request)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/indico-operator__pebble-check-events__C4/transcript.md

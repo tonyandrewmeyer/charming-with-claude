@@ -1,0 +1,147 @@
+● Explore Explore charm codebase
+  │ Find all framework observers (shell)
+  │   │ grep -n "framework.observe\|self.framework.observe"
+  │   │
+  │   /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf/src/charm.py
+  │   └ 7 lines...
+  └ Quick check (shell)
+      │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf &&
+      python3
+      │ -c "import pyproject; print('test')" 2>&1 || echo "Let me check pyproject.toml for ops
+      version"
+      └ 5 lines...
+
+● Read test_charm.py
+  │ tests/unit/test_charm.py
+  └ 1 line read
+
+● Read charm.py
+  │ src/charm.py
+  └ 480 lines read
+
+● Read test_charm.py
+  │ tests/unit/test_charm.py
+  └ L1:100 (100 lines read)
+
+● Read test_charm.py
+  │ tests/unit/test_charm.py
+  └ L100:250 (151 lines read)
+
+● Read test_charm.py
+  │ tests/unit/test_charm.py
+  └ L250:400 (151 lines read)
+
+Now I have a clear picture. Let me run the existing tests first, then implement the changes.
+
+● Check CheckInfo constructor signature (shell)
+  │ python3 -c "import ops.pebble; import inspect;
+  │ print(inspect.signature(ops.pebble.CheckInfo.__init__))" 2>/dev/null || python3 -c "import ops;
+  │ help(ops.pebble.CheckInfo)" 2>&1 | head -30
+  └ 2 lines...
+
+● Run existing unit tests for baseline (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf && tox -e
+  │ unit 2>&1 | tail -30
+  └ 31 lines...
+
+All 36 tests pass. Now I'll implement the changes.
+
+● Edit charm.py +6
+  └ src/charm.py
+
+Now add the handler methods after `_on_content_cache_pebble_ready`:
+
+● Edit charm.py +18
+  └ src/charm.py
+
+Now add the tests. Let me view the end of the test file first:
+
+● Read test_charm.py
+  │ tests/unit/test_charm.py
+  └ L620:650 (31 lines read)
+
+● Edit test_charm.py +33
+  └ tests/unit/test_charm.py
+
+Now add `import ops` to the test file imports:
+
+● Edit test_charm.py +2
+  └ tests/unit/test_charm.py
+
+● Run unit tests after changes (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf && tox -e
+  │ unit 2>&1 | tail -20
+  └ 21 lines...
+
+The `emit` needs a `check_name` argument. Let me check the ops source:
+
+● Find PebbleCheckEvent signature (shell)
+  │ grep -n "PebbleCheckEvent\|check_name\|pebble_check" /tmp/ops-upgrade-experiment/content-cache-k
+  │ 8s-operator__pebble-check-events__C1pf/.tox/unit/lib/python3.12/site-packages/ops/charm.py |
+  │ head -30
+  └ 11 lines...
+
+The event takes a `check_name` string, not a `CheckInfo` object. Let me fix the tests:
+
+● Edit test_charm.py +2 -15
+  └ tests/unit/test_charm.py
+
+Also remove the now-unused `ops.pebble` import from test file:
+
+● Edit test_charm.py -1
+  └ tests/unit/test_charm.py
+
+● Run unit tests again (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf && tox -e
+  │ unit 2>&1 | tail -20
+  └ 21 lines...
+
+Let me look at the `WorkloadEvent` and `PebbleCheckEvent` signatures more carefully:
+
+● Inspect WorkloadEvent and PebbleCheckEvent (shell)
+  │ grep -n -A 20 "class WorkloadEvent\|class PebbleCheckEvent"
+  │ /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf/.tox/unit/lib/
+  │ python3.12/site-packages/ops/charm.py | head -60
+  └ 44 lines...
+
+The event needs `(workload, check_name)`. Fix the tests:
+
+● Edit test_charm.py +4 -2
+  └ tests/unit/test_charm.py
+
+Also remove the unused `import ops` from the test file since we no longer reference `ops.pebble`:
+
+● Edit test_charm.py -1
+  └ tests/unit/test_charm.py
+
+● Run unit tests again (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf && tox -e
+  │ unit 2>&1 | tail -20
+  └ 21 lines...
+
+All 38 tests pass. Let me also run the linter:
+
+● Run lint checks (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf && tox -e
+  │ lint 2>&1 | tail -15
+  └ 14 lines...
+
+All lint checks pass. Now commit the changes:
+
+● Commit changes (shell)
+  │ cd /tmp/ops-upgrade-experiment/content-cache-k8s-operator__pebble-check-events__C1pf && git
+  │ add src/charm.py tests/unit/test_charm.py && git commit -m "Add pebble-check-failed and
+  │ pebble-check-recovered event handlers
+  │
+  │ Register handlers for pebble_check_failed and pebble_check_recovered events…
+  └ 7 lines...
+
+
+Total usage est:        1 Premium request
+API time spent:         7m 35s
+Total session time:     8m 2s
+Total code changes:     +65 -19
+Breakdown by AI model:
+ claude-sonnet-4.6        1.0m in, 9.8k out, 871.1k cached (Est. 1 Premium request)
+ claude-haiku-4.5         320.7k in, 5.2k out, 288.2k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/content-cache-k8s-operator__pebble-check-events__C1pf/transcript.md

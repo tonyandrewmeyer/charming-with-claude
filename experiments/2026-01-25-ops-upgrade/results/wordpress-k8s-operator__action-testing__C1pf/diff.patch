@@ -1,0 +1,228 @@
+diff --git a/tests/unit/conftest.py b/tests/unit/conftest.py
+index 66a1ec9..b22a846 100644
+--- a/tests/unit/conftest.py
++++ b/tests/unit/conftest.py
+@@ -4,8 +4,6 @@
+ """Fixtures for WordPress charm unit tests."""
+ 
+ import typing
+-import unittest
+-import unittest.mock
+ 
+ import ops.pebble
+ import ops.testing
+@@ -228,15 +226,6 @@ def setup_database_relation_connection_error(
+     return _setup_database_relation
+ 
+ 
+-@pytest.fixture(scope="function")
+-def action_event_mock():
+-    """Creates a mock object for :class:`ops.charm.ActionEvent`."""
+-    event_mock = unittest.mock.MagicMock()
+-    event_mock.set_results = unittest.mock.MagicMock()
+-    event_mock.fail = unittest.mock.MagicMock()
+-    return event_mock
+-
+-
+ @pytest.fixture(scope="function")
+ def run_standard_plugin_test(
+     patch: WordpressPatch,
+diff --git a/tests/unit/test_charm.py b/tests/unit/test_charm.py
+index c610019..cda8426 100644
+--- a/tests/unit/test_charm.py
++++ b/tests/unit/test_charm.py
+@@ -9,11 +9,11 @@ import json
+ import secrets
+ import textwrap
+ import typing
+-import unittest.mock
+ 
+ import ops.charm
+ import ops.testing
+ import pytest
++from ops.testing import ActionFailed
+ 
+ import types_
+ from charm import WordpressCharm
+@@ -349,7 +349,7 @@ def test_core_reconciliation(
+ 
+ 
+ def test_get_initial_password_action_before_replica_consensus(
+-    harness: ops.testing.Harness, action_event_mock: unittest.mock.MagicMock
++    harness: ops.testing.Harness,
+ ):
+     """
+     arrange: before peer relation established but after charm created.
+@@ -357,19 +357,14 @@ def test_get_initial_password_action_before_replica_consensus(
+     assert: get-initial-password action should fail.
+     """
+     harness.begin_with_initial_hooks()
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-    charm._on_get_initial_password_action(action_event_mock)
+-
+-    action_event_mock.set_results.assert_not_called()
+-    action_event_mock.fail.assert_called_once_with(
+-        "Default admin password has not been generated yet."
+-    )
++    with pytest.raises(ActionFailed) as exc_info:
++        harness.run_action("get-initial-password")
++    assert exc_info.value.message == "Default admin password has not been generated yet."
+ 
+ 
+ def test_get_initial_password_action(
+     harness: ops.testing.Harness,
+     setup_replica_consensus: typing.Callable[[], dict],
+-    action_event_mock: unittest.mock.MagicMock,
+ ):
+     """
+     arrange: after peer relation established.
+@@ -377,17 +372,12 @@ def test_get_initial_password_action(
+     assert: get-initial-password action should success and return default admin password.
+     """
+     consensus = setup_replica_consensus()
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-    charm._on_get_initial_password_action(action_event_mock)
+-
+-    action_event_mock.fail.assert_not_called()
+-    action_event_mock.set_results.assert_called_once_with(
+-        {"password": consensus["default_admin_password"]}
+-    )
++    output = harness.run_action("get-initial-password")
++    assert output.results == {"password": consensus["default_admin_password"]}
+ 
+ 
+ def test_rotate_wordpress_secrets_before_pebble_connect(
+-    harness: ops.testing.Harness, action_event_mock: unittest.mock.MagicMock
++    harness: ops.testing.Harness,
+ ):
+     """
+     arrange: before connection to pebble is established.
+@@ -396,15 +386,13 @@ def test_rotate_wordpress_secrets_before_pebble_connect(
+     """
+     harness.set_can_connect(harness.model.unit.containers["wordpress"], False)
+     harness.begin_with_initial_hooks()
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-    charm._on_rotate_wordpress_secrets_action(action_event_mock)
+-
+-    action_event_mock.set_results.assert_not_called()
+-    action_event_mock.fail.assert_called_once_with("Secrets have not been initialized yet.")
++    with pytest.raises(ActionFailed) as exc_info:
++        harness.run_action("rotate-wordpress-secrets")
++    assert exc_info.value.message == "Secrets have not been initialized yet."
+ 
+ 
+ def test_rotate_wordpress_secrets_before_replica_consensus(
+-    harness: ops.testing.Harness, action_event_mock: unittest.mock.MagicMock
++    harness: ops.testing.Harness,
+ ):
+     """
+     arrange: before peer relation is established.
+@@ -413,40 +401,34 @@ def test_rotate_wordpress_secrets_before_replica_consensus(
+     """
+     harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
+     harness.begin_with_initial_hooks()
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-    charm._on_rotate_wordpress_secrets_action(action_event_mock)
+-
+-    action_event_mock.set_results.assert_not_called()
+-    action_event_mock.fail.assert_called_once_with("Secrets have not been initialized yet.")
++    with pytest.raises(ActionFailed) as exc_info:
++        harness.run_action("rotate-wordpress-secrets")
++    assert exc_info.value.message == "Secrets have not been initialized yet."
+ 
+ 
+ def test_rotate_wordpress_secrets_as_follower(
+     harness: ops.testing.Harness,
+-    action_event_mock: unittest.mock.MagicMock,
+     setup_replica_consensus: typing.Callable[[], dict],
+ ):
+     """
+     arrange: after peer relation is established, is follower.
+     act: run rotate-wordpress-secrets action.
+-    assert: rotate-wordpress-secrets action should succeed and secrets updated.
++    assert: rotate-wordpress-secrets action should fail.
+     """
+     harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
+     setup_replica_consensus()
+     harness.set_leader(False)
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-
+-    charm._on_rotate_wordpress_secrets_action(action_event_mock)
+-
+-    action_event_mock.set_results.assert_not_called()
+-    action_event_mock.fail.assert_called_once_with(
++    with pytest.raises(ActionFailed) as exc_info:
++        harness.run_action("rotate-wordpress-secrets")
++    assert exc_info.value.message == (
+         "This unit is not leader."
+         " Use <application>/leader to specify the leader unit when running action."
+     )
+ 
+ 
++@pytest.mark.usefixtures("attach_storage")
+ def test_rotate_wordpress_secrets(
+     harness: ops.testing.Harness,
+-    action_event_mock: unittest.mock.MagicMock,
+     setup_replica_consensus: typing.Callable[[], dict],
+ ):
+     """
+@@ -462,21 +444,18 @@ def test_rotate_wordpress_secrets(
+     assert relation
+     old_relation_data = dict(relation.data[charm.app])
+ 
+-    charm._on_rotate_wordpress_secrets_action(action_event_mock)
++    output = harness.run_action("rotate-wordpress-secrets")
+ 
+     # Technically possible to generate the same passwords, but extremely unlikely.
+     relation = harness.model.get_relation("wordpress-replica")
+     assert relation
+     assert old_relation_data != relation.data[charm.app], "password are same from before rotate"
+-
+-    action_event_mock.set_results.assert_called_once_with({"result": "ok"})
+-    action_event_mock.fail.assert_not_called()
++    assert output.results == {"result": "ok"}
+ 
+ 
+ def test_update_database(
+     patch,
+     harness: ops.testing.Harness,
+-    action_event_mock: unittest.mock.MagicMock,
+ ):
+     """
+     arrange: after charm is initialized and database ready.
+@@ -486,17 +465,13 @@ def test_update_database(
+     harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
+     harness.begin_with_initial_hooks()
+     patch.container._fail_wp_update_database = False
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-    charm._on_update_database_action(action_event_mock)
+-
+-    action_event_mock.set_results.assert_called_once_with({"result": "ok"})
+-    action_event_mock.fail.assert_not_called()
++    output = harness.run_action("update-database")
++    assert output.results == {"result": "ok"}
+ 
+ 
+ def test_update_database_fail(
+     patch,
+     harness: ops.testing.Harness,
+-    action_event_mock: unittest.mock.MagicMock,
+ ):
+     """
+     arrange: after charm is initialized and database is mocked to fail.
+@@ -506,12 +481,9 @@ def test_update_database_fail(
+     harness.set_can_connect(harness.model.unit.containers["wordpress"], True)
+     harness.begin_with_initial_hooks()
+     patch.container._fail_wp_update_database = True
+-    charm: WordpressCharm = typing.cast(WordpressCharm, harness.charm)
+-    action_event_mock.configure_mock()
+-    charm._on_update_database_action(action_event_mock)
+-
+-    action_event_mock.set_results.assert_not_called()
+-    action_event_mock.fail.assert_called_once_with("Database update failed")
++    with pytest.raises(ActionFailed) as exc_info:
++        harness.run_action("update-database")
++    assert exc_info.value.message == "Database update failed"
+ 
+ 
+ @pytest.mark.usefixtures("attach_storage")

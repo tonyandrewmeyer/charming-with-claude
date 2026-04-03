@@ -1,0 +1,325 @@
+● Explore Exploring charm structure
+  └ Agent started in background with agent_id: explore-charm. You can use read_ag...
+
+● Check current ops version (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && cat
+  │ pyproject.toml | grep -A5 "ops" && echo "---" && cat uv.lock | grep -A3 "^name = \"ops\""
+  └ 12 lines...
+
+● Check latest ops version on PyPI (shell)
+  │ pip index versions ops 2>/dev/null | head -5 || pip install ops --dry-run 2>&1 | head -10
+  └ 5 lines...
+
+● Web Search ops charm library release notes changelog 3.6 latest PyPI 2025
+  └ {"type":"text","text":{"value":"The latest release of the ops charm library a...
+
+● Fetching web content https://raw.githubusercontent.com/canonical/operator/main/CHANGES.md
+  └ Content type text/plain; charset=utf-8 cannot be simplified to markdown. Here...
+
+● Check ops-scenario and ops-tracing versions (shell)
+  │ pip index versions ops-scenario 2>/dev/null | head -3; pip index versions ops-tracing
+  │ 2>/dev/null | head -3
+  └ 7 lines...
+
+● Read (Explore agent — Exploring charm structure)
+  └ Completed
+
+Now I have a good picture. Let me examine the actual test files and charm code in detail before planning the changes.
+
+● Read test_charm.py start (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && head -150
+  │ tests/unit/test_charm.py
+  └ 151 lines...
+
+● Read test conftest (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && head -100
+  │ tests/unit/conftest.py
+  └ 101 lines...
+
+● Read pyproject.toml (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && cat
+  │ pyproject.toml
+  └ 169 lines...
+
+● Find pebble check events in tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "check\|pebble_check\|CheckFailed\|CheckRecovered\|check_info\|CheckInfo"
+  │ tests/unit/test_charm.py | head -60
+  └ 5 lines...
+
+● Find pebble check events in charm (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "check\|pebble_check\|CheckFailed\|CheckRecovered\|check_info\|CheckInfo\|pebble_check_failed\|p
+  │ ebble_check_recovered" src/charm.py | head -60
+  └ 30 lines...
+
+● Check end of test_charm.py for pebble check tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && tail -100
+  │ tests/unit/test_charm.py
+  └ 101 lines...
+
+● Search for pebble check event handlers (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "pebble_check\|check_failed\|check_recovered\|on_wordpress_pebble\|CheckFailed\|CheckRecovered"
+  │ src/charm.py tests/unit/test_charm.py tests/unit/conftest.py 2>/dev/null | head -40
+  └ 1 line...
+
+● Count test functions (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && wc -l
+  │ tests/unit/test_charm.py && grep -c "def test_" tests/unit/test_charm.py
+  └ 3 lines...
+
+● Find all harness.begin calls (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "attach_storage\|begin_with_initial_hooks\|begin()" tests/unit/conftest.py
+  │ tests/unit/test_charm.py | head -50
+  └ 37 lines...
+
+● Check for scenario/Context usage (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "charm_spec\|testing.Context\|testing.State\|scenario" tests/unit/test_charm.py
+  │ tests/unit/conftest.py 2>/dev/null | head -20
+  └ 1 line...
+
+● Read attach_storage fixture (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '290,330p' tests/unit/conftest.py
+  └ 28 lines...
+
+● Read charm.py imports and beginning (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && head -60
+  │ src/charm.py
+  └ 61 lines...
+
+Now let me look at the tox config and check for any usage of `CheckInfo` in tests, and the full `__init__` of the charm:
+
+● Read tox config (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && cat tox.toml
+  └ 167 lines...
+
+● Read charm __init__ method (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '150,220p' src/charm.py
+  └ 71 lines...
+
+Let me check for specific API usage that's affected by the changes:
+
+● Check usage of APIs changed in 3.6.0 (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -rn
+  │ "get_binding\|Relation.save\|ExecError\|\.save(" src/ | head -20
+  └ 2 lines...
+
+● Check git history (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && git log
+  │ --oneline -5
+  └ 2 lines...
+
+● Check for pebble check event handlers (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -rn
+  │ "pebble_check_failed\|pebble_check_recovered\|CheckFailedEvent\|CheckRecoveredEvent" src/ tests/
+  │ 2>/dev/null | head -20
+  └ 1 line...
+
+● Check charmcraft.yaml for containers definition (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && cat
+  │ charmcraft.yaml | head -40
+  └ 17 lines...
+
+● Read ExecError usage (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '545,570p' src/charm.py
+  └ 27 lines...
+
+Let me look carefully at the charm's `__init__` and pebble layer to understand the full context:
+
+● Read charm __init__ in full (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '70,215p' src/charm.py
+  └ 147 lines...
+
+● Read pebble layer definition (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '745,800p' src/charm.py
+  └ 57 lines...
+
+Now let me check the pebble check events API in ops:
+
+● List pebble check related events (shell)
+  │ python3 -c "import ops.charm; print([x for x in dir(ops.charm) if 'check' in x.lower() or
+  │ 'Check' in x])"
+  └ 2 lines...
+
+● Check pebble check event API (shell)
+  │ python3 -c "import ops; help(ops.PebbleCheckFailedEvent)" 2>/dev/null | head -20; python3 -c
+  │ "import ops; help(ops.PebbleCheckRecoveredEvent)" 2>/dev/null | head -20
+  └ 41 lines...
+
+● Check PebbleCheckEvent attributes (shell)
+  │ python3 -c "
+  │ import ops.charm
+  │ help(ops.charm.PebbleCheckEvent)
+  │ " 2>/dev/null | head -40
+  └ 41 lines...
+
+● Check ContainerBase events (shell)
+  │ python3 -c "
+  │ import ops
+  │ # check how to observe pebble check events
+  │ import inspect
+  │ src = inspect.getsource(ops.charm.ContainerBase)…
+  └ 30 lines...
+
+● Inspect PebbleCheckEvent source (shell)
+  │ python3 -c "
+  │ import ops
+  │ # Look at how to get the check_name from the event and how to access check info
+  │ import inspect
+  │ src = inspect.getsource(ops.charm.PebbleCheckEvent)…
+  └ 35 lines...
+
+● Check charm events for pebble checks (shell)
+  │ python3 -c "
+  │ import ops
+  │ # How to observe these events
+  │ import inspect
+  │ # look for wordpress_pebble_check_failed in charm events…
+  └ 5 lines...
+
+● Inspect ContainerEvents (shell)
+  │ python3 -c "
+  │ import ops
+  │ # Look at how container events are registered
+  │ import inspect
+  │ # check ContainerEvents…
+  └ 4 lines...
+
+● Find pebble check events in ops.charm (shell)
+  │ python3 -c "
+  │ import ops, inspect
+  │ # Find ContainerEvents by searching ops.charm source
+  │ src = inspect.getsource(ops.charm)
+  │ idx = src.find('pebble_check')…
+  └ 22 lines...
+
+● Check status usage in charm (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "ActiveStatus\|WaitingStatus\|BlockedStatus\|MaintenanceStatus" src/charm.py | head -30
+  └ 28 lines...
+
+● Check LazyCheckInfo API (shell)
+  │ python3 -c "
+  │ import ops, inspect
+  │ src = inspect.getsource(ops.model.LazyCheckInfo)
+  │ print(src)
+  │ " 2>/dev/null
+  └ 35 lines...
+
+● Read reconciliation end and status setting (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '1545,1580p' src/charm.py
+  └ 35 lines...
+
+● Check pebble ready methods and check names (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "_are_pebble_instances_ready\|_WORDPRESS_CHECK_NAME\|CHECK_NAME\|check_name" src/charm.py
+  │ src/cos.py 2>/dev/null
+  └ 3 lines...
+
+● Read _are_pebble_instances_ready (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && sed -n
+  │ '1495,1545p' src/charm.py
+  └ 51 lines...
+
+● Read cos.py for apache check name (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && cat src/cos.py
+  └ 144 lines...
+
+Now I have everything I need. Let me plan and implement the changes:
+
+● Check existing test usage of check events (shell)
+  │ cd /tmp/ops-upgrade-experiment/wordpress-k8s-operator__pebble-check-events__C4 && grep -n
+  │ "pebble_notify\|get_pebble_notices\|run_pebble_checks\|PebbleCheckFailedEvent\|PebbleCheckRecove
+  │ redEvent" tests/unit/test_charm.py tests/unit/conftest.py tests/unit/wordpress_mock.py
+  │ 2>/dev/null
+  └ 1 line...
+
+● Check Harness pebble check event support (shell)
+  │ python3 -c "
+  │ import ops.testing
+  │ # Check if Harness supports pebble check events
+  │ h = help(ops.testing.Harness.pebble_notify)
+  │ " 2>/dev/null | head -20 || python3 -c "…
+  └ 26 lines...
+
+● Check Harness for check event firing (shell)
+  │ python3 -c "
+  │ import ops.testing, inspect
+  │ # Look for how to fire check failed/recovered events in Harness
+  │ src = inspect.getsource(ops.testing.Harness)
+  │ idx = src.find('check_failed')…
+  └ 18 lines...
+
+● Read pebble_notify implementation to understand check events (shell)
+  │ python3 -c "
+  │ import ops.testing, inspect, ops.pebble
+  │ # How to trigger pebble_check_failed in tests
+  │ src = inspect.getsource(ops.testing.Harness)
+  │ idx = src.find('pebble_notify')…
+  └ 40 lines...
+
+● Check how Harness fires check events (shell)
+  │ python3 -c "
+  │ import ops.testing, inspect, ops.pebble
+  │ # Search for how to trigger check failed in Harness
+  │ src = inspect.getsource(ops.testing.Harness)
+  │ idx = src.find('run_action')…
+  └ 60 lines...
+
+● Find how pebble check failed is emitted in Harness (shell)
+  │ python3 -c "
+  │ import ops.testing, inspect, ops.pebble
+  │ # Look for how the testing module fires check events
+  │ src = inspect.getsource(ops.testing.Harness)
+  │ # Find emit patterns for check events…
+  └ 15 lines...
+
+● Check mock pebble client for check support (shell)
+  │ python3 -c "
+  │ import ops._private.harness, inspect
+  │ # look at _MockPebbleClient
+  │ src = inspect.getsource(ops._private.harness)
+  │ # find methods related to checks…
+  └ 30 lines...
+
+● Find run_checks method in harness module (shell)
+  │ python3 -c "
+  │ import ops._private.harness, inspect
+  │ src = inspect.getsource(ops._private.harness)
+  │ # find run_checks method
+  │ idx = src.find('def run_checks(')…
+  └ 10 lines...
+
+● Find PERFORM_CHECK usage pattern (shell)
+  │ python3 -c "
+  │ import ops._private.harness, inspect
+  │ src = inspect.getsource(ops._private.harness)
+  │ # Look for _check method and PERFORM_CHECK constant use to understand test triggering
+  │ for idx_name, term in [('PERFORM_CHECK', 'PERFORM_CHECK'), ('perform-check', …
+  └ 23 lines...
+
+● Find _notify in mock pebble client (shell)
+  │ python3 -c "
+  │ import ops._private.harness, inspect
+  │ src = inspect.getsource(ops._private.harness)
+  │ # Find the _notify method to understand how to set up change with ERROR status
+  │ idx = src.find('def _notify(')…
+  └ 43 lines...
+
+● Find CHANGE_UPDATE handling for check events (shell)
+  │ python3 -c "
+  │ import ops._private.harness, inspect
+  │ src = inspect.getsource(ops._private.harness)
+  │ # Look at how check events are fired through pebble_notify
+  │ # Search for where CHANGE_UPDATE notice triggers check events…
+  └ 27 lines...
+

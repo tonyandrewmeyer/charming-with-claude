@@ -31,7 +31,7 @@ WORKDIR="/tmp/ops-upgrade-experiment"
 
 # Copilot settings
 MAX_CONTINUES=25
-TIMEOUT_MINUTES=15
+TIMEOUT_MINUTES=${TIMEOUT_MINUTES:-15}
 
 # --- Argument parsing ---
 
@@ -68,7 +68,7 @@ get_exemplar_charm() {
     # Return the first exemplar for the feature
     case "${feature}" in
         set-ports)
-            echo "catalogue-k8s-operator"
+            echo "minio-operator"
             ;;
         ops-tracing)
             echo "sdcore-amf-operator"
@@ -107,7 +107,7 @@ exemplar_url() {
     local feature="$1"
     case "${feature}" in
         set-ports)
-            echo "https://github.com/canonical/catalogue-k8s-operator"
+            echo "https://github.com/canonical/minio-operator"
             ;;
         ops-tracing)
             echo "https://github.com/canonical/sdcore-amf-operator"
@@ -188,8 +188,13 @@ elif [[ -d "${CLONE_BASE}/${CHARM}" ]]; then
     echo "Cloning from local: ${CLONE_BASE}/${CHARM}"
     git clone --quiet "${CLONE_BASE}/${CHARM}" "${WORKSPACE}"
 else
-    echo "Local clone not found; cloning from GitHub: canonical/${CHARM}"
-    git clone --quiet "https://github.com/canonical/${CHARM}.git" "${WORKSPACE}"
+    # Most charms live under canonical/, but some don't.
+    case "${CHARM}" in
+        zinc-k8s-operator) GITHUB_ORG="jnsgruk" ;;
+        *)                 GITHUB_ORG="canonical" ;;
+    esac
+    echo "Local clone not found; cloning from GitHub: ${GITHUB_ORG}/${CHARM}"
+    git clone --quiet "https://github.com/${GITHUB_ORG}/${CHARM}.git" "${WORKSPACE}"
 fi
 
 cd "${WORKSPACE}"
@@ -250,15 +255,17 @@ START_TIME=$(date +%s)
 # --share: save transcript to markdown file
 # --model: use claude-sonnet-4.6 (same as round 1)
 COPILOT_EXIT=0
-timeout "${TIMEOUT_MINUTES}m" \
+# Use 'script' to provide a PTY — copilot gets stopped (SIGTSTP) when
+# stdout is not a terminal, even in non-interactive (-p) mode.
+script -q -e -c "timeout ${TIMEOUT_MINUTES}m \
     copilot \
-        -p "${PROMPT}" \
+        -p \"${PROMPT}\" \
         --allow-all-tools \
         --autopilot \
-        --max-autopilot-continues "${MAX_CONTINUES}" \
+        --max-autopilot-continues ${MAX_CONTINUES} \
         --model claude-sonnet-4.6 \
-        --share "${TRANSCRIPT}" \
-    > "${RUN_DIR}/output.txt" 2>&1 \
+        --share \"${TRANSCRIPT}\"" \
+    "${RUN_DIR}/output.txt" \
     || COPILOT_EXIT=$?
 
 END_TIME=$(date +%s)

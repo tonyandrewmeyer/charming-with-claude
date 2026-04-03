@@ -1,0 +1,115 @@
+● Web Search ops 2.7.0 Unit.set_ports() API declarative ports Juju charm ops library documentation
+  └ {"type":"","text":{"value":"","annotations":null},"bing_searches":null,"annot...
+
+● Explore Explore port usage in charm
+  │ Find hardcoded port numbers (shell)
+  │   │ grep -rn "9093\|9094"
+  │   /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2/src/
+  │   │ --include="*.py"
+  │   └ 7 lines...
+  └ Find OpenedPort usage (shell)
+      │ grep -rn "OpenedPort"
+      /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2/src/
+      │ --include="*.py"
+      └ 4 lines...
+
+● Read charm.py
+  │ src/charm.py
+  └ L1:100 (100 lines read)
+
+● Fetching web content https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Unit.set_ports
+  └ Contents of https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Unit....
+
+● Read charm.py
+  │ src/charm.py
+  └ L255:295 (41 lines read)
+
+● Fetching web content https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Port
+  └ Contents of https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Port:
+
+● Fetching web content https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Unit.set_ports
+  └ Contents of https://ops.readthedocs.io/en/latest/reference/ops.html#ops.Unit....
+
+● Check ops version requirements (shell)
+  │ grep -r "ops"
+  │ /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2/pyproject.toml | head -20
+  │ && grep -r "ops"
+  │ /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2/charmcraft.yaml | head -10
+  └ 3 lines...
+
+● Check ops library version and Port class (shell)
+  │ python3 -c "import ops; print(hasattr(ops, 'Port')); print(hasattr(ops.model, 'Port'))"
+  │ 2>/dev/null || echo "ops not installed, checking pip"
+  │ pip3 show ops 2>/dev/null | grep -E "Version|Location"
+  └ 5 lines...
+
+● Search (grep)
+  │ "OpenedPort" (src/charm.py)
+  └ 3 lines found
+
+Now I have everything I need. The new `Unit.set_ports(*ports)` API replaces the manual diff pattern — just declare the desired ports and ops handles opening/closing. TCP ports can be passed as plain integers.
+
+● Edit charm.py -1
+  └ src/charm.py
+
+● Edit charm.py +1 -14
+  └ src/charm.py
+
+Now let me verify the changes look correct and run the existing tests:
+
+● Read charm.py
+  │ src/charm.py
+  └ L42:52 (11 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L265:275 (11 lines read)
+
+● Run unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2 && python3 -m pytest
+  │ tests/unit/ -x -q 2>&1 | tail -30
+  └ 5 lines...
+
+● Install deps and run unit tests (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2 && pip install -e
+  │ ".[testing]" -q 2>&1 | tail -5 && python3 -m pytest tests/unit/ -x -q 2>&1 | tail -30
+  └ 9 lines...
+
+● Run tests with PYTHONPATH set (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2 && PYTHONPATH=lib:src
+  │ python3 -m pytest tests/unit/ -x -q 2>&1 | tail -30
+  └ 1 line...
+
+● Read shell output Waiting up to 60 seconds for command output
+  └ 31 lines...
+
+All 57 tests pass. Let me commit the changes.
+
+● Commit the changes (shell)
+  │ cd /tmp/ops-upgrade-experiment/alertmanager-k8s-operator__set-ports__C2 && git add
+  │ src/charm.py && git commit -m "Use Unit.set_ports() declarative API for port management
+  │
+  │ Replace the manual diff loop (opened_ports / open_port / close_port)
+  │ with the declarative ops 2.7.0+ Unit.set_ports() API. The new API…
+  └ 8 lines...
+
+Done. Here's a summary of the changes:
+
+**`src/charm.py`**
+- Removed `OpenedPort` from the `ops.model` imports (no longer needed)
+- Replaced the 15-line imperative `set_ports()` method body with a single call:
+  ```python
+  self.unit.set_ports(self._ports.api, self._ports.ha)
+  ```
+
+`Unit.set_ports(*ports)` accepts plain integers for TCP ports and internally diffs against the currently-open ports, opening and closing as needed — exactly what the old manual implementation was doing.
+
+
+Total usage est:        1 Premium request
+API time spent:         3m 13s
+Total session time:     5m 18s
+Total code changes:     +1 -15
+Breakdown by AI model:
+ claude-sonnet-4.6        486.8k in, 4.3k out, 454.9k cached (Est. 1 Premium request)
+ claude-haiku-4.5         204.8k in, 4.6k out, 180.9k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/alertmanager-k8s-operator__set-ports__C2/transcript.md

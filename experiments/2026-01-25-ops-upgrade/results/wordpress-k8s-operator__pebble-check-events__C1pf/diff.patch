@@ -1,0 +1,97 @@
+diff --git a/src/charm.py b/src/charm.py
+index 1831c69..94b491a 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -25,7 +25,15 @@ from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
+ from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
+ from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from ops.charm import ActionEvent, CharmBase, HookEvent, PebbleReadyEvent, UpgradeCharmEvent
++from ops.charm import (
++    ActionEvent,
++    CharmBase,
++    HookEvent,
++    PebbleCheckFailedEvent,
++    PebbleCheckRecoveredEvent,
++    PebbleReadyEvent,
++    UpgradeCharmEvent,
++)
+ from ops.framework import EventBase
+ from ops.main import main
+ from ops.model import ActiveStatus, RelationDataContent, WaitingStatus
+@@ -193,6 +201,12 @@ class WordpressCharm(CharmBase):
+         self.framework.observe(self.on.wordpress_pebble_ready, self._set_version)
+         self.framework.observe(self.on.wordpress_pebble_ready, self._reconciliation)
+         self.framework.observe(self.on["wordpress-replica"].relation_changed, self._reconciliation)
++        self.framework.observe(
++            self.on["wordpress"].pebble_check_failed, self._on_pebble_check_failed
++        )
++        self.framework.observe(
++            self.on["wordpress"].pebble_check_recovered, self._on_pebble_check_recovered
++        )
+ 
+     def _set_version(self, _: PebbleReadyEvent) -> None:
+         """Set WordPress application version to Juju charm's app version status."""
+@@ -1543,6 +1557,24 @@ class WordpressCharm(CharmBase):
+             ]
+         ).wait()
+ 
++    def _on_pebble_check_failed(self, event: PebbleCheckFailedEvent) -> None:
++        """Handle a Pebble health check failure.
++
++        Args:
++            event: The PebbleCheckFailedEvent fired when a check reaches its failure threshold.
++        """
++        logger.warning("Health check %s failed (threshold reached)", event.info.name)
++        self.unit.status = ops.BlockedStatus(f"Workload health check '{event.info.name}' failing")
++
++    def _on_pebble_check_recovered(self, event: PebbleCheckRecoveredEvent) -> None:
++        """Handle a Pebble health check recovery.
++
++        Args:
++            event: The PebbleCheckRecoveredEvent fired when a previously failing check passes.
++        """
++        logger.info("Health check %s recovered", event.info.name)
++        self._reconciliation(event)
++
+     def _reconciliation(self, _event: EventBase) -> None:
+         """Reconcile the WordPress charm on juju event.
+ 
+diff --git a/tests/unit/test_charm.py b/tests/unit/test_charm.py
+index c610019..36d248a 100644
+--- a/tests/unit/test_charm.py
++++ b/tests/unit/test_charm.py
+@@ -1113,3 +1113,33 @@ def test_php_ini(
+         max_input_time = -1
+         """
+     )
++
++
++def test_pebble_check_failed(harness: ops.testing.Harness):
++    """
++    arrange: a started WordPress charm.
++    act: emit a pebble-check-failed event for the wordpress-ready check.
++    assert: the unit status should be BlockedStatus indicating the failing check.
++    """
++    harness.begin()
++    container = harness.charm.unit.get_container("wordpress")
++    harness.charm.on["wordpress"].pebble_check_failed.emit(container, "wordpress-ready")
++    assert harness.model.unit.status == ops.BlockedStatus(
++        "Workload health check 'wordpress-ready' failing"
++    )
++
++
++def test_pebble_check_recovered(harness: ops.testing.Harness):
++    """
++    arrange: a started WordPress charm with unit in BlockedStatus from a check failure.
++    act: emit a pebble-check-recovered event for the wordpress-ready check.
++    assert: the unit status should no longer be the check-failure BlockedStatus; reconciliation
++        runs and sets WaitingStatus because pebble is not yet connected.
++    """
++    harness.begin()
++    harness.model.unit.status = ops.BlockedStatus(
++        "Workload health check 'wordpress-ready' failing"
++    )
++    container = harness.charm.unit.get_container("wordpress")
++    harness.charm.on["wordpress"].pebble_check_recovered.emit(container, "wordpress-ready")
++    assert harness.model.unit.status == ops.WaitingStatus("Waiting for pebble")

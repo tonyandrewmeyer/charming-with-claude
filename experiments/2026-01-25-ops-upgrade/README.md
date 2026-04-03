@@ -46,9 +46,11 @@ All with ops 2.x in their supported range and significant upgrade room, none usi
 
 ## Results
 
+### Round 1
+
 Full results are in [results/results.md](results/results.md) and [results/evaluation.md](results/evaluation.md). The detailed experimental design, phase descriptions, and methodology are in [WRITE-UP.md](WRITE-UP.md).
 
-### Headline Numbers
+#### Headline Numbers (Round 1)
 
 | Condition | Mean Score (/25) | N |
 |-----------|:---:|:---:|
@@ -58,7 +60,7 @@ Full results are in [results/results.md](results/results.md) and [results/evalua
 | C3 (exemplar) | 20.44 | 4 |
 | C2 (simple prompt) | 18.43 | 8 |
 
-### What I Found
+#### What I Found (Round 1)
 
 **Skills prevent some mistakes.** The biggest quality gap showed up with relation-data-classes, where the skill's instruction to "only convert charm-owned data" prevented scope errors. The per-feature skill averaged 21.25 there versus the simple prompt's 10.25. For simpler, more mechanical features, the simple prompt was competitive.
 
@@ -70,9 +72,49 @@ Full results are in [results/results.md](results/results.md) and [results/evalua
 
 **Charms still using Harness is a problem.** 5 of 9 config-classes runs hit the same issue: storing config in `__init__` breaks Harness tests. All eventually self-corrected, but it consumed significant agent time.
 
-### The Practical Recommendation
+### Round 2
+
+Round 2 expanded to 10 charms, 5 features (set-ports, ops-tracing, pebble-check-events, action-testing, ops-testing-migration), and 67 planned runs. Full results are in [results/round-2-results.md](results/round-2-results.md) and [results/round-2-evaluation.md](results/round-2-evaluation.md). Design details are in [round-2.md](round-2.md).
+
+#### Headline Numbers (Round 2)
+
+| Condition | Mean Score (/25) | N Scored | N Timeout |
+|-----------|:---:|:---:|:---:|
+| C1pf (per-feature skill) | 23.47 | 8 | 4 |
+| C2 (simple prompt) | 23.22 | 8 | 4 |
+| C3 (exemplar) | 20.72 | 7 | 4 |
+| C1s (single skill) | 21.13 | 2 | 2 |
+| C4 (generic prompt) | 17.57 | 4 | 10 |
+
+**The critical caveat**: 33 of 67 runs (49%) timed out with zero changes. Round 1 had 0% timeouts. The scored means are survivor-biased.
+
+#### What I Found (Round 2)
+
+**The timeout rate is the headline finding.** Nearly half of all runs produced nothing. Entire charms (tempo-k8s, traefik-k8s) and features (ops-testing-migration) had 100% timeout rates. Complex charms with deep dependency trees consumed the agent's full time budget on environment setup and exploration before it could make any changes.
+
+**When it works, quality is higher than round 1.** Scored runs averaged 21.55/25 vs round 1's 20.52. Set-ports (23.68/25) and action-testing (24.25/25) -- both older, mechanical features -- achieved near-perfect scores. This suggests the model has strong knowledge of well-documented, straightforward API changes.
+
+**The simple prompt (C2) closed the gap with skills.** In round 1, C1pf outperformed C2 by 2.6 points. In round 2, the gap is only 0.25. For simple features, a basic prompt is sufficient. Skills still win on complex features (pebble-check-events: C1pf 22.50 vs C2 20.63).
+
+**The exemplar trap is confirmed.** C3 produced the lowest scores for pebble-check-events (16.00 and 16.75) by faithfully copying the kratos exemplar's log-only pattern -- technically correct but operationally useless. Exemplars must be vetted for best practice, not just "uses the feature."
+
+**The generic prompt (C4) collapsed.** From a mean of 21.17 in round 1 to 17.57 in round 2 (scored runs only), with 10 of 13 per-feature C4 runs timing out. The open-ended "read release notes" prompt triggers scope paralysis: the agent researches exhaustively but never commits to action.
+
+**Feature difficulty is the strongest predictor of success:**
+
+| Feature | Completion Rate | Mean Score |
+|---------|:-:|:-:|
+| action-testing | 100% | 24.25 |
+| set-ports | 83% | 23.68 |
+| ops-tracing | 44% | 21.04 |
+| pebble-check-events | 38% | 20.50 |
+| ops-testing-migration | 0% | — |
+
+### The Practical Recommendation (Revised)
 
 A single comprehensive skill is the best overall approach (mean 22.00), supplemented by per-feature skills for genuinely complex features like relation-data-classes. The generic release-notes prompt is surprisingly competitive and costs nothing to maintain -- worth using as a first pass, with targeted skills for the hard bits.
+
+Round 2 adds nuance: **the skill matters most for complex features and complex charms.** For simple mechanical changes (set-ports, action-testing), even a bare prompt works. For features requiring architectural judgement (pebble-check-events, ops-tracing), the skill provides crucial guardrails. And for complex charms, the primary challenge is not quality but **completion** -- the agent needs either more time or a pre-prepared environment to avoid spending 15 minutes on setup.
 
 ## Emerging Findings
 
@@ -106,5 +148,8 @@ Even 2-3 exemplar PRs per release would dramatically improve the quality of both
 ## Files of Interest
 
 * [WRITE-UP.md](WRITE-UP.md) -- Full experimental design, methodology, and phase-by-phase details
-* [results/results.md](results/results.md) -- Quantitative results
-* [results/evaluation.md](results/evaluation.md) -- Detailed per-run evaluation
+* [round-2.md](round-2.md) -- Round 2 design: expanded scope, charm selection, feature matrix
+* [results/results.md](results/results.md) -- Round 1 quantitative results
+* [results/evaluation.md](results/evaluation.md) -- Round 1 detailed per-run evaluation
+* [results/round-2-results.md](results/round-2-results.md) -- Round 2 quantitative results and analysis
+* [results/round-2-evaluation.md](results/round-2-evaluation.md) -- Round 2 detailed per-run evaluation

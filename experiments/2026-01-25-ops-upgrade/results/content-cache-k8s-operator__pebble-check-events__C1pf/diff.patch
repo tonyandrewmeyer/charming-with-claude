@@ -1,0 +1,72 @@
+diff --git a/src/charm.py b/src/charm.py
+index 2913b42..2a3db01 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -73,6 +73,12 @@ class ContentCacheCharm(CharmBase):
+         self.framework.observe(
+             self.on.content_cache_pebble_ready, self._on_content_cache_pebble_ready
+         )
++        self.framework.observe(
++            self.on["content-cache"].pebble_check_failed, self._on_pebble_check_failed
++        )
++        self.framework.observe(
++            self.on["content-cache"].pebble_check_recovered, self._on_pebble_check_recovered
++        )
+         # Provide ability for Content-cache to be scraped by Prometheus using prometheus_scrape
+         self._metrics_endpoint = MetricsEndpointProvider(
+             self, jobs=[{"static_configs": [{"targets": ["*:9113"]}]}]
+@@ -118,6 +124,24 @@ class ContentCacheCharm(CharmBase):
+         self.model.unit.status = MaintenanceStatus(msg)
+         self.on.config_changed.emit()
+ 
++    def _on_pebble_check_failed(self, event) -> None:
++        """Handle a Pebble health check failure.
++
++        Args:
++            event: PebbleCheckFailedEvent fired when a check's failure threshold is reached.
++        """
++        logger.warning("Health check %s failed (threshold reached)", event.info.name)
++        self.unit.status = BlockedStatus(f"Health check '{event.info.name}' failing")
++
++    def _on_pebble_check_recovered(self, event) -> None:
++        """Handle a Pebble health check recovery.
++
++        Args:
++            event: PebbleCheckRecoveredEvent fired when a previously failed check passes.
++        """
++        logger.info("Health check %s recovered", event.info.name)
++        self.unit.status = ActiveStatus()
++
+     def _on_start(self, event) -> None:
+         """Handle workload container started.
+ 
+diff --git a/tests/unit/test_charm.py b/tests/unit/test_charm.py
+index c8514b7..c4cc223 100644
+--- a/tests/unit/test_charm.py
++++ b/tests/unit/test_charm.py
+@@ -648,3 +648,25 @@ class TestCharm:
+         with open("tests/files/nginx_config_proxy_cache_revalidate.txt") as f:
+             expected = f.read()
+             assert harness.charm._make_nginx_config(env_config) == expected
++
++    def test_on_pebble_check_failed(self):
++        """
++        arrange: a Pebble health check has reached its failure threshold
++        act: emit pebble_check_failed event
++        assert: unit status is Blocked with the check name
++        """
++        harness = self.harness
++        container = harness.charm.unit.get_container(CONTAINER_NAME)
++        harness.charm.on["content-cache"].pebble_check_failed.emit(container, "content-cache")
++        assert harness.charm.unit.status == BlockedStatus("Health check 'content-cache' failing")
++
++    def test_on_pebble_check_recovered(self):
++        """
++        arrange: a previously failing Pebble health check has now passed
++        act: emit pebble_check_recovered event
++        assert: unit status is Active
++        """
++        harness = self.harness
++        container = harness.charm.unit.get_container(CONTAINER_NAME)
++        harness.charm.on["content-cache"].pebble_check_recovered.emit(container, "content-cache")
++        assert harness.charm.unit.status == ActiveStatus()

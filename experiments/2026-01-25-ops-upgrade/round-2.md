@@ -179,6 +179,22 @@ All skills have been built and are ready for use.
 
 `skills/ops-upgrade/SKILL.md` — updated to cover ops 2.7.0–3.6.0, including set-ports, ops-tracing, pebble-check-events, pebble-notices, and action-testing alongside the existing round 1 content.
 
+## Exemplars for C3 Condition
+
+Identified by searching all 162 charms in `~/charm-clones/` on 2026-04-01.
+
+| Feature | Exemplar | Why | Adoption in corpus |
+|---------|----------|-----|-------------------|
+| **set-ports** | [minio-operator](https://github.com/canonical/minio-operator) | Multi-port `set_ports(port, console_port)` — matches the multi-port pattern in alertmanager and grafana. Clean adoption, no residual `open_port`/`close_port`. | 21 charms with clean adoption, 17 partial |
+| **ops-tracing** | [sdcore-amf-operator](https://github.com/canonical/sdcore-amf-operator) | Already used in round 1 C3 runs. Clean `ops.tracing` adoption. | ~10 sdcore charms + a few others |
+| **pebble-check-events** | [kratos-operator](https://github.com/canonical/kratos-operator) | Both `pebble-check-failed` and `pebble-check-recovered` handlers, READY + ALIVE checks defined in Pebble layer with HTTP health endpoints. | **Only 3 charms** use this feature (kratos, hydra, identity-platform-admin-ui — all Identity team) |
+
+### Notes
+
+- **set-ports**: Changed from catalogue-k8s-operator (single-port `set_ports(80)`) to minio-operator because the target charms (alertmanager, grafana) both have multi-port patterns. minio demonstrates the consolidation of multiple `open_port()` calls into a single declarative `set_ports(port1, port2)`.
+- **pebble-check-events**: Extremely low adoption (3 charms out of 162). All three are from the Identity team and follow the same pattern: logging-only handlers with status managed via `collect-status`. This confirms the round 1 finding about poor feature adoption limiting exemplar-based approaches.
+- **action-testing**: No C3 runs planned (secondary feature, C1pf + C2 only). If needed later, kratos-operator (44 test methods using Context API) or hardware-observer-operator (Harness `run_action()` pattern) would be good exemplars.
+
 ## Execution Plan
 
 | Step | Description | Status |
@@ -187,10 +203,14 @@ All skills have been built and are ready for use.
 | 2 | Build per-feature skills | ✅ Done (7 skills) |
 | 3 | Update single upgrade skill | ✅ Done |
 | 4 | Confirm charm selection | ✅ Done (10 charms, 67 runs) |
-| 5 | Find exemplars for C3 condition | **Next** |
-| 6 | Run evaluation (phase 5) | Pending |
-| 7 | Score and analyse | Pending |
-| 8 | Update README with round 2 findings | Pending |
+| 5 | Find exemplars for C3 condition | ✅ Done |
+| 6 | Run evaluation (phase 5) | ✅ Done (28 scored, 33 timeouts, 2 no-ops, 1 diff capture failure, 1 missing) |
+| 7 | Score and analyse | ✅ Done — see [results/round-2-results.md](results/round-2-results.md) and [results/round-2-evaluation.md](results/round-2-evaluation.md) |
+| 8 | Update README with round 2 findings | ✅ Done |
+
+## Findings During Execution
+
+- **2026-04-03: `canonical/zinc-k8s-operator` deleted from GitHub.** The repo has been removed from the `canonical` org. It still exists at its original location, `jnsgruk/zinc-k8s-operator`. The run script assumed all charms lived under `canonical/` and crashed when attempting to clone zinc-k8s-operator during Phase 3 (set-ports). Fixed `run-evaluation.sh` to use `jnsgruk/` for zinc-k8s-operator. Runs up to and including `grafana-k8s-operator__set-ports__C4` completed successfully; execution resumed from `zinc-k8s-operator__set-ports__C1pf`.
 
 ## Notes
 

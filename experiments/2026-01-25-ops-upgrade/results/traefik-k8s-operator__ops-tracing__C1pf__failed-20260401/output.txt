@@ -1,0 +1,531 @@
+● Explore: Explore charm tracing state
+  ● Check file length
+    $ wc -l /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/lib/charms/tempo_coo
+    rdinator_k8s/v0/tracing.py
+    └ 2 lines...
+  ● Full charmcraft.yaml
+    $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/charmcraft.yaml
+    └ 18 lines...
+
+● Read src/charm.py lines 1-280
+  └ 280 lines read
+
+● Read pyproject.toml
+  └ 122 lines read
+
+● Read src/charm.py lines 655-680
+  └ 26 lines read
+
+● Read tests/unit/test_tracing_integration.py
+  └ 140 lines read
+
+● List directory lib/charms/tempo_coordinator_k8s
+  └ 1 file found
+
+● Find all files referencing charm_tracing
+  $ grep -r "charm_tracing\|charm_tracing_disabled\|CHARM_TRACING_ENABLED"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/ --include="*.py" -l
+  └ 7 lines...
+
+● Check conftest files for tracing references
+  $ grep -n "charm_tracing\|charm_tracing_disabled\|CHARM_TRACING_ENABLED"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/tests/unit/conftest.py
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/tests/scenario/conftest.py
+  └ 5 lines...
+
+● Read tests/unit/conftest.py
+  └ 78 lines read
+
+● Read tests/scenario/conftest.py
+  └ 74 lines read
+
+● Check usage of SERVER_CERT_PATH and related vars
+  $ grep -n "SERVER_CERT_PATH\|charm_tracing_endpoint\|server_cert"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/src/charm.py
+  └ 7 lines...
+
+Now I have everything I need. Let me make all the changes:
+
+● Read src/charm.py lines 89-97
+  └ 9 lines read
+
+● Edit pyproject.toml (+1 -3)
+
+● Edit src/charm.py (+1 -5)
+
+● Edit src/charm.py (-1)
+
+Now add `import ops.tracing` and remove the `@trace_charm` decorator:
+
+● Edit src/charm.py (+1)
+
+● Edit src/charm.py (-11)
+
+Now replace the charm tracing setup in `__init__`:
+
+● Edit src/charm.py (+1 -3)
+
+● Edit src/charm.py (-4)
+
+Now delete the community charm_tracing library:
+
+● Delete community charm_tracing library
+  $ rm /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/lib/charms/tempo_coordina
+  tor_k8s/v0/charm_tracing.py
+  └ 1 line...
+
+Now update the test files. Remove `charm_tracing_disabled` from conftest files:
+
+● Edit tests/unit/conftest.py (-1)
+
+● Edit tests/unit/conftest.py (+2 -3)
+
+Now fix the indentation issue from removing one level of nesting:
+
+● Read tests/unit/conftest.py lines 14-28
+  └ 13 lines read
+
+● Edit tests/unit/conftest.py (+5 -5)
+
+Now update `tests/scenario/conftest.py`:
+
+● Edit tests/scenario/conftest.py (-1)
+
+● Read tests/scenario/conftest.py lines 20-35
+  └ 15 lines read
+
+● Edit tests/scenario/conftest.py (+7 -8)
+
+Now update `tests/unit/test_tracing_integration.py` - remove the charm tracing test and update imports:
+
+● Edit tests/unit/test_tracing_integration.py (-8)
+
+Now remove the `charm_tracing_relation` fixture and the `test_charm_trace_collection` test:
+
+● Edit tests/unit/test_tracing_integration.py (-15)
+
+● Edit tests/unit/test_tracing_integration.py (-28)
+
+Now remove `with charm_tracing_disabled():` from the workload tracing tests:
+
+● Read tests/unit/test_tracing_integration.py
+  └ 89 lines read
+
+● Edit tests/unit/test_tracing_integration.py (+1 -2)
+
+● Edit tests/unit/test_tracing_integration.py
+
+● Read tests/unit/test_tracing_integration.py
+  └ 88 lines read
+
+Still have `with charm_tracing_disabled():` in the two remaining tests. Fix those:
+
+● Edit tests/unit/test_tracing_integration.py (+1)
+
+● Read tests/unit/test_tracing_integration.py
+  └ 89 lines read
+
+The file got mangled. Let me rewrite it cleanly:
+
+● Rewrite test_tracing_integration.py cleanly
+  $ cat > /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/tests/unit/test_trac
+  ing_integration.py << 'EOF'
+  import pytest
+  import yaml
+  from charms.tempo_coordinator_k8s.v0.tracing import ProtocolType, Receiver, ...
+  └ 89 lines...
+
+Now let's install dependencies and run the tests:
+
+● Install ops[tracing]
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && pip install
+  "ops[tracing]>=2.21" -q 2>&1 | tail -5
+  └ 5 lines...
+
+● Run tracing unit tests
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && python -c "import sys;
+   print(sys.executable)" && which tox && tox -e unit -- tests/unit/test_tracing_integration.py -x
+  2>&1 | tail -30
+  └ 2 lines...
+
+● Check tox setup
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && which tox && cat
+  tox.ini
+  └ 72 lines...
+
+● Run tracing unit tests with tox
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -40
+  └ 10 lines...
+
+● Update uv.lock after pyproject.toml changes
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 | tail
+  -10
+  └ 11 lines...
+
+● Run tracing unit tests after lockfile update
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -30
+  └ 12 lines...
+
+● Check installed ops packages in tox env
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && .tox/unit/bin/pip show
+   ops ops-tracing 2>&1
+  └ 2 lines...
+
+● Check tox unit env structure
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/
+  └ 2 lines...
+
+✗ Check if ops.tracing is importable in tox env
+  $ /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/bin/python -c
+  "import ops.tracing; print('ok')"
+  Permission denied and could not request permission from user
+
+● Check tox env lib directory
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/
+  └ 2 lines...
+
+● List ops-related packages in tox env
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12/
+  site-packages/ | grep ops
+  └ 6 lines...
+
+● Check ops package contents
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12/
+  site-packages/ops/
+  └ 3 lines...
+
+● Check ops_tracing package structure
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12/
+  site-packages/ops_tracing/
+  └ 2 lines...
+
+● Check ops_tracing __init__.py
+  $ head -5 /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python
+  3.12/site-packages/ops_tracing/__init__.py
+  └ 6 lines...
+
+● Find setup function in ops_tracing
+  $ grep -n "^def setup\|^setup" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf
+  /.tox/unit/lib/python3.12/site-packages/ops_tracing/__init__.py | head -5
+  └ 1 line...
+
+● Check if ops package re-exports tracing
+  $ grep -rn "ops.tracing\|ops_tracing" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracin
+  g__C1pf/.tox/unit/lib/python3.12/site-packages/ops/__init__.py | head -5
+  └ 3 lines...
+
+● See how ops.tracing is set up
+  $ grep -n -A5 "import ops_tracing" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__
+  C1pf/.tox/unit/lib/python3.12/site-packages/ops/__init__.py
+  └ 7 lines...
+
+● Check full tracing setup in ops __init__.py
+  $ grep -n "tracing" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/
+  lib/python3.12/site-packages/ops/__init__.py | head -20
+  └ 5 lines...
+
+● Check how tracing is exported from ops
+  $ grep -n -B5 -A10 "'tracing'" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf
+  /.tox/unit/lib/python3.12/site-packages/ops/__init__.py | head -30
+  └ 17 lines...
+
+✗ Test if from ops import tracing works
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && .tox/unit/bin/python3
+  -c "from ops import tracing; print(tracing.setup)"
+  Permission denied and could not request permission from user
+
+● Check tox env python
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/pyvenv.cfg
+  └ 6 lines...
+
+● Test ops.tracing import
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "from ops import tracing; print(tracing.setup)"
+  └ 4 lines...
+
+● Check ops_tracing public API
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "import ops_tracing; print(dir(ops_tracing))"
+  └ 2 lines...
+
+● Check Tracing class API
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "import ops_tracing; help(ops_tracing.Tracing)"
+  └ 79 lines...
+
+● Stop shell
+  └ 1 line...
+
+● Check for sys.modules registration in ops
+  $ grep -n "sys.modules\|ops.tracing" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing
+  __C1pf/.tox/unit/lib/python3.12/site-packages/ops/__init__.py
+  └ 3 lines...
+
+● Show full tracing section in ops __init__.py
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12
+  /site-packages/ops/__init__.py | grep -n "tracing" -A2 -B2
+  └ 16 lines...
+
+● Check ops_tracing for sys.modules registration
+  $ grep -n "sys.modules\|ops.tracing" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing
+  __C1pf/.tox/unit/lib/python3.12/site-packages/ops_tracing/__init__.py | head -10
+  └ 4 lines...
+
+● Check for sys usage in ops_tracing
+  $ grep -n "sys\." /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/li
+  b/python3.12/site-packages/ops_tracing/__init__.py | head -10
+  └ 1 line...
+
+● Test ops.tracing module availability
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "import sys; import ops; print('ops.tracing:', ops.tracing);
+  print('in sys.modules:', 'ops.tracing' in sys.modules)"
+  └ 3 lines...
+
+● Test from ops import tracing
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "import ops; from ops import tracing; print(tracing.Tracing)"
+  └ 2 lines...
+
+`from ops import tracing` works. Now I need to update charm.py to use the actual `ops_tracing.Tracing` API instead of the non-existent `setup()`:
+
+● Edit src/charm.py (+1 -1)
+
+Now update the tracing setup call in `__init__`:
+
+● Edit src/charm.py (+3 -1)
+
+Now run the tracing unit tests:
+
+● Run tracing tests after API fix
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -25
+  └ 26 lines...
+
+● Check ops and scenario versions
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "import ops; import ops_scenario; print('ops:', ops.__version__);
+   print('scenario:', ops_scenario.__version__)"
+  └ 4 lines...
+
+● Check ops and scenario versions
+  $ PYTHONPATH=/tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pyt
+  hon3.12/site-packages python3 -c "import ops; import scenario; print('ops:', ops.__version__);
+  print('scenario:', scenario.__version__)"
+  └ 5 lines...
+
+● Find _JujuContext in ops_tracing
+  $ grep -n "jujucontext\|_JujuContext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracin
+  g__C1pf/.tox/unit/lib/python3.12/site-packages/ops_tracing/__init__.py | head -5
+  └ 1 line...
+
+● Find _JujuContext usage in ops_tracing
+  $ grep -rn "_JujuContext\|jujucontext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-traci
+  ng__C1pf/.tox/unit/lib/python3.12/site-packages/ops_tracing/ | head -10
+  └ 1 line...
+
+● Find _JujuContext in scenario
+  $ grep -rn "_JujuContext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox
+  /unit/lib/python3.12/site-packages/scenario/ | head -5
+  └ 5 lines...
+
+● Check ops-scenario deps
+  $ cat /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12
+  /site-packages/ops_scenario-6.1.6.dist-info/METADATA | grep -i "ops\|requires" | head -20
+  └ 21 lines...
+
+● Check JujuContext in ops 3.6.0
+  $ grep -n "_JujuContext\|JujuContext" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracin
+  g__C1pf/.tox/unit/lib/python3.12/site-packages/ops/jujucontext.py | head -10
+  └ 11 lines...
+
+The issue is ops v3.6.0 is incompatible with ops-scenario 6.x. I need to bound the ops version:
+
+● Edit pyproject.toml (+1 -1)
+
+● Update lockfile with ops version bound
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 | tail
+  -10
+  └ 5 lines...
+
+● Run tracing tests with ops <3
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -20
+  └ 20 lines...
+
+● Test if these tests were passing before my changes
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && git stash && tox -e
+  unit -- tests/unit/test_tracing_integration.py -x 2>&1 | tail -10
+  └ 12 lines...
+
+● Restore changes and check original ops version
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && git stash pop && grep
+  "name = \"ops\"" uv.lock -A3 | head -10
+  └ 29 lines...
+
+● Test with original lockfile but new code
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && git stash -- uv.lock
+  && tox -e unit -- tests/unit/test_tracing_integration.py -x 2>&1 | tail -10
+  └ 8 lines...
+
+● Restore the lockfile
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && git stash pop
+  └ 19 lines...
+
+● Check installed packages after stash pop
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12/
+  site-packages/ | grep -i "ops\|scenario" | head -10
+  └ 5 lines...
+
+● Check ops-scenario version constraint
+  $ grep -n "ops-scenario\|ops_scenario"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/pyproject.toml
+  └ 2 lines...
+
+● Check if _TestingPebbleClient exists in current ops.testing
+  $ grep -n "TestingPebbleClient" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1p
+  f/.tox/unit/lib/python3.12/site-packages/ops/testing.py | head -5
+  └ 6 lines...
+
+● Check ops_tracing mock module
+  $ head -30 /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/pytho
+  n3.12/site-packages/ops_tracing/_mock.py
+  └ 2 lines...
+
+● List ops_tracing package files
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12/
+  site-packages/ops_tracing/
+  └ 2 lines...
+
+● Run tests with current state
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -20
+  └ 20 lines...
+
+● Get full error trace
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py::test_traefik_tracing_config -x -v 2>&1 | grep -A50
+  "FAILED\|ImportError\|_TestingPebble" | head -50
+  └ 51 lines...
+
+● Get file traceback for the import error
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py::test_traefik_tracing_config -x --tb=long 2>&1 | grep
+  "File\|Error\|import" | head -30
+  └ 28 lines...
+
+● Check PebbleClient in ops.testing v2.23.2
+  $ grep -n "Pebble\|class.*Pebble" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C
+  1pf/.tox/unit/lib/python3.12/site-packages/ops/testing.py | head -10
+  └ 1 line...
+
+● Check ops.testing header
+  $ head -5 /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python
+  3.12/site-packages/ops/testing.py
+  └ 6 lines...
+
+● Check ops.testing structure
+  $ grep -n "class\|import" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox
+  /unit/lib/python3.12/site-packages/ops/testing.py | head -20
+  └ 18 lines...
+
+● Check available ops-scenario versions
+  $ pip index versions ops-scenario 2>/dev/null | head -5 || pip install ops-scenario --dry-run 2>&1
+   | head -5
+  └ 5 lines...
+
+● Edit pyproject.toml (+1 -1)
+
+● Update lockfile with ops-scenario constraint
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 | tail -5
+  └ 6 lines...
+
+● Check ops-scenario 7.x deps
+  $ pip download ops-scenario==7.0.5 -d /tmp/pkgs --no-deps 2>/dev/null && python3 -c "
+  import zipfile, json, glob
+  f = glob.glob('/tmp/pkgs/ops_scenario*.whl')[0]
+  with zipfile.ZipFile(f) as z:
+      for name in z.namelist():...
+  └ 37 lines...
+
+● Check ops-tracing 2.23.2 deps
+  $ pip download ops-tracing==2.23.2 -d /tmp/pkgs2 --no-deps 2>/dev/null && python3 -c "
+  import zipfile, json, glob
+  f = glob.glob('/tmp/pkgs2/ops_tracing*.whl')[0]
+  with zipfile.ZipFile(f) as z:
+      for name in z.namelist():...
+  └ 21 lines...
+
+● Check ops-tracing metadata requires
+  $ python3 -c "
+  import zipfile, glob
+  f = glob.glob('/tmp/pkgs2/ops_tracing*.whl')[0]
+  with zipfile.ZipFile(f) as z:
+      for name in z.namelist():...
+  └ 20 lines...
+
+● Find ops-tracing requirements
+  $ python3 -c "
+  import zipfile, glob
+  f = glob.glob('/tmp/pkgs2/ops_tracing*.whl')[0]
+  with zipfile.ZipFile(f) as z:
+      for name in z.namelist():...
+  └ 13 lines...
+
+● Edit pyproject.toml (+1 -1)
+
+● Update lockfile with ops-scenario 7.x
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 | tail -8
+  └ 4 lines...
+
+● Run tracing tests with ops-scenario 7.x
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -25
+  └ 26 lines...
+
+● Check available pytest-interface-tester versions
+  $ pip index versions pytest-interface-tester 2>/dev/null | head -3
+  └ 4 lines...
+
+● Check pytest-interface-tester 3.x deps
+  $ pip download pytest-interface-tester==3.4.1 -d /tmp/pkgs3 --no-deps 2>/dev/null && python3 -c
+  "
+  import zipfile, glob
+  f = glob.glob('/tmp/pkgs3/*.whl')[0]
+  with zipfile.ZipFile(f) as z:...
+  └ 19 lines...
+
+● Edit pyproject.toml (+1 -1)
+
+● Update lockfile with all upgrades
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && uv lock 2>&1 | tail
+  -10
+  └ 3 lines...
+
+● Run tracing tests
+  $ cd /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf && tox -e unit --
+  tests/unit/test_tracing_integration.py -x 2>&1 | tail -25
+  └ 26 lines...
+
+● Check installed interface-tester version
+  $ ls /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/.tox/unit/lib/python3.12/
+  site-packages/ | grep -i interface
+  └ 3 lines...
+
+● Check interface_test.py imports
+  $ grep -n "^from scenario\|^import scenario" /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops
+  -tracing__C1pf/.tox/unit/lib/python3.12/site-packages/interface_tester/interface_test.py | head -5
+  └ 3 lines...
+
+● Check scenario 7.x exports
+  $ grep -n "^from\|^import\|Event\|class Event" /tmp/ops-upgrade-experiment/traefik-k8s-operator__o
+  ps-tracing__C1pf/.tox/unit/lib/python3.12/site-packages/scenario/__init__.py | head -30
+  └ 10 lines...
+
+● Check interface-tester in lockfile
+  $ grep "pytest-interface-tester\|interface.tester"
+  /tmp/ops-upgrade-experiment/traefik-k8s-operator__ops-tracing__C1pf/uv.lock | head -10
+  └ 6 lines...
+

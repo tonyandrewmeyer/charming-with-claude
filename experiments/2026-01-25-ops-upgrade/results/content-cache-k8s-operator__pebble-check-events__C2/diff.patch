@@ -1,0 +1,124 @@
+diff --git a/src/charm.py b/src/charm.py
+index 2913b42..4fd9bc2 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -21,7 +21,14 @@ from charms.nginx_ingress_integrator.v0.nginx_route import (
+     require_nginx_route,
+ )
+ from charms.prometheus_k8s.v0.prometheus_scrape import MetricsEndpointProvider
+-from ops.charm import ActionEvent, CharmBase, ConfigChangedEvent, UpgradeCharmEvent
++from ops.charm import (
++    ActionEvent,
++    CharmBase,
++    ConfigChangedEvent,
++    PebbleCheckFailedEvent,
++    PebbleCheckRecoveredEvent,
++    UpgradeCharmEvent,
++)
+ from ops.main import main
+ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+ from tabulate import tabulate  # type: ignore[import-untyped]
+@@ -73,6 +80,12 @@ class ContentCacheCharm(CharmBase):
+         self.framework.observe(
+             self.on.content_cache_pebble_ready, self._on_content_cache_pebble_ready
+         )
++        self.framework.observe(
++            self.on[CONTAINER_NAME].pebble_check_failed, self._on_pebble_check_failed
++        )
++        self.framework.observe(
++            self.on[CONTAINER_NAME].pebble_check_recovered, self._on_pebble_check_recovered
++        )
+         # Provide ability for Content-cache to be scraped by Prometheus using prometheus_scrape
+         self._metrics_endpoint = MetricsEndpointProvider(
+             self, jobs=[{"static_configs": [{"targets": ["*:9113"]}]}]
+@@ -118,6 +131,31 @@ class ContentCacheCharm(CharmBase):
+         self.model.unit.status = MaintenanceStatus(msg)
+         self.on.config_changed.emit()
+ 
++    def _on_pebble_check_failed(self, event: PebbleCheckFailedEvent) -> None:
++        """Handle pebble_check_failed event.
++
++        Args:
++            event: Event emitted when a Pebble health check fails.
++        """
++        if event.info.name == CONTAINER_NAME:
++            msg = f"Pebble check failed: {event.info.name}"
++            logger.error(msg)
++            self.unit.status = BlockedStatus(msg)
++        else:
++            logger.warning("Pebble check failed: %s", event.info.name)
++
++    def _on_pebble_check_recovered(self, event: PebbleCheckRecoveredEvent) -> None:
++        """Handle pebble_check_recovered event.
++
++        Args:
++            event: Event emitted when a previously failed Pebble health check recovers.
++        """
++        if event.info.name == CONTAINER_NAME:
++            logger.info("Pebble check recovered: %s", event.info.name)
++            self.unit.status = ActiveStatus("Ready")
++        else:
++            logger.info("Pebble check recovered: %s", event.info.name)
++
+     def _on_start(self, event) -> None:
+         """Handle workload container started.
+ 
+diff --git a/tests/unit/test_charm.py b/tests/unit/test_charm.py
+index c8514b7..c494ae1 100644
+--- a/tests/unit/test_charm.py
++++ b/tests/unit/test_charm.py
+@@ -648,3 +648,54 @@ class TestCharm:
+         with open("tests/files/nginx_config_proxy_cache_revalidate.txt") as f:
+             expected = f.read()
+             assert harness.charm._make_nginx_config(env_config) == expected
++
++    def test_on_pebble_check_failed_content_cache(self):
++        """
++        arrange: content-cache pebble check fails
++        act: emit pebble_check_failed event for the content-cache check
++        assert: unit status is BlockedStatus with the check name
++        """
++        harness = self.harness
++        container = harness.charm.unit.get_container(CONTAINER_NAME)
++        harness.charm.on[CONTAINER_NAME].pebble_check_failed.emit(container, CONTAINER_NAME)
++        assert harness.charm.unit.status == BlockedStatus(
++            f"Pebble check failed: {CONTAINER_NAME}"
++        )
++
++    def test_on_pebble_check_recovered_content_cache(self):
++        """
++        arrange: content-cache pebble check recovers after a failure
++        act: emit pebble_check_recovered event for the content-cache check
++        assert: unit status is ActiveStatus Ready
++        """
++        harness = self.harness
++        harness.charm.unit.status = BlockedStatus(f"Pebble check failed: {CONTAINER_NAME}")
++        container = harness.charm.unit.get_container(CONTAINER_NAME)
++        harness.charm.on[CONTAINER_NAME].pebble_check_recovered.emit(container, CONTAINER_NAME)
++        assert harness.charm.unit.status == ActiveStatus("Ready")
++
++    def test_on_pebble_check_failed_exporter(self):
++        """
++        arrange: nginx-exporter-up pebble check fails (both checks are on the content-cache container)
++        act: emit pebble_check_failed event for the exporter check
++        assert: unit status is unchanged (exporter failure is non-critical)
++        """
++        harness = self.harness
++        original_status = harness.charm.unit.status
++        container = harness.charm.unit.get_container(CONTAINER_NAME)
++        harness.charm.on[CONTAINER_NAME].pebble_check_failed.emit(container, "nginx-exporter-up")
++        assert harness.charm.unit.status == original_status
++
++    def test_on_pebble_check_recovered_exporter(self):
++        """
++        arrange: nginx-exporter-up pebble check recovers (both checks are on the content-cache container)
++        act: emit pebble_check_recovered event for the exporter check
++        assert: unit status is unchanged
++        """
++        harness = self.harness
++        original_status = harness.charm.unit.status
++        container = harness.charm.unit.get_container(CONTAINER_NAME)
++        harness.charm.on[CONTAINER_NAME].pebble_check_recovered.emit(
++            container, "nginx-exporter-up"
++        )
++        assert harness.charm.unit.status == original_status

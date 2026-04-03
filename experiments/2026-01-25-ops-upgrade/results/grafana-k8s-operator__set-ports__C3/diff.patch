@@ -1,0 +1,31 @@
+diff --git a/src/charm.py b/src/charm.py
+index 71972f3..2bb168a 100755
+--- a/src/charm.py
++++ b/src/charm.py
+@@ -33,7 +33,6 @@ from ops.charm import (
+     CharmBase,
+     RelationChangedEvent,
+ )
+-from ops.model import Port
+ from secret_storage import SecretStorage
+ 
+ from charms.catalogue_k8s.v1.catalogue import CatalogueConsumer, CatalogueItem
+@@ -647,17 +646,7 @@ class GrafanaCharm(CharmBase):
+ 
+     def _set_ports(self):
+         """Open necessary (and close no longer needed) workload ports."""
+-        planned_ports = {Port(protocol="tcp", port=WORKLOAD_PORT)} if self.unit.is_leader() else set()
+-        actual_ports = self.unit.opened_ports()
+-
+-        # Ports may change across an upgrade, so need to sync
+-        ports_to_close = actual_ports.difference(planned_ports)
+-        for p in ports_to_close:
+-            self.unit.close_port(p.protocol, p.port)
+-
+-        new_ports_to_open = planned_ports.difference(actual_ports)
+-        for p in new_ports_to_open:
+-            self.unit.open_port(p.protocol, p.port)
++        self.unit.set_ports(*([WORKLOAD_PORT] if self.unit.is_leader() else []))
+ 
+     def _resource_reqs_from_config(self) -> ResourceRequirements:
+         limits = {"cpu": self.model.config.get("cpu"), "memory": self.model.config.get("memory")}

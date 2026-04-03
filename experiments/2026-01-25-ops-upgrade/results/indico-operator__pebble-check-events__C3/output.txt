@@ -1,0 +1,243 @@
+● Explore Explore kratos-operator pebble check events
+  └ Agent started in background with agent_id: explore-kratos. You can use read_a...
+
+● Explore Explore current indico charm pebble checks
+  └ Agent started in background with agent_id: explore-indico. You can use read_a...
+
+● Read (Explore agent — Explore kratos-operator pebble check events)
+  └ Running
+
+● Read (Explore agent — Explore current indico charm pebble checks)
+  └ Running
+
+I'll wait for both explorations to complete.
+
+● Read (Explore agent — Explore current indico charm pebble checks)
+  └ Completed
+
+● Read (Explore agent — Explore kratos-operator pebble check events)
+  └ Completed
+
+Now I have a clear picture. Let me read the relevant parts of `src/charm.py` to make precise edits.
+
+● Read charm.py
+  │ src/charm.py
+  └ L1:120 (120 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L120:230 (111 lines read)
+
+● Read charm.py
+  │ src/charm.py
+  └ L230:330 (100 lines read)
+
+Now let me look at the existing tests to understand the test structure:
+
+● Read charm.py
+  │ src/charm.py
+  └ L670:710 (41 lines read)
+
+● List test files (shell)
+  │ ls /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C3/tests/unit/ && echo
+  │ "---" && ls
+  │ /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C3/tests/unit_harness/ | head
+  │ -20
+  └ 14 lines...
+
+● Read conftest.py
+  │ tests/unit/conftest.py
+  └ 33 lines read
+
+● Look at existing unit test structure (shell)
+  │ head -80 /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C3/tests/unit/test_on
+  │ _leader_elected.py
+  └ 35 lines...
+
+● Check ops version (shell)
+  │ cd /tmp/ops-upgrade-experiment/indico-operator__pebble-check-events__C3 && grep "^ops"
+  │ requirements.txt && pip show ops 2>/dev/null | grep Version || pip3 show ops 2>/dev/null | grep
+  │ Version
+  └ 3 lines...
+
+● Verify imports available (shell)
+  │ python3 -c "from ops import PebbleCheckFailedEvent, PebbleCheckRecoveredEvent; print('OK')"
+  └ 2 lines...
+
+Good. Now I have everything I need. Let me implement the changes:
+
+● Edit charm.py +9 -1
+  └ src/charm.py
+
+Now add the event observer registrations after the existing pebble_ready observers:
+
+● Edit charm.py +12
+  └ src/charm.py
+
+Now add the handler methods. Let me find a good place to insert them — right after `_on_pebble_ready`:
+
+● Read charm.py
+  │ src/charm.py
+  └ L220:245 (26 lines read)
+
+● Edit charm.py +16
+  └ src/charm.py
+
+Now let me add the unit tests. First check the existing test file pattern more carefully:
+
+● Read test_on_leader_elected.py
+  │ tests/unit/test_on_leader_elected.py
+  └ 34 lines read
+
+● Read conftest.py
+  │ tests/unit/conftest.py
+  └ 33 lines read
+
+● Check how pebble check events work in ops testing (shell)
+  │ python3 -c "import ops.testing; help(ops.testing.Context.on)" 2>&1 | grep -i "check" | head -20
+  └ 1 line...
+
+● Find pebble check event methods (shell)
+  │ python3 -c "import ops.testing; t = dir(ops.testing.Context.on); print([x for x in t if 'check'
+  │ in x.lower() or 'pebble' in x.lower()])"
+  └ 4 lines...
+
+● Check pebble_check_failed signature (shell)
+  │ python3 -c "from ops import testing, pebble; help(testing.Context.on.pebble_check_failed)" 2>&1
+  │ | head -30
+  └ 4 lines...
+
+● Find check event API (shell)
+  │ python3 -c "
+  │ from ops import testing, pebble
+  │ ctx = testing.Context.__new__(testing.Context)
+  │ print([x for x in dir(ctx.on) if 'check' in x.lower() or 'pebble' in x.lower()])
+  │ " 2>&1 || python3 -c "from ops import testing; import inspect; print([m for m in dir(testing) …
+  └ 6 lines...
+
+● Check CheckInfo signature (shell)
+  │ python3 -c "from ops import testing; help(testing.CheckInfo)" 2>&1 | head -30
+  └ 31 lines...
+
+● Find pebble check event source (shell)
+  │ python3 -c "
+  │ from ops import testing
+  │ # Look for how to fire pebble check events
+  │ import inspect
+  │ src = inspect.getsource(testing)…
+  └ 17 lines...
+
+● Find how to emit pebble_check_failed (shell)
+  │ python3 -c "
+  │ from ops import testing
+  │ import inspect
+  │ # Look at the CharmEvents class or on-attribute of Context
+  │ src = inspect.getsource(testing)…
+  └ 19 lines...
+
+● Find pebble check in ops testing source (shell)
+  │ python3 -c "
+  │ import ops.testing._ops_testing as ot
+  │ import inspect
+  │ src = inspect.getsource(ot)
+  │ idx = src.find('pebble_check')…
+  └ 6 lines...
+
+● Find in scenario module (shell)
+  │ python3 -c "
+  │ import scenario
+  │ import inspect
+  │ src = inspect.getsource(scenario)
+  │ idx = src.find('pebble_check_failed')…
+  └ 16 lines...
+
+● Find ops package location (shell)
+  │ python3 -c "
+  │ import ops
+  │ print(ops.__file__)
+  │ import os, glob
+  │ pkg_dir = os.path.dirname(ops.__file__)…
+  └ 5 lines...
+
+✗ Find pebble check in ops testing (shell)
+  │ grep -n "pebble_check" /home/ubuntu/.local/lib/python3.12/site-packages/ops/testing.py | head
+  │ -30
+  └ Permission denied and could not request permission from user
+
+● Find scenario package location (shell)
+  │ pip show ops-scenario 2>/dev/null | head -5; python3 -c "import scenario;
+  │ print(scenario.__file__)"
+  └ 7 lines...
+
+✗ Find pebble check failed in scenario (shell)
+  │ grep -n "pebble_check" /home/ubuntu/.local/lib/python3.12/site-packages/scenario/_context.py
+  │ 2>/dev/null | head -20; grep -rn "pebble_check_failed"
+  │ /home/ubuntu/.local/lib/python3.12/site-packages/scenario/ 2>/dev/null | head -20
+  └ Permission denied and could not request permission from user
+
+● Find pebble check failed in scenario context (shell)
+  │ python3 -c "
+  │ import scenario._context as ctx
+  │ import inspect
+  │ src = inspect.getsource(ctx)
+  │ idx = src.find('pebble_check_failed')…
+  └ 6 lines...
+
+● List scenario public API (shell)
+  │ python3 -c "
+  │ import scenario
+  │ mods = [x for x in dir(scenario) if not x.startswith('_')]
+  │ print(mods)
+  │ "
+  └ 2 lines...
+
+● Find context methods related to pebble checks (shell)
+  │ python3 -c "
+  │ import scenario
+  │ ctx = scenario.Context.__new__(scenario.Context)
+  │ print([x for x in dir(ctx) if 'check' in x.lower() or 'pebble' in x.lower()])
+  │ "
+  └ 2 lines...
+
+● Check ops.testing for pebble check API (shell)
+  │ python3 -c "
+  │ import ops.testing as ot
+  │ print([x for x in dir(ot) if 'check' in x.lower() or 'pebble' in x.lower()])
+  │ "
+  └ 2 lines...
+
+● Check Context methods for pebble checks (shell)
+  │ python3 -c "
+  │ from ops import testing
+  │ # How to fire pebble check events - look at Context event methods
+  │ import inspect
+  │ ctx_methods = [m for m in dir(testing.Context) if 'pebble' in m.lower() or 'check' in …
+  └ 7 lines...
+
+● Look at ops testing source (shell)
+  │ python3 -c "
+  │ from ops import testing
+  │ import inspect
+  │ # Look at source of testing module
+  │ src = inspect.getsource(testing)…
+  └ 100 lines...
+
+● Find pebble_check in testing source (shell)
+  │ python3 -c "
+  │ from ops import testing
+  │ import inspect
+  │ src = inspect.getsource(testing)
+  │ idx = src.find('pebble_check')…
+  └ 4 lines...
+
+● Operation cancelled by user
+
+
+Total usage est:        1 Premium request
+API time spent:         15m 33s
+Total session time:     14m 58s
+Total code changes:     +37 -1
+Breakdown by AI model:
+ claude-sonnet-4.6        1.5m in, 7.4k out, 1.4m cached (Est. 1 Premium request)
+ claude-haiku-4.5         731.5k in, 12.7k out, 683.4k cached (Est. 0 Premium requests)
+Session exported to: /home/ubuntu/charming-with-claude/experiments/2026-01-25-ops-upgrade/results/indico-operator__pebble-check-events__C3/transcript.md
