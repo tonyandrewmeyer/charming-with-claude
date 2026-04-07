@@ -8,6 +8,7 @@
 * [orc](https://github.com/PietroPasotti/orc)
 * [JujuMate](https://abuelodelanada.github.io/jujumate/)
 * [Working on Juju with agents](https://discourse.charmhub.io/t/working-on-juju-with-agents/20009)
+* [llms.txt for documentation](https://discourse.ubuntu.com/t/llms-txt-for-documentation/79900)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
 
 ## Read everything from
