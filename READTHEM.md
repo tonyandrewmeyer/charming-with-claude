@@ -9,6 +9,8 @@
 * [JujuMate](https://abuelodelanada.github.io/jujumate/)
 * [Working on Juju with agents](https://discourse.charmhub.io/t/working-on-juju-with-agents/20009)
 * [llms.txt for documentation](https://discourse.ubuntu.com/t/llms-txt-for-documentation/79900)
+* [Simme on long-lasting teams of agents](https://simme.dev/posts/what-happens-if-you-give-an-ai-agent-a-home-instead-of-a-session/)
+* [Ben on a looping agent](https://benhoyt.com/writings/indecisive-ai-agent/)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
 
 ## Read everything from
@@ -41,6 +43,7 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [Socialize the plan](https://laughingmeme.org/2026/03/05/socialize-the-plan.html) - thoughts on code review and how AI impacts the value.
 * [microgpt](http://karpathy.github.io/2026/02/12/microgpt/) - a single file of 200 lines of pure Python with no dependencies that trains and inferences a GPT (for generating names).
 * [Mitchell Hashimoto's AI adoption journey](https://mitchellh.com/writing/my-ai-adoption-journey)
+* [James Bennett's Let's Talk About LLMs](https://www.b-list.org/weblog/2026/apr/09/llms/)
 
 ### Agent instruction files:
 * [Stop using CLAUDE.md](https://www.xda-developers.com/claude-md-helping-your-projects-is-myth/)
