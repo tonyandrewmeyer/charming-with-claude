@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before working on tasks, check for relevant skills in `.claude/skills/`. Available skills:
 - `charmcraft` — `.claude/skills/charmcraft/SKILL.md` — pack charms, fetch libraries
 - `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
-- `jhack` - `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+- `jhack` — `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
+- `juju` — `.claude/skills/juju/SKILL.md` — operate a Juju controller: deploy, configure, integrate, debug
 
 Read the appropriate SKILL.md before starting any related work.
 
