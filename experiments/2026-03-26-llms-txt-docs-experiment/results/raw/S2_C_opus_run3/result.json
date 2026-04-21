@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_C_opus_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 179504,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 178366,
+    "duration_api_ms": 172749,
+    "num_turns": 24,
+    "result": "Here's the charm I've created. Let me walk you through the key parts:\n\n---\n\n## `_on_pebble_ready` handler \u2014 how it works\n\nThe handler delegates to `_update_layer_and_restart()`, which performs three things:\n\n### 1. Command from a config option\nThe `app-command` config option (defined in `charmcraft.yaml`) is read and used as the Pebble service `command`:\n\n```python\n\"services\": {\n    SERVICE_NAME: {\n        \"override\": \"replace\",\n        \"command\": str(self.config.get(\"app-command\", \"/bin/myapp serve\")),\n        \"startup\": \"enabled\",\n        ...\n    },\n},\n```\n\nWhenever `config-changed` fires (e.g. `juju config my-app app-command=\"/bin/myapp run\"`), the layer is rebuilt with the new command and Pebble replans.\n\n### 2. Environment variables from a database relation\nThe `DatabaseRequires` class (from `charms.data_platform_libs.v0.data_interfaces`) provides credentials once the `database` relation is joined. The `_database_env()` helper extracts `endpoints`, `username`, `password`, and `database` from the relation data and maps them into standard env vars:\n\n```python\n\"environment\": {\n    \"DB_HOST\": host,\n    \"DB_PORT\": port,\n    \"DB_NAME\": database,\n    \"DB_USER\": username,\n    \"DB_PASSWORD\": password,\n    \"DATABASE_URL\": \"postgresql://user:pass@host:port/db\",\n},\n```\n\nBoth `database_created` and `endpoints_changed` events trigger a layer rebuild so the workload always has fresh connection details.\n\n### 3. HTTP health check\nA Pebble-native HTTP check pings the workload's `/health` endpoint. If it fails 3 times in a row, Pebble automatically restarts the service via `on-check-failure`:\n\n```python\n\"checks\": {\n    \"my-app-health\": {\n        \"override\": \"replace\",\n        \"level\": \"alive\",\n        \"period\": \"10s\",\n        \"timeout\": \"3s\",\n        \"threshold\": 3,\n        \"http\": {\n            \"url\": f\"http://localhost:{http_port}/health\",\n        },\n    },\n},\n```\n\n### Status management\nThe charm sets meaningful statuses throughout:\n- **`BlockedStatus`** \u2014 when the `database` relation hasn't been added yet\n- **`WaitingStatus`** \u2014 when Pebble isn't ready or database credentials haven't arrived\n- **`ActiveStatus`** \u2014 once the layer is applied and the service is running\n\n### Files created\n\n| File | Purpose |\n|---|---|\n| `charmcraft.yaml` | Declares the `my-app` container, `oci-image` resource, `database` relation (postgresql_client), and `app-command`/`http-port` config options |\n| `src/charm.py` | Full charm with Pebble layer reconciliation, database relation handling, and status management |\n| `requirements.txt` | Pins `ops>=2.5.0` |\n\nYou'll also need to fetch the `data_interfaces` library into your charm with:\n```bash\ncharmcraft fetch-lib charms.data_platform_libs.v0.data_interfaces\n```",
+    "stop_reason": "end_turn",
+    "session_id": "43af33f9-6584-49fc-be2f-0e4ad65a49c1",
+    "total_cost_usd": 0.39928545,
+    "usage": {
+      "input_tokens": 59,
+      "cache_creation_input_tokens": 10154,
+      "cache_read_input_tokens": 219032,
+      "output_tokens": 5939,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10154,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 59,
+        "outputTokens": 5939,
+        "cacheReadInputTokens": 219032,
+        "cacheCreationInputTokens": 10154,
+        "webSearchRequests": 0,
+        "costUSD": 0.3217485,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 46492,
+        "outputTokens": 1498,
+        "cacheReadInputTokens": 40412,
+        "cacheCreationInputTokens": 15611,
+        "webSearchRequests": 0,
+        "costUSD": 0.07753695,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2e960227-0857-492a-bf98-f7957d0b307c"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:30:36+1300"
+}

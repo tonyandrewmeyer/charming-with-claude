@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_B_opus_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 15282,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 13950,
+    "duration_api_ms": 13936,
+    "num_turns": 1,
+    "result": "`CollectStatusEvent` lets you consolidate status-setting logic into a single handler rather than scattering `unit.status =` calls across every event handler. The charm framework fires `collect-unit-status` and `collect-app-status` events after every hook, and you call `event.add_status()` to contribute statuses. The framework picks the highest-priority one automatically.\n\nPriority order (highest to lowest): `error`, `blocked`, `waiting`, `maintenance`, `active`, `unknown`.\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # No status-setting here \u2014 just do the work.\n        self._configure_workload()\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        # Add as many statuses as you like; the framework picks the worst one.\n        if not self._database_connected():\n            event.add_status(ops.BlockedStatus(\"waiting for database relation\"))\n        if not self._workload_ready():\n            event.add_status(ops.WaitingStatus(\"workload not yet ready\"))\n        # If nothing is wrong, signal active.\n        event.add_status(ops.ActiveStatus())\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\nKey points:\n\n- **`collect_unit_status`** sets the unit status; **`collect_app_status`** sets the app status (use on the leader only, typically).\n- You can call `event.add_status()` multiple times \u2014 the highest-severity status wins.\n- This replaces the pattern of setting `self.unit.status = ...` in every handler, which is error-prone because a later handler can silently overwrite an earlier one.\n- The event fires automatically after every Juju event, so your status is always up to date.",
+    "stop_reason": "end_turn",
+    "session_id": "818454f7-0f91-48c8-b3ef-73c9842cf106",
+    "total_cost_usd": 0.06584599999999999,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7336,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 572,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7336,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 572,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7336,
+        "webSearchRequests": 0,
+        "costUSD": 0.06584599999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a3117363-82cc-40be-9c0c-720372408afc"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:40:10+1300"
+}

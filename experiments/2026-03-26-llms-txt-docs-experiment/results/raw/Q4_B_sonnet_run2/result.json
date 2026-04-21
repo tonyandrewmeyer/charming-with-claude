@@ -1,0 +1,57 @@
+{
+  "session_id": "Q4_B_sonnet_run2",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 14323,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 12799,
+    "duration_api_ms": 12789,
+    "num_turns": 1,
+    "result": "In Ops, these have distinct semantics:\n\n**`event.fail(message)`**\n- Marks the action as failed with a user-facing message\n- Execution of the handler **continues** after the call\n- Juju reports the action as failed with your message\n- Use this for *expected* failure conditions (e.g. invalid input, precondition not met)\n\n**Raising an exception**\n- Terminates the handler immediately\n- Ops catches it and marks the action as failed, but the message is a generic internal error \u2014 not the exception message\n- The traceback appears in the unit's debug log, not surfaced to the user\n- Use this for *unexpected* errors (bugs, unhandled states)\n\n**Practical example:**\n\n```python\ndef _on_backup_action(self, event: ops.ActionEvent) -> None:\n    if not self._workload_ready():\n        event.fail(\"Workload is not ready; cannot back up.\")\n        return  # <-- must explicitly return; execution continues otherwise\n\n    try:\n        result = self._do_backup()\n    except subprocess.CalledProcessError as e:\n        # unexpected \u2014 let it propagate as an unhandled exception\n        raise\n\n    event.set_results({\"backup-id\": result.id})\n```\n\n**Key gotcha:** `event.fail()` does not stop execution. Forgetting the `return` after it is a common bug \u2014 your handler will keep running and may even call `event.set_results()` afterwards, which produces confusing behaviour.\n\n**Summary:**\n\n| | `event.fail()` | raise exception |\n|---|---|---|\n| Execution continues | Yes (until `return`) | No |\n| Message shown to user | Yes, your message | Generic internal error |\n| Appropriate for | Expected failures | Bugs / unexpected errors |",
+    "stop_reason": "end_turn",
+    "session_id": "39e31f2f-cf9d-40df-86ee-7624be6005fd",
+    "total_cost_usd": 0.03809655000000001,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7335,
+      "cache_read_input_tokens": 11271,
+      "output_tokens": 480,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7335,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 480,
+        "cacheReadInputTokens": 11271,
+        "cacheCreationInputTokens": 7335,
+        "webSearchRequests": 0,
+        "costUSD": 0.03809655000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a7d13c2b-c37d-41b9-ab76-8b1bc48345d3"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:44:07+1300"
+}

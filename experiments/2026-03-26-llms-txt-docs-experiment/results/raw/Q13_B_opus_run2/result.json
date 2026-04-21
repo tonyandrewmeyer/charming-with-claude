@@ -1,0 +1,57 @@
+{
+  "session_id": "Q13_B_opus_run2",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 15593,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 14257,
+    "duration_api_ms": 14247,
+    "num_turns": 1,
+    "result": "Here's how to use the `ingress` library on the **requires** side (i.e. your charm requests ingress from a provider like Traefik).\n\n## 1. Add to `charmcraft.yaml`\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    optional: true\n\ncharm-libs:\n  - lib: traefik_k8s.ingress\n    version: \"2\"\n```\n\nThen run `charmcraft fetch-libs` to pull the library into `lib/`.\n\n## 2. In `src/charm.py`\n\n```python\nimport ops\nimport charms.traefik_k8s.v2.ingress as ingress\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self._ingress = ingress.IngressPerAppRequirer(\n            self,\n            relation_name=\"ingress\",\n            port=8080,  # the port your workload listens on\n        )\n        framework.observe(self._ingress.on.ready, self._on_ingress_ready)\n        framework.observe(self._ingress.on.revoked, self._on_ingress_revoked)\n\n    def _on_ingress_ready(self, event: ingress.IngressPerAppReadyEvent) -> None:\n        \"\"\"Ingress is available.\"\"\"\n        url = self._ingress.url\n        ops.logger.info(\"Ingress URL: %s\", url)\n        self.unit.set_workload_version(...)\n        # Update config/status as needed.\n\n    def _on_ingress_revoked(self, event: ingress.IngressPerAppRevokedEvent) -> None:\n        \"\"\"Ingress was removed.\"\"\"\n        # React accordingly.\n```\n\nKey points:\n\n- **`IngressPerAppRequirer`** gives one ingress URL for the whole application (most common). There is also `IngressPerUnitRequirer` if each unit needs its own URL.\n- **`port`** is the port your workload exposes. You can also pass `scheme` (`\"http\"` or `\"https\"`) and `strip_prefix` if needed.\n- **`self._ingress.url`** returns the external URL once the relation is established and ready (or `None` if not ready).\n- The provider (e.g. `traefik-k8s`) handles the actual routing \u2014 your charm just declares what port to expose.\n\n## 3. Relate it\n\n```bash\njuju integrate my-charm traefik-k8s\n```",
+    "stop_reason": "end_turn",
+    "session_id": "cd55e06d-b805-4c32-8e8f-dd6e6d7bd168",
+    "total_cost_usd": 0.06862725,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7333,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 684,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7333,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 684,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7333,
+        "webSearchRequests": 0,
+        "costUSD": 0.06862725,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "308dc11d-f44a-42f2-9e90-d9d3a51f0a6c"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:33:18+1300"
+}

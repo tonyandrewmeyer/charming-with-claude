@@ -1,0 +1,57 @@
+{
+  "session_id": "S1_A_sonnet_run2",
+  "question_id": "S1",
+  "category": "synthesis",
+  "question": "Write a minimal K8s charm (`src/charm.py` + `charmcraft.yaml`) that sets ActiveStatus on install and WaitingStatus if a 'name' config option is empty.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 42207,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 40895,
+    "duration_api_ms": 40841,
+    "num_turns": 8,
+    "result": "Both files are written. Here's a full walkthrough of every decision made:\n\n---\n\n## `charmcraft.yaml`\n\n| Key | Why |\n|---|---|\n| `type: charm` | Marks this as a Juju charm (not a bundle). |\n| `bases` \u2192 `ubuntu 22.04` | Standard LTS base for both build and runtime. |\n| `containers: app` | Required for Kubernetes charms \u2014 declares the sidecar container Juju manages. Backed by the `app-image` OCI resource. |\n| `resources: app-image` | The OCI image that Juju injects into the pod alongside the charm container. |\n| `config.options.name` | `type: string`, `default: \"\"` \u2014 intentionally empty so the charm starts in `WaitingStatus` until the operator sets a value. |\n| `parts.charm` | Tells `charmcraft pack` to build the charm from the current directory. |\n\n---\n\n## `src/charm.py`\n\n```\ninstall \u2500\u2500\u25ba _apply_status()\nconfig_changed \u2500\u2500\u25ba _apply_status()\n```\n\n**`_apply_status()`** is the single source of truth for status logic:\n\n```python\nname = self.config.get(\"name\", \"\")\nif not name:\n    self.unit.status = ops.WaitingStatus(\"Waiting for 'name' config to be set\")\nelse:\n    self.unit.status = ops.ActiveStatus(f\"Ready (name={name})\")\n```\n\n* **`install`** fires once when Juju deploys the unit \u2014 status is set immediately.  \n* **`config_changed`** fires any time `juju config minimal-k8s-charm name=foo` is run, re-evaluating the guard.  \n* Both handlers delegate to `_apply_status()` so the logic is never duplicated.\n\n---\n\n### Typical operator workflow\n\n```bash\n# Deploy (unit starts in WaitingStatus because name=\"\" by default)\njuju deploy ./minimal-k8s-charm.charm --resource app-image=ubuntu:22.04\n\n# Set the name \u2192 triggers config-changed \u2192 unit moves to ActiveStatus\njuju config minimal-k8s-charm name=my-app\n\n# Clear it again \u2192 back to WaitingStatus\njuju config minimal-k8s-charm name=\n```",
+    "stop_reason": "end_turn",
+    "session_id": "58035054-51ee-4ceb-8fba-32fda304d53d",
+    "total_cost_usd": 0.07063035000000001,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 3609,
+      "cache_read_input_tokens": 60642,
+      "output_tokens": 2592,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3609,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 2592,
+        "cacheReadInputTokens": 60642,
+        "cacheCreationInputTokens": 3609,
+        "webSearchRequests": 0,
+        "costUSD": 0.07063035000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "80911db0-b0e8-4f21-a92c-96a236002089"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:32:53+1300"
+}

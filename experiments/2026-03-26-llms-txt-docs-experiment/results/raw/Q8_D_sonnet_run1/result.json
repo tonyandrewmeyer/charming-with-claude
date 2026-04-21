@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_D_sonnet_run1",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 77903,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 76718,
+    "duration_api_ms": 79455,
+    "num_turns": 2,
+    "result": "## Pebble Change/Task Model\n\nWhen you trigger an operation in Pebble (start/stop a service, exec a process, etc.), it creates a **Change** \u2014 a persisted record containing one or more **Tasks**.\n\n### States\n\nBoth changes and tasks move through these states:\n\n| State | Meaning |\n|-------|---------|\n| `DO` | Ready to start, not yet begun |\n| `DOING` | Currently running |\n| `DONE` | Completed successfully |\n| `ERROR` | Failed |\n| `WAIT` | Waiting for an external event |\n| `HOLD` | Will not run (e.g. another task errored) |\n| `UNDO` / `UNDOING` | Being rolled back |\n| `ABORT` | Stopping and then undoing |\n\nA change is considered **ready** when it reaches a terminal state (`DONE`, `ERROR`, or `HOLD`).\n\n---\n\n### Checking completion via the Ops API\n\n**High-level (preferred)** \u2014 service methods block until done automatically:\n```python\ncontainer.start_services([\"myservice\"])  # waits internally, raises ChangeError on failure\n```\n\n**Mid-level** \u2014 use `wait_change()`:\n```python\nchange_id = container.start_services([\"myservice\"], timeout=0)  # non-blocking\ncontainer.get_plan()  # ... do other work ...\ncontainer.wait_change(change_id, timeout=30.0, delay=0.1)\n```\n\n**Low-level** \u2014 manual polling:\n```python\nchange = client.get_change(change_id)\nwhile not change.ready:\n    change = client.get_change(change_id)\n```\n\n---\n\n### Key points\n\n- `wait_change(change_id, timeout, delay)` is the standard way to wait; it raises `ops.pebble.ChangeError` on failure.\n- Most charm code never calls this directly \u2014 the high-level `start_services()`, `stop_services()`, `restart_services()` etc. handle waiting internally.\n- Changes are persisted to `$PEBBLE/.pebble.state`, so they survive Pebble restarts.\n- You can inspect changes from the CLI with `pebble changes` and `pebble tasks <change-id>`.",
+    "stop_reason": "end_turn",
+    "session_id": "f5f556bd-ff2b-46f4-bdbe-b1adb08a0047",
+    "total_cost_usd": 0.17876339999999996,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8948,
+      "cache_read_input_tokens": 29974,
+      "output_tokens": 814,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8948,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 814,
+        "cacheReadInputTokens": 29974,
+        "cacheCreationInputTokens": 8948,
+        "webSearchRequests": 0,
+        "costUSD": 0.054775199999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 48084,
+        "outputTokens": 4559,
+        "cacheReadInputTokens": 79667,
+        "cacheCreationInputTokens": 28114,
+        "webSearchRequests": 1,
+        "costUSD": 0.1239882,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2a43c829-6f13-4e87-a03c-ae1eff3f9a70"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:03:05+1300"
+}

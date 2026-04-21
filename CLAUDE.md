@@ -24,6 +24,7 @@ This is a critical requirement for all text and markdown files in this repositor
 This is a meta-repository for experimenting with and improving Claude Code's ability to develop Juju charms. It contains:
 
 - **claude-instructions/**: Reusable Claude guidance files, custom commands, and a CLAUDE.md template for charm projects
+- **skills/**: Symlink to `claude-instructions/.claude/skills/` for `npx skills` discoverability
 - **experiments/**: Individual charm development attempts, each a self-contained experiment
 - **READTHEM.md**: Curated reading list about AI/LLM development and coding practices
 

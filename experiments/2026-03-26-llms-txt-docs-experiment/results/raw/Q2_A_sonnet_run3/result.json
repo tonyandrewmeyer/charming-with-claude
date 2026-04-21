@@ -1,0 +1,57 @@
+{
+  "session_id": "Q2_A_sonnet_run3",
+  "question_id": "Q2",
+  "category": "ops_api",
+  "question": "How do you access relation data for a specific remote unit? Show the code.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 17905,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 16766,
+    "duration_api_ms": 16755,
+    "num_turns": 1,
+    "result": "## Accessing Relation Data for a Specific Remote Unit\n\nIn a Juju charm, you access relation data for a specific remote unit via the **`ops` framework** using the `relation.data[unit]` mapping. Here's how:\n\n---\n\n### Basic Access Pattern\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(self.on.my_relation_changed, self._on_relation_changed)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        # The remote unit that triggered this event\n        remote_unit = event.unit  # ops.Unit object\n\n        # Access that unit's relation data\n        relation = event.relation  # ops.Relation object\n        unit_data = relation.data[remote_unit]\n\n        # Read a specific key\n        address = unit_data.get(\"private-address\")\n        port = unit_data.get(\"port\")\n\n        if address and port:\n            self.do_something(address, port)\n```\n\n---\n\n### Iterating Over ALL Remote Units\n\nIf you need to read data from **every** remote unit (e.g., in a `*-joined` or `config-changed` handler):\n\n```python\ndef _on_config_changed(self, event: ops.ConfigChangedEvent):\n    relation = self.model.get_relation(\"my-relation\")\n\n    if relation is None:\n        return  # No relation established yet\n\n    for remote_unit in relation.units:  # relation.units = set of remote ops.Unit objects\n        unit_data = relation.data[remote_unit]\n        address = unit_data.get(\"private-address\")\n        port = unit_data.get(\"port\", \"8080\")\n        print(f\"{remote_unit.name}: {address}:{port}\")\n```\n\n---\n\n### Accessing Remote Application Data (vs. Unit Data)\n\nRelations have **two levels** of data bags \u2014 per-unit and per-application:\n\n```python\ndef _on_relation_changed(self, event: ops.RelationChangedEvent):\n    relation = event.relation\n\n    # Per-UNIT data (set by each unit individually)\n    unit_data = relation.data[event.unit]\n    unit_value = unit_data.get(\"some-key\")\n\n    # Per-APPLICATION data (set by the leader unit of the remote app)\n    remote_app = event.app                        # ops.Application object\n    app_data  = relation.data[remote_app]\n    app_value = app_data.get(\"some-app-key\")\n\n    # Your OWN unit's data bag (writable by this unit)\n    my_data = relation.data[self.unit]\n    my_data[\"status\"] = \"ready\"                  # Write to your own bag\n\n    # Your OWN application's data bag (writable by leader only)\n    if self.unit.is_leader():\n        relation.data[self.app][\"endpoint\"] = \"http://...\"\n```\n\n---\n\n### Key Rules to Remember\n\n| Data Bag | Who Can **Write** | Who Can **Read** |\n|---|---|---|\n| `relation.data[self.unit]` | This unit | Anyone |\n| `relation.data[self.app]` | Leader unit only | Anyone |\n| `relation.data[remote_unit]` | That remote unit | Anyone |\n| `relation.data[remote_app]` | Remote leader only | Anyone |\n\n- `relation.units` \u2192 `set[ops.Unit]` of **remote** units only\n- `relation.data[unit]` returns a `RelationData` mapping \u2014 use `.get(\"key\")` to avoid `KeyError`\n- You can only **write** to your own unit's or (if leader) your own app's data bag",
+    "stop_reason": "end_turn",
+    "session_id": "efbd763f-2058-4e2e-9c6b-6c1df643fb45",
+    "total_cost_usd": 0.0209124,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1060,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 959,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1060,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 959,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1060,
+        "webSearchRequests": 0,
+        "costUSD": 0.0209124,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "54baf84d-a5f6-4953-b36d-afc12f6de395"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:39:55+1300"
+}

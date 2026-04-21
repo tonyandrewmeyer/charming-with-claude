@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_D_sonnet_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 36297,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 35185,
+    "duration_api_ms": 34893,
+    "num_turns": 2,
+    "result": "`CollectStatusEvent` replaces the old pattern of calling `self.unit.status = ...` directly. Instead, you observe `collect_app_status` and/or `collect_unit_status`, and call `event.add_status()`. The framework picks the highest-priority status automatically.\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        # Runs on the leader unit after every hook.\n        # Add one or more statuses; the highest priority wins.\n        if not self._is_configured():\n            event.add_status(ops.BlockedStatus(\"missing required config: api-key\"))\n            return  # No point checking further if not configured.\n        if not self._is_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for database relation\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        # Runs on every unit after every hook.\n        if not self._workload_running():\n            event.add_status(ops.MaintenanceStatus(\"starting workload\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        # Do installation work; status is set via collect_unit_status.\n        pass\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        # React to config changes; status is set via collect_app_status.\n        pass\n\n    def _is_configured(self) -> bool:\n        return bool(self.config.get(\"api-key\"))\n\n    def _is_ready(self) -> bool:\n        return self.model.get_relation(\"database\") is not None\n\n    def _workload_running(self) -> bool:\n        return True  # Check your workload here.\n```\n\n**Key points:**\n\n- `collect_app_status` \u2014 leader only; sets the **application** status visible in `juju status`.\n- `collect_unit_status` \u2014 all units; sets the **unit** status.\n- Priority order (highest first): `blocked` > `maintenance` > `waiting` > `active`. If you call `add_status()` multiple times, the highest-priority one wins; ties go to the first added.\n- `ErrorStatus` and `UnknownStatus` cannot be used here.\n- You never call `self.unit.status =` or `self.app.status =` directly any more \u2014 the framework applies the winning status after the hook completes.\n- Multiple subsystems (e.g. a database helper and an ingress helper) can each call `event.add_status()` independently, and the framework resolves the conflict automatically. This is the main advantage over setting status directly.",
+    "stop_reason": "end_turn",
+    "session_id": "9b156830-3211-48c7-a730-ffb2dc651091",
+    "total_cost_usd": 0.1106403,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8056,
+      "cache_read_input_tokens": 29971,
+      "output_tokens": 1049,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8056,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1049,
+        "cacheReadInputTokens": 29971,
+        "cacheCreationInputTokens": 8056,
+        "webSearchRequests": 0,
+        "costUSD": 0.0549543,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 34887,
+        "outputTokens": 1233,
+        "cacheReadInputTokens": 26565,
+        "cacheCreationInputTokens": 9582,
+        "webSearchRequests": 0,
+        "costUSD": 0.055686000000000006,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "5ae5c2c5-e122-49a3-8ffa-a60e940ae9c1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:55:42+1300"
+}

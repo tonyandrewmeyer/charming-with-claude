@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_A_sonnet_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 31378,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 30208,
+    "duration_api_ms": 30199,
+    "num_turns": 1,
+    "result": "## Using `ops.CollectStatusEvent` to Set Charm Status\n\n`CollectStatusEvent` is the **recommended** way to set charm status in modern ops charms. Instead of calling `self.unit.status = ...` scattered throughout your event handlers, you centralise all status logic in a single handler that is called automatically whenever ops needs to know the charm's status.\n\n### How It Works\n\n1. You **observe** `collect_unit_status` (and/or `collect_app_status`) events.\n2. In the handler, you call `event.add_status(...)` \u2014 you can add **multiple** statuses and ops picks the **highest-priority** one automatically.\n3. Priority order (highest \u2192 lowest): `Error > Blocked > Waiting > Maintenance > Active`\n\n---\n\n### Complete Example\n\n```python\n# src/charm.py\n\"\"\"A complete example charm using CollectStatusEvent.\"\"\"\n\nimport ops\n\n\nclass MyDatabaseCharm(ops.CharmBase):\n    \"\"\"A charm that manages a database service.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Track internal state\n        self._db_ready = False\n        self._relation_connected = False\n\n        # --- Observe operational events ---\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on.db_relation_joined, self._on_relation_joined)\n        framework.observe(self.on.db_relation_broken, self._on_relation_broken)\n\n        # --- Observe status collection events ---\n        # Called on the unit (use this for most charms)\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        # Called on the app (leader unit only); use for app-level status\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n    # ------------------------------------------------------------------\n    # Operational event handlers \u2014 do NOT set status here directly\n    # ------------------------------------------------------------------\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        \"\"\"Install the database package.\"\"\"\n        self.unit.add_secret({\"password\": \"s3cr3t\"}, label=\"db-password\")\n        # ... install logic ...\n        self._db_ready = True\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        \"\"\"React to config changes.\"\"\"\n        port = self.config.get(\"port\", 5432)\n        if not isinstance(port, int) or not (1024 <= port <= 65535):\n            # Store invalid config as state; status handler will surface it\n            self._config_valid = False\n            return\n        self._config_valid = True\n        # ... reconfigure the service ...\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent) -> None:\n        self._relation_connected = True\n\n    def _on_relation_broken(self, event: ops.RelationBrokenEvent) -> None:\n        self._relation_connected = False\n\n    # ------------------------------------------------------------------\n    # Status collection \u2014 centralised, declarative status logic\n    # ------------------------------------------------------------------\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Determine and report this unit's status.\n\n        ops evaluates ALL added statuses and surfaces the highest-priority one.\n        Adding ops.ActiveStatus is a good default \u2014 other statuses override it.\n        \"\"\"\n        # 1. Default to active (lowest priority \u2014 overridden by anything below)\n        event.add_status(ops.ActiveStatus(\"ready\"))\n\n        # 2. Block if config is invalid\n        if not getattr(self, \"_config_valid\", True):\n            event.add_status(\n                ops.BlockedStatus(\"invalid 'port' config value; must be 1024\u201365535\")\n            )\n\n        # 3. Wait if the database process isn't up yet\n        if not self._db_ready:\n            event.add_status(ops.WaitingStatus(\"waiting for database to start\"))\n\n        # 4. Wait if no relation peers have connected yet\n        if not self._relation_connected:\n            event.add_status(ops.WaitingStatus(\"waiting for relation\"))\n\n        # ops automatically picks the HIGHEST priority status from all added ones.\n        # e.g. if both Blocked and Waiting are added, Blocked wins.\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Report application-level status (only runs on the leader unit).\"\"\"\n        if not self.unit.is_leader():\n            return  # ops only fires this on the leader, but guard anyway\n\n        # Example: surface a degraded app status if a peer is unhappy\n        peer_relation = self.model.get_relation(\"peers\")\n        if peer_relation and len(peer_relation.units) == 0:\n            event.add_status(ops.WaitingStatus(\"no peer units yet\"))\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n\nif __name__ == \"__main__\":\n    ops.main(MyDatabaseCharm)\n```\n\n---\n\n### Key Rules & Tips\n\n| Topic | Detail |\n|---|---|\n| **Events** | `collect_unit_status` \u2192 per-unit status; `collect_app_status` \u2192 per-app status (leader only) |\n| **`add_status`** | Call it as many times as you like; ops picks the winner |\n| **Priority** | `Error` > `Blocked` > `Waiting` > `Maintenance` > `Active` |\n| **Don't set directly** | Avoid `self.unit.status = ...` in event handlers \u2014 it's overwritten by collect events |\n| **Always add `ActiveStatus`** | Add it as your baseline so the unit isn't stuck in an old status |\n| **`Error` status** | Reserved for unhandled exceptions \u2014 ops sets this automatically on crash |\n\n### Why Use `CollectStatusEvent` Instead of Setting Status Directly?\n\n```python\n# \u274c Old pattern \u2014 status logic is scattered and hard to reason about\ndef _on_config_changed(self, event):\n    self.unit.status = ops.MaintenanceStatus(\"reconfiguring\")\n    if bad_config:\n        self.unit.status = ops.BlockedStatus(\"bad config\")\n        return\n    self.unit.status = ops.ActiveStatus()\n\n# \u2705 New pattern \u2014 single source of truth, composable, testable\ndef _on_collect_unit_status(self, event):\n    event.add_status(ops.ActiveStatus())\n    if bad_config:\n        event.add_status(ops.BlockedStatus(\"bad config\"))\n```\n\nThis pattern makes status logic **composable** (multiple concerns contribute independently), **testable** (just fire the event in tests), and **correct** (no race conditions between handlers overwriting each other's status).",
+    "stop_reason": "end_turn",
+    "session_id": "caa992f6-0ff9-42cd-93e6-cb62bce3a1f9",
+    "total_cost_usd": 0.0333699,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1066,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1788,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1066,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1788,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1066,
+        "webSearchRequests": 0,
+        "costUSD": 0.0333699,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "fb82be85-b650-4bcb-806c-03b2579e053e"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:42:09+1300"
+}

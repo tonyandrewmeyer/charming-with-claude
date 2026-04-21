@@ -1,0 +1,57 @@
+{
+  "session_id": "Q14_D_opus_run1",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 95110,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 93426,
+    "duration_api_ms": 91730,
+    "num_turns": 2,
+    "result": "\n\nThe TLS certificates library (V4 requirer) emits **two custom events**:\n\n### Events\n\n1. **`certificate_available`** \u2014 Emitted when a certificate has been successfully issued. The event carries:\n   - `certificate` \u2014 the issued certificate\n   - `certificate_signing_request` \u2014 the CSR that was fulfilled\n   - `ca` \u2014 the signing CA certificate\n   - `chain` \u2014 full CA chain as a list\n   - `chain_as_pem()` \u2014 convenience method for the full chain as PEM\n\n2. **`certificate_denied`** \u2014 Emitted when the provider cannot issue a certificate. The event carries:\n   - `certificate_signing_request` \u2014 the rejected CSR\n   - `error` \u2014 a `CertificateError` with `code`, `name`, `message`, `reason`, `provider`, `endpoint`\n\n   Common error codes include `ip_not_allowed` (101), `domain_not_allowed` (102), `wildcard_not_allowed` (103), and `server_not_available` (201).\n\n### When to request a new certificate\n\n**Automatically handled by the library:**\n- On relation-joined and whenever configured `refresh_events` fire \u2014 the library generates a private key (stored in Juju secrets), creates CSRs, and submits them.\n- When approaching expiry \u2014 controlled by `renewal_relative_time` (default 0.9, i.e. at 90% of the certificate's lifetime).\n\n**Charm should trigger manually when:**\n- **Certificate attributes change** (hostname, IP, SANs change due to config or scaling) \u2014 pass updated `CertificateRequestAttributes` or call `sync()`.\n- **Private key rotation is needed** \u2014 call `regenerate_private_key()`.\n- **Importing an external key** \u2014 call `import_private_key(private_key)`.\n- **Explicitly renewing a specific cert** \u2014 call `renew_certificate(provider_certificate)`.\n- **A certificate is revoked** \u2014 the charm should stop using it and request a new one.\n\n### Typical usage pattern\n\n```python\nself.tls = TLSCertificatesRequiresV4(\n    charm=self,\n    relationship_name=\"certificates\",\n    certificate_requests=[\n        CertificateRequestAttributes(\n            common_name=\"myapp.example.com\",\n            sans_dns=frozenset({\"myapp.example.com\"}),\n        )\n    ],\n    mode=Mode.UNIT,\n    refresh_events=[self.on.config_changed],\n)\nself.framework.observe(self.tls.on.certificate_available, self._on_cert_available)\nself.framework.observe(self.tls.on.certificate_denied, self._on_cert_denied)\n```\n\nThe key is `refresh_events` \u2014 by passing events where the charm's identity might change (e.g. `config_changed`), the library automatically re-evaluates whether new CSRs need to be submitted.",
+    "stop_reason": "end_turn",
+    "session_id": "238d22fb-2ae5-424c-a6ef-5e9b2aa851b7",
+    "total_cost_usd": 0.60572375,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9119,
+      "cache_read_input_tokens": 30149,
+      "output_tokens": 1022,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9119,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 18,
+        "outputTokens": 3464,
+        "cacheReadInputTokens": 290430,
+        "cacheCreationInputTokens": 59811,
+        "webSearchRequests": 0,
+        "costUSD": 0.60572375,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2b3dfa5b-f825-46ef-aa42-927947cc5f1a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:04:04+1300"
+}

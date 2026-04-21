@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_C_sonnet_run3",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 203426,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 202300,
+    "duration_api_ms": 232139,
+    "num_turns": 18,
+    "result": "Here's a comprehensive breakdown of the events emitted by the TLS certificates library and when to request new certificates:\n\n---\n\n## Library Versions\n\nThere are two versions in active use. **V4 is current** and has a simpler event model; v3 is older but still widely referenced. Note that the Charmhub-hosted `tls-certificates-interface` library is deprecated in favour of `charmlibs.interfaces.tls_certificates` on PyPI, though the API is compatible.\n\n---\n\n## Events Emitted\n\n### V4 (Current) \u2014 Requirer Side\n\nV4 exposes **one** requirer-side event:\n\n| Event | Class | When it fires | Payload |\n|---|---|---|---|\n| `certificate_available` | `CertificateAvailableEvent` | The provider has issued and delivered a certificate for your CSR | `certificate`, `certificate_signing_request`, `ca`, `chain` |\n\nCertificate renewal in v4 is driven internally by **Juju secret expiry** (`SecretExpiredEvent`) rather than a charm-visible event, so there is no `certificate_expiring` event on the requirer side.\n\n**V4 has no provider-side events.** Providers work by polling:\n- `get_certificate_requests()` \u2014 all requests\n- `get_outstanding_certificate_requests()` \u2014 unfulfilled requests only\n\n---\n\n### V3 \u2014 Requirer Side\n\n| Event | Class | When it fires |\n|---|---|---|\n| `certificate_available` | `CertificateAvailableEvent` | Certificate issued and ready |\n| `certificate_expiring` | `CertificateExpiringEvent` | Certificate is approaching expiration (`expiry` datetime included) |\n| `certificate_invalidated` | `CertificateInvalidatedEvent` | A certificate was revoked or expired (`reason`: `\"expired\"` or `\"revoked\"`) |\n| `all_certificates_invalidated` | `AllCertificatesInvalidatedEvent` | All certificates invalidated at once (e.g. CA rotation) |\n\n### V3 \u2014 Provider Side\n\n| Event | Class | When it fires |\n|---|---|---|\n| `certificate_creation_request` | `CertificateCreationRequestEvent` | A requirer submitted a new CSR (`certificate_signing_request`, `relation_id`, `is_ca`) |\n| `certificate_revocation_request` | `CertificateRevocationRequestEvent` | A certificate should be revoked |\n\n---\n\n## When Should a Charm Request a New Certificate?\n\n### V4 Requirer \u2014 mostly automatic\n\n1. **On relation creation/change** \u2014 handled automatically by the library; no action needed.\n2. **On configuration change or other charm events** \u2014 pass `refresh_events` to the constructor (e.g. `[self.on.config_changed]`). The library will re-evaluate and resubmit CSRs when those events fire.\n3. **On certificate expiry** \u2014 handled automatically via Juju secret expiry at `renewal_relative_time` (default **90%** of the certificate's validity period; configurable between 50\u2013100%).\n4. **Manual sync** \u2014 call `self.certificates.sync()` to force immediate re-evaluation at any time.\n\n### V3 Requirer \u2014 manual handling required\n\n1. **On `relation-joined`** \u2014 call `request_certificate_creation(csr)` to submit your initial CSR.\n2. **On `certificate_expiring`** \u2014 request a new certificate before the old one expires.\n3. **On `certificate_invalidated`** \u2014 re-request when a certificate is revoked or expires.\n4. **On `all_certificates_invalidated`** \u2014 re-request all certificates (e.g. after CA rotation).\n5. **On config change** \u2014 re-request if certificate attributes (SANs, CN, etc.) have changed.\n\n---\n\n## V4 Constructor Quick Reference\n\n```python\nTLSCertificatesRequiresV4(\n    charm=self,\n    relationship_name=\"certificates\",\n    certificate_requests=[\n        CertificateRequestAttributes(common_name=\"myapp.example.com\")\n    ],\n    mode=Mode.UNIT,               # or Mode.APP for application-level certs\n    refresh_events=[self.on.config_changed],  # re-sync on these events\n    renewal_relative_time=0.9,    # renew at 90% of validity; range: 0.5\u20131.0\n)\n```\n\nThe key design difference between v3 and v4 is that **v4 manages the certificate lifecycle automatically** (CSR generation, private key storage via Juju secrets, renewal scheduling), while **v3 requires the charm to manually drive each step** by handling each lifecycle event explicitly.",
+    "stop_reason": "end_turn",
+    "session_id": "ba046a25-1d84-49d0-a8ca-0727e5bcc1da",
+    "total_cost_usd": 0.5741619,
+    "usage": {
+      "input_tokens": 295,
+      "cache_creation_input_tokens": 9126,
+      "cache_read_input_tokens": 142982,
+      "output_tokens": 3321,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9126,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 625,
+        "outputTokens": 7292,
+        "cacheReadInputTokens": 217383,
+        "cacheCreationInputTokens": 19049,
+        "webSearchRequests": 0,
+        "costUSD": 0.24790364999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 273102,
+        "outputTokens": 5996,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 10541,
+        "webSearchRequests": 1,
+        "costUSD": 0.32625825,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "89bd5f23-4ae3-4d01-a7a9-84493be99984"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:04:32+1300"
+}

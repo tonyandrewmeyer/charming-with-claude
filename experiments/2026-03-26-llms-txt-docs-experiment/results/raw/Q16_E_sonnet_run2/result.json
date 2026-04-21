@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_E_sonnet_run2",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 203242,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 202080,
+    "duration_api_ms": 204979,
+    "num_turns": 41,
+    "result": "Now I have enough information to give a comprehensive answer. Let me compile everything together.\n\n---\n\n## Implementing the Provider Side of a Relation Using Charmlibs\n\nThe standard pattern for writing a charm library that exposes a **provider** endpoint follows a well-established structure. Here's the complete breakdown:\n\n---\n\n### 1. Library File Structure\n\nA charm library lives at `lib/charms/<charm_name>/v<N>/<lib_name>.py` and must begin with required metadata:\n\n```python\n# Copyright 2024 Canonical Ltd.\n# See LICENSE file for licensing details.\n\n\"\"\"Library for the `my-interface` relation.\n\nThis library contains the provider and requirer classes for the `my-interface`\nJuju relation interface.\n\"\"\"\n\nimport logging\nfrom typing import Optional\n\nimport ops\nfrom pydantic import BaseModel\n\nlogger = logging.getLogger(__name__)\n\n# Lib metadata \u2014 required\nLIBID = \"abc123...\"        # unique UUID, generated once\nLIBAPI = 1                 # major API version (increment on breaking changes)\nLIBPATCH = 0               # patch version (increment on non-breaking changes)\n\nPYDEPS = [\"pydantic>=2\"]   # optional PyPI dependencies\n```\n\n---\n\n### 2. Define Databag Schemas with Pydantic\n\nUse Pydantic models to define what goes in the relation databags. This gives you validation and serialisation for free:\n\n```python\nfrom pydantic import BaseModel, Json\n\nclass RequirerAppData(BaseModel):\n    \"\"\"Data the requirer publishes to the app databag.\"\"\"\n    name: str\n    port: Json[int]   # stored as stringified JSON in the databag\n\nclass RequirerUnitData(BaseModel):\n    \"\"\"Data the requirer publishes to each unit databag.\"\"\"\n    host: str\n\nclass ProviderAppData(BaseModel):\n    \"\"\"Data the provider publishes to the app databag.\"\"\"\n    connection_string: str\n```\n\n---\n\n### 3. Define Custom Events\n\nCreate event classes so charm authors can observe meaningful, high-level events rather than raw Juju relation events:\n\n```python\nclass DataProvidedEvent(ops.RelationEvent):\n    \"\"\"Emitted when a requirer sends valid data.\"\"\"\n\nclass DataRemovedEvent(ops.RelationChangedEvent):\n    \"\"\"Emitted when a relation is broken.\"\"\"\n\nclass MyInterfaceProviderEvents(ops.CharmEvents):\n    data_provided = ops.EventSource(DataProvidedEvent)\n    data_removed  = ops.EventSource(DataRemovedEvent)\n```\n\n---\n\n### 4. Implement the Provider Class\n\nThis is the core of the library. The provider:\n- Inherits from `ops.Object`\n- Observes the relevant Juju relation events\n- Re-emits them as high-level custom events\n- Provides methods to **read** requirer data and **write** provider data\n\n```python\nclass MyInterfaceProvider(ops.Object):\n    \"\"\"Provider side of the my-interface relation.\"\"\"\n\n    on = MyInterfaceProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str = \"my-interface\"):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        # Observe the raw Juju relation events\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_broken,\n            self._on_relation_broken,\n        )\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        \"\"\"Parse requirer data and re-emit a high-level event.\"\"\"\n        if not self._is_requirer_data_valid(event.relation):\n            return  # data may arrive in multiple events; don't error\n        self.on.data_provided.emit(event.relation, app=event.app, unit=event.unit)\n\n    def _on_relation_broken(self, event: ops.RelationBrokenEvent):\n        self.on.data_removed.emit(event.relation, app=event.app, unit=event.unit)\n\n    def _is_requirer_data_valid(self, relation: ops.Relation) -> bool:\n        \"\"\"Return True if the requirer has published all required data.\"\"\"\n        try:\n            self.get_requirer_data(relation)\n            return True\n        except Exception:\n            return False\n\n    def get_requirer_data(self, relation: ops.Relation) -> RequirerAppData:\n        \"\"\"Read and validate the requirer's app databag.\"\"\"\n        if not relation.app:\n            raise ValueError(\"No remote app on relation\")\n        raw = dict(relation.data[relation.app])\n        return RequirerAppData(**raw)\n\n    def publish_provider_data(\n        self,\n        relation: ops.Relation,\n        connection_string: str,\n    ) -> None:\n        \"\"\"Write provider data into the app databag.\n\n        Must only be called by the leader unit.\n        \"\"\"\n        if not self._charm.unit.is_leader():\n            return\n        data = ProviderAppData(connection_string=connection_string)\n        relation.data[self._charm.app].update(data.model_dump())\n\n    @property\n    def relations(self) -> list[ops.Relation]:\n        \"\"\"All active relations on this endpoint.\"\"\"\n        return self._charm.model.relations[self._relation_name]\n```\n\n---\n\n### 5. Implement the Requirer Class (for completeness)\n\n```python\nclass MyInterfaceRequirer(ops.Object):\n    \"\"\"Requirer side of the my-interface relation.\"\"\"\n\n    def __init__(\n        self,\n        charm: ops.CharmBase,\n        relation_name: str = \"my-interface\",\n        port: Optional[int] = None,\n    ):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n        self._port = port\n\n        self.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        \"\"\"Publish our requirements as soon as we join.\"\"\"\n        if self._port:\n            self.publish_data(event.relation, port=self._port)\n\n    def publish_data(self, relation: ops.Relation, port: int) -> None:\n        \"\"\"Write requirer data into databags.\"\"\"\n        if self._charm.unit.is_leader():\n            app_data = RequirerAppData(\n                name=self._charm.app.name,\n                port=port,\n            )\n            relation.data[self._charm.app].update(app_data.model_dump())\n\n        unit_data = RequirerUnitData(host=self._charm.model.get_binding(relation).network.bind_address)\n        relation.data[self._charm.unit].update(unit_data.model_dump())\n```\n\n---\n\n### 6. Using the Provider in a Charm\n\n```python\n# src/charm.py\nimport ops\nfrom charms.my_charm.v1.my_interface import MyInterfaceProvider, DataProvidedEvent\n\nclass MyProviderCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.my_interface = MyInterfaceProvider(self, \"my-interface\")\n\n        self.framework.observe(\n            self.my_interface.on.data_provided,\n            self._on_data_provided,\n        )\n\n    def _on_data_provided(self, event: DataProvidedEvent):\n        data = self.my_interface.get_requirer_data(event.relation)\n        logger.info(f\"Got request from: {data.name} on port {data.port}\")\n\n        self.my_interface.publish_provider_data(\n            event.relation,\n            connection_string=\"host=mydb port=5432\",\n        )\n\nif __name__ == \"__main__\":\n    ops.main(MyProviderCharm)\n```\n\nAnd in `metadata.yaml` / `charmcraft.yaml`:\n```yaml\nprovides:\n  my-interface:\n    interface: my-interface\n```\n\n---\n\n### Key Rules to Follow\n\n| Rule | Why |\n|---|---|\n| **Never error on incomplete data** in `relation_changed` | Data arrives incrementally; the event will fire again when more data arrives |\n| **Only leaders write app databags** | Juju enforces this; non-leaders writing will raise an error |\n| **Units write their own unit databags** | Each unit is responsible for its own `relation.data[self.unit]` |\n| **Use `LIBID`, `LIBAPI`, `LIBPATCH`** | Required metadata for `charmcraft fetch-lib` version tracking |\n| **Use Pydantic for validation** | Gives clear errors and serialisation; list it in `PYDEPS` |\n| **Emit custom events, not raw Juju events** | Keeps the charm code clean and the library API stable |",
+    "stop_reason": "end_turn",
+    "session_id": "6577f17a-7578-4b8a-b216-1c227c437bb4",
+    "total_cost_usd": 0.4310024999999999,
+    "usage": {
+      "input_tokens": 1083,
+      "cache_creation_input_tokens": 14270,
+      "cache_read_input_tokens": 398410,
+      "output_tokens": 6287,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14270,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 1083,
+        "outputTokens": 6287,
+        "cacheReadInputTokens": 398410,
+        "cacheCreationInputTokens": 14270,
+        "webSearchRequests": 0,
+        "costUSD": 0.2705895,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 131353,
+        "outputTokens": 5812,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.16041299999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "694e2a21-08d0-4492-8eda-899cba481471"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:55:55+1300"
+}

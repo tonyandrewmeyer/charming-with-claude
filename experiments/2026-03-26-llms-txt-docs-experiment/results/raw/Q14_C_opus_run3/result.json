@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_C_opus_run3",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 92360,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 91242,
+    "duration_api_ms": 86177,
+    "num_turns": 13,
+    "result": "Here's a summary of the events emitted by the TLS certificates library and when to request/renew certificates:\n\n---\n\n## Events (Requirer-side)\n\nThese are the events your charm can observe:\n\n### `certificate_available`\nEmitted when a signed TLS certificate is delivered by the provider. Carries:\n- `certificate` \u2014 the signed cert\n- `certificate_signing_request` \u2014 the original CSR\n- `ca` \u2014 the CA certificate\n- `chain` \u2014 the full certificate chain\n\n**This is your main event** for installing/configuring the certificate in your workload.\n\n### `certificate_expiring`\nEmitted when a certificate is **approaching its expiry** (but is not yet expired). Carries:\n- `certificate` \u2014 the expiring cert\n- `expiry` \u2014 datetime string of when it becomes invalid\n\n**This is your signal to request a renewed certificate.**\n\n### `certificate_invalidated`\nEmitted when a certificate has been **revoked or has expired**. Carries:\n- `reason` \u2014 `\"expired\"` or `\"revoked\"`\n- `certificate`, `certificate_signing_request`, `ca`, `chain`\n\nYour charm should react by removing the invalid cert from the workload and requesting a new one.\n\n### `all_certificates_invalidated`\nEmitted during a **relation-broken** event, signaling that all certificates are gone. Your charm should remove all TLS configuration from the workload.\n\n## Events (Provider-side)\n\nIf you're writing a **provider** charm (e.g., a CA):\n\n### `certificate_creation_request`\nEmitted when a requirer submits a new CSR. Carries `certificate_signing_request`, `relation_id`, `is_ca`.\n\n### `certificate_revocation_request`\nEmitted when a requirer removes a CSR (no longer needs the cert). Carries `certificate`, `certificate_signing_request`, `ca`, `chain`.\n\n---\n\n## When to Request a New Certificate\n\n| Situation | What to do |\n|---|---|\n| **Relation created** (`certificates_relation_created`) | Call `request_certificate_creation()` with your CSR |\n| **`certificate_expiring` fired** | Call `request_certificate_renewal()` with the old CSR and a new CSR |\n| **`certificate_invalidated` fired** (reason: `revoked`) | Generate a new CSR and call `request_certificate_creation()` |\n| **Config changed** (e.g., new SAN/CN needed) | Revoke the old cert, generate a new CSR, and request a new one |\n| **Private key rotation** | Regenerate the key, create a new CSR, and request a new certificate |\n\n---\n\n## v3 vs v4 Differences\n\n- **v3** (widely used): Exposes all six events above. Your charm manually calls `request_certificate_creation()` and `request_certificate_renewal()`.\n- **v4** (newer): Simplifies the lifecycle \u2014 you declare `certificate_requests` up front when instantiating `TLSCertificatesRequiresV4`, and the library automatically generates keys/CSRs and handles renewal (default at 90% of validity). You mainly just observe `certificate_available`.\n\nFor most new charms, **v4** is recommended as it reduces boilerplate significantly.",
+    "stop_reason": "end_turn",
+    "session_id": "d937248e-b909-40cb-a8c2-8048b4c8a9a4",
+    "total_cost_usd": 0.272725,
+    "usage": {
+      "input_tokens": 16,
+      "cache_creation_input_tokens": 5898,
+      "cache_read_input_tokens": 134545,
+      "output_tokens": 2278,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5898,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 16,
+        "outputTokens": 2278,
+        "cacheReadInputTokens": 134545,
+        "cacheCreationInputTokens": 5898,
+        "webSearchRequests": 0,
+        "costUSD": 0.161165,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 100755,
+        "outputTokens": 2161,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.11156,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2395eae3-7848-4d03-8d22-d62adecee247"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:54:24+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q6_E_sonnet_run2",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 48125,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 46945,
+    "duration_api_ms": 45974,
+    "num_turns": 2,
+    "result": "Here is a complete, well-annotated Pebble layer YAML covering all three areas:\n\n```yaml\nsummary: My application layer\n\ndescription: |\n  Defines the my-app service with environment variables,\n  an HTTP liveness/readiness check, and a Loki log target.\n\nservices:\n  my-app:\n    override: replace\n    summary: My web application\n    description: |\n      Runs the application server and restarts it\n      automatically on failure.\n\n    # Command is executed directly \u2014 no shell interpolation.\n    # Use [\"sh\", \"-c\", \"...\"] if you need shell features.\n    command: /usr/bin/my-app --config /etc/my-app/config.yaml\n\n    startup: enabled\n\n    # Custom environment variables injected into the process.\n    environment:\n      APP_ENV:         production\n      APP_PORT:        \"8080\"\n      APP_LOG_LEVEL:   info\n      DATABASE_URL:    postgres://db-host:5432/mydb\n      SECRET_KEY:      \"${SECRET_KEY}\"   # passed through from Pebble's env\n\n    # Restart behaviour on exit.\n    on-success:       restart   # keep restarting if it exits cleanly\n    on-failure:       restart   # restart on non-zero exit\n    backoff-delay:    500ms\n    backoff-factor:   2.0\n    backoff-limit:    30s\n    kill-delay:       10s\n\n    # React to a failing check: restart the service.\n    on-check-failure:\n      http-alive:  restart\n      http-ready:  restart\n\n    # Run as a dedicated, unprivileged user.\n    user:  www-data\n    group: www-data\n    working-dir: /srv/my-app\n\n    # Start only after the logger sidecar is up (if present).\n    after:    [log-shipper]\n    requires: [log-shipper]\n\nchecks:\n  # Liveness check \u2014 is the process alive at all?\n  http-alive:\n    override:  replace\n    level:     alive          # maps to Kubernetes \"livenessProbe\"\n    period:    10s            # how often Pebble runs the check\n    timeout:   3s             # must be less than period\n    threshold: 3              # failures before the check is \"down\"\n    http:\n      url: http://localhost:8080/healthz\n      headers:\n        Accept: application/json\n\n  # Readiness check \u2014 is the process ready to serve traffic?\n  http-ready:\n    override:  replace\n    level:     ready          # maps to Kubernetes \"readinessProbe\"\n    period:    15s\n    timeout:   5s\n    threshold: 2\n    http:\n      url: http://localhost:8080/readyz\n      headers:\n        Accept: application/json\n\nlog-targets:\n  loki-target:\n    override:  replace\n    type:      loki\n    location:  http://loki-gateway.observability.svc.cluster.local:3100/loki/api/v1/push\n\n    # Forward logs from my-app (and any future services) to Loki.\n    services: [my-app]       # use [all] to forward every service's logs\n\n    # Static labels attached to every log stream sent to Loki.\n    labels:\n      app:         my-app\n      environment: \"${APP_ENV}\"   # resolved from the service's environment\n      unit:        \"${JUJU_UNIT_NAME}\"\n```\n\n---\n\n### Key design decisions explained\n\n| Area | Choice | Reason |\n|---|---|---|\n| `override: replace` | Used on all sections | Ensures this layer is the canonical definition; layers that come later can use `merge` to patch individual fields |\n| Two checks (`alive` / `ready`) | Separate liveness and readiness | Lets Juju/Kubernetes distinguish \"restart the container\" from \"remove from load-balancer\" |\n| `on-check-failure` per check | Restart on either failure | Avoids the process silently hanging while appearing healthy |\n| `\"${SECRET_KEY}\"` in `environment` | Dollar-brace syntax | Pebble substitutes values from its own environment at runtime \u2014 secrets never need to be hard-coded |\n| `services: [my-app]` in log-target | Explicit list | Safer than `all`; only opt-in services send logs to this target |\n| `backoff-delay / factor / limit` | Exponential back-off capped at 30 s | Prevents a crash-looping service from hammering resources |\n\n### How to use this in a Juju charm\n\n```python\n# In your charm's _on_pebble_ready handler:\ncontainer = self.unit.get_container(\"my-app\")\nlayer = pathlib.Path(\"src/my_layer.yaml\").read_text()\ncontainer.add_layer(\"my-app\", layer, combine=True)\ncontainer.replan()\n```\n\nThe `combine=True` flag merges this layer on top of any previously added layers, respecting each section's `override` directive.",
+    "stop_reason": "end_turn",
+    "session_id": "dfea1cc1-29e5-4e3b-8b05-f8a24af94833",
+    "total_cost_usd": 0.06672614999999998,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 983,
+      "cache_read_input_tokens": 19122,
+      "output_tokens": 1624,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 983,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1624,
+        "cacheReadInputTokens": 19122,
+        "cacheCreationInputTokens": 983,
+        "webSearchRequests": 0,
+        "costUSD": 0.03380085,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 3522,
+        "outputTokens": 1613,
+        "cacheReadInputTokens": 27058,
+        "cacheCreationInputTokens": 14906,
+        "webSearchRequests": 0,
+        "costUSD": 0.032925300000000005,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2658cd48-b1e3-4f31-84a7-795fcdf3cf40"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:00:56+1300"
+}

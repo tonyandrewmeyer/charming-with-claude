@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_A_sonnet_run3",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 105053,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 103965,
+    "duration_api_ms": 126216,
+    "num_turns": 2,
+    "result": "Here's a complete guide with test code for deploying a charm and waiting for active/idle using **jubilant**:\n\n---\n\n## Installation\n\n```bash\npip install jubilant\n# or\nuv add jubilant\n```\n\n---\n\n## Complete Test Code\n\n### `tests/integration/conftest.py`\n\n```python\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Provide a temporary Juju model, torn down after all tests in the module.\"\"\"\n    with jubilant.temp_model() as juju:\n        yield juju\n```\n\n---\n\n### `tests/integration/test_deploy.py`\n\n```python\nimport jubilant\nimport pytest\n\n\n# \u2500\u2500 1. Simplest possible case \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\ndef test_deploy_active(juju: jubilant.Juju):\n    juju.deploy(\"./mycharm.charm\")\n    juju.wait(jubilant.all_active)          # blocks until every app is active/idle\n\n\n# \u2500\u2500 2. Deploy with options \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\ndef test_deploy_with_options(juju: jubilant.Juju):\n    juju.deploy(\n        \"./mycharm.charm\",\n        app=\"myapp\",                         # override application name\n        num_units=3,                         # scale\n        config={\"log-level\": \"debug\"},       # charm config\n        resources={\"oci-image\": \"ubuntu:24.04\"},\n    )\n    juju.wait(jubilant.all_active, timeout=300)\n\n\n# \u2500\u2500 3. Multiple apps + relation \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\ndef test_deploy_with_relation(juju: jubilant.Juju):\n    juju.deploy(\"./mycharm.charm\", app=\"myapp\")\n    juju.deploy(\"postgresql\", channel=\"14/stable\")\n\n    juju.integrate(\"myapp:db\", \"postgresql:db\")\n\n    # Wait for both apps; bail early if anything errors\n    juju.wait(\n        lambda s: jubilant.all_active(s, \"myapp\", \"postgresql\"),\n        error=jubilant.any_error,\n        timeout=600,\n    )\n\n\n# \u2500\u2500 4. Fine-grained status check (active/idle per unit) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\ndef test_all_units_active_idle(juju: jubilant.Juju):\n    juju.deploy(\"./mycharm.charm\", app=\"myapp\", num_units=2)\n\n    def all_units_idle(status: jubilant.Status) -> bool:\n        app = status.apps.get(\"myapp\")\n        if app is None or not app.is_active:\n            return False\n        return all(unit.is_active for unit in app.units.values())\n\n    juju.wait(all_units_idle, error=jubilant.any_error, timeout=300)\n\n\n# \u2500\u2500 5. Verify status after stabilising \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\ndef test_status_after_deploy(juju: jubilant.Juju):\n    juju.deploy(\"./mycharm.charm\", app=\"myapp\")\n    juju.wait(jubilant.all_active)\n\n    status = juju.status()\n\n    assert status.apps[\"myapp\"].is_active\n    for unit in status.apps[\"myapp\"].units.values():\n        assert unit.is_active\n        assert unit.workload_status.message == \"Ready\"   # charm-set message\n\n\n# \u2500\u2500 6. Run an action after deploy \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\ndef test_action_after_deploy(juju: jubilant.Juju):\n    juju.deploy(\"./mycharm.charm\", app=\"myapp\")\n    juju.wait(jubilant.all_active)\n\n    result = juju.run(\"myapp/0\", \"my-action\", params={\"key\": \"value\"})\n    assert result.success\n    assert result.results.get(\"output\") == \"expected\"\n```\n\n---\n\n## Key API Summary\n\n| Call | What it does |\n|---|---|\n| `jubilant.temp_model()` | Context manager \u2014 creates a fresh model, destroys it on exit |\n| `juju.deploy(charm, ...)` | Deploy a charm (local path or Charmhub name) |\n| `juju.integrate(ep1, ep2)` | Add a relation between two endpoints |\n| `juju.wait(fn, error=, timeout=)` | Poll until `fn(status) \u2192 True`; raises on timeout or `error()` |\n| `jubilant.all_active(status, *apps)` | Returns `True` when all named apps (or all apps) are active/idle |\n| `jubilant.any_error(status)` | Returns `True` if **any** app/unit is in error \u2014 used as the `error=` guard |\n| `juju.status()` | Returns a `Status` snapshot right now |\n| `juju.run(unit, action, params)` | Run a charm action, returns result |\n\n---\n\n## Run the Tests\n\n```bash\n# against the current controller / model\npytest tests/integration/ -v\n\n# jubilant auto-creates & destroys a model per module when using temp_model()\npytest tests/integration/ -v --tb=short\n```\n\n---\n\n### Key points\n\n- **No `async`/`await`** \u2014 jubilant is fully synchronous, unlike python-libjuju.\n- `juju.wait()` polls every few seconds and raises `jubilant.WaitError` on timeout.\n- Always pass `error=jubilant.any_error` so a blocked/errored app fails fast instead of timing out.\n- `temp_model()` in a `module`-scoped fixture means one model is shared across all tests in the file \u2014 deploy once, test many times.",
+    "stop_reason": "end_turn",
+    "session_id": "e25fd5ef-8482-4eba-9d8d-bdda0be08318",
+    "total_cost_usd": 0.34320549999999994,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 2940,
+      "cache_read_input_tokens": 18025,
+      "output_tokens": 1768,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2940,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1768,
+        "cacheReadInputTokens": 18025,
+        "cacheCreationInputTokens": 2940,
+        "webSearchRequests": 0,
+        "costUSD": 0.0429705,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 104279,
+        "outputTokens": 8477,
+        "cacheReadInputTokens": 169510,
+        "cacheCreationInputTokens": 69296,
+        "webSearchRequests": 5,
+        "costUSD": 0.300235,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "8622974b-234f-413b-b7ce-48f2b38c0bb6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:18:31+1300"
+}

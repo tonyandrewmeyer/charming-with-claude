@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_A_sonnet_run3",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 32850,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 31582,
+    "duration_api_ms": 31573,
+    "num_turns": 1,
+    "result": "Here's a complete Pebble layer YAML covering all three requirements \u2014 a service with an HTTP health check, custom environment variables, and a log target:\n\n```yaml\nsummary: Application layer\n\ndescription: |\n  Pebble layer defining the main application service with health checking,\n  custom environment variables, and structured log forwarding.\n\nservices:\n  myapp:\n    summary: My Application Service\n    description: |\n      Primary application process managed by Pebble.\n    command: /usr/bin/myapp --config /etc/myapp/config.yaml\n    startup: enabled\n    after:\n      - support-svc\n    requires:\n      - support-svc\n\n    # \u2500\u2500 Environment variables \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    environment:\n      # Application tunables\n      APP_ENV:              production\n      APP_PORT:             \"8080\"\n      APP_LOG_LEVEL:        info\n      APP_WORKERS:          \"4\"\n\n      # Feature flags\n      FEATURE_METRICS:      \"true\"\n      FEATURE_TRACING:      \"false\"\n\n      # Database connection (injected at runtime by the charm)\n      DB_HOST:              \"\"\n      DB_PORT:              \"5432\"\n      DB_NAME:              myapp_db\n\n      # Observability\n      OTEL_SERVICE_NAME:    myapp\n      OTEL_EXPORTER_OTLP_ENDPOINT: \"http://localhost:4317\"\n\n    # \u2500\u2500 User / group \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    user:  myapp\n    group: myapp\n\n    # \u2500\u2500 On-failure behaviour \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    on-failure:   restart\n    backoff-delay: 500ms\n    backoff-factor: 2.0\n    backoff-limit: 30s\n\n  # A lightweight helper that myapp depends on\n  support-svc:\n    summary: Support service (e.g. local proxy / sidecar)\n    command: /usr/bin/support-svc\n    startup: enabled\n    environment:\n      LISTEN_ADDR: \"127.0.0.1:9000\"\n\n# \u2500\u2500 Health checks \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nchecks:\n  myapp-http-alive:\n    # Liveness: is the process up and accepting connections?\n    override:  replace\n    level:     alive          # contributes to Pebble's \"alive\" status\n    period:    10s\n    timeout:   3s\n    threshold: 3              # 3 consecutive failures \u2192 service unhealthy\n    http:\n      url:     \"http://localhost:8080/healthz\"\n      headers:\n        Accept: application/json\n\n  myapp-http-ready:\n    # Readiness: has the application finished initialising?\n    override:  replace\n    level:     ready          # contributes to Pebble's \"ready\" status\n    period:    15s\n    timeout:   5s\n    threshold: 2\n    http:\n      url:     \"http://localhost:8080/readyz\"\n      headers:\n        Accept: application/json\n\n# \u2500\u2500 Log targets \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nlog-targets:\n  loki-push:\n    summary: Forward logs to Loki via the Loki Logging Provider relation\n    type:     loki\n    location: \"http://localhost:3100/loki/api/v1/push\"\n    services:\n      - myapp\n      - support-svc\n    labels:\n      # Static labels applied to every log stream\n      product:     myapp\n      environment: production\n      # charm_unit is injected by the COS Loki integration at runtime\n      charm_unit:  \"\"\n    override: replace\n```\n\n---\n\n### Key design decisions explained\n\n| Section | Detail |\n|---|---|\n| **`startup: enabled`** | Both services start automatically when Pebble launches (i.e. on unit start). |\n| **`after` / `requires`** | `myapp` declares an ordering *and* a hard dependency on `support-svc`, so Pebble will not start `myapp` until `support-svc` is up. |\n| **`level: alive` vs `level: ready`** | Pebble exposes two independent health dimensions. The charm should wait for `ready` before advertising the unit as ready via `ops.ActiveStatus`. |\n| **`threshold: N`** | A single transient blip won't trigger a restart; N consecutive failures are required. |\n| **`backoff-*`** | Exponential back-off capped at 30 s prevents a crash-looping service from hammering the system. |\n| **`log-targets`** | The `loki` target type streams logs directly to a Loki push API endpoint \u2014 exactly what the [COS Loki charm relation](https://charmhub.io/loki-k8s) provides. |\n| **Empty env vars** (`DB_HOST: \"\"`) | Declared as placeholders; the charm fills them in via `container.add_layer()` or by rewriting the layer at relation-changed time. |\n\n### How the charm consumes this in Python\n\n```python\nfrom ops import CharmBase\nimport ops\n\nLAYER = ...  # the YAML above, loaded as a dict or string\n\nclass MyAppCharm(CharmBase):\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        container = event.workload\n        container.add_layer(\"myapp\", LAYER, combine=True)\n        container.replan()\n        self.unit.status = ops.WaitingStatus(\"waiting for readiness check\")\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        container = self.unit.get_container(\"myapp\")\n        # Patch only the env vars that changed\n        overlay = {\n            \"services\": {\n                \"myapp\": {\n                    \"environment\": {\n                        \"APP_LOG_LEVEL\": self.config[\"log-level\"],\n                        \"APP_WORKERS\":   str(self.config[\"workers\"]),\n                    }\n                }\n            }\n        }\n        container.add_layer(\"myapp-config\", overlay, combine=True)\n        container.replan()\n```\n\n`combine=True` means each `add_layer` call is **merged** on top of the existing plan, so you can push incremental overlays (e.g. from relation data) without rewriting the entire layer.",
+    "stop_reason": "end_turn",
+    "session_id": "8b2dbae8-627b-4c06-8f29-2afcde219bdd",
+    "total_cost_usd": 0.0311322,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1082,
+      "cache_read_input_tokens": 8469,
+      "output_tokens": 1635,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1082,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1635,
+        "cacheReadInputTokens": 8469,
+        "cacheCreationInputTokens": 1082,
+        "webSearchRequests": 0,
+        "costUSD": 0.0311322,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "006e5871-af4b-4cdf-b078-dd41662d80ac"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:20:19+1300"
+}

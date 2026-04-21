@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_E_sonnet_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 261203,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 259860,
+    "duration_api_ms": 341749,
+    "num_turns": 2,
+    "result": "Here is the correct way to implement the provider side of a relation using charmlibs:\n\n---\n\n## Structure of a Provider Charmlib\n\n### 1. Library Metadata (required)\n\nEvery charmlib file must begin with these metadata variables:\n\n```python\n# lib/charms/<your_charm>/v0/<interface>.py\n\nLIBID    = \"5a535b3c4d0b40da98e29867128e57b9\"  # generated once, never changes\nLIBAPI   = 0    # increment on breaking changes (also changes the import path)\nLIBPATCH = 1    # increment on non-breaking changes\nPYDEPS   = [\"pydantic\"]  # pip dependencies this library needs\n```\n\n---\n\n### 2. Define Databag Models with Pydantic\n\nUse Pydantic models to define and validate what goes into each side's databag:\n\n```python\nimport pydantic\nfrom typing import Optional\n\nclass ProviderAppData(pydantic.BaseModel):\n    \"\"\"Data the provider writes into its app databag.\"\"\"\n    endpoint: str\n    credentials_secret_id: Optional[str] = None\n\nclass RequirerAppData(pydantic.BaseModel):\n    \"\"\"Data the requirer writes into its app databag.\"\"\"\n    requested_resource: str\n```\n\n---\n\n### 3. Define Custom Events\n\nLibraries expose **semantic events** rather than raw Juju relation events. Custom events inherit from `ops.RelationEvent`, and are grouped in an `ops.ObjectEvents` container:\n\n```python\nimport ops\n\nclass MyRequestedEvent(ops.RelationEvent):\n    \"\"\"Emitted when a requirer has connected and sent its request data.\"\"\"\n\n    @property\n    def requirer_data(self) -> Optional[RequirerAppData]:\n        raw = self.relation.data.get(self.relation.app)\n        if not raw:\n            return None\n        try:\n            return RequirerAppData(**dict(raw))\n        except pydantic.ValidationError:\n            return None\n\nclass MyProviderEvents(ops.ObjectEvents):\n    my_requested = ops.EventSource(MyRequestedEvent)\n```\n\n---\n\n### 4. Implement the Provider Class\n\nThe provider class inherits from `ops.Object`. It observes raw Juju events internally and re-emits semantic events upward to the charm:\n\n```python\nDEFAULT_RELATION_NAME = \"my-interface\"\n\nclass MyProvider(ops.Object):\n    \"\"\"Provider side of the my-interface relation.\"\"\"\n\n    on = MyProviderEvents()\n\n    def __init__(\n        self,\n        charm: ops.CharmBase,\n        relation_name: str = DEFAULT_RELATION_NAME,\n    ) -> None:\n        super().__init__(charm, relation_name)\n        self.charm = charm\n        self.relation_name = relation_name\n\n        # Observe raw Juju relation events inside the library\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_broken,\n            self._on_relation_broken,\n        )\n\n    @property\n    def relations(self) -> list[ops.Relation]:\n        return list(self.model.relations[self.relation_name])\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        \"\"\"Translate raw Juju event into a semantic library event.\"\"\"\n        if not self.charm.unit.is_leader():\n            return\n        # Only emit when the requirer has actually sent usable data\n        requirer_bag = event.relation.data.get(event.relation.app)\n        if requirer_bag and requirer_bag.get(\"requested_resource\"):\n            self.on.my_requested.emit(event.relation)\n\n    def _on_relation_broken(self, event: ops.RelationBrokenEvent) -> None:\n        \"\"\"Clean up provider-side resources (revoke credentials, delete DB, etc.).\"\"\"\n        if not self.charm.unit.is_leader():\n            return\n        # ... cleanup logic here\n\n    def update_relation_data(\n        self,\n        relation: ops.Relation,\n        data: ProviderAppData,\n    ) -> None:\n        \"\"\"Write provider data into the app databag. Only the leader may call this.\"\"\"\n        if not self.charm.unit.is_leader():\n            return\n        serialized = {k: str(v) for k, v in data.model_dump().items() if v is not None}\n        relation.data[self.charm.app].update(serialized)\n```\n\n---\n\n### 5. Using the Library in the Provider Charm\n\nThe charm only sees the library's custom events \u2014 never the raw Juju ones:\n\n```python\n# src/charm.py\nfrom charms.my_charm.v0.my_interface import MyProvider, ProviderAppData\n\nclass MyProviderCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.my_provider = MyProvider(self, \"my-interface\")\n\n        # Observe the library's semantic event\n        self.framework.observe(\n            self.my_provider.on.my_requested,\n            self._on_my_requested,\n        )\n\n    def _on_my_requested(self, event):\n        if not event.requirer_data:\n            return\n        # Do the provider work (create resource, generate credentials, etc.)\n        response = ProviderAppData(\n            endpoint=\"https://my-service.example.com\",\n        )\n        self.my_provider.update_relation_data(event.relation, response)\n```\n\n---\n\n## Key Rules to Remember\n\n| Rule | Detail |\n|---|---|\n| **App databag writes** | Only the **leader unit** may write to the app databag |\n| **Unit databag writes** | Any unit may write to its own unit databag |\n| **Raw events stay inside the lib** | The charm only observes the library's custom semantic events |\n| **Gate on data presence** | Only emit a custom event when the remote side's data is actually ready/valid |\n| **Use Juju Secrets for sensitive data** | Create a secret, `grant()` it to the relation, put the secret ID in the databag |\n| **`LIBID` never changes** | It uniquely identifies the library across all versions |",
+    "stop_reason": "end_turn",
+    "session_id": "eae1723b-2ba4-4ce7-b33c-fcc4e4a8e9de",
+    "total_cost_usd": 0.6663094999999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4438,
+      "cache_read_input_tokens": 19102,
+      "output_tokens": 1944,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4438,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 1473,
+        "outputTokens": 10045,
+        "cacheReadInputTokens": 233505,
+        "cacheCreationInputTokens": 29677,
+        "webSearchRequests": 0,
+        "costUSD": 0.33643425,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 121204,
+        "outputTokens": 13858,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 71505,
+        "webSearchRequests": 5,
+        "costUSD": 0.32987525000000006,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a93144b9-cbaa-4fc7-bb8d-70578f5d9b52"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:25:07+1300"
+}

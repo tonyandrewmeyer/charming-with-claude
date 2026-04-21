@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_C_opus_run3",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 85385,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 84167,
+    "duration_api_ms": 88828,
+    "num_turns": 11,
+    "result": "Here's a comprehensive overview of how Pebble notices work and how charms interact with them via `ops`:\n\n---\n\n## What Are Pebble Notices?\n\nNotices are a **notification/event-recording mechanism** built into Pebble (the lightweight service manager inside Juju workload containers). They let you introspect server events and record custom client events. Notices are **persisted to disk** across Pebble restarts and automatically expire after a configurable interval.\n\n### Notice Identity & Fields\n\nEach notice is uniquely identified by the combination of **user ID + type + key**. A notice record contains:\n\n| Field | Description |\n|---|---|\n| `id` | Unique numeric identifier |\n| `user-id` | Owner user ID (or \"public\") |\n| `type` | One of the notice types below |\n| `key` | Unique identifier within the type |\n| `first-occurred` | Timestamp of initial occurrence |\n| `last-occurred` | Timestamp of most recent occurrence |\n| `last-repeated` | When the notice last \"repeated\" |\n| `occurrences` | Total count of occurrences |\n| `expire-after` | Duration before automatic expiry |\n| `last-data` | Optional `dict[str, str]` of key-value pairs from the most recent occurrence |\n\n---\n\n## Notice Types\n\nPebble has **three** notice types:\n\n1. **`custom`** \u2014 User/application-reported notices, created via `pebble notify`. The key **must** use a reverse-domain-name format (e.g. `example.com/myapp/backup-done`). This is the type charms most commonly interact with.\n\n2. **`change-update`** \u2014 Automatically triggered when a Pebble change is spawned or its status updates. The key is the change ID, and the data includes the change `kind`.\n\n3. **`warning`** \u2014 Pebble warnings surfaced as notices. The key is the human-readable warning message.\n\n### Repeat Behaviour\n\nIf a notice with the same `(user-id, type, key)` is recorded again, its `occurrences` count increments. A \"repeat\" (which triggers re-notification) only happens if no `repeat-after` duration was set, or if enough time has elapsed since the last repeat. This prevents excessive notification storms.\n\n---\n\n## Creating Notices (Workload Side)\n\nFrom inside the workload container, use the Pebble CLI:\n\n```bash\n# Simple notice\npebble notify example.com/myapp/backup-done\n\n# Notice with data\npebble notify example.com/myapp/backup-done path=/backups/2024-01-01.sql size=42MB\n```\n\nYour workload application can also create notices programmatically via Pebble's Unix socket API.\n\n---\n\n## Observing Notices in a Charm (ops)\n\n### `pebble_custom_notice` Event\n\nWhen Pebble records a `custom` notice, Juju fires a **`pebble_custom_notice`** event on the charm. You observe it by container name:\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        # \"db\" is the container name from metadata\n        framework.observe(self.on[\"db\"].pebble_custom_notice, self._on_custom_notice)\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        # Filter by key to handle specific notices\n        if event.notice.key == \"canonical.com/postgresql/backup-done\":\n            path = event.notice.last_data[\"path\"]\n            logger.info(\"Backup completed at %s\", path)\n            # ... take action ...\n```\n\n### Key Attributes of `PebbleCustomNoticeEvent`\n\n- **`event.notice.id`** \u2014 The notice's unique ID\n- **`event.notice.key`** \u2014 The domain-namespaced key (e.g. `\"example.com/myapp/something\"`)\n- **`event.notice.last_data`** \u2014 A `dict[str, str]` of the data from the most recent occurrence\n\n### Querying Notices Programmatically\n\nYou can also query notices directly from the container's Pebble client:\n\n```python\ncontainer = self.unit.get_container(\"db\")\n\n# Get a specific notice by ID\nnotice = container.get_notice(notice_id=\"42\")\n\n# Get all notices (with optional filtering)\nnotices = container.get_notices(key=\"example.com/myapp/backup-done\")\n```\n\n---\n\n## Testing\n\nThe `ops.testing` module provides helpers to simulate notices in unit tests:\n\n```python\nnotice = ops.testing.Notice(\n    key=\"example.com/myapp/backup-done\",\n    last_data={\"path\": \"/backups/latest.sql\"},\n)\ncontainer = ops.testing.Container(\"db\", notices=[notice])\nctx = ops.testing.Context(MyCharm)\nctx.run(ctx.on.pebble_custom_notice(container, notice), ops.testing.State(containers={container}))\n```\n\n---\n\n### Summary\n\n| Notice Type | Created By | Charm Event | Typical Use |\n|---|---|---|---|\n| `custom` | `pebble notify` or app code | `on[\"<container>\"].pebble_custom_notice` | Workload \u2192 charm communication (backup done, migration complete, etc.) |\n| `change-update` | Pebble internally | *(not directly observed as a charm event)* | Tracking Pebble change status |\n| `warning` | Pebble internally | *(not directly observed as a charm event)* | Pebble warnings |\n\nThe `custom` notice type is the primary mechanism for **workload-to-charm communication** \u2014 your application inside the container records a notice, and the charm reacts to it via the `pebble_custom_notice` event.",
+    "stop_reason": "end_turn",
+    "session_id": "8dd642db-4e28-4758-9bad-8c9a0cf64da1",
+    "total_cost_usd": 0.2597065,
+    "usage": {
+      "input_tokens": 50,
+      "cache_creation_input_tokens": 5708,
+      "cache_read_input_tokens": 91361,
+      "output_tokens": 2708,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5708,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 50,
+        "outputTokens": 2708,
+        "cacheReadInputTokens": 91361,
+        "cacheCreationInputTokens": 5708,
+        "webSearchRequests": 0,
+        "costUSD": 0.1493055,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 98941,
+        "outputTokens": 2292,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.110401,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c665884b-e3d5-4769-b8ab-5c4577cf066d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:15:58+1300"
+}

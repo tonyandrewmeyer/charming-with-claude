@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_D_sonnet_run2",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 14885,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 13589,
+    "duration_api_ms": 13579,
+    "num_turns": 1,
+    "result": "```yaml\nsummary: Example application layer\n\ndescription: |\n    Pebble layer defining the example service with health checks,\n    environment variables, and log forwarding.\n\nservices:\n    example:\n        override: replace\n        summary: Example application service\n        command: /usr/bin/example-app --config /etc/example/config.yaml\n        startup: enabled\n        environment:\n            APP_ENV: production\n            LOG_LEVEL: info\n            HTTP_PORT: \"8080\"\n            DATABASE_URL: postgres://localhost:5432/example\n        on-success: restart\n        on-failure: restart\n        on-check-failure:\n            http-health: restart\n\nchecks:\n    http-health:\n        override: replace\n        level: alive\n        period: 10s\n        timeout: 3s\n        threshold: 3\n        http:\n            url: http://localhost:8080/health\n\nlog-targets:\n    loki:\n        override: replace\n        type: loki\n        location: http://loki.example.internal:3100/loki/api/v1/push\n        services: [example]\n        labels:\n            product: example-app\n            environment: production\n```\n\nKey points about each section:\n\n**Service**\n- `override: replace` \u2014 this layer fully replaces any previous definition for this service\n- `on-check-failure` \u2014 links the check name to a restart policy, so Pebble restarts the service if the check fails `threshold` times\n\n**Check**\n- `level: alive` \u2014 used by Juju/Kubernetes to determine if the container is alive; use `ready` for readiness checks\n- `threshold: 3` \u2014 must fail 3 consecutive times before the failure action triggers\n- The `http` stanza requires only a `url`; optionally add `headers` for auth tokens\n\n**Log target**\n- `type: loki` \u2014 Pebble supports `loki` and `loki-labels` natively\n- `services` \u2014 restrict which services' logs are forwarded; omit to forward all\n- `labels` \u2014 static key/value pairs added to every log entry sent to this target\n\nIn a charm, you would push this layer via:\n\n```python\ncontainer.add_layer(\"example\", layer_yaml, combine=True)\ncontainer.replan()\n```",
+    "stop_reason": "end_turn",
+    "session_id": "86623fe0-3d7c-4fd4-b949-1643adcfd3a6",
+    "total_cost_usd": 0.04040655,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7439,
+      "cache_read_input_tokens": 11271,
+      "output_tokens": 608,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7439,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 608,
+        "cacheReadInputTokens": 11271,
+        "cacheCreationInputTokens": 7439,
+        "webSearchRequests": 0,
+        "costUSD": 0.04040655,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0445ec08-1b92-4bbc-9a14-de9ce5eba0f9"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:36:18+1300"
+}

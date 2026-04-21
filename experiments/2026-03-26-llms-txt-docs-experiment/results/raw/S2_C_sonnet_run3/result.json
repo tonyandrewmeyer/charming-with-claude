@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_C_sonnet_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 100127,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 94178,
+    "duration_api_ms": 95840,
+    "num_turns": 13,
+    "result": "Now I have everything needed. Here is the complete, idiomatic charm implementation:\n\n```python\n# src/charm.py\n\n\"\"\"Charm for a containerised workload managed via Pebble.\"\"\"\n\nimport logging\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\n# The name of the Pebble service inside the workload container.\nSERVICE_NAME = \"myapp\"\n# The container name declared in metadata.yaml under `containers:`.\nCONTAINER_NAME = \"myapp\"\n# The relation name declared in metadata.yaml under `requires:`.\nDB_RELATION_NAME = \"database\"\n\n\nclass MyAppCharm(ops.CharmBase):\n    \"\"\"Charm that configures a workload container via Pebble.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # \u2500\u2500 Event bindings \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        framework.observe(\n            self.on[CONTAINER_NAME].pebble_ready, self._on_pebble_ready\n        )\n        # Re-configure the layer whenever the operator changes config \u2026\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        # \u2026 or when the database relation is established / updated.\n        framework.observe(\n            self.on[DB_RELATION_NAME].relation_changed,\n            self._on_relation_changed,\n        )\n\n    # \u2500\u2500 Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _db_env_vars(self) -> dict[str, str]:\n        \"\"\"Return environment variables published by the database relation.\n\n        The remote application is expected to set at least:\n          - ``host``, ``port``, ``dbname``, ``username``, ``password``\n        in its relation data bag.  Any missing keys are silently omitted so\n        the charm degrades gracefully while the relation is being formed.\n        \"\"\"\n        env: dict[str, str] = {}\n        relation = self.model.get_relation(DB_RELATION_NAME)\n        if relation is None:\n            return env\n\n        # Prefer the application bag; fall back to the unit bag.\n        remote_app = relation.app\n        if remote_app is not None:\n            data = relation.data[remote_app]\n        else:\n            # No remote app object yet \u2013 pick the first remote unit.\n            remote_units = [u for u in relation.units if u.app != self.app]\n            if not remote_units:\n                return env\n            data = relation.data[remote_units[0]]\n\n        key_map = {\n            \"host\":     \"DB_HOST\",\n            \"port\":     \"DB_PORT\",\n            \"dbname\":   \"DB_NAME\",\n            \"username\": \"DB_USER\",\n            \"password\": \"DB_PASSWORD\",\n        }\n        for rel_key, env_key in key_map.items():\n            value = data.get(rel_key)\n            if value:\n                env[env_key] = value\n\n        return env\n\n    def _build_layer(self) -> ops.pebble.Layer:\n        \"\"\"Construct the Pebble layer from current config and relation data.\"\"\"\n        command = self.model.config.get(\"workload-command\", \"/usr/bin/myapp\")\n        env_vars = self._db_env_vars()\n\n        layer_dict: ops.pebble.LayerDict = {\n            \"summary\": \"myapp layer\",\n            \"description\": \"Pebble layer for the myapp workload\",\n            \"services\": {\n                SERVICE_NAME: {\n                    \"override\": \"replace\",\n                    \"summary\": \"myapp service\",\n                    \"command\": command,\n                    \"startup\": \"enabled\",\n                    \"environment\": env_vars,\n                    # Restart the service automatically if it crashes.\n                    \"on-failure\": \"restart\",\n                    \"backoff-delay\": \"5s\",\n                    \"backoff-limit\": \"60s\",\n                }\n            },\n            \"checks\": {\n                \"http-health\": {\n                    \"override\": \"replace\",\n                    # \"ready\" means Pebble considers the container ready only\n                    # when this check passes (used by `container.get_plan()`\n                    # and Juju's workload-status machinery).\n                    \"level\": \"ready\",\n                    \"period\": \"15s\",\n                    \"timeout\": \"5s\",\n                    # Declare the service unhealthy after 3 consecutive failures.\n                    \"threshold\": 3,\n                    \"http\": {\n                        \"url\": \"http://localhost:8080/health\",\n                    },\n                }\n            },\n        }\n        return ops.pebble.Layer(layer_dict)\n\n    def _configure_workload(self, container: ops.Container) -> None:\n        \"\"\"Push the layer, reconcile services, and update unit status.\"\"\"\n        if not container.can_connect():\n            logger.debug(\"Pebble not ready yet; deferring configuration.\")\n            self.unit.status = ops.WaitingStatus(\"Waiting for Pebble\")\n            return\n\n        if not self.model.get_relation(DB_RELATION_NAME):\n            self.unit.status = ops.WaitingStatus(\n                \"Waiting for database relation\"\n            )\n            return\n\n        layer = self._build_layer()\n\n        # Merge the new layer into the running plan.\n        container.add_layer(SERVICE_NAME, layer, combine=True)\n\n        # replan() starts/restarts services whose config changed and leaves\n        # others alone.  It is idempotent and safe to call on every hook.\n        container.replan()\n\n        self.unit.status = ops.ActiveStatus()\n        logger.info(\"Workload configured and replanned successfully.\")\n\n    # \u2500\u2500 Event handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        \"\"\"Handle the pebble-ready event for the workload container.\n\n        This fires once Pebble inside the container is reachable.  We use it\n        to push the initial layer and start the service.\n        \"\"\"\n        container: ops.Container = event.workload\n        logger.info(\"Pebble ready for container %r.\", container.name)\n        self._configure_workload(container)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        \"\"\"Reconfigure the workload when the operator changes a config value.\"\"\"\n        container = self.unit.get_container(CONTAINER_NAME)\n        self._configure_workload(container)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        \"\"\"Inject updated database credentials into the running service.\"\"\"\n        container = self.unit.get_container(CONTAINER_NAME)\n        self._configure_workload(container)\n\n\nif __name__ == \"__main__\":  # pragma: nocover\n    ops.main(MyAppCharm)\n```\n\n---\n\nHere is the companion `charmcraft.yaml` excerpt that declares the container, config option, and relation so the layer YAML matches the metadata:\n\n```yaml\n# charmcraft.yaml (relevant sections)\n\ncontainers:\n  myapp:\n    resource: myapp-image\n\nresources:\n  myapp-image:\n    type: oci-image\n    description: OCI image for the myapp workload\n\nconfig:\n  options:\n    workload-command:\n      type: string\n      default: /usr/bin/myapp\n      description: >\n        The command Pebble uses to start the workload service.\n        Override this to pass extra flags, e.g. \"/usr/bin/myapp --debug\".\n\nrequires:\n  database:\n    interface: pgsql          # or mysql, mongodb, etc.\n    limit: 1\n```\n\n---\n\n## How each piece fits together\n\n| Requirement | Implementation |\n|---|---|\n| **Command from config** | `self.model.config.get(\"workload-command\")` is read inside `_build_layer()` and injected into the service's `command` field every time the layer is pushed. |\n| **Env vars from relation** | `_db_env_vars()` reads the remote app's (or unit's) data bag from the `database` relation and maps the relation keys (`host`, `port`, \u2026) to `DB_HOST`, `DB_PORT`, \u2026 environment variables on the service. |\n| **HTTP health check** | The `checks.http-health` block performs a `GET http://localhost:8080/health` every **15 s**, with a **5 s** timeout. After **3** consecutive failures Pebble marks the container `not ready`. The `level: ready` field wires this into Juju's workload-status reporting. |\n| **Idempotency** | `container.add_layer(\u2026, combine=True)` merges (not replaces) the plan, and `container.replan()` only restarts services whose configuration actually changed. |\n| **Graceful waiting** | If Pebble is not yet reachable or the database relation is absent, the unit status is set to `WaitingStatus` and configuration is skipped until the next relevant event fires. |",
+    "stop_reason": "end_turn",
+    "session_id": "2fd762c9-387a-4b44-a90b-8e815391e633",
+    "total_cost_usd": 0.19185745,
+    "usage": {
+      "input_tokens": 253,
+      "cache_creation_input_tokens": 6413,
+      "cache_read_input_tokens": 117849,
+      "output_tokens": 4151,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6413,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 253,
+        "outputTokens": 4151,
+        "cacheReadInputTokens": 117849,
+        "cacheCreationInputTokens": 6413,
+        "webSearchRequests": 0,
+        "costUSD": 0.12242745,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 59150,
+        "outputTokens": 2056,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.06943,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "21c9c1ce-f2c5-4019-92f0-6b6313d8ffdc"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:22:27+1300"
+}

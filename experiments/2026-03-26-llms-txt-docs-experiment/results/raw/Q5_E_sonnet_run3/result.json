@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_E_sonnet_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 66118,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 64925,
+    "duration_api_ms": 64521,
+    "num_turns": 10,
+    "result": "Here is a complete explanation and example of using `ops.CollectStatusEvent` to manage charm status.\n\n---\n\n## How `CollectStatusEvent` Works\n\nInstead of calling `self.unit.status = ...` or `self.app.status = ...` scattered throughout every hook handler, `CollectStatusEvent` gives you a **single, centralised place** to declare status. The framework fires it automatically at the **end of every hook** (whether you observed the hook or not), collects all the statuses you add, picks the **highest-priority** one, and sets it.\n\nPriority order (highest \u2192 lowest):\n\n| Priority | Status |\n|----------|--------|\n| 1 (highest) | `BlockedStatus` |\n| 2 | `MaintenanceStatus` |\n| 3 | `WaitingStatus` |\n| 4 (lowest) | `ActiveStatus` |\n\nTwo event variants exist:\n- **`collect_app_status`** \u2014 triggered on the **leader unit only**; sets application status.\n- **`collect_unit_status`** \u2014 triggered on **all units**; sets unit status.\n\n---\n\n## Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A minimal charm demonstrating CollectStatusEvent.\"\"\"\n\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # --- Normal hook observers ---\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n        # --- Status observers (the key part) ---\n        # collect_unit_status fires on every unit after every hook.\n        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n        # collect_app_status fires on the leader unit after every hook.\n        self.framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        self._ready = False\n\n    # ------------------------------------------------------------------ #\n    # Normal hook handlers \u2014 do NOT set status here; just do the work.    #\n    # ------------------------------------------------------------------ #\n\n    def _on_install(self, event: ops.InstallEvent):\n        \"\"\"Install the workload.\"\"\"\n        # ... install packages, write files, etc. ...\n        self._ready = True\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        \"\"\"React to configuration changes.\"\"\"\n        required_key = self.config.get(\"required-key\")\n        if not required_key:\n            # Don't set status here \u2014 just record the problem.\n            # The collect handler will pick it up.\n            self._config_valid = False\n            return\n        self._config_valid = True\n        # ... apply config ...\n\n    # ------------------------------------------------------------------ #\n    # Status collection \u2014 the single source of truth for unit status.     #\n    # ------------------------------------------------------------------ #\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called after every hook. Add all relevant statuses; the\n        framework picks the highest-priority one automatically.\"\"\"\n\n        # Check 1: Is the workload installed?\n        if not self._ready:\n            event.add_status(ops.WaitingStatus(\"Waiting for install to complete\"))\n\n        # Check 2: Is the configuration valid?\n        if not getattr(self, \"_config_valid\", True):\n            event.add_status(ops.BlockedStatus(\"required-key config option is not set\"))\n\n        # Check 3: Is the workload actually running?\n        if not self._workload_running():\n            event.add_status(ops.MaintenanceStatus(\"Starting workload\"))\n\n        # If every check above is fine (nothing blocked/waiting), active wins.\n        event.add_status(ops.ActiveStatus(\"Ready\"))\n\n    # ------------------------------------------------------------------ #\n    # Application-level status (leader only).                             #\n    # ------------------------------------------------------------------ #\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Sets the application status visible in `juju status`.\"\"\"\n        # Suppose we check whether all units have reported ready via peer data.\n        if not self._all_units_ready():\n            event.add_status(ops.WaitingStatus(\"Waiting for all units to be ready\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    # ------------------------------------------------------------------ #\n    # Helpers                                                              #\n    # ------------------------------------------------------------------ #\n\n    def _workload_running(self) -> bool:\n        \"\"\"Return True if the workload process is up.\"\"\"\n        # Replace with a real check, e.g. systemd, pebble, etc.\n        return True\n\n    def _all_units_ready(self) -> bool:\n        \"\"\"Return True if peer relation data shows every unit is ready.\"\"\"\n        return True\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n## Key Rules & Tips\n\n| Rule | Detail |\n|------|--------|\n| **Always add at least one status per code path** | Each `if` branch that returns early should still call `add_status`. |\n| **Multiple handlers are fine** | You can `observe` `collect_unit_status` in multiple classes (e.g. charm components/libraries) \u2014 statuses from all handlers are pooled together. |\n| **First wins among equals** | If two `BlockedStatus` are added, the *first* one set wins. |\n| **`ErrorStatus` / `UnknownStatus` are forbidden** | Passing these to `add_status` raises an error. |\n| **Do not mix approaches** | Avoid calling `self.unit.status = ...` directly in hooks; let the collect handler own status exclusively. |\n| **`collect_app_status` \u2192 leader only** | Only the leader unit's `_on_collect_app_status` runs; other units' handlers are not called. |\n\n---\n\n## Why Use This Pattern?\n\n- \u2705 **No duplicated status logic** across hooks \u2014 one place to check everything.\n- \u2705 **Composable** \u2014 charm libraries can each observe `collect_unit_status` and contribute their own status without knowing about each other.\n- \u2705 **Automatic** \u2014 you never have to remember to set status after every possible code path.",
+    "stop_reason": "end_turn",
+    "session_id": "eb2fcfa7-7218-4490-9e43-87f1f3ae400a",
+    "total_cost_usd": 0.13288125,
+    "usage": {
+      "input_tokens": 205,
+      "cache_creation_input_tokens": 3329,
+      "cache_read_input_tokens": 62915,
+      "output_tokens": 2505,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3329,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 205,
+        "outputTokens": 2505,
+        "cacheReadInputTokens": 62915,
+        "cacheCreationInputTokens": 3329,
+        "webSearchRequests": 0,
+        "costUSD": 0.06954825,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 56113,
+        "outputTokens": 1444,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.063333,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ee2889dd-0b72-4407-825a-2d3f06bc8944"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:47:06+1300"
+}

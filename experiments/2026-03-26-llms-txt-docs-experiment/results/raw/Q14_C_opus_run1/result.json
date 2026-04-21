@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_C_opus_run1",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 67952,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 66843,
+    "duration_api_ms": 70820,
+    "num_turns": 11,
+    "result": "Here's a summary of the events and renewal guidance from the **TLS Certificates Interface library (v4)**:\n\n---\n\n## Events Emitted\n\n### `CertificateAvailableEvent`\nThis is the primary custom event the library emits. It fires when a TLS certificate has been issued by the provider and validated against the requirer's private key.\n\n**Data it carries:**\n| Attribute | Type | Description |\n|---|---|---|\n| `certificate` | `Certificate` | The issued TLS certificate |\n| `certificate_signing_request` | `CertificateSigningRequest` | The original CSR |\n| `ca` | `Certificate` | The CA certificate |\n| `chain` | `List[Certificate]` | The full certificate chain |\n\nIt also provides a `chain_as_pem()` helper method that returns the entire chain as a concatenated PEM string.\n\n---\n\n## When to Request a New Certificate\n\nThere are three scenarios where a charm should request a (new) certificate:\n\n### 1. Initial request (automatic)\nThe library automatically generates a CSR and requests a certificate when:\n- The TLS relation is established\n- A private key has been generated\n- The CSR attributes match the `certificate_requests` list passed to `TLSCertificatesRequiresV4`\n\n### 2. Expiry-based renewal (automatic)\nThe library uses Juju **secret expiration** to handle renewal automatically. It sets a secret expiry at `renewal_relative_time` (default **0.9**, i.e. 90% through the certificate's validity period). When the secret expires, Juju fires a `SecretExpiredEvent`, and the library automatically submits a new CSR.\n\n### 3. Manual renewal\nYou can explicitly trigger renewal in two ways:\n- **`renew_certificate(certificate)`** \u2014 Requests renewal of a specific certificate (removes the old CSR and submits a new one).\n- **`regenerate_private_key()`** \u2014 Generates a new private key and automatically creates new certificate requests for all configured attributes.\n\n---\n\n## Requirer / Provider Pattern\n\n| Role | Class | Responsibilities |\n|---|---|---|\n| **Requirer** | `TLSCertificatesRequiresV4` | Manages private keys, generates CSRs, receives certificates. Operates in `UNIT` mode (per-unit certs) or `APP` mode (leader-managed certs). |\n| **Provider** | `TLSCertificatesProvidesV4` | Reads CSRs from relation data, issues certificates, manages revocation. Uses `get_outstanding_certificate_requests()` to find pending requests. |\n\n**Key tip:** Pass `refresh_events` (a list of charm events) when instantiating the requirer to trigger certificate synchronization on events beyond the default relation-changed, e.g., `config-changed` or a custom timer event.",
+    "stop_reason": "end_turn",
+    "session_id": "a947abab-6e9a-42aa-96ca-0085f547fd1c",
+    "total_cost_usd": 0.21474,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 6122,
+      "cache_read_input_tokens": 84453,
+      "output_tokens": 1884,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6122,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 12,
+        "outputTokens": 1884,
+        "cacheReadInputTokens": 84453,
+        "cacheCreationInputTokens": 6122,
+        "webSearchRequests": 0,
+        "costUSD": 0.127649,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 78761,
+        "outputTokens": 1666,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.087091,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "e373cbaf-3376-4781-847e-4d71a753f049"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:08:41+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "S3_A_sonnet_run3",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 61015,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 59610,
+    "duration_api_ms": 59518,
+    "num_turns": 13,
+    "result": "Here is a complete walkthrough of every file that was created:\n\n---\n\n## File layout\n\n```\n.\n\u251c\u2500\u2500 src/\n\u2502   \u2514\u2500\u2500 charm.py          \u2190 charm implementation\n\u251c\u2500\u2500 charmcraft.yaml       \u2190 build configuration\n\u251c\u2500\u2500 metadata.yaml         \u2190 charm metadata & relation declarations\n\u2514\u2500\u2500 requirements.txt      \u2190 Python dependencies\n```\n\n---\n\n## `src/charm.py` \u2014 the charm class\n\n```python\nclass EndpointProviderCharm(ops.CharmBase):\n```\n\n### Key design decisions\n\n| Aspect | Choice | Reason |\n|---|---|---|\n| **FQDN source** | `socket.getfqdn()` | Standard-library; returns the machine's canonical hostname including domain |\n| **Data bag** | `relation.data[self.unit]` | Unit bag \u2014 no leadership required; each unit publishes its own FQDN |\n| **Event hooks** | `relation-joined` **+** `relation-changed` | `joined` fires first (fast path); `changed` is a safety net after restarts or re-hooks |\n| **Idempotency** | Compare before writing | Prevents unnecessary hook re-runs caused by spurious data-changed events |\n\n### Event flow\n\n```\nremote unit joins\n        \u2502\n        \u25bc\n_on_relation_joined()\n        \u2502\n        \u2514\u2500\u25ba _publish_endpoint(relation)\n                \u2502\n                \u251c\u2500 reads  relation.data[self.unit].get(\"endpoint\")\n                \u251c\u2500 computes socket.getfqdn()\n                \u2514\u2500 writes relation.data[self.unit][\"endpoint\"] = fqdn\n```\n\n---\n\n## `metadata.yaml` \u2014 relation declaration\n\n```yaml\nprovides:\n  endpoint-provider:\n    interface: endpoint-info\n```\n\nA consuming charm declares the mirror image:\n\n```yaml\n# in the consumer charm's metadata.yaml\nrequires:\n  endpoint-provider:\n    interface: endpoint-info   # must match exactly\n```\n\nIt then reads the data in its own `relation-changed` handler:\n\n```python\ndef _on_relation_changed(self, event):\n    endpoint = event.relation.data[event.unit].get(\"endpoint\")\n```\n\n---\n\n## How to build & deploy\n\n```bash\n# Pack the charm\ncharmcraft pack\n\n# Deploy provider\njuju deploy ./endpoint-provider_ubuntu-22.04-amd64.charm provider-app\n\n# Deploy a consumer (any charm that requires the endpoint-info interface)\njuju deploy ./my-consumer consumer-app\n\n# Relate them \u2014 triggers relation-joined on both sides\njuju relate provider-app:endpoint-provider consumer-app:endpoint-provider\n```",
+    "stop_reason": "end_turn",
+    "session_id": "accfb4f0-fd97-4a71-b594-b06f4d5e5cc3",
+    "total_cost_usd": 0.1066419,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 5622,
+      "cache_read_input_tokens": 63568,
+      "output_tokens": 4431,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5622,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 4431,
+        "cacheReadInputTokens": 63568,
+        "cacheCreationInputTokens": 5622,
+        "webSearchRequests": 0,
+        "costUSD": 0.1066419,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c2ba3040-116a-4195-b713-0b41a21f8a3d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:48:27+1300"
+}

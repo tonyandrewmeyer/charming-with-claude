@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_B_sonnet_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 151678,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 150355,
+    "duration_api_ms": 254749,
+    "num_turns": 2,
+    "result": "The canonical pattern for a provider-side charm library has a few key components:\n\n## 1. Library class structure\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\n\nimport ops\n\nclass MyInterfaceProvides(ops.Object):\n    def __init__(self, charm: ops.CharmBase, relation_name: str = \"my-relation\"):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n```\n\n## 2. Writing data (provider \u2192 requirer)\n\nOnly the **leader** can write to the application databag:\n\n```python\ndef update_data(self, data: dict[str, str]) -> None:\n    for relation in self._charm.model.relations[self._relation_name]:\n        if self._charm.unit.is_leader():\n            relation.data[self._charm.app].update(data)\n```\n\nUnit-scoped data can be written by any unit:\n\n```python\nrelation.data[self._charm.unit][\"my-key\"] = \"value\"\n```\n\n## 3. Reading data (requirer \u2192 provider)\n\n```python\ndef _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n    remote_data = event.relation.data[event.app]\n    value = remote_data.get(\"some-key\")\n    if not value:\n        return\n    # emit a custom event so the charm can react\n    self.on.my_interface_ready.emit(event.relation)\n```\n\n## 4. Custom events (libraries only)\n\nCharms themselves should never define custom events \u2014 only libraries do:\n\n```python\nclass MyInterfaceReadyEvent(ops.EventBase):\n    def __init__(self, handle: ops.Handle, relation: ops.Relation):\n        super().__init__(handle)\n        self.relation = relation\n\n    def snapshot(self) -> dict:\n        return {\"relation_id\": self.relation.id}\n\n    def restore(self, snapshot: dict) -> None:\n        self.relation = self.framework.model.get_relation(\n            self._relation_name, snapshot[\"relation_id\"]\n        )\n\nclass MyInterfaceEvents(ops.ObjectEvents):\n    my_interface_ready = ops.EventSource(MyInterfaceReadyEvent)\n\nclass MyInterfaceProvides(ops.Object):\n    on = MyInterfaceEvents()  # type: ignore[reportAssignmentType]\n    ...\n```\n\n## 5. Usage in the charm\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.my_interface = MyInterfaceProvides(self)\n        framework.observe(self.my_interface.on.my_interface_ready, self._on_ready)\n\n    def _on_ready(self, event: MyInterfaceReadyEvent) -> None:\n        # react to the requirer being ready\n        ...\n```\n\n## Key rules\n\n- **Leadership gate**: Always check `self.unit.is_leader()` before writing to `relation.data[self.app]`\n- **Libraries emit custom events; charms observe them** \u2014 keeps the library API clean\n- **Libraries must not set unit/app status** \u2014 use return values or custom events instead\n- **`relation-created`/`relation-joined`**: safe to write your own data, but don't read remote data yet\n- **`relation-changed`**: the right place to read remote data and react",
+    "stop_reason": "end_turn",
+    "session_id": "3aa8e5ed-f9fe-4919-aad0-f1074e5ce061",
+    "total_cost_usd": 0.9280685499999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9427,
+      "cache_read_input_tokens": 29875,
+      "output_tokens": 1226,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9427,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1226,
+        "cacheReadInputTokens": 29875,
+        "cacheCreationInputTokens": 9427,
+        "webSearchRequests": 0,
+        "costUSD": 0.06272174999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 204161,
+        "outputTokens": 15203,
+        "cacheReadInputTokens": 258833,
+        "cacheCreationInputTokens": 287430,
+        "webSearchRequests": 20,
+        "costUSD": 0.8653468,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "999a2d23-2d20-41d7-9e7b-3091640d1e4f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:05:45+1300"
+}

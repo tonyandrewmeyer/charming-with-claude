@@ -1,0 +1,57 @@
+{
+  "session_id": "Q6_A_opus_run3",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 24502,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 23350,
+    "duration_api_ms": 23340,
+    "num_turns": 1,
+    "result": "Here's a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target:\n\n```yaml\n# Layer file: e.g., 001-my-app.yaml\nservices:\n  my-app:\n    summary: My application service\n    description: |\n      A web application managed by Pebble with health checking\n      and centralized log forwarding.\n    # Startup and command\n    startup: enabled\n    command: /usr/bin/my-app --config /etc/my-app/config.yaml\n    after:\n      - database-migrator\n    # Run as a specific user/group\n    user: _daemon_\n    group: _daemon_\n    working-dir: /opt/my-app\n\n    # Environment variables\n    environment:\n      APP_PORT: \"8080\"\n      APP_ENV: \"production\"\n      LOG_LEVEL: \"info\"\n      DATABASE_URI: \"postgresql://db-host:5432/mydb\"\n      CACHE_TTL: \"300\"\n\n    # Restart / backoff behaviour\n    on-failure: restart\n    on-success: shutdown\n    backoff-delay: 1s\n    backoff-factor: 2\n    backoff-limit: 30s\n\nchecks:\n  my-app-health:\n    override: replace\n    level: ready          # Mark workload \"ready\" only when check passes\n    period: 10s           # How often to probe\n    timeout: 3s           # Per-attempt timeout\n    threshold: 3          # Failures before considered \"down\"\n    http:\n      url: http://localhost:8080/health\n      headers:\n        Accept: application/json\n        X-Check-Source: pebble\n\nlog-targets:\n  app-logs:\n    override: replace\n    type: loki\n    location: http://loki-gateway:3100/loki/api/v1/push\n    services:\n      - my-app\n    labels:\n      app: my-app\n      environment: production\n      cluster: juju-k8s\n```\n\n## Key sections explained\n\n| Section | Purpose |\n|---|---|\n| **`services.my-app`** | Defines the long-running process, its command, startup order (`after`), user/group, and restart policy with exponential backoff. |\n| **`environment`** | Injects key-value pairs into the service's environment. In a Juju charm you'd typically set these dynamically via `layer.to_dict()` in Python. |\n| **`checks.my-app-health`** | An HTTP health check that GETs `http://localhost:8080/health` every 10 seconds. Setting `level: ready` means Juju's `Container.get_check()` will report the workload as **ready** only once this check passes. After 3 consecutive failures the check is marked as failed. |\n| **`log-targets.app-logs`** | Forwards stdout/stderr from `my-app` to a **Loki** endpoint. Pebble also supports `syslog` as a log target type. The `labels` map attaches metadata to every log line. |\n\n### Using this in a charm\n\nIn your charm code you would typically build the layer dynamically so you can inject relation data and config:\n\n```python\ndef _pebble_layer(self) -> ops.pebble.Layer:\n    return ops.pebble.Layer({\n        \"services\": {\n            \"my-app\": {\n                \"override\": \"replace\",\n                \"summary\": \"My application service\",\n                \"command\": \"/usr/bin/my-app --config /etc/my-app/config.yaml\",\n                \"startup\": \"enabled\",\n                \"environment\": {\n                    \"APP_PORT\": \"8080\",\n                    \"DATABASE_URI\": self._get_db_uri(),\n                    \"LOG_LEVEL\": self.config.get(\"log-level\", \"info\"),\n                },\n            }\n        },\n        \"checks\": {\n            \"my-app-health\": {\n                \"override\": \"replace\",\n                \"level\": \"ready\",\n                \"period\": \"10s\",\n                \"timeout\": \"3s\",\n                \"threshold\": 3,\n                \"http\": {\n                    \"url\": \"http://localhost:8080/health\",\n                },\n            }\n        },\n        \"log-targets\": {\n            \"app-logs\": {\n                \"override\": \"replace\",\n                \"type\": \"loki\",\n                \"location\": self._get_loki_url(),\n                \"services\": [\"my-app\"],\n            }\n        },\n    })\n```\n\nThis gives you a fully observable workload: Pebble manages the process lifecycle, the health check gates readiness, and logs stream to Loki for monitoring.",
+    "stop_reason": "end_turn",
+    "session_id": "7418c44f-ec60-4f38-97f5-725e57f25ebf",
+    "total_cost_usd": 0.04028075,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1073,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1171,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1073,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1171,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1073,
+        "webSearchRequests": 0,
+        "costUSD": 0.04028075,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ff26b85a-80d1-4a00-993b-5ac79fa04a7f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:56:56+1300"
+}

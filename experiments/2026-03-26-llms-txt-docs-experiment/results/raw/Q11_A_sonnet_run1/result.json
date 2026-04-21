@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_A_sonnet_run1",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 127062,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 125939,
+    "duration_api_ms": 196481,
+    "num_turns": 2,
+    "result": "Here's how to add a relation and verify data exchange using **jubilant**:\n\n---\n\n## 1. Add the Relation\n\nUse `juju.integrate()` to create a relation between two applications:\n\n```python\n# Basic relation (jubilant infers the endpoint)\njuju.integrate('blog', 'mysql')\n\n# Explicit endpoint on one or both sides\njuju.integrate('discourse-k8s', 'postgresql-k8s:database')\n\n# Both endpoints explicit\njuju.integrate('blog:db', 'mysql:database')\n```\n\n---\n\n## 2. Wait for the Relation to Settle\n\nAfter integrating, block until all applications are active:\n\n```python\nimport jubilant\n\n# Wait for every app in the model to be active/idle\njuju.wait(jubilant.all_active)\n\n# Or scope it to specific apps only\njuju.wait(lambda s: jubilant.all_active(s, 'blog', 'mysql'))\n```\n\n---\n\n## 3. Verify Data Was Exchanged\n\n### a) Check application status (high-level)\n\n```python\nstatus = juju.status()\n\nassert status.apps['blog'].is_active\nassert status.apps['mysql'].is_active\n```\n\nA charm typically signals via its status message that it successfully consumed relation data (e.g. `\"Ready\"`, `\"Connected to mysql\"`), so you can also check:\n\n```python\nassert 'ready' in status.apps['blog'].status.message.lower()\n```\n\n### b) Inspect raw relation data (low-level)\n\nUse `juju.exec()` to run hook tools inside a unit and read the relation bag directly:\n\n```python\n# 1. Find the relation ID\nresult = juju.exec('blog/0', 'relation-ids db')\nrelation_id = result.stdout.strip()          # e.g. \"db:0\"\n\n# 2. List the remote units on that relation\nresult = juju.exec('blog/0', f'relation-list -r {relation_id}')\nremote_units = result.stdout.strip().split()  # e.g. [\"mysql/0\"]\n\n# 3. Read the data the remote unit published\nresult = juju.exec('blog/0', f'relation-get -r {relation_id} - {remote_units[0]}')\nprint(result.stdout)   # YAML-formatted key/value pairs\n\n# 4. (Juju 3.6+) Read application-level relation data\nresult = juju.exec('blog/0', f'relation-get --app -r {relation_id} - mysql')\nprint(result.stdout)\n```\n\n---\n\n## 4. Full Example\n\n```python\nimport jubilant\nimport pytest\n\n@pytest.fixture(scope='module')\ndef juju():\n    with jubilant.temp_model() as juju:\n        yield juju\n\ndef test_blog_mysql_relation(juju: jubilant.Juju):\n    # Deploy\n    juju.deploy('blog')\n    juju.deploy('mysql')\n    juju.wait(jubilant.all_active)\n\n    # Relate\n    juju.integrate('blog:db', 'mysql:database')\n\n    # Wait for charms to react and settle\n    juju.wait(jubilant.all_active)\n\n    # High-level check\n    status = juju.status()\n    assert status.apps['blog'].is_active\n    assert status.apps['mysql'].is_active\n\n    # Low-level relation-data check\n    rel_id = juju.exec('blog/0', 'relation-ids db').stdout.strip()\n    data   = juju.exec('blog/0', f'relation-get -r {rel_id} - mysql/0').stdout\n    assert 'host' in data     # mysql published a hostname\n    assert 'port' in data     # mysql published a port\n```\n\n---\n\n## Key API Summary\n\n| Method | Purpose |\n|---|---|\n| `juju.integrate(app1, app2)` | Create the relation |\n| `juju.wait(jubilant.all_active)` | Block until apps are active/idle |\n| `juju.status()` | Inspect app/unit status objects |\n| `juju.exec(unit, cmd)` | Run hook tools (`relation-ids`, `relation-get`, etc.) inside a unit |\n| `juju.remove_relation(app1, app2)` | Tear down the relation |\n\nThe combination of `wait(all_active)` + `status()` covers most test assertions, while `exec()` + `relation-get` gives you byte-for-byte verification of what each side of the relation actually published.",
+    "stop_reason": "end_turn",
+    "session_id": "3e69b56c-697c-4176-ae02-32b33d0430a9",
+    "total_cost_usd": 0.64549255,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3360,
+      "cache_read_input_tokens": 18021,
+      "output_tokens": 1455,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3360,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1455,
+        "cacheReadInputTokens": 18021,
+        "cacheCreationInputTokens": 3360,
+        "webSearchRequests": 0,
+        "costUSD": 0.039849300000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 122681,
+        "outputTokens": 11897,
+        "cacheReadInputTokens": 199485,
+        "cacheCreationInputTokens": 210823,
+        "webSearchRequests": 14,
+        "costUSD": 0.60564325,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "367ebd1e-d419-4f19-ab63-1289127fbf69"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:08:05+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_C_opus_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 78671,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 77508,
+    "duration_api_ms": 87685,
+    "num_turns": 9,
+    "result": "Here's a complete example of deploying a charm and waiting for it to reach active/idle using **jubilant**:\n\n## Complete Test Code\n\n```python\n# conftest.py\nimport jubilant\nimport pytest\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Create a temporary Juju model that is destroyed after tests complete.\"\"\"\n    with jubilant.temp_model() as juju:\n        juju.wait_timeout = 600  # increase from default 180s if needed\n        yield juju\n\n\n# test_charm.py\nimport jubilant\nimport requests\n\n\ndef test_deploy_and_reach_active_idle(juju: jubilant.Juju):\n    \"\"\"Deploy a charm and wait for active status with idle agents.\"\"\"\n    # Deploy the charm (local path or Charmhub name)\n    juju.deploy(\"./my-charm_amd64.charm\", app=\"my-charm\", num_units=1)\n\n    # Wait for all apps and units to be active\n    status = juju.wait(jubilant.all_active)\n\n    # Optionally also confirm all unit agents are idle\n    status = juju.wait(jubilant.all_agents_idle)\n\n    # Inspect the resulting status\n    app_status = status.apps[\"my-charm\"]\n    assert app_status.is_active\n\n    unit = app_status.units[\"my-charm/0\"]\n    assert unit.is_active\n    assert unit.address  # unit has a routable address\n\n\ndef test_deploy_from_charmhub(juju: jubilant.Juju):\n    \"\"\"Deploy a charm from Charmhub with a specific channel.\"\"\"\n    juju.deploy(\"postgresql\", channel=\"latest/edge\", trust=True)\n\n    # Wait for active, checking only specific app(s)\n    status = juju.wait(lambda s: jubilant.all_active(s, \"postgresql\"))\n\n    assert status.apps[\"postgresql\"].is_active\n\n\ndef test_deploy_with_config_and_constraints(juju: jubilant.Juju):\n    \"\"\"Deploy with config, constraints, and storage.\"\"\"\n    juju.deploy(\n        \"./my-charm_amd64.charm\",\n        app=\"my-app\",\n        num_units=2,\n        config={\"log-level\": \"debug\", \"port\": \"8080\"},\n        constraints={\"mem\": \"4G\"},\n    )\n\n    # Combined check: active workload AND idle agents\n    status = juju.wait(\n        lambda s: jubilant.all_active(s) and jubilant.all_agents_idle(s)\n    )\n\n    units = status.apps[\"my-app\"].units\n    assert len(units) == 2\n    for name, unit in units.items():\n        assert unit.is_active\n        assert unit.address\n```\n\n## Key API Points\n\n| Function / Method | Purpose |\n|---|---|\n| `jubilant.temp_model()` | Context manager \u2014 creates a temporary model, destroys it on exit |\n| `Juju.deploy(charm, app=, num_units=, config=, channel=, trust=, ...)` | Deploys a charm (local path or Charmhub name) |\n| `Juju.wait(ready, timeout=, delay=1.0, successes=3)` | Polls `juju status` until `ready(status)` returns `True` for `successes` consecutive checks |\n| `jubilant.all_active(status, *apps)` | Returns `True` when all apps/units (or specified apps) have **active** workload status |\n| `jubilant.all_agents_idle(status, *apps)` | Returns `True` when all unit **agents** are **idle** (checks Juju agent status, not workload status) |\n\n### `wait()` details\n- **`delay`** \u2014 seconds between status polls (default `1.0`)\n- **`timeout`** \u2014 overall timeout in seconds (default `Juju.wait_timeout`, which defaults to `180.0`)\n- **`successes`** \u2014 number of consecutive `True` results required before returning (default `3`), which helps avoid flaky results from transient states\n- **Returns** the final `Status` object, so you can immediately inspect addresses, ports, leader status, etc.\n\n### Install\n\n```bash\npip install jubilant\n```\n\nNo async/await needed \u2014 jubilant is fully synchronous and wraps the Juju CLI directly.",
+    "stop_reason": "end_turn",
+    "session_id": "39966d02-48c0-4359-ae5e-58a18f9694ba",
+    "total_cost_usd": 0.1872435,
+    "usage": {
+      "input_tokens": 685,
+      "cache_creation_input_tokens": 6264,
+      "cache_read_input_tokens": 62681,
+      "output_tokens": 1980,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6264,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 685,
+        "outputTokens": 1980,
+        "cacheReadInputTokens": 62681,
+        "cacheCreationInputTokens": 6264,
+        "webSearchRequests": 0,
+        "costUSD": 0.1234155,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 49558,
+        "outputTokens": 2854,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.063828,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "76f97ce8-54b9-4de1-88bc-8cb927ed6d43"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:48:41+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_A_sonnet_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 119445,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 118266,
+    "duration_api_ms": 188890,
+    "num_turns": 3,
+    "result": "Here is the complete pattern for deploying a charm and waiting for active/idle with **jubilant**:\n\n---\n\n## `tests/integration/conftest.py`\n\n```python\nimport sys\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope='module')\ndef juju(request: pytest.FixtureRequest):\n    with jubilant.temp_model() as juju:\n        juju.wait_timeout = 10 * 60  # 10 minutes (default is 3)\n        yield juju\n        if request.session.testsfailed:\n            log = juju.debug_log(limit=1000)\n            print(log, end='', file=sys.stderr)\n```\n\n---\n\n## `tests/integration/test_charm.py`\n\n```python\nimport pathlib\nimport jubilant\nimport pytest\n\nAPP_NAME = 'my-charm'\n\n\n@pytest.fixture(scope='module')\ndef charm():\n    return pathlib.Path('my-charm_ubuntu-22.04-amd64.charm')\n\n\ndef test_deploy(charm: pathlib.Path, juju: jubilant.Juju):\n    juju.deploy(\n        charm.resolve(),\n        app=APP_NAME,\n        resources={'my-charm-image': 'ubuntu/my-app:latest'},\n        config={'port': '8080'},\n        num_units=1,\n    )\n\n    # Wait until every unit is active/idle.\n    # all_active() checks workload status == \"active\".\n    # all_agents_idle() checks agent status == \"idle\".\n    # Pass both to wait() using a lambda to require both conditions.\n    status = juju.wait(\n        lambda s: jubilant.all_active(s) and jubilant.all_agents_idle(s),\n        error=jubilant.any_error,   # raise immediately if any unit errors\n        timeout=600,\n    )\n\n    # Inspect the resulting status object\n    unit = status.apps[APP_NAME].units[f'{APP_NAME}/0']\n    assert unit.workload_status.current == 'active'\n    assert unit.agent_status.current == 'idle'\n```\n\n---\n\n## Key API facts\n\n| What you want | jubilant call |\n|---|---|\n| Create a temporary Juju model | `jubilant.temp_model()` context manager |\n| Deploy a local charm | `juju.deploy(Path('foo.charm').resolve(), app='foo')` |\n| Deploy from Charmhub | `juju.deploy('postgresql-k8s', channel='14/stable')` |\n| Wait for active workload | `juju.wait(jubilant.all_active)` |\n| Wait for idle agents | `juju.wait(jubilant.all_agents_idle)` |\n| Wait for **both** active + idle | `juju.wait(lambda s: jubilant.all_active(s) and jubilant.all_agents_idle(s))` |\n| Bail out early on error status | add `error=jubilant.any_error` to `wait()` |\n| Scope to specific apps only | `jubilant.all_active(status, 'app-a', 'app-b')` |\n\n> **Note:** jubilant has no `wait_for_idle()` \u2014 that was pytest-operator's API. The equivalent is `juju.wait(jubilant.all_agents_idle)` (agent idle) or more commonly the combined lambda above. All calls are **synchronous** \u2014 no `async`/`await` needed anywhere.",
+    "stop_reason": "end_turn",
+    "session_id": "915e9743-6574-420d-a51a-0225873c6cb6",
+    "total_cost_usd": 0.41865899999999995,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 7223,
+      "cache_read_input_tokens": 18025,
+      "output_tokens": 1471,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7223,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 67065,
+        "outputTokens": 10538,
+        "cacheReadInputTokens": 167574,
+        "cacheCreationInputTokens": 68772,
+        "webSearchRequests": 2,
+        "costUSD": 0.24247739999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-sonnet-4-6": {
+        "inputTokens": 1475,
+        "outputTokens": 5056,
+        "cacheReadInputTokens": 72747,
+        "cacheCreationInputTokens": 19758,
+        "webSearchRequests": 0,
+        "costUSD": 0.1761816,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "6787414e-ac7d-4b3e-8222-32fe67df392a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:25:30+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_D_opus_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 27915,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 26703,
+    "duration_api_ms": 26308,
+    "num_turns": 3,
+    "result": "Here's a complete integration test using Jubilant:\n\n```python\nimport pathlib\n\nimport jubilant\nimport pytest\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    with jubilant.temp_model() as juju:\n        juju.wait_timeout = 10 * 60\n        yield juju\n\n\n@pytest.fixture(scope=\"module\")\ndef app(juju: jubilant.Juju):\n    charm = jubilant.find_charm(\"my-charm\", base=\"ubuntu@24.04\")\n    juju.deploy(charm, app=\"my-charm\", trust=True)\n    juju.wait(lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status))\n    yield \"my-charm\"\n\n\ndef test_charm_is_active(juju: jubilant.Juju, app: str):\n    status = juju.status()\n    assert status.apps[app].status.current == \"active\"\n```\n\nKey points:\n\n- **`jubilant.temp_model()`** creates a temporary Juju model and tears it down after tests.\n- **`juju.deploy()`** takes a charm path (from `jubilant.find_charm()` which finds a `.charm` file) or a Charmhub name.\n- **`juju.wait()`** takes a callable that receives a `Status` and returns `bool`. It polls until the condition is true or `wait_timeout` is exceeded.\n- **`jubilant.all_active(status)`** checks all units have `active` workload status.\n- **`jubilant.all_agents_idle(status)`** checks all unit agents are `idle`.\n- Combine both in a lambda to wait for `active/idle`.",
+    "stop_reason": "end_turn",
+    "session_id": "36975136-ea2c-4dcf-baeb-06d7b7a25f4e",
+    "total_cost_usd": 0.11980325000000001,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 8737,
+      "cache_read_input_tokens": 49624,
+      "output_tokens": 689,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8737,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 7,
+        "outputTokens": 689,
+        "cacheReadInputTokens": 49624,
+        "cacheCreationInputTokens": 8737,
+        "webSearchRequests": 0,
+        "costUSD": 0.09667825000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 20885,
+        "outputTokens": 448,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.023125,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "3fb60203-9307-4181-97c6-3764ccdc73d1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:00:38+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_E_sonnet_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 286809,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 285473,
+    "duration_api_ms": 318034,
+    "num_turns": 10,
+    "result": "The file is written. Here is a full walk-through of everything that was produced.\n\n---\n\n## `src/charm.py` \u2014 annotated walk-through\n\n### Module-level constants\n```python\nWORKLOAD_CONTAINER = \"workload\"   # must match charmcraft.yaml `containers` key\nWORKLOAD_SERVICE   = \"workload\"   # Pebble service name (can differ from container)\nDATABASE_RELATION  = \"database\"   # must match charmcraft.yaml `requires` key\n```\n\n---\n\n### `__init__` \u2014 event wiring\n\n```python\nframework.observe(self.on.workload_pebble_ready, self._on_pebble_ready)\nframework.observe(self.on.config_changed,         self._on_config_changed)\nframework.observe(self.on[DATABASE_RELATION].relation_changed, ...)\nframework.observe(self.on[DATABASE_RELATION].relation_broken,  ...)\n```\n\n`config_changed` and `relation_changed` both call the same `_configure_workload()` helper so all re-configuration paths share one code path.\n\n---\n\n### `_on_pebble_ready` \u2014 the primary handler\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    container = event.workload          # \u2460 grab the Container from the event\n    if not self._prerequisites_met(container):   # \u2461 guard\n        return\n    self._configure_workload(container)          # \u2462 push layer + replan\n```\n\nUsing `event.workload` (rather than `self.unit.get_container(...)`) is the canonical pattern inside `pebble_ready` \u2014 it's guaranteed to be connected.\n\n---\n\n### `_prerequisites_met` \u2014 guard helper\n\n| Check | Status if absent |\n|---|---|\n| `container.can_connect()` | `WaitingStatus` \u2013 Pebble not up yet |\n| `workload-command` config set | `BlockedStatus` \u2013 operator action needed |\n| database relation data present | `WaitingStatus` \u2013 waiting for remote unit |\n\nReturning `False` early prevents applying a half-formed layer.\n\n---\n\n### `_build_pebble_layer` \u2014 the layer\n\nThe returned `ops.pebble.Layer` renders to this YAML:\n\n```yaml\nsummary: workload service layer\nservices:\n  workload:\n    override: replace          # wins over base-image defaults\n    command: <workload-command config>\n    startup: enabled\n    environment:\n      HTTP_PORT: \"8080\"        # static; from http-port config\n      DB_HOST: \"...\"           # \u2500\u2510\n      DB_PORT: \"5432\"          #  \u2502  from database\n      DB_NAME: \"...\"           #  \u2502  relation data\n      DB_USER: \"...\"           #  \u2502\n      DB_PASSWORD: \"...\"       #  \u2502\n      DATABASE_URL: \"postgresql://...\" # \u2500\u2518 composite DSN\n    on-check-failure:\n      workload-http: restart   # auto-restart on probe failure\n\nchecks:\n  workload-http:\n    override: replace\n    level: ready               # surfaced by ops Unit.is_ready()\n    period: 30s\n    timeout: 5s\n    threshold: 3               # 3 consecutive failures \u2192 DOWN\n    http:\n      url: http://localhost:8080/health\n```\n\nKey design decisions:\n- **`override: replace`** \u2014 this layer's definition beats any lower-layer entry of the same name (e.g. from subordinate charms).\n- **`combine=True`** in `add_layer()` \u2014 merges *this* layer on top without discarding other layers in the plan.\n- **`container.replan()`** \u2014 idempotent; only (re)starts services whose effective plan entry has changed, so config-changed events that don't affect the workload cause zero downtime.\n- **`on-check-failure: restart`** \u2014 Pebble restarts the service automatically when the HTTP probe stays DOWN for `threshold` consecutive periods.\n\n---\n\n### `_database_env` \u2014 relation data extraction\n\n```python\nrelation = self.model.get_relation(DATABASE_RELATION)\nfor remote_unit in relation.units:          # remote units only\n    data = relation.data[remote_unit]\n    if all([host, dbname, user, password]):\n        return { \"DB_HOST\": ..., \"DATABASE_URL\": ... }\nreturn {}                                   # not ready yet \u2192 WaitingStatus\n```\n\nReading from `relation.data[remote_unit]` is the standard pattern for the `pgsql` / `postgresql_client` interfaces. Adjust the key names if your database charm uses a different interface (e.g. the Juju data-platform `database` interface publishes `uris` instead).\n\n---\n\n### `_set_status_from_checks` \u2014 health reflection\n\n```python\nchecks = container.get_checks(level=ops.pebble.CheckLevel.READY)\nfailing = [name for name, info in checks.items()\n           if info.status == ops.pebble.CheckStatus.DOWN]\nself.unit.status = (\n    ops.ActiveStatus(f\"health check(s) failing: {names}\") if failing\n    else ops.ActiveStatus()\n)\n```\n\nThe unit stays `Active` even when a probe is failing so Juju doesn't treat it as errored \u2014 the failure is visible in `juju status` as the status message.\n\n---\n\n### Required `charmcraft.yaml` stanza (reminder)\n\n```yaml\ncontainers:\n  workload:\n    resource: workload-image\n\nresources:\n  workload-image:\n    type: oci-image\n\nrequires:\n  database:\n    interface: pgsql\n\nconfig:\n  options:\n    workload-command:\n      type: string\n      default: \"\"\n    http-port:\n      type: int\n      default: 8080\n    health-check-path:\n      type: string\n      default: /health\n```",
+    "stop_reason": "end_turn",
+    "session_id": "fe0568be-226a-446a-9b9a-d6ac18316e15",
+    "total_cost_usd": 0.6354554,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 31544,
+      "cache_read_input_tokens": 170755,
+      "output_tokens": 18428,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 31544,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 14,
+        "outputTokens": 18428,
+        "cacheReadInputTokens": 170755,
+        "cacheCreationInputTokens": 31544,
+        "webSearchRequests": 0,
+        "costUSD": 0.44597850000000006,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 31675,
+        "outputTokens": 6570,
+        "cacheReadInputTokens": 63294,
+        "cacheCreationInputTokens": 70898,
+        "webSearchRequests": 3,
+        "costUSD": 0.18947689999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "83e06203-3a8d-450c-9933-707771fbe301"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:37:45+1300"
+}

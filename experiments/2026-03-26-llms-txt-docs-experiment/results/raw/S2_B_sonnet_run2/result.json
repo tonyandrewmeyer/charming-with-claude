@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_B_sonnet_run2",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 27577,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 26198,
+    "duration_api_ms": 26183,
+    "num_turns": 3,
+    "result": "No existing charm files. I'll write a self-contained example with the key pieces needed.\n\nHere is a complete `_on_pebble_ready` handler, along with the supporting dataclass and helper, following the patterns from your `CLAUDE.md`:\n\n```python\n# src/charm.py\nfrom __future__ import annotations\n\nimport dataclasses\nimport logging\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\nCONTAINER_NAME = \"app\"\nSERVICE_NAME = \"app\"\n\n\n@dataclasses.dataclass(frozen=True)\nclass CharmConfig:\n    command: str\n\n    @classmethod\n    def from_charm(cls, charm: ops.CharmBase) -> CharmConfig:\n        return cls(command=str(charm.config[\"command\"]))\n\n\nclass AppCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n        framework.observe(\n            self.on[CONTAINER_NAME].pebble_ready, self._on_pebble_ready\n        )\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(\n            self.on[\"database\"].relation_changed, self._on_database_relation_changed\n        )\n\n    # ------------------------------------------------------------------\n    # Event handlers\n    # ------------------------------------------------------------------\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        self._configure_workload(event.workload)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        container = self.unit.get_container(CONTAINER_NAME)\n        if not container.can_connect():\n            event.defer()\n            return\n        self._configure_workload(container)\n\n    def _on_database_relation_changed(\n        self, event: ops.RelationChangedEvent\n    ) -> None:\n        container = self.unit.get_container(CONTAINER_NAME)\n        if not container.can_connect():\n            event.defer()\n            return\n        self._configure_workload(container)\n\n    # ------------------------------------------------------------------\n    # Internal helpers\n    # ------------------------------------------------------------------\n\n    def _db_env(self) -> dict[str, str]:\n        \"\"\"Return environment variables sourced from the database relation.\"\"\"\n        relation = self.model.get_relation(\"database\")\n        if relation is None:\n            return {}\n\n        # Relation data is provided by the database charm on the\n        # application databag (e.g. the postgresql charm).\n        app_data = relation.data.get(relation.app, {})\n        env: dict[str, str] = {}\n\n        for key in (\"host\", \"port\", \"dbname\", \"user\", \"password\"):\n            value = app_data.get(key)\n            if value:\n                env[f\"DB_{key.upper()}\"] = value\n\n        # Compose a DATABASE_URL for frameworks that prefer it.\n        if all(k in env for k in (\"DB_HOST\", \"DB_PORT\", \"DB_DBNAME\", \"DB_USER\", \"DB_PASSWORD\")):\n            env[\"DATABASE_URL\"] = (\n                \"postgresql://{user}:{password}@{host}:{port}/{dbname}\".format(\n                    user=env[\"DB_USER\"],\n                    password=env[\"DB_PASSWORD\"],\n                    host=env[\"DB_HOST\"],\n                    port=env[\"DB_PORT\"],\n                    dbname=env[\"DB_DBNAME\"],\n                )\n            )\n\n        return env\n\n    def _configure_workload(self, container: ops.Container) -> None:\n        \"\"\"Push a Pebble layer and (re)start the workload service.\"\"\"\n        config = CharmConfig.from_charm(self)\n\n        layer = ops.pebble.Layer({\n            \"summary\": \"app layer\",\n            \"description\": \"Pebble layer for the application workload\",\n            \"services\": {\n                SERVICE_NAME: {\n                    \"override\": \"replace\",\n                    \"summary\": \"application service\",\n                    \"command\": config.command,\n                    \"startup\": \"enabled\",\n                    \"environment\": self._db_env(),\n                },\n            },\n            \"checks\": {\n                \"http-health\": {\n                    \"override\": \"replace\",\n                    \"level\": \"ready\",\n                    \"http\": {\n                        \"url\": \"http://localhost:8080/health\",\n                    },\n                },\n            },\n        })\n\n        container.add_layer(SERVICE_NAME, layer, combine=True)\n\n        if container.get_service(SERVICE_NAME).is_running():\n            container.replan()\n            logger.info(\"Workload reconfigured and replanned\")\n        else:\n            container.replan()\n            logger.info(\"Workload started\")\n\n        self.unit.status = ops.ActiveStatus()\n```\n\n---\n\n**Key decisions and why:**\n\n| Concern | Approach |\n|---|---|\n| **Command** | Read from `config[\"command\"]` via `CharmConfig` dataclass \u2014 keeps config access in one place |\n| **DB env vars** | Read from the `database` relation's **application databag** (the standard location for postgresql/mysql charms); composed into `DB_*` vars plus a `DATABASE_URL` |\n| **Health check** | `level: ready` HTTP check on `localhost:8080/health` \u2014 Pebble gates the unit's `ready` state on this passing |\n| **`container.replan()`** | Used in both the running and stopped branches so Pebble reconciles the layer diff without an unnecessary restart when nothing changed |\n| **Deferred events** | `config_changed` and `relation_changed` defer if the container isn't yet connectable, so they re-run once Pebble is ready |\n\n**You'll also need in `charmcraft.yaml`:**\n\n```yaml\nconfig:\n  options:\n    command:\n      type: string\n      description: Command used to start the workload process.\n      default: \"/usr/bin/myapp\"\n\ncontainers:\n  app:\n    resource: app-image\n\nresources:\n  app-image:\n    type: oci-image\n    description: OCI image for the application workload.\n\nrequires:\n  database:\n    interface: pgsql\n    optional: true\n```",
+    "stop_reason": "end_turn",
+    "session_id": "35f7b198-013c-48a0-acdd-86bf89436063",
+    "total_cost_usd": 0.0623229,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 7600,
+      "cache_read_input_tokens": 29903,
+      "output_tokens": 1656,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7600,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 4,
+        "outputTokens": 1656,
+        "cacheReadInputTokens": 29903,
+        "cacheCreationInputTokens": 7600,
+        "webSearchRequests": 0,
+        "costUSD": 0.0623229,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "470c0e8b-6eee-4677-9aa2-f3dd1a8af341"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:20:25+1300"
+}

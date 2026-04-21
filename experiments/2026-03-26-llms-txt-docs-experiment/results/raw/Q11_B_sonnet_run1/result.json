@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_B_sonnet_run1",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 37421,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 36258,
+    "duration_api_ms": 35480,
+    "num_turns": 2,
+    "result": "To add a relation, use `juju.integrate()`. To verify data was exchanged, inspect the `Status` object returned by `juju.status()`.\n\n```python\nimport jubilant\n\ndef test_relation_data(juju: jubilant.Juju):\n    juju.deploy(\"my-app\")\n    juju.deploy(\"postgresql\")\n    juju.integrate(\"my-app:db\", \"postgresql:db\")\n\n    # Wait for both apps to settle after the relation is established\n    juju.wait(jubilant.all_active)\n\n    # Inspect status to verify the relation exists\n    status = juju.status()\n    assert \"postgresql\" in status.apps\n    assert status.apps[\"my-app\"].is_active\n```\n\nFor verifying actual relation data (databag contents), you typically use `juju run` to execute a charm action or `juju exec` to run a command on the unit, since `status()` doesn't expose raw databag values:\n\n```python\n    # Run an action that returns relation data, or exec a command\n    task = juju.run(\"my-app/0\", \"get-db-uri\")\n    assert task.results[\"db-uri\"].startswith(\"postgresql://\")\n```\n\nOr, if you need to read databag contents directly during integration tests, you can exec into the unit:\n\n```python\n    result = juju.exec(\"my-app/0\", [\"cat\", \"/path/to/config-written-from-relation\"])\n    assert \"host\" in result.stdout\n```\n\nThe key pattern is:\n1. `juju.integrate(app1, app2)` \u2014 creates the relation\n2. `juju.wait(jubilant.all_active)` \u2014 waits for the relation hooks to complete and units to settle\n3. Assert on observable side-effects (actions, files, ports, status messages) rather than raw databag contents",
+    "stop_reason": "end_turn",
+    "session_id": "feb68c1d-00db-40c2-a6a4-3fb1f265ab20",
+    "total_cost_usd": 0.12263580000000002,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8252,
+      "cache_read_input_tokens": 29880,
+      "output_tokens": 759,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8252,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 759,
+        "cacheReadInputTokens": 29880,
+        "cacheCreationInputTokens": 8252,
+        "webSearchRequests": 0,
+        "costUSD": 0.051311999999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 42558,
+        "outputTokens": 1693,
+        "cacheReadInputTokens": 26583,
+        "cacheCreationInputTokens": 14114,
+        "webSearchRequests": 0,
+        "costUSD": 0.0713238,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "9bab0d86-767c-47e3-860b-c00582651f13"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:49:41+1300"
+}

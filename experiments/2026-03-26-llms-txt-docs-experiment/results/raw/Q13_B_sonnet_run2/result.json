@@ -1,0 +1,67 @@
+{
+  "session_id": "Q13_B_sonnet_run2",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 34700,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 33191,
+    "duration_api_ms": 37271,
+    "num_turns": 2,
+    "result": "Here's how to use the `traefik_k8s` ingress library on the requires side:\n\n## 1. Fetch the library\n\n```bash\ncharmcraft fetch-lib charms.traefik_k8s.v2.ingress\n```\n\n## 2. Add the relation to `charmcraft.yaml`\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n    optional: true\n```\n\n## 3. Wire it up in `src/charm.py`\n\n```python\nimport charms.traefik_k8s.v2.ingress as ingress_lib\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        self._ingress = ingress_lib.IngressPerAppRequirer(\n            self,\n            relation_name=\"ingress\",\n            port=8080,  # the port your workload listens on\n        )\n\n        framework.observe(self._ingress.on.ready, self._on_ingress_ready)\n        framework.observe(self._ingress.on.revoked, self._on_ingress_revoked)\n\n    def _on_ingress_ready(self, event: ingress_lib.IngressPerAppReadyEvent) -> None:\n        url = self._ingress.url\n        # update workload config with the public URL if needed\n\n    def _on_ingress_revoked(self, event: ingress_lib.IngressPerAppRevokedEvent) -> None:\n        # ingress was removed \u2014 revert to internal URL if needed\n        pass\n```\n\n## Key points\n\n- `self._ingress.url` returns the public URL once ingress is ready, or `None` if not yet available. Always guard against `None`.\n- `self._ingress.is_ready()` is a convenience check you can use in other handlers (e.g. `config-changed`) before trying to use the URL.\n- The `port` can also be passed dynamically by calling `self._ingress.provide_ingress_requirements(port=8080)` inside a handler instead of at construction time \u2014 useful if the port comes from config.\n- `limit: 1` is standard; an app should only have one ingress provider at a time.\n- Don't forget `optional: true` per the project conventions.",
+    "stop_reason": "end_turn",
+    "session_id": "365f86ce-5f6c-49e0-bd68-5dcd7a1300bb",
+    "total_cost_usd": 0.10314045000000001,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8356,
+      "cache_read_input_tokens": 29880,
+      "output_tokens": 842,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8356,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 842,
+        "cacheReadInputTokens": 29880,
+        "cacheCreationInputTokens": 8356,
+        "webSearchRequests": 0,
+        "costUSD": 0.052947,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 36554,
+        "outputTokens": 1754,
+        "cacheReadInputTokens": 24807,
+        "cacheCreationInputTokens": 1911,
+        "webSearchRequests": 0,
+        "costUSD": 0.05019345,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "df783a06-a088-404e-be82-4d9c3b89911a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:14:59+1300"
+}

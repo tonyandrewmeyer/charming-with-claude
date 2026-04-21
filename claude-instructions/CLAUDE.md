@@ -9,12 +9,20 @@ Before working on tasks, check for relevant skills in `.claude/skills/`. Availab
 - `concierge` — `.claude/skills/concierge/SKILL.md` — set up dev and test environments
 - `jhack` — `.claude/skills/jhack/SKILL.md` - diagnostic tools for charming
 - `juju` — `.claude/skills/juju/SKILL.md` — operate a Juju controller: deploy, configure, integrate, debug
+- `migrate-to-jubilant` - `.claude/skills/migrate-to-jubilant/SKILL.md` - tools for migrating charm integration tests from pytest-operator and python-libjuju, or from pytest-jubilant 1.x, to pytest-jubilant 2.0 and Jubilant
+- `juju-doctor` — `.claude/skills/juju-doctor/SKILL.md` — validate deployments with probes
+- `go-standards` — `.claude/skills/go-standards/SKILL.md` — Canonical Go coding standards
+- `cli-standards` — `.claude/skills/cli-standards/SKILL.md` — Canonical CLI design standards
+- `code-review` — `.claude/skills/code-review/SKILL.md` — code review guidelines
+- `charm-logging` — `.claude/skills/charm-logging/SKILL.md` — charm logging level guidelines
+- `charm-development-commands` — `.claude/skills/charm-development-commands/SKILL.md` — standard commands to make available for developing and testing charms
+- `charm-docs` — `.claude/skills/charm-docs/SKILL.md` — charm documentation guidelines
 
 Read the appropriate SKILL.md before starting any related work.
 
 ## Juju, Pebble, and Charms
 
-We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://juju.is/docs
+We are building a *charm* to be deployed on a *Juju* controller. All the information you need about Juju can be found at https://documentation.ubuntu.com/juju/latest/
 
 Charms can be "machine" or "Kubernetes". Machine charms generally install their workload as Debian packages or as snaps. Kubernetes charms use OCI images (ideally Rocks) that contain the workload, and are run as one or more sidecar containers to the charm container in a Kubernetes pod.
 
@@ -33,9 +41,9 @@ Charms always have a comprehensive set of automated tests. These tests are often
 
 Charms have three forms of tests:
 
-* State transition tests, which we refer to as unit tests. These use [ops.testing[(https://documentation.ubuntu.com/ops/latest/reference/ops-testing.html). Each test prepares by creating an `testing.Context` object and a `testing.State` object that describes the Juju state when the event is run, then acts by using `ctx.run` to run an event, then asserts on the output state, which is returned by `ctx.run`.
+* State transition tests, which we refer to as unit tests. These use [ops.testing](https://documentation.ubuntu.com/ops/latest/reference/ops-testing.html). Each test prepares by creating a `testing.Context` object and a `testing.State` object that describes the Juju state when the event is run, then acts by using `ctx.run` to run an event, then asserts on the output state, which is returned by `ctx.run`.
 * Functional tests (machine charms only). These validate the workload interaction code using the real workload but without using Juju.
-* Integration tests, which use a real Juju controller. Snap install `concierge` and run `concierge prepare -p dev` to set up a development environment, and use [Jubilant](https://documentation.ubuntu.com/jubilant/reference/jubilant/) to run Juju CLI commands to validate the expected behaviour.
+* Integration tests, which use a real Juju controller. Snap install `concierge` and run `sudo concierge prepare -p dev` to set up a development environment, and use [Jubilant](https://documentation.ubuntu.com/jubilant/reference/jubilant/) to run Juju CLI commands to validate the expected behaviour.
 
 The focus of the tests is ensuring that the *charm* behaves as expected. It is *not* testing the functionality of the workload itself, other than validating that the charm has configured it correctly.
 
@@ -52,6 +60,8 @@ GitHub workflows should be created for:
 
 A pre-commit configuration should be added that has the standard pre-commit checks and also `ruff check` and `ruff format check`. Dependabot should be configured to open PRs for security updates.
 
+All tool usage, whether in GitHub actions, pre-commit, or tox, should use the tool versions declared in `pyproject.toml` and locked (including hashes) in the lock file (for example `uv.lock`), and these environments should install from the lock file to guarantee consistent tool versions everywhere.
+
 ## Process
 
 To develop a charm:
@@ -59,7 +69,7 @@ To develop a charm:
 1. Research the workload. Does it suit a machine charm or a Kubernetes charm? What configuration should the charm set with suitable defaults, and what should it make available to Juju users? What actions make sense for the charm? What other charms should the charm work with (ingress, databases, and so on). Make sure you have read the Juju, Pebble, and Ops documentation mentioned above.
 2. Run `charmcraft init --profile=machine --force` or `charmcraft init --profile=kubernetes --force`. This will scaffold the local directory with the files needed for the charm.
 
-At this point, you should ultrathink about a plan for the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
+At this point, you should plan the charm. Use the research from the first step and plan what config, actions, storage, resources, secrets, and so on it should use, and how it will scale and interact with other charms. Do *not* start implementing the charm until you have confirmed that the plan is acceptable. You'll want to document this plan in a markdown file so that it can be referred to later.
 
 Continuing:
 
@@ -97,24 +107,10 @@ For example, to deploy the charm: `juju deploy ./{charm-name}.charm`, to scale u
 * Require Python 3.10 or above.
 * Use modern type annotations, like `x | y | None` rather than `Optional[Union[x, y]]`. Add `future` imports if required.
 * Where possible, make the charm stateless.
-* Always include the ``optional`` key when defining relations in `charmcraft.yaml`.
+* Always include the `optional` key when defining relations in `charmcraft.yaml`.
 * Always use "import x" rather than "from x import y", *except* for `typing` imports. For example, always `import pathlib` and `pathlib.Path()` rather than `from pathlib import Path` and `Path()`. Other code style guidelines can be found at: https://github.com/canonical/operator/blob/main/STYLE.md
 * Outside of the `src/charm.py` file, only use classes when there is a clear benefit. Remember that a module provides most of the benefits of a class, unless multiple instances are required.
 * Imports go at the top of modules, never inside of classes or methods.
 * Always use British English for comments and documentation, not American English. If possible, rephrase to avoid using words that are spelt differently in American English.
 
-If you need to run `apt` or `snap` or manage `system`, then you should the charm libs from [operator-libs-linux](https://github.com/canonical/operator-libs-linux/tree/main/lib/charms/operator_libs_linux). Add the dependency to `charmcraft.yaml` like:
-
-```yaml
-charm-libs:
-  - lib: operator_libs_linux.apt
-    version: "0"
-  - lib: operator_libs_linux.systemd
-    version: "1"
-```
-
-And then run `charmcraft fetch-libs`. There will now be a top level `lib` folder that should be added to `PYTHONPATH` in development (in production this happens automatically), that contains the fetched libraries.
-
-**IMPORTANT: Make sure you follow this plan:**
-
-The best development pattern is a "testing sandwich". Start by writing integration tests that clearly show what the behaviour of the charm should be, from the perspective of the Juju user. When the tests are complete -- they will not pass yet -- confirm that this is a good plan. Once confirmed, go ahead and carefully implement the functionality, thinking hard about how to do that. When the implementation is complete, verify that it behaves as expected by checking that the integration tests pass. If they fail, then the problem is *most likely* the implementation, but if it seems like it is not, think harder about it and suggest changes to the tests, but do not implement those until confirmed. Once the tests are passing, go ahead and add unit tests as well, and then verify that those pass. At that point, you can check the functionality off as complete, and start on documentation.
+If you need to run `apt` or `snap` or manage `system`, then you should use the charm libraries from [charmlibs](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/).

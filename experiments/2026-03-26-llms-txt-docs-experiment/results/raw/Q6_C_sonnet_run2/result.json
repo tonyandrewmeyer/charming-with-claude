@@ -1,0 +1,67 @@
+{
+  "session_id": "Q6_C_sonnet_run2",
+  "question_id": "Q6",
+  "category": "pebble",
+  "question": "Write a complete Pebble layer YAML that defines a service with an HTTP health check, custom environment variables, and a log target.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 55961,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 54765,
+    "duration_api_ms": 54453,
+    "num_turns": 4,
+    "result": "Here is a complete, production-ready Pebble layer YAML covering all three requirements, based directly on the official Pebble layer specification:\n\n```yaml\n# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n# Pebble Layer \u2013 my-app\n#\n# Drop this file at:\n#   /var/lib/pebble/default/layers/001-my-app.yaml\n#\n# Sections\n#   services    \u2013 what to run\n#   checks      \u2013 how to probe liveness / readiness\n#   log-targets \u2013 where to ship logs\n# \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nsummary: My application layer\ndescription: |\n  Defines the my-app service, its HTTP health check, custom environment\n  variables, and a Loki log-forwarding target.\n\n# \u2500\u2500 1. Services \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nservices:\n  my-app:\n    override: replace          # Replace any lower-priority layer definition\n    summary: My application\n    description: |\n      The main application binary. Starts an HTTP server on port 8080.\n\n    command: /usr/bin/my-app --config /etc/my-app/config.yaml\n\n    startup: enabled           # Start automatically when Pebble starts\n\n    # \u2500\u2500 Environment variables \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    environment:\n      # Application tunables\n      APP_ENV:        production\n      APP_PORT:       \"8080\"\n      APP_LOG_LEVEL:  info\n      # Database connection\n      DB_HOST:        postgres.svc.cluster.local\n      DB_PORT:        \"5432\"\n      DB_NAME:        mydb\n      # Secrets are typically injected by the charm via `container.add_layer`\n      # or Juju secrets; shown here for completeness\n      DB_PASSWORD:    \"${DB_PASSWORD}\"   # expanded from Pebble's environment\n\n    # \u2500\u2500 Dependency & restart policy \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    on-failure:       restart           # restart the service on non-zero exit\n    backoff-delay:    5s                # initial wait before first restart\n    backoff-factor:   2.0               # exponential back-off multiplier\n    backoff-limit:    2m                # cap restarts at this cumulative delay\n\n    # React to a failing health check (references the check name below)\n    on-check-failure:\n      my-app-ready: restart             # restart the service if check fails\n\n    # \u2500\u2500 Process identity \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    user:  ubuntu\n    group: ubuntu\n\n    # \u2500\u2500 Working directory \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n    working-dir: /srv/my-app\n\n# \u2500\u2500 2. Checks (Health Probes) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nchecks:\n  # Liveness probe \u2013 is the process alive?\n  my-app-alive:\n    override: replace\n    level: alive               # Pebble uses this for liveness\n    startup: enabled\n    period:    10s             # run every 10 s\n    timeout:   3s              # fail the check if no response within 3 s\n    threshold: 3               # mark unhealthy after 3 consecutive failures\n\n    http:\n      url: http://localhost:8080/healthz\n      headers:\n        # Some apps require a Host header or an internal token\n        X-Health-Check: pebble\n\n  # Readiness probe \u2013 is the app ready to serve traffic?\n  my-app-ready:\n    override: replace\n    level: ready               # Pebble uses this for readiness\n    startup: enabled\n    period:    15s\n    timeout:   5s\n    threshold: 2\n\n    http:\n      url: http://localhost:8080/ready\n      headers:\n        Accept: application/json\n\n# \u2500\u2500 3. Log Targets \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nlog-targets:\n  loki:\n    override: replace\n    type:     loki\n    location: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push\n    startup:  enabled\n\n    # Which services to collect logs from.\n    # Use [all] to collect from every service, or list names explicitly.\n    services: [my-app]\n\n    # Static labels attached to every log stream sent to Loki.\n    # Values starting with $ are substituted from the service's environment.\n    labels:\n      app:         my-app\n      environment: production\n      juju_model:  \"${JUJU_MODEL_NAME}\"   # injected by the Juju charm\n      juju_unit:   \"${JUJU_UNIT_NAME}\"\n      version:     \"${APP_VERSION}\"\n```\n\n---\n\n## Key design decisions explained\n\n| Area | Choice | Rationale |\n|---|---|---|\n| `override: replace` | Used on every stanza | Guarantees this layer wins over any base layer; use `merge` when you only want to patch fields |\n| Two health checks | `alive` + `ready` | Mirrors Kubernetes liveness/readiness semantics; Pebble exposes both via its API |\n| `on-check-failure` | Tied to the *ready* check | Only the readiness failure triggers a restart; a transient liveness blip is handled by `threshold` first |\n| `backoff-*` fields | Exponential with a 2 min cap | Prevents a crash-looping service from hammering the system |\n| Log labels with `${}` | Environment variable substitution | Pebble expands these at runtime so the layer YAML stays static across deployments |\n| Loki `services: [my-app]` | Explicit list | Safer than `[all]` in multi-service layers \u2014 avoids accidentally shipping logs from helper processes |\n\n## How to apply this from a charm\n\n```python\n# ops / Juju charm fragment\nimport yaml, ops\n\nclass MyCharm(ops.CharmBase):\n    def _on_my_app_pebble_ready(self, event: ops.PebbleReadyEvent):\n        container = event.workload\n\n        with open(\"src/pebble/001-my-app.yaml\") as f:\n            layer = ops.pebble.Layer(f.read())\n\n        container.add_layer(\"my-app\", layer, combine=True)\n        container.replan()\n```",
+    "stop_reason": "end_turn",
+    "session_id": "be9f1776-a678-453f-b3aa-2335cac19b60",
+    "total_cost_usd": 0.0691431,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 3026,
+      "cache_read_input_tokens": 39242,
+      "output_tokens": 2185,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3026,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 2185,
+        "cacheReadInputTokens": 39242,
+        "cacheCreationInputTokens": 3026,
+        "webSearchRequests": 0,
+        "costUSD": 0.0559191,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 9264,
+        "outputTokens": 792,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.013224,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "531deedd-f1e3-4692-8516-18fa25c5a25e"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:06:57+1300"
+}

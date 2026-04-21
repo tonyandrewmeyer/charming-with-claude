@@ -1,0 +1,67 @@
+{
+  "session_id": "Q2_C_sonnet_run2",
+  "question_id": "Q2",
+  "category": "ops_api",
+  "question": "How do you access relation data for a specific remote unit? Show the code.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 95402,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 94282,
+    "duration_api_ms": 87355,
+    "num_turns": 14,
+    "result": "Here is how you access relation data for a specific remote unit using the **ops framework**:\n\n---\n\n## Accessing Remote Unit Relation Data\n\n### 1. From a Relation Event (most common)\n\nWhen a relation hook fires, the event carries the relation and the specific remote unit that triggered it:\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.framework.observe(self.on.my_relation_changed, self._on_relation_changed)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        # The unit that triggered this event\n        remote_unit = event.unit  # ops.Unit\n\n        # Access that specific unit's data bucket\n        unit_data = event.relation.data[remote_unit]\n\n        # Read a key from their databag\n        address = unit_data.get(\"private-address\")\n        port = unit_data.get(\"port\")\n\n        if address and port:\n            self.do_something(address, port)\n```\n\n---\n\n### 2. Iterating Over All Remote Units on a Relation\n\n```python\ndef _on_relation_changed(self, event: ops.RelationChangedEvent):\n    relation = event.relation\n\n    # relation.units is a set of all remote units currently joined\n    for unit in relation.units:\n        unit_data = relation.data[unit]\n        value = unit_data.get(\"some-key\")\n        print(f\"{unit.name}: {value}\")\n```\n\n---\n\n### 3. Looking Up a Relation by Name (`Model.get_relation`)\n\nUseful outside of a relation event, e.g. in a config-changed or install handler:\n\n```python\ndef _on_config_changed(self, event: ops.ConfigChangedEvent):\n    # Returns the Relation object (or None if not joined)\n    relation = self.model.get_relation(\"database\")\n\n    if relation is None:\n        return  # Not yet integrated\n\n    # Iterate remote units\n    for unit in relation.units:\n        unit_data = relation.data[unit]\n        db_host = unit_data.get(\"host\")\n        db_port = unit_data.get(\"port\")\n```\n\nIf there are **multiple relations** with the same name (e.g. multiple `database` integrations), use `model.relations[\"database\"]` instead:\n\n```python\nfor relation in self.model.relations[\"database\"]:\n    for unit in relation.units:\n        data = relation.data[unit]\n        print(data.get(\"host\"))\n```\n\n---\n\n### 4. Writing to Your Own Unit's Databag\n\nYou can only **write** to your own unit's (or, if leader, your app's) bucket:\n\n```python\ndef _on_relation_joined(self, event: ops.RelationJoinedEvent):\n    # Write to THIS unit's databag so the remote side can read it\n    event.relation.data[self.unit][\"my-key\"] = \"my-value\"\n```\n\n---\n\n## Key Objects Summary\n\n| Object | How to get it | Description |\n|---|---|---|\n| `event.relation` | relation event | The `Relation` for the triggering hook |\n| `event.unit` | relation event | The specific remote `Unit` that triggered the event |\n| `relation.units` | `Relation` object | `set[Unit]` of all joined remote units |\n| `relation.data[unit]` | `Relation` + `Unit` | The `RelationDataContent` dict for that unit |\n| `model.get_relation(name)` | `self.model` | Fetch a relation by endpoint name (returns `None` or `Relation`) |\n| `model.relations[name]` | `self.model` | All relations for a given endpoint name (returns `list[Relation]`) |\n\n> **Permissions:** All units can **read** any remote unit's or remote app's databag. A unit can only **write** to its own databag. Only the leader can write to the local application's databag.",
+    "stop_reason": "end_turn",
+    "session_id": "f66ceac9-9263-4870-bc49-bee1902c5f6c",
+    "total_cost_usd": 0.15442215,
+    "usage": {
+      "input_tokens": 53,
+      "cache_creation_input_tokens": 5397,
+      "cache_read_input_tokens": 125548,
+      "output_tokens": 2532,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5397,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 53,
+        "outputTokens": 2532,
+        "cacheReadInputTokens": 125548,
+        "cacheCreationInputTokens": 5397,
+        "webSearchRequests": 0,
+        "costUSD": 0.09604214999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 52850,
+        "outputTokens": 1106,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.05838,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "119c8cdf-a69d-4822-8c28-3076271b2126"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:30:11+1300"
+}

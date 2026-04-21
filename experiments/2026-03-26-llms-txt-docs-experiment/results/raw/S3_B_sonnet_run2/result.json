@@ -1,0 +1,57 @@
+{
+  "session_id": "S3_B_sonnet_run2",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 23619,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 22435,
+    "duration_api_ms": 22373,
+    "num_turns": 2,
+    "result": "This is a fresh directory with no charm yet. Here's a complete charm class that provides data over a custom relation interface, setting `endpoint` to the unit's FQDN when a remote app joins:\n\n```python\n# src/charm.py\n\"\"\"Charm that provides data over a custom relation interface.\"\"\"\n\nfrom __future__ import annotations\n\nimport dataclasses\nimport logging\nimport socket\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\nRELATION_NAME = \"my-endpoint\"\n\n\n@dataclasses.dataclass\nclass Config:\n    \"\"\"Charm configuration.\"\"\"\n    # Add config options here as needed.\n\n\nclass MyEndpointProviderCharm(ops.CharmBase):\n    \"\"\"Charm that advertises its FQDN over a custom relation.\"\"\"\n\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n        framework.observe(\n            self.on[RELATION_NAME].relation_joined, self._on_relation_joined\n        )\n        framework.observe(\n            self.on[RELATION_NAME].relation_changed, self._on_relation_changed\n        )\n        framework.observe(self.on.install, self._on_install)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    @property\n    def _fqdn(self) -> str:\n        return socket.getfqdn()\n\n    def _publish_endpoint(self, relation: ops.Relation) -> None:\n        \"\"\"Write the unit FQDN into our side of the relation data bag.\"\"\"\n        relation.data[self.unit][\"endpoint\"] = self._fqdn\n        logger.info(\"Published endpoint %s on relation %d\", self._fqdn, relation.id)\n\n    # ------------------------------------------------------------------\n    # Event handlers\n    # ------------------------------------------------------------------\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        self.unit.status = ops.ActiveStatus()\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent) -> None:\n        \"\"\"Set the 'endpoint' key as soon as a remote unit joins.\"\"\"\n        self._publish_endpoint(event.relation)\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        \"\"\"Re-publish in case this unit's FQDN changed (e.g. after a reboot).\"\"\"\n        self._publish_endpoint(event.relation)\n\n\nif __name__ == \"__main__\":\n    ops.main(MyEndpointProviderCharm)\n```\n\nAnd the matching `charmcraft.yaml` relation stanza:\n\n```yaml\n# charmcraft.yaml (relation section only)\nprovides:\n  my-endpoint:\n    interface: my-endpoint\n    optional: true\n```\n\n**Key design decisions:**\n\n| Decision | Rationale |\n|---|---|\n| `relation_joined` | Fires the moment a remote unit joins \u2014 exactly when the requirement says to set `endpoint`. |\n| `relation_changed` | Re-publishes on every subsequent change so the value stays current if the FQDN ever changes (e.g. hostname update). |\n| `relation.data[self.unit]` | Each unit writes only to its own data bag, as required by the Juju data model. |\n| `socket.getfqdn()` | Standard-library call; returns the fully-qualified domain name of the current host without shelling out. |\n| `provides:` with `optional: true` | The CLAUDE.md style guide requires `optional` on all relation definitions. |\n\nIf this charm is a **requirer** instead of a provider, swap `provides` \u2192 `requires` in `charmcraft.yaml` and flip `self.on[RELATION_NAME].relation_joined` to the requirer side \u2014 the Python code is otherwise identical, since `relation.data[self.unit]` always refers to this unit's own writable bag regardless of role.",
+    "stop_reason": "end_turn",
+    "session_id": "550663ee-c49f-41ce-b1d5-a579995a86c8",
+    "total_cost_usd": 0.055510500000000004,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 8144,
+      "cache_read_input_tokens": 29895,
+      "output_tokens": 1066,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8144,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 4,
+        "outputTokens": 1066,
+        "cacheReadInputTokens": 29895,
+        "cacheCreationInputTokens": 8144,
+        "webSearchRequests": 0,
+        "costUSD": 0.055510500000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "df380df1-e1ce-4458-b76d-9345af9a3440"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:51:46+1300"
+}

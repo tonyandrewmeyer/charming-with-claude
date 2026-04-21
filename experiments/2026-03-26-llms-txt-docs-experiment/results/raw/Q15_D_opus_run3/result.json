@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_D_opus_run3",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 47913,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 46705,
+    "duration_api_ms": 46437,
+    "num_turns": 4,
+    "result": "## `charmlibs.pathops`\n\nThe `pathops` library provides a `pathlib`-like interface for working with files on both local and container (Pebble) filesystems. It lets you write workload interaction code that works the same way for machine and Kubernetes charms.\n\n### Core concepts\n\n**`ContainerPath`** \u2014 a path object for Pebble-based workload containers. It wraps the Pebble file API with a familiar `pathlib`-style interface.\n\n```python\nimport ops\nfrom charmlibs.pathops import ContainerPath\n\ncontainer = self.unit.get_container(\"myapp\")\nconfig_path = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n# Read/write like pathlib\ncontents = config_path.read_text()\nconfig_path.write_text(new_contents, mode=0o644, user=\"myapp\", group=\"myapp\")\n\n# Directory operations\nconfig_path.parent.mkdir(parents=True, exist_ok=True, user=\"myapp\", group=\"myapp\")\n\n# Checks\nif config_path.exists():\n    ...\n```\n\nKey constraints:\n- Only absolute paths (raises `RelativePathError` otherwise)\n- `glob()` does not support `**` recursive patterns\n- Raises `PebbleConnectionError` when the container is unreachable\n\n**`LocalPath`** \u2014 extends `pathlib.PosixPath` with the same enhanced `write_text`/`write_bytes`/`mkdir` signatures (adding `mode`, `user`, `group` parameters). Used in machine charms.\n\n**`PathProtocol`** \u2014 a protocol type for annotations when your code should accept either path type.\n\n### `ensure_contents()`\n\nThis is the key helper for idempotent file management. It checks whether a file already has the desired content, permissions, and ownership, and only writes if something differs.\n\n```python\nfrom charmlibs.pathops import ContainerPath, ensure_contents\n\nconfig_path = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\nchanged = ensure_contents(\n    path=config_path,\n    source=\"key: value\\n\",\n    mode=0o644,\n    user=\"myapp\",\n    group=\"myapp\",\n)\n\nif changed:\n    # Restart the service, replan pebble, etc.\n    container.restart(\"myapp\")\n```\n\n**Parameters:**\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `path` | `str \\| PathLike \\| PathProtocol` | \u2014 | Target file path |\n| `source` | `bytes \\| str \\| BinaryIO \\| TextIO` | \u2014 | Desired file content |\n| `mode` | `int` | `0o644` | File permissions |\n| `user` | `str \\| None` | `None` | File owner |\n| `group` | `str \\| None` | `None` | File group |\n\n**Returns** `True` if any changes were made, `False` if the file was already correct. This makes it ideal for charm event handlers where you only want to trigger a service restart when the configuration actually changed.\n\n### Typical charm usage pattern\n\n```python\ndef _configure(self, event: ops.EventBase) -> None:\n    container = self.unit.get_container(\"myapp\")\n    if not container.can_connect():\n        event.defer()\n        return\n\n    config_path = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n    changed = ensure_contents(\n        path=config_path,\n        source=self._render_config(),\n        mode=0o644,\n        user=\"myapp\",\n        group=\"myapp\",\n    )\n    if changed:\n        container.replan()\n```\n\nTo use it in your charm, add the dependency to `charmcraft.yaml`:\n\n```yaml\ncharm-libs:\n  - lib: charmlibs.pathops\n    version: \"0\"\n```\n\nThen run `charmcraft fetch-libs` to pull it into your `lib/` directory.",
+    "stop_reason": "end_turn",
+    "session_id": "a08e0bb9-9609-4e15-aadd-7ef62c715e36",
+    "total_cost_usd": 0.16052,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 9636,
+      "cache_read_input_tokens": 69490,
+      "output_tokens": 1357,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9636,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 1357,
+        "cacheReadInputTokens": 69490,
+        "cacheCreationInputTokens": 9636,
+        "webSearchRequests": 0,
+        "costUSD": 0.128935,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 26210,
+        "outputTokens": 1075,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.031585,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "21c8f7c6-cd9d-426a-81df-50e9785d7217"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:26:29+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_A_sonnet_run2",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 85999,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 84814,
+    "duration_api_ms": 88177,
+    "num_turns": 11,
+    "result": "Here is a comprehensive explanation of `charmlibs.pathops` and how to use `ContainerPath` and `ensure_contents`:\n\n---\n\n## `charmlibs.pathops`\n\n`charmlibs.pathops` is a Canonical charm library that provides a **`pathlib`-like interface** for managing files on both local machine filesystems and remote **Pebble-managed workload containers** (Kubernetes charms). Its key value is that you can write a single function that works against either environment by typing against the `PathProtocol` abstraction.\n\nInstall it by adding `charmlibs-pathops` to your charm's dependencies, then:\n\n```python\nfrom charmlibs import pathops\n```\n\n---\n\n## Core Abstractions\n\n| Class / Type | Purpose |\n|---|---|\n| `PathProtocol` | Structural protocol \u2014 use for type hints when either backend is acceptable |\n| `LocalPath` | For machine charms \u2014 wraps `pathlib.PosixPath` |\n| `ContainerPath` | For K8s charms \u2014 wraps the **Pebble** container API |\n\n---\n\n## `ContainerPath`\n\n`ContainerPath` implements `PathProtocol` for a **Pebble-managed workload container**. It **only accepts absolute paths**.\n\n### Constructor\n\n```python\nContainerPath(*parts: str | os.PathLike, container: ops.Container)\n```\n\n### Basic Usage\n\n```python\nimport ops\nfrom charmlibs import pathops\n\nclass MyCharm(ops.CharmBase):\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        container = self.unit.get_container(\"myapp\")\n        root = pathops.ContainerPath(\"/\", container=container)\n\n        # Navigate paths with / operator (just like pathlib)\n        config_dir  = root / \"etc\" / \"myapp\"\n        config_file = config_dir / \"config.yaml\"\n\n        # Create directories\n        config_dir.mkdir(parents=True, exist_ok=True, mode=0o755)\n\n        # Write a file with permissions and ownership\n        config_file.write_text(\n            \"key: value\\n\",\n            mode=0o644,\n            user=\"myapp\",\n            group=\"myapp\",\n        )\n\n        # Read it back\n        content = config_file.read_text()\n\n        # Check existence / type\n        if config_file.exists() and config_file.is_file():\n            print(\"Config is in place\")\n\n        # Iterate a directory\n        for child in config_dir.iterdir():\n            print(child.name)\n```\n\n### Exceptions\n\n| Exception | When raised |\n|---|---|\n| `pathops.RelativePathError` | A relative path was passed to `ContainerPath` |\n| `pathops.PebbleConnectionError` | The container is not yet reachable (alias for `ops.pebble.ConnectionError`) |\n\n---\n\n## `ensure_contents`\n\n`ensure_contents` is the idiomatic way to **declaratively manage a file's content and permissions**. It only writes if the file is missing, the content differs, or the mode/ownership are wrong \u2014 making it safe to call on every hook without churning disk I/O.\n\n### Signature\n\n```python\npathops.ensure_contents(\n    path: str | os.PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,        # default: 0o644\n    user: str | None = None,\n    group: str | None = None,\n) -> bool                     # True = changes were made, False = already correct\n```\n\n### Usage\n\n```python\nfrom charmlibs import pathops\n\ndef _configure(self, event: ops.PebbleReadyEvent) -> None:\n    container = self.unit.get_container(\"myapp\")\n    config_path = pathops.ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n\n    config_content = self._render_config()   # returns a str\n\n    changed = pathops.ensure_contents(\n        config_path,\n        config_content,\n        mode=0o640,\n        user=\"root\",\n        group=\"myapp\",\n    )\n\n    if changed:\n        # Restart the service only when something actually changed\n        container.restart(\"myapp\")\n```\n\n`ensure_contents` checks:\n1. **File existence** \u2014 creates it if missing\n2. **Content match** \u2014 rewrites if different\n3. **Mode** \u2014 corrects permissions if wrong\n4. **Owner / group** \u2014 corrects ownership if wrong\n\nIt returns **`True`** if any change was made, **`False`** if the file was already exactly right.\n\n---\n\n## Writing Portable Charm Code with `PathProtocol`\n\nThe real power of `pathops` is writing logic that works for **both machine and K8s charms**:\n\n```python\ndef _write_config(root: pathops.PathProtocol, content: str) -> bool:\n    \"\"\"Works with either LocalPath or ContainerPath.\"\"\"\n    config_dir = root / \"etc\" / \"myapp\"\n    config_dir.mkdir(parents=True, exist_ok=True)\n    return pathops.ensure_contents(\n        config_dir / \"config.yaml\",\n        content,\n        mode=0o640,\n        user=\"myapp\",\n    )\n\n# Machine charm\n_write_config(pathops.LocalPath(\"/\"), rendered_config)\n\n# K8s charm\ncontainer = self.unit.get_container(\"myapp\")\n_write_config(pathops.ContainerPath(\"/\", container=container), rendered_config)\n```\n\n---\n\n## Key Limitations to Know\n\n- **Absolute paths only** for `ContainerPath` \u2014 relative paths raise `RelativePathError`\n- **No `open()`** method (use `read_bytes` / `read_text` / `write_bytes` / `write_text`)\n- **No `chmod()`** \u2014 set permissions via the `mode=` argument on `mkdir`, `write_text`, `write_bytes`, or `ensure_contents`\n- **No symlink/hardlink** manipulation",
+    "stop_reason": "end_turn",
+    "session_id": "498a9388-4ab9-48e5-9c03-27052ef5314a",
+    "total_cost_usd": 0.18017390000000003,
+    "usage": {
+      "input_tokens": 296,
+      "cache_creation_input_tokens": 5988,
+      "cache_read_input_tokens": 65859,
+      "output_tokens": 2764,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5988,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 296,
+        "outputTokens": 2764,
+        "cacheReadInputTokens": 65859,
+        "cacheCreationInputTokens": 5988,
+        "webSearchRequests": 0,
+        "costUSD": 0.08456070000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 56723,
+        "outputTokens": 3416,
+        "cacheReadInputTokens": 40477,
+        "cacheCreationInputTokens": 14210,
+        "webSearchRequests": 0,
+        "costUSD": 0.09561319999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0091e7b5-c8bd-4006-b5f7-97d79797e6da"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:24:24+1300"
+}

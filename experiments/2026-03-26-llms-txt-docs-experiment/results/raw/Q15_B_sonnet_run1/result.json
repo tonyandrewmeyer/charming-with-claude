@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_B_sonnet_run1",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 59696,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 58461,
+    "duration_api_ms": 83195,
+    "num_turns": 2,
+    "result": "## `charmlibs.pathops`\n\nThis is a charm library from Canonical that provides a **pathlib-like interface** for both local filesystem paths and remote Pebble container paths. It lives on [PyPI as `charmlibs-pathops`](https://pypi.org/project/charmlibs-pathops/) and is documented at [documentation.ubuntu.com/charmlibs](https://documentation.ubuntu.com/charmlibs/reference/charmlibs/pathops/).\n\n### `ContainerPath`\n\nA path abstraction over the **Pebble file API** for Kubernetes charm workload containers. It replaces manual `container.push()` / `container.pull()` calls with a familiar path interface.\n\n```python\nimport charmlibs.pathops\n\ncontainer = self.unit.get_container(\"myapp\")\nroot = charmlibs.pathops.ContainerPath(\"/\", container=container)\n\nconfig_dir = root / \"etc\" / \"myapp\"\nconfig_file = config_dir / \"config.yaml\"\n```\n\nKey constraints:\n- Only accepts **absolute paths** (raises `RelativePathError` otherwise)\n- Raises `PebbleConnectionError` if the container is not yet reachable\n\n### `ensure_contents`\n\nA top-level helper that writes a file **only if the content or metadata has changed**, returning `True` if a change was made.\n\n```python\nimport charmlibs.pathops\n\nchanged = charmlibs.pathops.ensure_contents(\n    path=root / \"etc/myapp/config.yaml\",\n    source=\"key=value\\n\",   # str, bytes, or file-like object\n    mode=0o640,\n    user=\"myapp\",\n    group=\"myapp\",\n)\nif changed:\n    container.restart(\"myapp\")\n```\n\nThe return value is useful for deciding whether to restart the workload \u2014 only restart when configuration actually changed.\n\n### Typical pattern in a Kubernetes charm\n\n```python\nimport charmlibs.pathops\n\nclass MyCharm(ops.CharmBase):\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        container = event.workload\n        root = charmlibs.pathops.ContainerPath(\"/\", container=container)\n        config = self._render_config()\n        changed = charmlibs.pathops.ensure_contents(\n            path=root / \"etc/myapp/config.yaml\",\n            source=config,\n            mode=0o640,\n            user=\"myapp\",\n            group=\"myapp\",\n        )\n        self._start_or_replan(container, restart=changed)\n```\n\n### Installing\n\nAdd to `pyproject.toml` dependencies:\n```toml\ndependencies = [\"charmlibs-pathops\"]\n```\n\nOr if using `charmcraft.yaml` charm-libs style, check Charmhub for the library name. Since it's a PyPI package (not a Charmhub lib), the former is the correct approach.",
+    "stop_reason": "end_turn",
+    "session_id": "2122ac8c-f5a5-4038-95d8-e57e92e49536",
+    "total_cost_usd": 0.2990296,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8942,
+      "cache_read_input_tokens": 29888,
+      "output_tokens": 1034,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8942,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1034,
+        "cacheReadInputTokens": 29888,
+        "cacheCreationInputTokens": 8942,
+        "webSearchRequests": 0,
+        "costUSD": 0.058026900000000006,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 52768,
+        "outputTokens": 5055,
+        "cacheReadInputTokens": 57697,
+        "cacheCreationInputTokens": 77752,
+        "webSearchRequests": 6,
+        "costUSD": 0.24100270000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1af0335a-82f3-4cd2-b95e-0725dd1f4e97"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:45:11+1300"
+}

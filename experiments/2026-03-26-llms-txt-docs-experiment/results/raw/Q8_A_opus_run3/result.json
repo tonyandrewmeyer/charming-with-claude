@@ -1,0 +1,57 @@
+{
+  "session_id": "Q8_A_opus_run3",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 25468,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 19650,
+    "duration_api_ms": 19640,
+    "num_turns": 1,
+    "result": "## Pebble Change/Task Model\n\nIn Pebble (the workload manager for Kubernetes charms), many operations are **asynchronous**. When you call certain API methods, they don't block until completion \u2014 instead, they return a **Change ID** that you can use to track progress.\n\n### Core Concepts\n\n- **Change**: A high-level operation (e.g., \"autostart services\", \"restart service\"). Each change has an overall status and contains one or more **tasks**.\n- **Task**: A sub-step within a change. Each task has its own status, progress, and timing information.\n- **Statuses**: Both changes and tasks go through statuses like `\"Do\"`, `\"Doing\"`, `\"Done\"`, `\"Error\"`, `\"Hold\"`, `\"Abort\"`, `\"Aborting\"`, `\"Undoing\"`, `\"Undone\"`.\n\n### How It Works in Practice\n\nWhen you call an async Pebble method, you get back a `ChangeID`:\n\n```python\n# These methods return a ChangeID (string)\nchange_id = container.autostart()\nchange_id = container.restart_services([\"myservice\"])\nchange_id = container.start(\"myservice\")\nchange_id = container.stop(\"myservice\")\nchange_id = container.replan()\n```\n\n### Checking if a Change Has Completed\n\nUse `container.pebble.wait_change()` or `container.pebble.get_change()`:\n\n```python\nfrom ops import pebble\n\n# Option 1: Block until done (with optional timeout)\ntry:\n    change = container.pebble.wait_change(change_id, timeout=30)\n    if change.err:\n        logger.error(\"Change failed: %s\", change.err)\nexcept pebble.TimeoutError:\n    logger.warning(\"Timed out waiting for change\")\n\n# Option 2: Poll the status without blocking\nchange = container.pebble.get_change(change_id)\nif change.ready:\n    # Change is complete (could be Done or Error)\n    if change.err:\n        logger.error(\"Change failed: %s\", change.err)\n    else:\n        logger.info(\"Change completed successfully\")\nelse:\n    # Still in progress\n    logger.info(\"Change status: %s\", change.status)\n```\n\n### Key Properties of a `Change` Object\n\n| Property | Description |\n|----------|-------------|\n| `change.id` | The change ID string |\n| `change.status` | Current status (`\"Do\"`, `\"Doing\"`, `\"Done\"`, `\"Error\"`, etc.) |\n| `change.ready` | `True` if the change has finished (success **or** failure) |\n| `change.err` | Error message string if the change failed, otherwise empty |\n| `change.tasks` | List of `Task` objects within this change |\n| `change.spawn_time` | When the change was created |\n| `change.ready_time` | When the change completed (if `ready`) |\n\n### Important Note for Charm Authors\n\nIn most charm code, you **don't need to manually track changes**. The high-level `Container` methods like `container.start()`, `container.stop()`, `container.restart()`, and `container.replan()` internally call `wait_change()` for you and will raise a `ChangeError` if the operation fails:\n\n```python\ntry:\n    container.restart(\"myservice\")\nexcept pebble.ChangeError as e:\n    logger.error(\"Restart failed: %s\", e)\n    self.unit.status = ops.BlockedStatus(\"Service restart failed\")\n```\n\nYou only need to deal with the change/task model directly if you're using the **lower-level `pebble.Client` API** (via `container.pebble`) for more fine-grained control.",
+    "stop_reason": "end_turn",
+    "session_id": "64c9d288-ef2a-4d98-9845-8ec9b566c08d",
+    "total_cost_usd": 0.029634000000000004,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 9638,
+      "output_tokens": 992,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 992,
+        "cacheReadInputTokens": 9638,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.029634000000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "7a1be188-1763-4049-92d2-6832f7219568"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:55:25+1300"
+}

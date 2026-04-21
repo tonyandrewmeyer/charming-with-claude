@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_A_sonnet_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 31438,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 29848,
+    "duration_api_ms": 29838,
+    "num_turns": 1,
+    "result": "## Implementing the Provider Side of a Relation with Charmlibs\n\nIn Juju charm development, the **provider** side of a relation is the charm that *offers* a capability (e.g., a database, a cache, an API endpoint). Here's the correct way to implement it using `ops` and charmlibs patterns.\n\n---\n\n### 1. Define the Relation in `metadata.yaml` (or `charmcraft.yaml`)\n\n```yaml\n# charmcraft.yaml (modern approach)\nprovides:\n  my-database:\n    interface: pgsql\n```\n\n---\n\n### 2. Use or Create a Charm Library\n\nCharm libraries live in `lib/charms/<charm_name>/v<N>/<lib_name>.py`. The canonical pattern uses **`ops.framework`** with a dedicated library class.\n\n#### Typical library structure (`lib/charms/my_db/v0/my_database.py`):\n\n```python\n\"\"\"Charm library for the my-database relation (provider side).\"\"\"\n\nimport logging\nfrom ops.framework import Object, EventBase, EventSource, ObjectEvents\nfrom ops.charm import CharmBase, RelationJoinedEvent, RelationChangedEvent, RelationDepartedEvent\n\nlogger = logging.getLogger(__name__)\n\n# Versioning \u2014 required by charmhub\nLIBID = \"abc123...\"       # unique UUID for this lib\nLIBAPI = 0\nLIBPATCH = 1\n\n\nclass DatabaseRequestedEvent(EventBase):\n    \"\"\"Fired when a consumer joins and requests the database.\"\"\"\n\n\nclass ProviderEvents(ObjectEvents):\n    database_requested = EventSource(DatabaseRequestedEvent)\n\n\nclass MyDatabaseProvider(Object):\n    \"\"\"Provider-side handler for the my-database relation.\"\"\"\n\n    on = ProviderEvents()\n\n    def __init__(self, charm: CharmBase, relation_name: str = \"my-database\"):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        # Observe relation lifecycle events\n        self.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_departed,\n            self._on_relation_departed,\n        )\n\n    # ------------------------------------------------------------------ #\n    #  Internal event handlers                                             #\n    # ------------------------------------------------------------------ #\n\n    def _on_relation_joined(self, event: RelationJoinedEvent) -> None:\n        \"\"\"A new consumer has joined \u2014 emit a higher-level event.\"\"\"\n        self.on.database_requested.emit()\n\n    def _on_relation_changed(self, event: RelationChangedEvent) -> None:\n        # Handle updates from the requirer if needed\n        pass\n\n    def _on_relation_departed(self, event: RelationDepartedEvent) -> None:\n        # Clean up credentials / resources for the departing unit\n        pass\n\n    # ------------------------------------------------------------------ #\n    #  Public API \u2014 called by the charm author                            #\n    # ------------------------------------------------------------------ #\n\n    def set_credentials(self, relation_id: int, username: str, password: str) -> None:\n        \"\"\"Write credentials into the relation data bag (application-level).\"\"\"\n        relation = self._charm.model.get_relation(self._relation_name, relation_id)\n        if relation is None:\n            raise RuntimeError(f\"Relation {self._relation_name}:{relation_id} not found\")\n\n        # Write to the *application* data bag \u2014 visible to all remote units\n        relation.data[self._charm.app].update({\n            \"username\": username,\n            \"password\": password,\n            \"endpoints\": \"10.0.0.1:5432\",\n        })\n\n    def get_databag(self, relation_id: int) -> dict:\n        \"\"\"Read what the requirer has sent us.\"\"\"\n        relation = self._charm.model.get_relation(self._relation_name, relation_id)\n        if relation is None:\n            return {}\n        # Aggregate all remote unit bags\n        data = {}\n        for unit in relation.units:\n            data.update(relation.data[unit])\n        return data\n```\n\n---\n\n### 3. Wire It Into Your Charm\n\n```python\n# src/charm.py\nfrom ops.charm import CharmBase\nfrom ops.main import main\nfrom charms.my_db.v0.my_database import MyDatabaseProvider\n\nclass MyDatabaseCharm(CharmBase):\n\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # Instantiate the provider library\n        self.provider = MyDatabaseProvider(self, relation_name=\"my-database\")\n\n        # Observe the high-level event emitted by the library\n        self.framework.observe(\n            self.provider.on.database_requested,\n            self._on_database_requested,\n        )\n\n    def _on_database_requested(self, event) -> None:\n        \"\"\"Provision a database and hand credentials to the requirer.\"\"\"\n        if not self.unit.is_leader():\n            return  # Only the leader writes app-level data\n\n        # Create DB, generate creds...\n        username = \"app_user\"\n        password = self._generate_password()\n\n        for rel in self.model.relations[\"my-database\"]:\n            self.provider.set_credentials(\n                relation_id=rel.id,\n                username=username,\n                password=password,\n            )\n\n    def _generate_password(self) -> str:\n        import secrets\n        return secrets.token_hex(16)\n\nif __name__ == \"__main__\":\n    main(MyDatabaseCharm)\n```\n\n---\n\n### Key Rules to Follow\n\n| Rule | Why |\n|---|---|\n| **Write app-level data only from the leader** | Only the leader unit can write to `relation.data[self.app]` |\n| **Use application data bags for shared info** | Credentials, endpoints \u2014 things all remote units need |\n| **Use unit data bags for per-unit info** | Rarely needed on the provider side |\n| **Emit custom high-level events** | Keeps charm code clean and testable |\n| **Guard with `unit.is_leader()`** | Prevents split-brain writes in HA deployments |\n| **Set `LIBID`, `LIBAPI`, `LIBPATCH`** | Required for `charmcraft publish-lib` to work |\n\n---\n\n### Fetching Existing Libs\n\nBefore writing your own, check if a lib already exists:\n\n```bash\n# Fetch from charmhub\ncharmcraft fetch-lib charms.postgresql_k8s.v0.postgresql\n```\n\nMany common interfaces (PostgreSQL, MySQL, Ingress, etc.) already have published charmlibs you can reuse directly.",
+    "stop_reason": "end_turn",
+    "session_id": "715e26bb-bab1-44bd-ac4e-bbe1634be58f",
+    "total_cost_usd": 0.03236865,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1063,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1722,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1063,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1722,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1063,
+        "webSearchRequests": 0,
+        "costUSD": 0.03236865,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "845570f7-4a3c-4c83-844e-8c3f56fb6d9d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:42:27+1300"
+}

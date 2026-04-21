@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_C_sonnet_run2",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 119636,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 118263,
+    "duration_api_ms": 118627,
+    "num_turns": 21,
+    "result": "Here's a comprehensive explanation of the Pebble change/task model based on the documentation and source code:\n\n---\n\n## The Pebble Change/Task Model\n\n### Core Concept\n\nWhenever Pebble performs a **potentially invasive or long-running operation** (e.g., starting/stopping a service, running `exec`, applying layers), it records a **Change** object. A Change is composed of one or more **Tasks**, each representing a single unit of work within that operation.\n\nThis gives you a structured, queryable audit trail of what Pebble is doing.\n\n---\n\n### The Change Object\n\nA `Change` has these key fields:\n\n| Field | Description |\n|---|---|\n| `id` | Unique identifier (used to query or wait on it) |\n| `kind` | Type of operation (e.g., `start-snap`, `exec`) |\n| `summary` | Human-readable description |\n| `status` | Aggregated status computed from its tasks |\n| `tasks` | List of `Task` objects |\n| `ready` | `true` when the change has reached a terminal state |\n| `err` | Error message if the change failed |\n| `spawn-time` | When the change was created (RFC 3339) |\n| `ready-time` | When the change completed (RFC 3339) |\n\n---\n\n### The Task Object\n\nEach `Task` within a change has:\n\n| Field | Description |\n|---|---|\n| `id` | Unique task identifier |\n| `kind` | Type of task |\n| `summary` | Description of this specific task |\n| `status` | Current task status |\n| `log` | Array of log messages from this task |\n| `progress` | `{ label, done, total }` \u2014 progress tracking |\n| `spawn-time` / `ready-time` | Timestamps |\n\n---\n\n### Status Values\n\nBoth Changes and Tasks share the same set of statuses:\n\n| Status | Meaning |\n|---|---|\n| **`Do`** | Queued, ready to begin, not yet started |\n| **`Doing`** | Currently executing |\n| **`Done`** | Completed successfully \u2705 |\n| **`Error`** | Failed \u274c |\n| **`Hold`** | Blocked/paused, typically because another task errored |\n| **`Undo`** | Scheduled for rollback (due to a failure elsewhere) |\n| **`Undoing`** | Rollback actively in progress |\n| **`Undone`** | Successfully rolled back |\n| **`Wait`** | Completed but waiting for an external event |\n| **`Abort`** | Instructed to stop and undo |\n\n**Terminal states** (where `ready = true`): `Done`, `Undone`, `Hold`, `Error`\n\nA Change's `status` is **aggregated** from its tasks' statuses (using `DefaultStatus` if unset, computed dynamically).\n\n---\n\n### Checking if a Long-Running Operation Has Completed\n\n#### Via the REST API\n\nAsync operations return a `202 Accepted` with a change ID:\n\n```json\n{\n  \"type\": \"async\",\n  \"status-code\": 202,\n  \"status\": \"Accepted\",\n  \"change\": \"42\"\n}\n```\n\n**Option 1 \u2014 Poll the change:**\n```\nGET /v1/changes/42\n```\nCheck `result.ready == true` and `result.err`.\n\n**Option 2 \u2014 Block until done (preferred):**\n```bash\ncurl --unix-socket /path/to/.pebble.socket \\\n  http://_/v1/changes/42/wait\n```\nThis blocks until the change reaches a terminal state and returns the final `Change` object.\n\n#### Via the CLI\n\n```bash\npebble changes          # list all changes and their statuses\npebble tasks <change-id> # list tasks within a specific change\n```\n\n#### Via the Python (ops) Client\n\nThe **ops library's `pebble.Client`** automatically waits for operations to finish \u2014 you generally don't need to poll manually. However, if you need to check or wait on a specific change:\n\n```python\n# Most ops Pebble methods block until completion automatically.\n# For manual control:\ncontainer = self.unit.get_container(\"myapp\")\n\n# Start a service (returns after completion by default)\ncontainer.start(\"myservice\")\n\n# For lower-level access via the Pebble client:\nclient = container.get_plan()  # example of sync op\n\n# If you have a change ID from an async op:\nchange = container._client.get_change(ops.pebble.ChangeID(\"42\"))\nif change.ready:\n    if change.err:\n        raise Exception(f\"Operation failed: {change.err}\")\n    # success!\n\n# Or block until done:\nchange = container._client.wait_change(ops.pebble.ChangeID(\"42\"))\n```\n\n#### Via the Go Client\n\n```go\nchangeID, err := client.Start(services, nil)\nchange, err := client.WaitChange(changeID, nil)\nif change.Err != \"\" {\n    // handle failure\n}\n```\n\n---\n\n### State Persistence\n\nPebble stores all change/task state in **`$PEBBLE/.pebble.state`** (a JSON file). Set `PEBBLE_PERSIST=never` to keep state in-memory only (useful for testing).\n\n---\n\n### Summary Flow\n\n```\nPOST /v1/services  \u2192  { \"change\": \"42\" }\n        \u2502\n        \u25bc\nGET /v1/changes/42/wait   (blocks)\n        \u2502\n        \u25bc\nChange: { ready: true, status: \"Done\" | \"Error\", err: \"...\" }\n        \u2502\n   \u250c\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2510\n  Done     Error\n(success)  (check .err field)\n```\n\nIn Juju charms using the ops library, the Pebble client typically handles waiting transparently, but understanding this model is essential when dealing with `exec()`, custom layers, or debugging failed operations via `pebble tasks <id>`.",
+    "stop_reason": "end_turn",
+    "session_id": "efc5ffb2-3fe8-4400-ab80-ebf9a681fba2",
+    "total_cost_usd": 0.21514655,
+    "usage": {
+      "input_tokens": 380,
+      "cache_creation_input_tokens": 8857,
+      "cache_read_input_tokens": 176836,
+      "output_tokens": 4084,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8857,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 380,
+        "outputTokens": 4084,
+        "cacheReadInputTokens": 176836,
+        "cacheCreationInputTokens": 8857,
+        "webSearchRequests": 0,
+        "costUSD": 0.14866454999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 52572,
+        "outputTokens": 2782,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.066482,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "b3709838-2675-4c87-8a3b-e86069785274"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:59:15+1300"
+}

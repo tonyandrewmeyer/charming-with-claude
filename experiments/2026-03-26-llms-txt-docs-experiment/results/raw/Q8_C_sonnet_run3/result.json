@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_C_sonnet_run3",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 65266,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 64026,
+    "duration_api_ms": 72512,
+    "num_turns": 10,
+    "result": "Here is a comprehensive explanation of the Pebble change/task model as it applies to Juju charm development:\n\n---\n\n## The Pebble Change/Task Model\n\n### Core Concepts\n\nWhen Pebble performs a **potentially invasive or long-running operation** (e.g., starting or stopping a service, running an exec command), it records a **Change** object. Each Change is composed of one or more **Tasks** \u2014 the individual steps that make up the operation.\n\n```\nChange 42\n \u2514\u2500\u2500 Task: Stop service \"srv1\"\n \u2514\u2500\u2500 Task: Wait for port to close\n \u2514\u2500\u2500 ...\n```\n\nState is persisted to `$PEBBLE/.pebble.state` (a JSON file), unless `PEBBLE_PERSIST=never`, in which case it's memory-only.\n\n---\n\n### Statuses\n\nBoth changes and tasks move through a lifecycle of statuses:\n\n| Status    | Meaning                                      |\n|-----------|----------------------------------------------|\n| `Do`      | Queued, waiting to run                       |\n| `Doing`   | Currently running                            |\n| `Done`    | Completed successfully                       |\n| `Error`   | Failed with an error                         |\n| `Hold`    | Held/skipped (e.g., dependency not met)      |\n| `Undo`    | Queued for rollback                          |\n| `Undoing` | Currently being rolled back                  |\n\n---\n\n### CLI Inspection\n\n**List recent changes:**\n```bash\npebble changes [<service>]\n```\n```\nID  Status  Spawn                Ready                Summary\n1   Done    today at 14:33 NZDT  today at 14:33 NZDT  Autostart service \"srv1\"\n```\n\n**Inspect tasks within a change:**\n```bash\npebble tasks <change-id>\n# or: pebble tasks --last=<type>   (e.g. --last=stop)\n```\n```\nStatus  Spawn                Ready                Summary\nDone    today at 15:26 NZDT  today at 15:26 NZDT  Stop service \"srv1\"\n```\n\n---\n\n### API: Checking Completion\n\n#### Asynchronous API Responses\nAny asynchronous API call (e.g., `POST /v1/services`) returns a **change ID** instead of an immediate result:\n\n```json\n{\n  \"type\": \"async\",\n  \"status-code\": 202,\n  \"change\": \"42\"\n}\n```\n\n#### Polling via REST\n```bash\n# Poll status\ncurl --unix-socket /var/lib/pebble/default/.pebble.socket \\\n     http://_/v1/changes/42\n\n# Block until done (wait endpoint)\ncurl --unix-socket /var/lib/pebble/default/.pebble.socket \\\n     http://_/v1/changes/42/wait\n```\n\n#### Python (`ops.pebble.Client`) \u2014 Used in Charms\n\nThe **`ops` library's Pebble client automatically waits** for changes to finish when you call high-level methods:\n\n```python\ncontainer = self.unit.get_container(\"myapp\")\n\n# These block until the change is Done (or raise on Error):\ncontainer.start(\"myservice\")\ncontainer.stop(\"myservice\")\n```\n\nIf you need **manual control** (e.g., fire-and-forget or custom polling), use the low-level client:\n\n```python\nimport ops.pebble\n\nclient = ops.pebble.Client(\"/var/lib/pebble/default/.pebble.socket\")\n\n# Start without waiting \u2014 returns a Change ID\nchange_id = client.start_services([\"myservice\"], timeout=0)\n\n# Later, wait explicitly:\nchange = client.wait_change(change_id)\nif change.err:\n    raise Exception(f\"Service start failed: {change.err}\")\n```\n\n#### Go Client\nThe Go client provides `WaitChange(changeID, ...)` which blocks until the change reaches a terminal state (`Done`, `Error`, `Hold`).\n\n---\n\n### Summary for Charm Authors\n\n| Scenario | Approach |\n|---|---|\n| Normal service start/stop in a charm | Use `container.start()` / `container.stop()` \u2014 they wait automatically |\n| Need to check if pebble is ready | Use `container.can_connect()` before any pebble calls |\n| Inspect change history (debugging) | `pebble changes` / `pebble tasks <id>` on the unit |\n| Low-level async control | Use `ops.pebble.Client` with `timeout=0` then `wait_change()` |\n| A change errored | Check `change.err` string; raise or handle appropriately |\n\nThe key takeaway: **in normal charm code you rarely need to poll manually** \u2014 the `ops` library's container methods block until the Pebble operation finishes or raises a `ChangeError` on failure.",
+    "stop_reason": "end_turn",
+    "session_id": "c6989b13-0dcf-4b2e-8577-39dd539ef882",
+    "total_cost_usd": 0.11195485,
+    "usage": {
+      "input_tokens": 410,
+      "cache_creation_input_tokens": 5973,
+      "cache_read_input_tokens": 74657,
+      "output_tokens": 2383,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5973,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 410,
+        "outputTokens": 2383,
+        "cacheReadInputTokens": 74657,
+        "cacheCreationInputTokens": 5973,
+        "webSearchRequests": 0,
+        "costUSD": 0.08177085,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 18949,
+        "outputTokens": 2247,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.030184,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "49b07fca-4dd1-4a43-8ce1-1610260c97d2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:53:26+1300"
+}

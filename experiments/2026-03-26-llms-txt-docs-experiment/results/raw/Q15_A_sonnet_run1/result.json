@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_A_sonnet_run1",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 171894,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 170761,
+    "duration_api_ms": 198395,
+    "num_turns": 3,
+    "result": "## `charmlibs.pathops` \u2014 Overview\n\n`charmlibs.pathops` is a Canonical library that provides a **pathlib-style API for managing files in Juju workload containers** (Kubernetes charms via Pebble) and on local machine charm filesystems. It abstracts away the raw Pebble file API so your charm code can work identically whether targeting a K8s or machine charm.\n\n---\n\n### Installation\n\n```bash\npip install charmlibs-pathops\n```\n\n```python\nfrom charmlibs import pathops\n```\n\n**Public API:** `ContainerPath`, `LocalPath`, `PathProtocol`, `ensure_contents`, `PebbleConnectionError`, `RelativePathError`\n\n---\n\n## `ContainerPath`\n\nA `pathlib`-compatible interface that routes all file operations through the **Pebble file API** (`ops.Container`). Only **absolute paths** are supported \u2014 relative paths raise `RelativePathError`.\n\n### Constructor\n\n```python\nContainerPath(*parts: str | os.PathLike, container: ops.Container)\n```\n\n```python\ncontainer = self.unit.get_container(\"myapp\")\nroot = pathops.ContainerPath(\"/\", container=container)\ncfg  = root / \"etc\" / \"myapp\" / \"config.yaml\"  # pathlib / operator works\n```\n\n### Key Methods\n\n| Method | Description |\n|---|---|\n| `read_bytes() -> bytes` | Read raw bytes from the container file |\n| `read_text(*, newline=None) -> str` | Read UTF-8 text |\n| `write_bytes(data, *, mode, user, group)` | Write raw bytes |\n| `write_text(data, *, mode, user, group)` | Write UTF-8 string |\n| `mkdir(mode, parents, exist_ok, *, user, group)` | Create directory |\n| `iterdir()` | Yield directory children |\n| `glob(pattern)` | Non-recursive glob (no `**`) |\n| `rmdir()` | Remove empty directory |\n| `unlink(missing_ok=False)` | Delete a file |\n| `exists()`, `is_dir()`, `is_file()` | Filesystem queries |\n| `owner()`, `group()` | Ownership queries |\n\n---\n\n## `ensure_contents`\n\nThis is the **idempotent file sync** helper \u2014 the heart of most charm config workflows.\n\n```python\ndef ensure_contents(\n    path: str | PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,\n    user: str | None = None,\n    group: str | None = None,\n) -> bool\n```\n\n| Parameter | Description |\n|---|---|\n| `path` | The file path (a `ContainerPath`, `LocalPath`, or plain string) |\n| `source` | Desired content: raw `bytes`, a `str`, or any file-like with `.read()` |\n| `mode` | Permission bits (default `0o644`) |\n| `user` | Desired file owner (or `None` to leave unchanged) |\n| `group` | Desired file group (or `None` to leave unchanged) |\n\n**Returns `True`** if the file was created or updated; **`False`** if it already matched \u2014 perfect for deciding whether to restart the workload.\n\n**Raises:** `LookupError` (bad user/group), `NotADirectoryError`, `PermissionError`, `PebbleConnectionError`.\n\n---\n\n## Complete Charm Example\n\n```python\nimport ops\nfrom charmlibs import pathops\n\n\nclass MyAppCharm(ops.CharmBase):\n\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(self.on.myapp_pebble_ready, self._on_pebble_ready)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n    # \u2500\u2500 helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    @property\n    def _container(self) -> ops.Container:\n        return self.unit.get_container(\"myapp\")\n\n    @property\n    def _root(self) -> pathops.ContainerPath:\n        # Use LocalPath(\"/\") here instead for a machine charm \u2014 no other changes needed!\n        return pathops.ContainerPath(\"/\", container=self._container)\n\n    def _render_config(self) -> str:\n        return f\"port: {self.config['port']}\\nlog_level: {self.config['log-level']}\\n\"\n\n    # \u2500\u2500 event handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent):\n        self._configure()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        if not self._container.can_connect():\n            event.defer()\n            return\n        self._configure()\n\n    # \u2500\u2500 core logic \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _configure(self):\n        cfg_path = self._root / \"etc\" / \"myapp\" / \"config.yaml\"\n\n        # Create parent directory if it doesn't exist\n        cfg_path.parent.mkdir(parents=True, exist_ok=True)\n\n        # Write config only if it has actually changed\n        changed = pathops.ensure_contents(\n            path=cfg_path,\n            source=self._render_config(),   # str, bytes, or file-like\n            mode=0o640,\n            user=\"myapp\",\n            group=\"myapp\",\n        )\n\n        if changed:\n            self._container.restart(\"myapp\")   # only restart when needed\n            self.unit.status = ops.ActiveStatus(\"config updated\")\n        else:\n            self.unit.status = ops.ActiveStatus()\n```\n\n---\n\n## Key Design Pattern: `PathProtocol`\n\nUse `pathops.PathProtocol` as the type hint when writing helpers that should work with **both** `ContainerPath` (K8s) and `LocalPath` (machine):\n\n```python\ndef write_tls_cert(root: pathops.PathProtocol, cert: str) -> bool:\n    cert_path = root / \"etc/ssl/certs/myapp.pem\"\n    cert_path.parent.mkdir(parents=True, exist_ok=True)\n    return pathops.ensure_contents(cert_path, cert, mode=0o444)\n```\n\nThis makes it trivial to test with a `LocalPath` against your real filesystem, and deploy with a `ContainerPath` against Pebble \u2014 same code, no changes.\n\n---\n\n## Summary\n\n| Tool | When to use |\n|---|---|\n| `ContainerPath` | Navigate/read/write files in a K8s workload container via Pebble |\n| `LocalPath` | Same API for machine charm local filesystem |\n| `ensure_contents` | Idempotently sync a file's content + permissions; returns whether a change was made |\n| `PathProtocol` | Type-hint for code that works with either path type |",
+    "stop_reason": "end_turn",
+    "session_id": "7b0f49df-d53d-4493-a4a5-5aa41da25634",
+    "total_cost_usd": 0.5233573499999999,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 4976,
+      "cache_read_input_tokens": 28166,
+      "output_tokens": 2378,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4976,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 1867,
+        "outputTokens": 6850,
+        "cacheReadInputTokens": 134284,
+        "cacheCreationInputTokens": 18399,
+        "webSearchRequests": 0,
+        "costUSD": 0.21763244999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 165195,
+        "outputTokens": 7668,
+        "cacheReadInputTokens": 69799,
+        "cacheCreationInputTokens": 52168,
+        "webSearchRequests": 3,
+        "costUSD": 0.30572489999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "8fa536ae-f7a0-4e20-b208-2c1b582eb439"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:12:12+1300"
+}

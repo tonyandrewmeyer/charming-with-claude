@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_A_opus_run2",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 150214,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 149099,
+    "duration_api_ms": 143637,
+    "num_turns": 2,
+    "result": "\n\n## Pebble Notices in ops\n\n### What Are Pebble Notices?\n\nPebble notices are a mechanism for workload containers to communicate events back to the charm. When something noteworthy happens inside a container, Pebble records a **notice** (with a type and a namespaced key), and Juju fires a corresponding hook so the charm can react.\n\n---\n\n### Notice Types\n\nThere are two `NoticeType` values (defined in `ops.pebble`):\n\n| Type | Value | Description |\n|---|---|---|\n| **`CUSTOM`** | `\"custom\"` | A user-defined notice reported via the Pebble client API or the `pebble notify` CLI command. The key must be in `example.com/path` format to ensure proper namespacing. |\n| **`CHANGE_UPDATE`** | `\"change-update\"` | Recorded automatically whenever a Pebble change's status is updated. The key is the change ID. |\n\nIn practice, charms almost exclusively deal with **custom** notices, since those are the ones designed for charm\u2013workload communication.\n\n---\n\n### The `Notice` Data Class\n\nEach notice (`ops.pebble.Notice`) carries:\n\n- **`id`** \u2013 server-generated unique ID\n- **`type`** / **`key`** \u2013 the notice type and namespaced key\n- **`user_id`** \u2013 UID of the user who may view it (`None` = public)\n- **`first_occurred`** / **`last_occurred`** / **`last_repeated`** \u2013 timestamps\n- **`occurrences`** \u2013 how many times this type+key combination has occurred\n- **`last_data`** \u2013 `dict[str, str]` of arbitrary data from the most recent occurrence\n- **`repeat_after`** / **`expire_after`** \u2013 optional timing controls\n\n---\n\n### How a Charm Observes Notices\n\nFor every container declared in your charm's metadata, the framework **automatically registers** a set of Pebble events, including:\n\n```\n{container_name}_pebble_custom_notice  \u2192  PebbleCustomNoticeEvent\n```\n\nYou observe it like any other event:\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        # \"db\" is the container name from metadata\n        framework.observe(\n            self.on[\"db\"].pebble_custom_notice,\n            self._on_custom_notice,\n        )\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        # event.notice is a LazyNotice (fetches full details on demand)\n        if event.notice.key == \"canonical.com/postgresql/backup-done\":\n            path = event.notice.last_data[\"path\"]\n            logger.info(\"Backup finished, copying %s to the cloud\", path)\n```\n\nThe `event.notice` attribute is a **`LazyNotice`** \u2014 it exposes `id`, `type`, and `key` immediately (from the Juju hook environment variables `JUJU_NOTICE_ID`, `JUJU_NOTICE_TYPE`, `JUJU_NOTICE_KEY`), but only fetches the remaining fields (like `last_data`, `occurrences`, etc.) from Pebble when you first access them.\n\n---\n\n### Recording a Notice (from the workload side)\n\nA notice can be created in two ways:\n\n1. **CLI** (inside the container): `pebble notify example.com/myapp/something --data key=value`\n2. **Client API** (from charm code, for testing or orchestration):\n   ```python\n   container.get_pebble_client().notify(\n       pebble.NoticeType.CUSTOM,\n       \"example.com/myapp/something\",\n       data={\"key\": \"value\"},\n       repeat_after=datetime.timedelta(hours=1),\n   )\n   ```\n\n---\n\n### Querying Notices\n\nYou can also query notices programmatically via the `Container`:\n\n```python\n# Single notice by ID\nnotice = container.get_notice(\"42\")\n\n# Filtered query (all filters are ANDed together)\nnotices = container.get_notices(\n    types=[pebble.NoticeType.CUSTOM],\n    keys=[\"example.com/myapp/backup-done\"],\n)\n```\n\n---\n\n### Testing with Scenario\n\nThe scenario testing framework provides first-class support:\n\n```python\nfrom scenario import Context, Container, Notice, State\n\nctx = Context(MyCharm)\nnotice = Notice(key=\"example.com/myapp/backup-done\", last_data={\"path\": \"/backups/1\"})\ncontainer = Container(name=\"db\", can_connect=True, notices=[notice])\n\nctx.run(ctx.on.pebble_custom_notice(container, notice), State(containers={container}))\n```\n\n---\n\n### Summary of the Flow\n\n1. **Workload** calls `pebble notify example.com/path` (or the Pebble API).\n2. **Pebble** records the notice and informs Juju.\n3. **Juju** fires the `<container>-pebble-custom-notice` hook, setting `JUJU_NOTICE_ID`, `JUJU_NOTICE_TYPE`, and `JUJU_NOTICE_KEY`.\n4. **ops** dispatches a `PebbleCustomNoticeEvent` to any registered observer.\n5. The charm handler inspects `event.notice.key` (and optionally `last_data`) to decide what to do.",
+    "stop_reason": "end_turn",
+    "session_id": "65ebe835-634b-49cd-bc08-8e87f7b128e5",
+    "total_cost_usd": 0.32262605,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 6739,
+      "cache_read_input_tokens": 18205,
+      "output_tokens": 1677,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6739,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1677,
+        "cacheReadInputTokens": 18205,
+        "cacheCreationInputTokens": 6739,
+        "webSearchRequests": 0,
+        "costUSD": 0.09317625,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 67,
+        "outputTokens": 9980,
+        "cacheReadInputTokens": 1125153,
+        "cacheCreationInputTokens": 53574,
+        "webSearchRequests": 0,
+        "costUSD": 0.22944980000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "57ed82bd-49f4-439f-98b3-4bf97056a0a6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:26:21+1300"
+}

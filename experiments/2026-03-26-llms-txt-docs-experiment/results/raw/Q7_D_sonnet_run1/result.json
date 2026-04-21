@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_D_sonnet_run1",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 141864,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 140562,
+    "duration_api_ms": 146766,
+    "num_turns": 3,
+    "result": "## Pebble Notices\n\nNotices are Pebble's event/notification subsystem. They persist across restarts and deduplicate repeated occurrences (incrementing a counter rather than creating new entries).\n\n### Notice Types\n\nThere are three types:\n\n| Type | Description | Key format |\n|---|---|---|\n| `custom` | User/workload-reported events via `pebble notify` | `example.com/path` (namespaced) |\n| `change-update` | Fired when a Pebble change is spawned or its status changes | Change ID |\n| `warning` | Pebble warnings | Human-readable message |\n\n### Observing in Ops\n\nCurrently ops exposes one notice event: **`pebble_custom_notice`** (for `custom`-type notices only). It fires when the workload calls `pebble notify`.\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(\n            self.on[\"mycontainer\"].pebble_custom_notice,\n            self._on_pebble_custom_notice,\n        )\n\n    def _on_pebble_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        notice = event.notice\n        if notice.key == \"example.com/myapp/backup-done\":\n            path = notice.last_data.get(\"path\")\n            # handle it\n```\n\n### The Notice object\n\n`event.notice` has:\n- `key` \u2014 namespaced string, e.g. `example.com/myapp/event`\n- `type` \u2014 `ops.pebble.NoticeType`\n- `last_data` \u2014 `dict[str, str]` of metadata passed with the notice\n- `id`, `occurrences`, `first_occurred`, `last_occurred`, `last_repeated`, `expire_after`, `repeat_after`, `user_id`\n\n### Workload side\n\nThe workload records a notice via the Pebble CLI (typically in a script or cron job):\n\n```sh\n/charm/bin/pebble notify example.com/myapp/backup-done path=/tmp/backup.sql\n```\n\nUse `--repeat-after=<duration>` to suppress duplicate notices within a window and avoid waking the charm unnecessarily.\n\n### Querying notices programmatically\n\n```python\n# Single notice by ID\nnotice = event.workload.get_notice(\"42\")\n\n# Filtered query\nnotices = event.workload.get_notices(\n    notice_types=[ops.pebble.NoticeType.CUSTOM],\n    keys=[\"example.com/myapp/backup-done\"],\n)\n```\n\n### Testing\n\n```python\nctx = testing.Context(MyCharm, meta={\"name\": \"myapp\", \"containers\": {\"mycontainer\": {}}})\nnotice = testing.Notice(notice_type=ops.pebble.NoticeType.CUSTOM, key=\"example.com/myapp/backup-done\", last_data={\"path\": \"/tmp/backup.sql\"})\ncontainer = testing.Container(\"mycontainer\", can_connect=True, notices=[notice])\nstate = testing.State(containers={container})\nctx.run(ctx.on.pebble_custom_notice(container=container, notice=notice), state)\n```\n\n### Key points\n\n- Only `custom` notices trigger a charm event (`pebble_custom_notice`). `change-update` and `warning` notices are not currently surfaced as ops events.\n- Keys must be namespaced (`domain/path`) \u2014 use your charm's domain or a relevant reverse-DNS namespace.\n- Notices are per-container; observe the event on the specific container name.",
+    "stop_reason": "end_turn",
+    "session_id": "8ac1e03b-072e-4d85-9500-954b7b6e557b",
+    "total_cost_usd": 0.33834050000000004,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 9641,
+      "cache_read_input_tokens": 49646,
+      "output_tokens": 1405,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9641,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 9,
+        "outputTokens": 1405,
+        "cacheReadInputTokens": 49646,
+        "cacheCreationInputTokens": 9641,
+        "webSearchRequests": 0,
+        "costUSD": 0.07214954999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 168096,
+        "outputTokens": 8820,
+        "cacheReadInputTokens": 272887,
+        "cacheCreationInputTokens": 21365,
+        "webSearchRequests": 0,
+        "costUSD": 0.26619095,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0fbe674c-9165-41a5-b3df-f318853e8934"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:15:17+1300"
+}

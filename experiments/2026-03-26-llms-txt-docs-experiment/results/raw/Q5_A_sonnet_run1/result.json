@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_A_sonnet_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 32643,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 31522,
+    "duration_api_ms": 31512,
+    "num_turns": 1,
+    "result": "## Using `ops.CollectStatusEvent` to Set Charm Status\n\n`CollectStatusEvent` is the modern, recommended way to report charm status in ops. Instead of calling `self.unit.status = ...` scattered throughout your code, you centralise status logic in a single handler that ops calls whenever it needs to know the charm's status.\n\n### How it works\n\n1. You observe `collect_app_status` and/or `collect_unit_status` events.\n2. In the handler you call `event.add_status(...)` one or more times.\n3. ops automatically picks the **highest-priority** status from all the ones added (error > blocked > waiting > maintenance > active).\n\n---\n\n### Complete example\n\n```python\n# src/charm.py\n\"\"\"A minimal charm demonstrating CollectStatusEvent.\"\"\"\n\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    \"\"\"Charm the service.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # \u2500\u2500 observe lifecycle events \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        self.framework.observe(self.on.install, self._on_install)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n        self.framework.observe(self.on.my_service_pebble_ready, self._on_pebble_ready)\n\n        # \u2500\u2500 observe status-collection events \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        # collect_unit_status  \u2192 status shown on `juju status` per unit\n        # collect_app_status   \u2192 status shown for the application as a whole\n        self.framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n        self.framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\n        # Internal state flags (in a real charm these might live in\n        # StoredState or a helper class)\n        self._installed = False\n        self._service_running = False\n\n    # \u2500\u2500 lifecycle handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        \"\"\"Install dependencies; record that installation is done.\"\"\"\n        # \u2026 real installation work here \u2026\n        self._installed = True\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        \"\"\"React to configuration changes.\"\"\"\n        port = self.config[\"port\"]\n        if not isinstance(port, int) or not (1024 <= port <= 65535):\n            # Don't set status here \u2013 just record the problem.\n            # The collect_unit_status handler will surface it.\n            self._config_error = f\"Invalid port: {port!r}\"\n            return\n        self._config_error = None\n        # \u2026 apply config \u2026\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        \"\"\"Start the workload service via Pebble.\"\"\"\n        container = event.workload\n        container.add_layer(\n            \"my-service\",\n            {\n                \"services\": {\n                    \"my-service\": {\n                        \"override\": \"replace\",\n                        \"command\": \"/usr/bin/my-service\",\n                        \"startup\": \"enabled\",\n                    }\n                }\n            },\n            combine=True,\n        )\n        container.replan()\n        self._service_running = container.get_service(\"my-service\").is_running()\n\n    # \u2500\u2500 status collection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_collect_unit_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Add all relevant statuses; ops picks the highest-priority one.\"\"\"\n\n        # 1. Pebble / container not yet available\n        container = self.unit.get_container(\"my-service\")\n        if not container.can_connect():\n            event.add_status(ops.WaitingStatus(\"Waiting for Pebble to be ready\"))\n\n        # 2. Configuration problem\n        config_error = getattr(self, \"_config_error\", None)\n        if config_error:\n            event.add_status(ops.BlockedStatus(config_error))\n\n        # 3. Service not running yet\n        if not self._service_running:\n            event.add_status(ops.WaitingStatus(\"Service not yet running\"))\n\n        # 4. Everything is fine \u2013 explicitly mark active\n        #    (only \"wins\" if no higher-priority status was added above)\n        event.add_status(ops.ActiveStatus(\"Ready\"))\n\n    def _on_collect_app_status(self, event: ops.CollectStatusEvent) -> None:\n        \"\"\"Set the application-level status.\"\"\"\n        # You can add the same kinds of statuses here, scoped to the app.\n        # Often you delegate to a helper that checks peer/relation data.\n        if not self._all_units_ready():\n            event.add_status(ops.WaitingStatus(\"Waiting for all units\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _all_units_ready(self) -> bool:\n        \"\"\"Placeholder \u2013 check peer relation data in a real charm.\"\"\"\n        return True\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\n---\n\n### Key points\n\n| Topic | Detail |\n|---|---|\n| **Events** | `collect_unit_status` \u2192 per-unit status; `collect_app_status` \u2192 app-wide status |\n| **`event.add_status()`** | Call it as many times as needed; ops merges them |\n| **Priority order** | `ErrorStatus` > `BlockedStatus` > `WaitingStatus` > `MaintenanceStatus` > `ActiveStatus` |\n| **Always add ActiveStatus** | Add it unconditionally so the unit is never silently unknown |\n| **Don't set `self.unit.status =`** | You can still do this, but the collect-status pattern is cleaner and more testable |\n\n---\n\n### Testing\n\n```python\n# tests/unit/test_charm.py\nimport ops\nimport ops.testing\nimport pytest\nfrom charm import MyCharm\n\n\n@pytest.fixture\ndef harness():\n    harness = ops.testing.Harness(MyCharm)\n    harness.begin()\n    return harness\n\n\ndef test_waiting_before_pebble(harness):\n    # Container not connected yet \u2192 WaitingStatus\n    assert isinstance(harness.model.unit.status, ops.WaitingStatus)\n\n\ndef test_active_when_ready(harness):\n    harness.set_can_connect(\"my-service\", True)\n    harness.charm._service_running = True\n    harness.evaluate_status()          # triggers collect_unit_status\n    assert harness.model.unit.status == ops.ActiveStatus(\"Ready\")\n\n\ndef test_blocked_on_bad_config(harness):\n    harness.set_can_connect(\"my-service\", True)\n    harness.charm._service_running = True\n    harness.charm._config_error = \"Invalid port: 'abc'\"\n    harness.evaluate_status()\n    assert isinstance(harness.model.unit.status, ops.BlockedStatus)\n```\n\n> **`harness.evaluate_status()`** \u2014 call this in tests to fire the collect-status events and update `harness.model.unit.status` / `harness.model.app.status`.",
+    "stop_reason": "end_turn",
+    "session_id": "149587ae-6608-483f-8b9a-fdc2ef4bbaab",
+    "total_cost_usd": 0.031942200000000004,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 9544,
+      "output_tokens": 1938,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1938,
+        "cacheReadInputTokens": 9544,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.031942200000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "35998584-4a92-4509-a43f-8bb1a3cb34e2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:12:44+1300"
+}

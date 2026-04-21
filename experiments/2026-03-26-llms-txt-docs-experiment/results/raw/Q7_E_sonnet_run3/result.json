@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_E_sonnet_run3",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 285982,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 284662,
+    "duration_api_ms": 319008,
+    "num_turns": 2,
+    "result": "## Pebble Notices\n\nPebble notices are an **aggregated event system** that lets workload containers signal events to the charm without any direct coupling. When the same type+key pair recurs, Pebble increments an occurrence counter rather than creating a new notice \u2014 avoiding event floods.\n\n---\n\n## Notice Types\n\nThere are currently two types, represented by `ops.pebble.NoticeType`:\n\n| Enum Member | String Value | Who Creates It | Key Format |\n|---|---|---|---|\n| `CUSTOM` | `\"custom\"` | Workload (via `pebble notify` or API) | `example.com/path` |\n| `CHANGE_UPDATE` | `\"change-update\"` | Pebble itself | The change ID |\n\n> **`CUSTOM`** is what charms normally care about \u2014 the workload fires one to tell the charm something happened (e.g. \"backup complete\", \"config reloaded\").\n>\n> **`CHANGE_UPDATE`** is fired automatically by Pebble whenever a [change](https://documentation.ubuntu.com/juju/en/latest/) (e.g. a service start/stop) transitions state.\n\nUnknown future types are kept as raw strings so your charm won't break.\n\n---\n\n## The `Notice` Object\n\nA notice carries:\n\n```python\nnotice.id            # str  \u2014 server-assigned unique ID\nnotice.type          # NoticeType | str\nnotice.key           # str  \u2014 e.g. \"example.com/db/backup\"\nnotice.occurrences   # int  \u2014 how many times it has fired\nnotice.last_data     # dict[str, str] \u2014 arbitrary payload from the workload\nnotice.first_occurred  # datetime\nnotice.last_occurred   # datetime\nnotice.last_repeated   # datetime\nnotice.repeat_after    # timedelta | None \u2014 min gap before re-triggering\nnotice.expire_after    # timedelta | None \u2014 TTL for the notice\n```\n\n---\n\n## Charm-Side: Observing Notices via ops\n\nRequires **ops \u2265 2.10** / **Juju \u2265 3.4**.\n\n### 1. Observe the event in `__init__`\n\nThe event is named `<container_name>_pebble_custom_notice` (hyphens \u2192 underscores):\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(\n            self.on[\"my-container\"].pebble_custom_notice,\n            self._on_pebble_custom_notice,\n        )\n```\n\n### 2. Handle the event\n\n```python\ndef _on_pebble_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n    notice = event.notice          # LazyNotice \u2014 full data fetched on demand\n    container = event.workload     # the Container object\n\n    if notice.key == \"example.com/db/backup\":\n        path = notice.last_data.get(\"path\")\n        # react: upload backup, update status, etc.\n```\n\n`event.notice` is a **`LazyNotice`**: `id`, `type`, and `key` are available immediately (from hook env vars); all other fields are fetched from Pebble only if accessed, then cached.\n\n### 3. Query notices directly (optional)\n\n```python\n# Single notice by ID\nn = container.get_notice(\"abc123\")\n\n# Filtered list\nnotices = container.get_notices(\n    types=[ops.pebble.NoticeType.CUSTOM],\n    keys=[\"example.com/db/backup\"],\n)\n```\n\n---\n\n## Workload-Side: Firing a Notice\n\nFrom inside the container (shell):\n```bash\n/charm/bin/pebble notify example.com/db/backup path=/var/backups/latest.sql\n```\n\nFrom Go workload code:\n```go\ncmd := exec.Command(\"/charm/bin/pebble\", \"notify\",\n    \"example.com/db/backup\", \"path=/var/backups/latest.sql\")\ncmd.Run()\n```\n\nThe workload knows nothing about the charm \u2014 pure loose coupling.\n\n---\n\n## How Juju Delivers Notices\n\nJuju 3.4+ runs a `pebbleNoticer` worker per container. It long-polls Pebble's `WaitNotices` API. When a notice arrives, Juju fires the hook with three environment variables:\n\n| Variable | Example |\n|---|---|\n| `JUJU_NOTICE_ID` | `\"3\"` |\n| `JUJU_NOTICE_TYPE` | `\"custom\"` |\n| `JUJU_NOTICE_KEY` | `\"example.com/db/backup\"` |\n\n---\n\n## Key Design Principles\n\n- **Aggregation** \u2014 repeated type+key occurrences increment a counter; `repeat_after` controls the minimum re-trigger interval.\n- **Lazy fetching** \u2014 `LazyNotice` avoids a Pebble API call unless your handler actually needs the full notice details.\n- **Loose coupling** \u2014 the workload emits; the charm reacts. Neither needs to know about the other's internals.\n- **Forward compatibility** \u2014 unknown `NoticeType` values are kept as plain strings.",
+    "stop_reason": "end_turn",
+    "session_id": "fc07b97a-6637-4134-bab3-c47c519d56bb",
+    "total_cost_usd": 0.7671832499999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3611,
+      "cache_read_input_tokens": 19110,
+      "output_tokens": 1704,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3611,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 1809,
+        "outputTokens": 8072,
+        "cacheReadInputTokens": 249625,
+        "cacheCreationInputTokens": 21023,
+        "webSearchRequests": 0,
+        "costUSD": 0.28023075,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 359525,
+        "outputTokens": 8809,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 42706,
+        "webSearchRequests": 3,
+        "costUSD": 0.48695250000000007,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c706bcb6-d299-4a71-ba9b-050c4cef80e1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:31:29+1300"
+}

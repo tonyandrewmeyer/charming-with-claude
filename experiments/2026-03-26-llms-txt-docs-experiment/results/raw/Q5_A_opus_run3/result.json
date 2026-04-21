@@ -1,0 +1,57 @@
+{
+  "session_id": "Q5_A_opus_run3",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 26521,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 25274,
+    "duration_api_ms": 25263,
+    "num_turns": 1,
+    "result": "## Using `ops.CollectStatusEvent` to Set Charm Status\n\n`CollectStatusEvent` lets you centralize status reporting instead of scattering `self.unit.status = ...` calls throughout your handlers. The charm framework fires `collect_unit_status` (and `collect_app_status`) at the end of every hook execution, and the **highest-priority** status wins automatically.\n\n### Status Priority (highest \u2192 lowest)\n\n1. `error`\n2. `blocked`\n3. `waiting`\n4. `maintenance`\n5. `active`\n6. `unknown`\n\n### Complete Example\n\n```python\n#!/usr/bin/env python3\n\"\"\"A charm that uses CollectStatusEvent for centralized status reporting.\"\"\"\n\nimport ops\n\n\nclass MyDatabaseCharm(ops.CharmBase):\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Register the collect-status handler\n        framework.observe(self.on.collect_unit_status, self._on_collect_status)\n\n        # Normal event handlers \u2014 no need to set status here!\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        framework.observe(self.on[\"database\"].relation_joined, self._on_db_relation_joined)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        \"\"\"Called automatically after every hook. Add all relevant statuses.\"\"\"\n\n        # Check 1: Is the required config set?\n        if not self.config.get(\"database-name\"):\n            event.add_status(ops.BlockedStatus(\"'database-name' config is required\"))\n\n        # Check 2: Is the required relation present?\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.WaitingStatus(\"Waiting for database relation\"))\n\n        # Check 3: Is a long-running operation in progress?\n        if self._stored.migrating:  # type: ignore\n            event.add_status(ops.MaintenanceStatus(\"Running database migration\"))\n\n        # If none of the above fired, report healthy.\n        event.add_status(ops.ActiveStatus(\"Ready\"))\n\n    # --- Normal event handlers (no status-setting needed) ---\n\n    def _on_install(self, event: ops.InstallEvent):\n        # Just do install work; status is handled by _on_collect_status\n        self._stored.migrating = False  # type: ignore\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        # Reconfigure the workload...\n        pass\n\n    def _on_db_relation_joined(self, event: ops.RelationJoinedEvent):\n        # Handle relation data...\n        pass\n\n\nif __name__ == \"__main__\":\n    ops.main(MyDatabaseCharm)\n```\n\n### How It Works\n\n1. **You call `event.add_status()` one or more times** inside your `_on_collect_status` handler. Each call adds a *candidate* status.\n2. **The framework picks the highest-priority status** from all candidates. In the example above, if both `database-name` is missing (\u2192 `BlockedStatus`) and the relation is absent (\u2192 `WaitingStatus`), the unit will report **blocked** because it outranks waiting.\n3. **The handler runs after every hook**, so your status is always up to date \u2014 you never end up with a stale \"Waiting for X\" after X has arrived.\n\n### Key Points\n\n| Do | Don't |\n|---|---|\n| Put **all** status logic in `_on_collect_status` | Scatter `self.unit.status = ...` in every handler |\n| Call `event.add_status()` multiple times | Return early after the first status |\n| Always include a final `ActiveStatus` as the healthy fallback | Forget the fallback (or the unit stays `unknown`) |\n| Use `collect_app_status` for **app-level** status (leader only) | Mix up unit vs. app status |\n\n### App-Level Status (Leader Only)\n\n```python\nframework.observe(self.on.collect_app_status, self._on_collect_app_status)\n\ndef _on_collect_app_status(self, event: ops.CollectStatusEvent):\n    if self.unit.is_leader():\n        if some_app_wide_problem:\n            event.add_status(ops.BlockedStatus(\"App-level issue\"))\n        event.add_status(ops.ActiveStatus())\n```\n\nThis pattern keeps status logic in one place, makes it declarative, and ensures the most severe condition is always the one reported.",
+    "stop_reason": "end_turn",
+    "session_id": "971dfd0d-651c-478c-ba67-20e2e9417bba",
+    "total_cost_usd": 0.040737,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1066,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1191,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1066,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1191,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1066,
+        "webSearchRequests": 0,
+        "costUSD": 0.040737,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "f1b5b7d5-f1a1-40d1-ad96-68e8095f2fa5"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:58:08+1300"
+}
