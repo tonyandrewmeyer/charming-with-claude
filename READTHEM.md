@@ -4,6 +4,7 @@
 
 * AI in Docs, [GitHub](https://github.com/canonical/AI-resources-for-docs/), and [ReadTheDocs](https://canonical-ai-resources-for-docs.readthedocs-hosted.com/en/latest/context/)
 * [Copilot docs and a distribution system](https://github.com/canonical/copilot-collections).
+* [Agent skills](https://github.com/canonical/skills]
 * [charmkeeper](https://github.com/seb4stien/charmkeeper/)
 * [orc](https://github.com/PietroPasotti/orc)
 * [JujuMate](https://abuelodelanada.github.io/jujumate/)
