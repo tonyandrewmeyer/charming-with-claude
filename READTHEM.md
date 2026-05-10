@@ -46,6 +46,7 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [Mitchell Hashimoto's AI adoption journey](https://mitchellh.com/writing/my-ai-adoption-journey)
 * [James Bennett's Let's Talk About LLMs](https://www.b-list.org/weblog/2026/apr/09/llms/)
 * [Building syntaqlite](https://lalitm.com/post/building-syntaqlite-ai/), "honest, detailed account[...] of building real software with these tools".
+* [A software library with no code](https://www.dbreunig.com/2026/01/08/a-software-library-with-no-code.html), and [follow-up](https://www.dbreunig.com/2026/02/06/the-rise-of-spec-driven-development.html), spec driven development.
 
 ### Agent instruction files:
 * [Stop using CLAUDE.md](https://www.xda-developers.com/claude-md-helping-your-projects-is-myth/)
