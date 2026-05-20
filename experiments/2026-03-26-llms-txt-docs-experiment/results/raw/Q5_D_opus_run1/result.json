@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_D_opus_run1",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 32174,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 30863,
+    "duration_api_ms": 30295,
+    "num_turns": 4,
+    "result": "`CollectStatusEvent` fires automatically at the end of every hook. You observe `collect_unit_status` (all units) or `collect_app_status` (leader only) and call `event.add_status()` to register statuses. The framework picks the highest-priority one:\n\n**Priority** (highest to lowest): Blocked > Maintenance > Waiting > Active\n\nHere's a complete example:\n\n```python\nimport ops\n\n\nclass MyCharmConfig:\n    \"\"\"Charm configuration.\"\"\"\n    port: int | None\n    db_uri: str | None\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.framework.observe(self.on.collect_unit_status, self._on_collect_status)\n        self.framework.observe(self.on.install, self._on_install)\n\n    def _on_collect_status(self, event: ops.CollectStatusEvent):\n        if not self.model.get_relation(\"database\"):\n            event.add_status(ops.BlockedStatus(\"missing database relation\"))\n            return\n\n        port = self.model.config.get(\"port\")\n        if not port:\n            event.add_status(ops.BlockedStatus('please set \"port\" config'))\n            return\n\n        if not self._workload_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for workload\"))\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n    def _on_install(self, event: ops.InstallEvent):\n        # Installation logic here \u2014 no need to set status manually.\n        # The collect_unit_status handler takes care of it.\n        pass\n\n    def _workload_ready(self) -> bool:\n        # Check if the workload is running.\n        return True\n\n\nif __name__ == \"__main__\":\n    ops.main(MyCharm)\n```\n\nKey points:\n\n- **No more `self.unit.status = ...` scattered everywhere.** Status logic is centralised in the collect handler.\n- You can call `event.add_status()` **multiple times** \u2014 the framework selects the most severe.\n- This means separate components (e.g. database integration, TLS, workload) can each add their own status independently, and the worst one wins.\n- The handler fires after every hook, so status is always up to date.",
+    "stop_reason": "end_turn",
+    "session_id": "c9f1ba6f-9afc-4166-900b-1bf72916e7a1",
+    "total_cost_usd": 0.14777075,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 8835,
+      "cache_read_input_tokens": 69296,
+      "output_tokens": 951,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8835,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 951,
+        "cacheReadInputTokens": 69296,
+        "cacheCreationInputTokens": 8835,
+        "webSearchRequests": 0,
+        "costUSD": 0.11368175000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 32284,
+        "outputTokens": 361,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.034089,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0e6ba4de-36c3-49c2-8854-af4530297b2a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:39:27+1300"
+}

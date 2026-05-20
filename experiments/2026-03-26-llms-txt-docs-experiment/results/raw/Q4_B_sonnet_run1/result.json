@@ -1,0 +1,57 @@
+{
+  "session_id": "Q4_B_sonnet_run1",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 14394,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 12629,
+    "duration_api_ms": 12619,
+    "num_turns": 1,
+    "result": "Both result in a failed action, but they behave differently:\n\n**`event.fail(message)`**\n- Sets the action result to failed with a user-facing message\n- Execution continues after the call \u2014 you control what happens next\n- The message is shown to the user running `juju run`\n- Clean, expected failure path (e.g. validation error, precondition not met)\n\n**Raising an exception**\n- Ops catches unhandled exceptions in action handlers and marks the action as failed\n- The exception traceback goes to the unit's debug log, not the action result message\n- The user sees a generic failure message, not the exception text\n- Represents an *unexpected* error \u2014 a bug or unanticipated condition\n\n**In practice:**\n\n```python\ndef _on_my_action(self, event: ops.ActionEvent) -> None:\n    if not self._is_ready():\n        event.fail(\"Workload is not ready\")\n        return  # <-- you must return explicitly; execution continues otherwise\n\n    try:\n        result = self._do_work()\n    except WorkloadError as e:\n        event.fail(f\"Work failed: {e}\")\n        return\n\n    event.set_results({\"output\": result})\n```\n\nA bare `raise` from within the handler would produce a charm error in `juju status` and a traceback in `juju debug-log`, with no meaningful message for the operator running the action.\n\n**Rule of thumb:** use `event.fail()` for anticipated failure conditions you want to communicate clearly; let exceptions propagate only for genuine bugs (or catch and convert them to `event.fail()` calls at the boundary).",
+    "stop_reason": "end_turn",
+    "session_id": "8912e4f1-aec6-4cb4-ac32-bd138e37353f",
+    "total_cost_usd": 0.03745155,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7335,
+      "cache_read_input_tokens": 11271,
+      "output_tokens": 437,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7335,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 437,
+        "cacheReadInputTokens": 11271,
+        "cacheCreationInputTokens": 7335,
+        "webSearchRequests": 0,
+        "costUSD": 0.03745155,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "67bf41bf-d81b-4478-8b68-e46ba2f8e25a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:01:09+1300"
+}

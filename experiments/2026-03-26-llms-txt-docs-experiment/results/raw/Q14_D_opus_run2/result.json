@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_D_opus_run2",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 241524,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 240260,
+    "duration_api_ms": 211865,
+    "num_turns": 2,
+    "result": "\n\nThe TLS certificates library (v4) emits two events on the **requirer** side:\n\n### Events\n\n- **`certificate_available`** \u2014 Fired when the provider has issued a certificate for your CSR. Carries `certificate`, `certificate_signing_request`, `ca`, and `chain`.\n- **`certificate_denied`** \u2014 Fired when the provider cannot issue a certificate. Carries `certificate_signing_request` and `error`.\n\n### When certificates are requested\n\nThe library handles requests **automatically**. You pass your `CertificateRequestAttributes` at instantiation, and the library's internal `_configure` method runs on:\n\n- `relation_created` / `relation_changed` for the TLS relation\n- `secret_expired` (triggers automatic renewal)\n- Any event you list in the `refresh_events` parameter\n\n**Automatic renewal** is built in: the `renewal_relative_time` parameter (default `0.9`) causes the library to re-request at 90% of the certificate's validity period via Juju secret expiry.\n\nYou can also call `self.tls.sync()` to force re-evaluation, or `self.tls.renew_certificate(provider_certificate)` for explicit renewal.\n\n### Typical usage pattern\n\n```python\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.tls = TLSCertificatesRequiresV4(\n            charm=self,\n            relationship_name=\"certificates\",\n            certificate_requests=[\n                CertificateRequestAttributes(\n                    common_name=\"myapp.example.com\",\n                    sans_dns=frozenset({\"myapp.example.com\"}),\n                ),\n            ],\n            mode=Mode.UNIT,\n            refresh_events=[self.on.config_changed],\n        )\n        self.framework.observe(self.tls.on.certificate_available, self._on_cert_available)\n        self.framework.observe(self.tls.on.certificate_denied, self._on_cert_denied)\n```\n\nPass `refresh_events` for anything that changes your certificate requirements (e.g. `config_changed` if SANs come from config, `upgrade_charm` to re-evaluate after upgrades).",
+    "stop_reason": "end_turn",
+    "session_id": "855b1feb-5125-4d1e-aae7-903f82f6a86f",
+    "total_cost_usd": 1.2776285,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9133,
+      "cache_read_input_tokens": 30155,
+      "output_tokens": 796,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9133,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 36,
+        "outputTokens": 6304,
+        "cacheReadInputTokens": 1294679,
+        "cacheCreationInputTokens": 67920,
+        "webSearchRequests": 0,
+        "costUSD": 1.2296194999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 42424,
+        "outputTokens": 1117,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.048008999999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "cd874177-b597-4fd4-9a37-57ac39eafe49"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:40:42+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_C_sonnet_run1",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 89235,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 88150,
+    "duration_api_ms": 100805,
+    "num_turns": 15,
+    "result": "Here's a comprehensive explanation of the Pebble change/task model:\n\n---\n\n## The Pebble Change/Task Model\n\nPebble uses a **change/task system** to manage potentially long-running or invasive operations (like starting, stopping, or restarting services). Rather than blocking synchronously, these operations return immediately with a **Change ID** that you can use to monitor progress.\n\n### Core Concepts\n\n**Change** \u2014 A top-level record representing a single operation (e.g. \"start service foo\"). It contains one or more Tasks.\n\n**Task** \u2014 An individual unit of work within a Change (e.g. one task per service being stopped in a multi-service stop).\n\n---\n\n### Change & Task Statuses\n\nBoth `Change` and `Task` objects share the same set of statuses:\n\n| Status | Meaning |\n|--------|---------|\n| `Hold` | Not yet scheduled to run |\n| `Do` | Ready to start, queued |\n| `Doing` | Currently running |\n| `Done` | Successfully completed |\n| `Abort` | Requested to stop and undo |\n| `Undo` | Needs to be undone (due to error) |\n| `Undoing` | Actively being undone |\n| `Error` | Failed (while running or undoing) |\n| `Wait` | Completed but awaiting an external event |\n\nA Change is **\"ready\"** when it reaches `Done`, `Error`, or a terminal `Undo`/`Abort` state. The `Change.ready` boolean field reflects this.\n\n---\n\n### Change Object Fields\n\n```python\nchange.id          # Unique identifier (e.g. \"42\")\nchange.kind        # Operation type: 'start', 'stop', 'restart', 'replan', 'exec', etc.\nchange.summary     # Human-readable description\nchange.status      # Current ChangeStatus value\nchange.tasks       # List[Task] \u2014 individual work units\nchange.ready       # bool \u2014 True when finished (success or failure)\nchange.err         # str | None \u2014 error message if it failed\nchange.spawn_time  # datetime \u2014 when the change was created\nchange.ready_time  # datetime | None \u2014 when it finished\nchange.data        # dict \u2014 kind-specific metadata\n```\n\n### Task Object Fields\n\n```python\ntask.id            # Task identifier\ntask.kind          # Type of task\ntask.summary       # Description\ntask.status        # Status string\ntask.log           # List[str] \u2014 log messages from the task\ntask.progress      # TaskProgress(label, done, total) \u2014 progress info\ntask.spawn_time    # datetime\ntask.ready_time    # datetime | None\ntask.data          # dict \u2014 e.g. includes 'exit-code' for exec tasks\n```\n\n---\n\n### Checking if a Long-Running Operation Has Completed\n\n#### Option 1: `wait_change()` \u2014 **Recommended**\n\nThe cleanest approach. Blocks until the change is ready, using the `/v1/changes/{id}/wait` endpoint if available, otherwise falls back to polling:\n\n```python\ncontainer = self.unit.get_container(\"myapp\")\n\n# Start a service \u2014 returns immediately with a change ID\nchange_id = container.start_service(\"myapp\")  # or stop, restart, etc.\n\n# Wait for it to finish (raises TimeoutError if not done in time)\nchange = container.get_plan()  # ... or use the pebble client directly:\n\nclient = container.get_pebble_client()\nchange = client.wait_change(change_id, timeout=30.0)\n\nif change.err:\n    raise RuntimeError(f\"Service start failed: {change.err}\")\n```\n\n> **Note:** Most ops library `Container` methods (like `start_service`, `stop_service`) call `wait_change` internally, so you often don't need to do this manually.\n\n#### Option 2: `get_change()` \u2014 Manual polling\n\nPoll the change yourself if you need custom logic:\n\n```python\nimport time\n\nchange = client.get_change(change_id)\nwhile not change.ready:\n    time.sleep(1)\n    change = client.get_change(change_id)\n\nif change.status == pebble.ChangeStatus.ERROR:\n    print(f\"Failed: {change.err}\")\n```\n\n#### Option 3: `get_changes()` \u2014 List in-progress operations\n\n```python\n# Get all currently running changes\nin_progress = client.get_changes(select=pebble.ChangeState.IN_PROGRESS)\n\n# Or all changes\nall_changes = client.get_changes(select=pebble.ChangeState.ALL)\n```\n\n---\n\n### Error Handling\n\nIf a change completes with an error, Pebble raises a `ChangeError`:\n\n```python\nfrom ops import pebble\n\ntry:\n    container.start_service(\"myapp\")\nexcept pebble.ChangeError as e:\n    print(f\"Change failed: {e.err}\")\n    print(f\"Change details: {e.change}\")\n```\n\n---\n\n### CLI / Debugging\n\nYou can inspect changes from the command line inside the unit:\n\n```bash\n# List recent changes\npebble changes\n\n# Show tasks for change ID 42\npebble tasks 42\n```\n\nState is persisted to `$PEBBLE/.pebble.state` (or memory-only if `PEBBLE_PERSIST=never`).",
+    "stop_reason": "end_turn",
+    "session_id": "4fe0fcf3-4ddf-482d-8b81-55bccdc553cb",
+    "total_cost_usd": 0.20359114999999997,
+    "usage": {
+      "input_tokens": 401,
+      "cache_creation_input_tokens": 8233,
+      "cache_read_input_tokens": 104858,
+      "output_tokens": 2970,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8233,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 401,
+        "outputTokens": 2970,
+        "cacheReadInputTokens": 104858,
+        "cacheCreationInputTokens": 8233,
+        "webSearchRequests": 0,
+        "costUSD": 0.10808414999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 77162,
+        "outputTokens": 3669,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.095507,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ecf541fe-2eb6-47ea-b3f2-db5c715dff3f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:22:55+1300"
+}

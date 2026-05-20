@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_D_sonnet_run2",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 72156,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 70991,
+    "duration_api_ms": 76150,
+    "num_turns": 2,
+    "result": "## Pebble Notices\n\nNotices are a persistent, server-side event log in Pebble. They survive restarts, deduplicate recurring events (incrementing a count), and can carry optional string key-value metadata (`last_data`).\n\nEach notice is uniquely identified by **(user ID, type, key)**.\n\n---\n\n### Notice Types\n\n| Type | Key | Description |\n|------|-----|-------------|\n| `change-update` | Change ID | Fired when a Pebble change is spawned or its status updates. Data includes the change `kind`. |\n| `custom` | Domain-path string (e.g. `canonical.com/myapp/backup-done`) | Workload-initiated; recorded via `pebble notify` in the container. The primary mechanism for workloads to signal charms. |\n| `warning` | The warning message text | Pebble's internal warning system, implemented on top of notices. |\n\n---\n\n### Observing Notices in Ops\n\n**Custom notices** are the main type a charm author works with. The workload runs:\n\n```bash\npebble notify canonical.com/myapp/backup-done path=/backups/foo.tar.gz\n```\n\nThe charm observes the `pebble_custom_notice` event:\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on[\"workload\"].pebble_custom_notice, self._on_custom_notice)\n\n    def _on_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        notice = event.notice  # ops.pebble.Notice\n        if notice.key == \"canonical.com/myapp/backup-done\":\n            path = notice.last_data.get(\"path\")\n            # respond to the backup completing\n```\n\n**Key attributes on `ops.pebble.Notice`:**\n\n- `id` \u2014 unique ID\n- `type` \u2014 `\"custom\"`, `\"change-update\"`, or `\"warning\"`\n- `key` \u2014 the domain-path string\n- `last_data` \u2014 `dict[str, str]` of metadata from the most recent occurrence\n- `first_occurred`, `last_occurred`, `last_repeated` \u2014 timestamps\n- `occurrences` \u2014 count of how many times it has fired\n\n**Querying notices directly** on a `Container`:\n\n```python\ncontainer = self.unit.get_container(\"workload\")\nnotices = container.get_notices(notice_type=ops.pebble.NoticeType.CUSTOM)\nnotice = container.get_notice(\"abc123\")\n```\n\n---\n\n### Testing\n\nUse `ctx.run()` with the `pebble_custom_notice` event from `ops.testing`:\n\n```python\nnotice = testing.Notice(notice_type=\"custom\", key=\"canonical.com/myapp/backup-done\", last_data={\"path\": \"/tmp/foo\"})\nctx = testing.Context(MyCharm, meta={\"name\": \"myapp\", \"containers\": {\"workload\": {}}})\ncontainer = testing.Container(\"workload\", notices=[notice])\nstate = testing.State(containers={container})\nout = ctx.run(ctx.on.pebble_custom_notice(container=container, notice=notice), state)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "ffb07f30-1b62-48bf-938a-a55907500aff",
+    "total_cost_usd": 0.12284360000000001,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8870,
+      "cache_read_input_tokens": 29978,
+      "output_tokens": 1089,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8870,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1089,
+        "cacheReadInputTokens": 29978,
+        "cacheCreationInputTokens": 8870,
+        "webSearchRequests": 0,
+        "costUSD": 0.058608900000000005,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 22800,
+        "outputTokens": 4438,
+        "cacheReadInputTokens": 131422,
+        "cacheCreationInputTokens": 4882,
+        "webSearchRequests": 0,
+        "costUSD": 0.0642347,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "73a517ad-a6ef-4f4e-92e2-c2b9226c049c"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:33:04+1300"
+}

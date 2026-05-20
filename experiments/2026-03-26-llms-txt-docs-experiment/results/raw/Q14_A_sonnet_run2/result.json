@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_A_sonnet_run2",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 95214,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 94086,
+    "duration_api_ms": 88216,
+    "num_turns": 2,
+    "result": "Here's a comprehensive breakdown of the TLS certificates library's events and certificate request lifecycle:\n\n---\n\n## Events Emitted\n\nThe library emits two primary events on the **requirer** side:\n\n| Event | Class | When it fires |\n|---|---|---|\n| `certificate_available` | `CertificateAvailableEvent` | A certificate has been issued and is ready to use |\n| `certificate_denied` | `CertificateDeniedEvent` | The provider could not issue the certificate (error case) |\n\nInternally, the library also handles Juju **secret lifecycle events** to drive automation:\n\n| Juju Event | Library Handler | Effect |\n|---|---|---|\n| `secret_expired` | `_on_secret_expired` | Triggers automatic certificate renewal |\n| `secret_remove` | `_on_secret_remove` | Cleans up certificate secrets |\n\n---\n\n## When a Charm Should Request / Re-request a Certificate\n\n### Automatic (handled by the library)\n1. **Relation creation** \u2014 when the `certificates` relation is first established, the library automatically generates a CSR and sends the request.\n2. **Renewal at expiry** \u2014 the library uses Juju's secret expiry mechanism. When the certificate secret expires (by default at **90% of the certificate's validity period**, configurable via `renewal_relative_time`), the `secret_expired` event fires and the library automatically re-requests.\n3. **Revocation** \u2014 if the provider marks a certificate as revoked, the library removes the secret and re-requests.\n\n### Charm-triggered (your code drives it)\n4. **Config/topology changes** \u2014 pass a list of `refresh_events` when instantiating the requirer; the library will re-sync requests whenever those events fire:\n   ```python\n   self.certificates = TLSCertificatesRequiresV4(\n       charm=self,\n       relationship_name=\"certificates\",\n       certificate_requests=[...],\n       refresh_events=[\n           self.on.config_changed,\n           self.on.certificates_relation_joined,\n       ],\n   )\n   ```\n5. **Manual renewal** \u2014 call `renew_certificate(certificate)` explicitly when your charm detects the certificate needs replacing (e.g. SAN changes, hostname changes):\n   ```python\n   self.certificates.renew_certificate(certificate)\n   ```\n\n---\n\n## Certificate Lifecycle Summary\n\n```\nCharm starts\n    \u2502\n    \u25bc\nRelation established \u2500\u2500\u25ba Library generates CSR + private key\n                              \u2502\n                              \u25bc\n                    Provider issues certificate\n                              \u2502\n                              \u25bc\n               certificate_available event fires\n                              \u2502\n                              \u25bc\n            Charm installs certificate & configures TLS\n                              \u2502\n                    (at 90% of validity period)\n                              \u2502\n                              \u25bc\n                  secret_expired fires \u2192 library\n                  generates new CSR, re-requests\n                              \u2502\n                              \u25bc\n               certificate_available fires again\n```\n\n---\n\n## Key Rule of Thumb\n\nYour charm should **re-request a certificate** whenever the identity it represents changes \u2014 i.e., whenever the common name (CN), SANs (DNS or IP), or organization fields would differ from what was previously requested. Wire those triggers into `refresh_events` so the library handles the re-request automatically.",
+    "stop_reason": "end_turn",
+    "session_id": "4c2f0f30-6a7b-45d1-83c8-37954620e8b3",
+    "total_cost_usd": 0.18045709999999998,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3365,
+      "cache_read_input_tokens": 18020,
+      "output_tokens": 1112,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3365,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1112,
+        "cacheReadInputTokens": 18020,
+        "cacheCreationInputTokens": 3365,
+        "webSearchRequests": 0,
+        "costUSD": 0.034722750000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 390,
+        "outputTokens": 5945,
+        "cacheReadInputTokens": 552481,
+        "cacheCreationInputTokens": 48297,
+        "webSearchRequests": 0,
+        "costUSD": 0.14573435,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "d52e0689-b868-47b6-9383-ea5cd2ccb818"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:49:14+1300"
+}

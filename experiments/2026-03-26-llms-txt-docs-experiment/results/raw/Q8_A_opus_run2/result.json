@@ -1,0 +1,57 @@
+{
+  "session_id": "Q8_A_opus_run2",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 23016,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 21757,
+    "duration_api_ms": 21747,
+    "num_turns": 1,
+    "result": "## Pebble Change/Task Model\n\nPebble uses a **change/task model** (similar to Snapd) for tracking long-running operations. Here's how it works:\n\n### Core Concepts\n\n- **Change**: A high-level operation (e.g., \"start service\", \"restart service\"). Each change has an overall status and contains one or more **tasks**.\n- **Task**: A unit of work within a change. Each task has its own status, progress, and timestamps.\n- **Change ID**: When you initiate a long-running operation via the Pebble client (e.g., `container.restart_services()`), it returns a `ChangeID` (a string) that you can use to poll for completion.\n\n### Statuses\n\nChanges and tasks go through these statuses:\n| Status | Meaning |\n|---|---|\n| `\"Doing\"` | Currently in progress |\n| `\"Done\"` | Completed successfully |\n| `\"Error\"` | Failed |\n| `\"Hold\"` | Waiting / on hold |\n| `\"Abort\"` | Being aborted |\n| `\"Undo\"` | Being undone |\n\n### How to Check if a Long-Running Operation Has Completed\n\nIn the `ops` library, the `Container` (Pebble client) provides two key methods:\n\n#### 1. **`get_changes()` / `get_change()`** \u2014 Poll for status\n\n```python\n# Start a service (non-blocking via autostart or direct API)\ncontainer = self.unit.get_container(\"mycontainer\")\n\n# Example: replan services\ncontainer.replan_services()\n\n# Or if you have a change_id from a lower-level call:\nchange = container.pebble.get_change(change_id)\n\nif change.ready:\n    # The change is finished (successfully or with error)\n    if change.err:\n        logger.error(\"Change failed: %s\", change.err)\n    else:\n        logger.info(\"Change completed successfully\")\n```\n\n#### 2. **Higher-level ops methods (most common)**\n\nMost `Container` methods like `replan_services()`, `start()`, `stop()`, and `restart()` are **synchronous wrappers** \u2014 they block until the change is complete (or raise an error). So in typical charm code, you don't need to poll manually:\n\n```python\ntry:\n    container.restart_services([\"myservice\"])\n    # If we get here, the restart succeeded\nexcept ops.pebble.ChangeError as e:\n    logger.error(\"Restart failed: %s\", e)\nexcept ops.pebble.APIError as e:\n    logger.error(\"Pebble API error: %s\", e)\n```\n\n#### 3. **Checking via the `Change` object**\n\nIf you do need to work with changes directly:\n\n```python\nchange = container.pebble.get_change(change_id)\n\n# Key attributes:\nchange.id        # The change ID string\nchange.kind      # e.g., \"start\", \"restart\"\nchange.status    # e.g., \"Doing\", \"Done\", \"Error\"\nchange.ready     # bool \u2014 True if the change is complete (Done or Error)\nchange.err       # Error message string, or empty if no error\nchange.tasks     # List of Task objects within this change\n```\n\n### Key Takeaways\n\n1. **For most charm code**, use the high-level `Container` methods (`start()`, `stop()`, `restart()`, `replan_services()`). They block until done and raise exceptions on failure.\n2. **If you need async/non-blocking behavior**, use the lower-level `Container.pebble` client to get a `change_id`, then poll with `get_change(change_id)` and check `change.ready`.\n3. **Always check `change.err`** after `change.ready` is `True` \u2014 `ready` means \"finished,\" not necessarily \"succeeded.\"",
+    "stop_reason": "end_turn",
+    "session_id": "0c7cb5b7-4e2f-44dc-872a-64dc3d7f1858",
+    "total_cost_usd": 0.036180750000000005,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1069,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1008,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1069,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1008,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1069,
+        "webSearchRequests": 0,
+        "costUSD": 0.036180750000000005,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "27f87995-8113-4079-80a3-e644f40ca9ce"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:17:55+1300"
+}

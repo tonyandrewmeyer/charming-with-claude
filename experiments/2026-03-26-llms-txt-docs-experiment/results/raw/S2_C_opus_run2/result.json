@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_C_opus_run2",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 130323,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 129130,
+    "duration_api_ms": 133092,
+    "num_turns": 17,
+    "result": "Here's a walkthrough of what was created:\n\n---\n\n### `src/charm.py` \u2014 the `_on_pebble_ready` handler\n\nThe handler does three things when Pebble becomes reachable inside the `workload` container:\n\n#### 1. Command from config\nThe start command is read from the `app-command` config option:\n```python\ncommand: str = self.config.get(\"app-command\", \"/bin/my-app --port 8080\")\n```\nThis becomes the `command` field of the Pebble service, so operators can change it with `juju config my-workload app-command=\"/bin/other-app\"`.\n\n#### 2. Environment variables from a database relation\n`_get_database_env()` reads the `database` relation's remote application data bag for `host`, `port`, `database`, `user`, and `password`. These are injected as `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and a composed `DATABASE_URI`:\n```python\n\"environment\": env,  # e.g. {\"DB_HOST\": \"10.0.0.5\", \"DB_PORT\": \"3306\", ...}\n```\nIf the relation isn't ready yet, the charm enters `WaitingStatus`.\n\n#### 3. HTTP health check\nAn HTTP check probes the workload's health endpoint on a configurable path and port:\n```python\n\"checks\": {\n    \"health-check\": {\n        \"override\": \"replace\",\n        \"level\": \"ready\",        # maps to Kubernetes readiness probe\n        \"period\": \"10s\",\n        \"timeout\": \"3s\",\n        \"threshold\": 3,          # 3 consecutive failures \u2192 check is \"down\"\n        \"http\": {\n            \"url\": \"http://localhost:8080/health\",\n        },\n    },\n},\n```\nThe service declares `\"on-check-failure\": {\"health-check\": \"restart\"}` so Pebble automatically restarts it if the health check fails.\n\n#### Key design details\n\n| Concern | How it's handled |\n|---|---|\n| **Idempotency** | `add_layer(..., combine=True)` merges on top of any existing layer with the same label, so calling the handler multiple times is safe. |\n| **Convergence** | `container.replan()` starts/stops services to match the new layer \u2014 no manual start/stop needed. |\n| **Re-evaluation** | `config-changed`, `relation-changed`, and `relation-broken` all call the same `_update_layer()` helper, which guards against Pebble not being connected yet. |",
+    "stop_reason": "end_turn",
+    "session_id": "9510d8a2-3710-4b15-828a-dffa0e353ff0",
+    "total_cost_usd": 0.33419584999999996,
+    "usage": {
+      "input_tokens": 485,
+      "cache_creation_input_tokens": 10211,
+      "cache_read_input_tokens": 163618,
+      "output_tokens": 4996,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10211,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 485,
+        "outputTokens": 4996,
+        "cacheReadInputTokens": 163618,
+        "cacheCreationInputTokens": 10211,
+        "webSearchRequests": 0,
+        "costUSD": 0.27295275,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 27299,
+        "outputTokens": 2604,
+        "cacheReadInputTokens": 39291,
+        "cacheCreationInputTokens": 13596,
+        "webSearchRequests": 0,
+        "costUSD": 0.061243099999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "901b4ba3-ea24-49c7-a250-8e65d2083456"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:07:48+1300"
+}

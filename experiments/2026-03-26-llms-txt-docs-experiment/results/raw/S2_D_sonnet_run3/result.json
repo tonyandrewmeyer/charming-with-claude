@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_D_sonnet_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 48873,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 47602,
+    "duration_api_ms": 47558,
+    "num_turns": 5,
+    "result": "Here is what the handler does and why each piece is structured the way it is:\n\n---\n\n### `_on_pebble_ready`\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    self._configure(event.workload)\n```\n\nIt delegates immediately to `_configure`, which is also called from `config_changed` and `database_relation_changed`. This avoids duplicating logic.\n\n---\n\n### `_configure` \u2014 the core logic\n\n**1. Command from config**\n\n```python\nconfig = CharmConfig.from_charm(self)\n```\n\n`CharmConfig` is a frozen dataclass that validates the `command` config option. If it's empty, the charm moves to `BlockedStatus` \u2014 the operator must supply a value before the workload can start.\n\n**2. Environment variables from the database relation**\n\n```python\nenv = self._database_env()\nif env is None:\n    self.unit.status = ops.WaitingStatus(\"Waiting for database relation\")\n    return\n```\n\n`_database_env` reads the relation data bag on the remote app (`relation.data[relation.app]`). It returns `None` until all five fields (`host`, `port`, `dbname`, `username`, `password`) are present, keeping the unit in `WaitingStatus` rather than starting with an incomplete configuration. The credentials flow into the service as `DB_*` environment variables \u2014 not hardcoded in the layer.\n\n**3. HTTP health check**\n\n```python\n\"checks\": {\n    \"app-http\": {\n        \"override\": \"replace\",\n        \"level\": \"ready\",\n        \"http\": {\"url\": f\"http://localhost:{WORKLOAD_PORT}/health\"},\n        \"period\": \"10s\",\n        \"threshold\": 3,\n    }\n}\n```\n\nThe check is declared at `level: ready`, so Pebble waits for it to pass before marking the service healthy. `threshold: 3` means it must fail three consecutive times before Pebble considers the service down, giving the workload a few seconds to initialise.\n\n---\n\n### Key design choices (per CLAUDE.md)\n\n| Choice | Reason |\n|---|---|\n| `override: replace` on service and check | Ensures `container.replan()` always applies the current layer, not a merge of old and new |\n| `event.defer()` in `config_changed` / `relation_changed` when `!can_connect()` | Avoids losing the event if Pebble is not yet up |\n| `from __future__ import annotations` | Enables `dict[str, str] | None` on Python 3.10 |\n| No `from x import y` (except typing) | Follows CLAUDE.md import style |\n| Frozen dataclass for config | Makes the validated config immutable and easy to test |",
+    "stop_reason": "end_turn",
+    "session_id": "2210ec61-f761-4093-9cdc-07be55e7d47f",
+    "total_cost_usd": 0.09059594999999998,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 9349,
+      "cache_read_input_tokens": 68064,
+      "output_tokens": 2340,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9349,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 2340,
+        "cacheReadInputTokens": 68064,
+        "cacheCreationInputTokens": 9349,
+        "webSearchRequests": 0,
+        "costUSD": 0.09059594999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "08fd67e5-3e99-4f4b-82a0-ac4a9d798f8a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:55:13+1300"
+}

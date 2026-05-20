@@ -1,0 +1,67 @@
+{
+  "session_id": "Q12_E_sonnet_run1",
+  "question_id": "Q12",
+  "category": "jubilant",
+  "question": "How do you run a Juju action on a unit and check its results using jubilant?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 157285,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 156111,
+    "duration_api_ms": 165192,
+    "num_turns": 2,
+    "result": "## Running a Juju Action with jubilant\n\nJubilant is a Pythonic wrapper around the Juju CLI, designed for charm integration testing. The primary method is `Juju.run()`.\n\n---\n\n### Basic Usage\n\n```python\nimport jubilant\n\njuju = jubilant.Juju()\ntask = juju.run('mysql/0', 'get-password')\n```\n\n### Method Signature\n\n```python\ndef run(\n    self,\n    unit: str,           # e.g. 'mysql/0' or 'mysql/leader'\n    action: str,         # e.g. 'get-password'\n    params: dict | None = None,   # optional action parameters\n    *,\n    wait: float | None = None,    # timeout in seconds\n) -> Task:\n```\n\n---\n\n### Checking Results via the `Task` Object\n\n`run()` returns a `Task` dataclass with these attributes:\n\n| Attribute | Type | Description |\n|---|---|---|\n| `task.success` | `bool` | `True` if `status == 'completed'` **and** `return_code == 0` |\n| `task.status` | `str` | `'completed'`, `'failed'`, `'error'`, `'aborted'`, `'cancelled'` |\n| `task.results` | `dict` | Key/value results set by the charm action |\n| `task.return_code` | `int` | Exit code from the action hook |\n| `task.stdout` | `str` | Stdout from the action hook |\n| `task.stderr` | `str` | Stderr from the action hook |\n| `task.message` | `str` | Failure message (from `action-fail` in the charm) |\n| `task.log` | `list[str]` | Log messages (from `action-log` in the charm) |\n| `task.id` | `str` | Task ID, usable with `juju show-task` |\n\n---\n\n### Examples\n\n**Run an action and assert results:**\n```python\ntask = juju.run('mysql/0', 'get-password')\n\nassert task.success\nassert task.results['username'] == 'admin'\nassert task.results['password'] == 'secret123'\n```\n\n**Pass parameters to the action:**\n```python\ntask = juju.run('mysql/0', 'create-user', {'username': 'bob', 'role': 'reader'})\nassert task.success\nassert task.results['created'] == 'true'\n```\n\n**Target the leader unit:**\n```python\ntask = juju.run('mysql/leader', 'rotate-credentials')\nassert task.success\n```\n\n**Set a custom timeout:**\n```python\ntask = juju.run('mysql/0', 'backup', wait=300.0)  # 5-minute timeout\n```\n\n---\n\n### Handling Failures\n\n`run()` automatically raises `TaskError` if the action fails \u2014 you don't need to check manually unless you expect failure:\n\n```python\nimport jubilant\nimport pytest\n\n# Expecting success \u2014 TaskError raised automatically on failure\ntask = juju.run('mysql/0', 'get-password')\nassert task.success\n\n# Expecting failure \u2014 catch TaskError explicitly\nwith pytest.raises(jubilant.TaskError) as excinfo:\n    juju.run('mysql/0', 'bad-action')\n\ntask = excinfo.value.task   # full Task object is accessible\nassert task.status == 'failed'\nassert 'some error' in task.message  # message from action-fail\nassert task.stderr                   # traceback if charm raised exception\n```\n\nYou can also call `task.raise_on_failure()` manually if you ran something and want to defer the check:\n```python\ntask = juju.run('mysql/0', 'get-password')\ntask.raise_on_failure()  # raises TaskError if not successful\n```\n\n---\n\n### Full Integration Test Pattern\n\n```python\n# conftest.py\nimport pytest, jubilant\n\n@pytest.fixture(scope='module')\ndef juju():\n    with jubilant.temp_model() as juju:\n        juju.deploy('my-charm')\n        juju.wait(jubilant.all_active)\n        yield juju\n\n# test_charm_actions.py\ndef test_get_password(juju: jubilant.Juju):\n    task = juju.run('my-charm/0', 'get-password', {'username': 'admin'})\n\n    assert task.success\n    assert task.results['password']          # charm returned a password\n    assert 'fetched password' in task.log[0] # charm logged a message\n```\n\n---\n\n### Key Points\n\n- **`jubilant.Juju.run()`** maps directly to `juju run` CLI \u2014 no async, no websockets.\n- **`Task.results`** contains only the charm-defined key/value pairs; `return-code`, `stdout`, and `stderr` are separated into their own attributes automatically.\n- **`TaskError`** is raised automatically on failure, but `excinfo.value.task` gives you the full `Task` for inspection.\n- Install with: `pip install jubilant` (requires the Juju CLI separately).",
+    "stop_reason": "end_turn",
+    "session_id": "75cd2f7b-39bc-408d-b6bf-57943ac48d1b",
+    "total_cost_usd": 0.38105405000000003,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3956,
+      "cache_read_input_tokens": 18041,
+      "output_tokens": 1645,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3956,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 25,
+        "outputTokens": 7345,
+        "cacheReadInputTokens": 260151,
+        "cacheCreationInputTokens": 26673,
+        "webSearchRequests": 0,
+        "costUSD": 0.28831904999999997,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 49700,
+        "outputTokens": 3511,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 12384,
+        "webSearchRequests": 1,
+        "costUSD": 0.092735,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1e03296f-e415-4945-97ec-9237f6620c98"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:33:29+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "S3_C_sonnet_run1",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 154366,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 153273,
+    "duration_api_ms": 178320,
+    "num_turns": 2,
+    "result": "Here is a complete, production-ready charm that provides data over a custom relation interface:\n\n**`charmcraft.yaml`** \u2014 charm metadata & build config:\n```yaml\nname: endpoint-provider\ntype: charm\nsummary: Provides an endpoint address over a custom relation interface.\ndescription: |\n  A charm that advertises its FQDN to any application that relates to it\n  via the `endpoint-provider` interface.\n\nbases:\n  - build-on:\n      - name: ubuntu\n        channel: \"22.04\"\n    run-on:\n      - name: ubuntu\n        channel: \"22.04\"\n\nprovides:\n  endpoint-info:\n    interface: endpoint-provider\n```\n\n**`src/charm.py`** \u2014 the charm class:\n\n```python\n#!/usr/bin/env python3\n# Copyright 2026 Canonical Ltd.\n# See LICENSE file for licensing details.\n\n\"\"\"Charm that advertises its FQDN over a custom relation interface.\"\"\"\n\nimport logging\nimport socket\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\n# The name of the relation as declared under `provides` in charmcraft.yaml.\nRELATION_NAME = \"endpoint-info\"\n\n\nclass EndpointProviderCharm(ops.CharmBase):\n    \"\"\"Charm that sets its FQDN in the relation databag when a consumer joins.\"\"\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Fired when a remote unit joins the relation for the first time.\n        framework.observe(\n            self.on[RELATION_NAME].relation_joined,\n            self._on_endpoint_info_relation_joined,\n        )\n\n        # Re-publish on relation-changed in case this unit was not the leader\n        # when the consumer first joined (e.g. during a leader-elected race).\n        framework.observe(\n            self.on[RELATION_NAME].relation_changed,\n            self._on_endpoint_info_relation_changed,\n        )\n\n    # ------------------------------------------------------------------\n    # Event handlers\n    # ------------------------------------------------------------------\n\n    def _on_endpoint_info_relation_joined(self, event: ops.RelationJoinedEvent) -> None:\n        \"\"\"Publish this unit's FQDN as soon as a consumer joins the relation.\"\"\"\n        self._publish_endpoint(event.relation)\n\n    def _on_endpoint_info_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        \"\"\"Re-publish if the data is somehow missing (e.g. after a unit restart).\"\"\"\n        if not event.relation.data[self.unit].get(\"endpoint\"):\n            self._publish_endpoint(event.relation)\n\n    # ------------------------------------------------------------------\n    # Helpers\n    # ------------------------------------------------------------------\n\n    def _publish_endpoint(self, relation: ops.Relation) -> None:\n        \"\"\"Write the unit FQDN into the unit's side of the relation databag.\n\n        Each unit writes to its *own* databag (``relation.data[self.unit]``).\n        This is safe to call from any unit \u2014 no leader-election guard needed.\n\n        Args:\n            relation: The :class:`ops.Relation` object to update.\n        \"\"\"\n        fqdn = socket.getfqdn()\n        logger.info(\n            \"Setting endpoint=%s on relation %s (id=%d)\",\n            fqdn,\n            relation.name,\n            relation.id,\n        )\n        relation.data[self.unit][\"endpoint\"] = fqdn\n\n\nif __name__ == \"__main__\":\n    ops.main(EndpointProviderCharm)\n```\n\n---\n\n### How it works\n\n| Concept | Detail |\n|---|---|\n| **`provides` block** | Declares the `endpoint-info` relation with interface `endpoint-provider`. Any charm that lists `requires: endpoint-info: interface: endpoint-provider` can consume it. |\n| **`relation_joined` event** | Fires on *this* unit whenever a new remote unit joins, so data is written immediately. |\n| **`relation_changed` guard** | Acts as a safety net \u2014 if the unit restarted after a join, the data is republished without triggering a duplicate write on a fresh join. |\n| **Unit databag** | `relation.data[self.unit]` is written here \u2014 every unit owns its own bag and can write to it freely (no leader guard required). Use `relation.data[self.app]` instead if you want a single shared value written only by the leader. |\n| **`socket.getfqdn()`** | Standard-library call; returns the fully-qualified domain name as reported by the OS (e.g. `myunit.lxd`, `myunit.maas`, or a cloud DNS name). Falls back to the hostname if no FQDN is configured. |\n\n### Consuming the relation (requirer side snippet)\n\n```python\n# In the requirer charm:\ndef _on_endpoint_info_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n    for remote_unit in event.relation.units:\n        endpoint = event.relation.data[remote_unit].get(\"endpoint\")\n        if endpoint:\n            logger.info(\"Provider endpoint: %s\", endpoint)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "66f1d38e-a84d-4511-9ccc-50b01cd61651",
+    "total_cost_usd": 0.5565121500000001,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 2493,
+      "cache_read_input_tokens": 18078,
+      "output_tokens": 1810,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2493,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1810,
+        "cacheReadInputTokens": 18078,
+        "cacheCreationInputTokens": 2493,
+        "webSearchRequests": 0,
+        "costUSD": 0.04194015,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 115945,
+        "outputTokens": 9689,
+        "cacheReadInputTokens": 273770,
+        "cacheCreationInputTokens": 162244,
+        "webSearchRequests": 12,
+        "costUSD": 0.5145719999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "5a597475-5062-4940-8b0d-afe37e9b471f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:17:01+1300"
+}

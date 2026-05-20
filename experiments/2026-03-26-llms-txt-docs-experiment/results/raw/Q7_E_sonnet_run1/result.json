@@ -1,0 +1,67 @@
+{
+  "session_id": "Q7_E_sonnet_run1",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 114791,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 113559,
+    "duration_api_ms": 243239,
+    "num_turns": 3,
+    "result": "Here's a comprehensive explanation of Pebble notices and how to work with them in a charm:\n\n---\n\n## What Are Pebble Notices?\n\nPebble notices are a pub/sub-style event system built into the Pebble daemon. They let you **observe events that happen inside a workload container** \u2014 either system events (changes, warnings) or custom signals your workload emits deliberately. Notices:\n\n- **Persist on disk** across Pebble restarts\n- **Aggregate occurrences** (rather than creating duplicate entries, a repeated notice increments its count)\n- Are uniquely identified by the triple: **`(user_id, type, key)`**\n- Automatically **expire** after a configurable interval\n\n---\n\n## Notice Types\n\nThere are three notice types:\n\n| Type | `NoticeType` enum | Triggered by | Key format |\n|---|---|---|---|\n| **`custom`** | `NoticeType.CUSTOM` | Workload via `pebble notify` | `example.com/path` (namespaced) |\n| **`change-update`** | `NoticeType.CHANGE_UPDATE` | Pebble internally, on any change spawn/status update | The change ID |\n| **`warning`** | *(warning)* | Pebble internally | The warning message text |\n\nThe most important for charm authors is **`custom`** \u2014 it's how workloads signal charms about domain-level events (e.g., \"backup complete\", \"certificate rotated\").\n\n---\n\n## The `Notice` Object Fields\n\nWhen your charm receives a notice event, `event.notice` gives you an `ops.LazyNotice` (backed by `ops.pebble.Notice`) with these fields:\n\n```python\nnotice.id            # str   \u2013 server-assigned unique ID\nnotice.user_id       # int | None \u2013 owning UID; None = public\nnotice.type          # ops.pebble.NoticeType\nnotice.key           # str   \u2013 e.g. \"example.com/backup-done\"\nnotice.first_occurred   # datetime\nnotice.last_occurred    # datetime\nnotice.last_repeated    # datetime\nnotice.occurrences   # int   \u2013 how many times it has fired\nnotice.last_data     # dict[str, str] | None \u2013 metadata from last occurrence\nnotice.repeat_after  # timedelta | None \u2013 minimum gap between repeats\nnotice.expire_after  # timedelta | None \u2013 TTL for the notice\n```\n\n---\n\n## Observing Notices in a Charm\n\n### `pebble_custom_notice` \u2014 the main event\n\nJuju polls each container's Pebble server and fires a `PebbleCustomNoticeEvent` whenever a **new or repeated custom notice** is detected.\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        # Observe custom notices on the \"myapp\" container\n        framework.observe(\n            self.on[\"myapp\"].pebble_custom_notice,\n            self._on_pebble_custom_notice,\n        )\n\n    def _on_pebble_custom_notice(self, event: ops.PebbleCustomNoticeEvent) -> None:\n        notice = event.notice\n\n        if notice.key == \"example.com/backup-done\":\n            path = notice.last_data.get(\"path\", \"<unknown>\")\n            logger.info(\"Backup finished at %s, occurrences: %d\", path, notice.occurrences)\n\n        elif notice.key == \"example.com/cert-rotated\":\n            self._reload_tls()\n```\n\n### Filtering by key\n\nSince all custom notices on a container arrive via the same event, **filter by `event.notice.key`** in your handler (as shown above). You can also use `event.notice.type` if you want to guard against non-custom types arriving via other (future) events.\n\n### Querying notices imperatively\n\nYou can also pull notices on demand \u2014 useful in `pebble_ready` to catch up on anything that fired before the charm started:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    container = event.workload\n    notices = container.get_notices(\n        types=[ops.pebble.NoticeType.CUSTOM],\n        keys=[\"example.com/backup-done\"],\n    )\n    for notice in notices:\n        logger.info(\"Catch-up: backup notice seen %d times\", notice.occurrences)\n```\n\n---\n\n## Triggering a Notice from the Workload\n\nInside the container, the workload (or an init script) uses the Pebble CLI:\n\n```bash\n# Basic notice\npebble notify example.com/backup-done\n\n# With key=value metadata\npebble notify example.com/backup-done path=/var/backups/db.tar.gz status=ok\n```\n\nThis is the standard pattern: **workload emits \u2192 Juju polls \u2192 charm reacts**.\n\n---\n\n## Requirements\n\n| Requirement | Minimum version |\n|---|---|\n| Juju | **3.4.0** |\n| ops library | **2.10.0** |\n\n---\n\n## Summary\n\n1. **`custom` notices** are the charm-author-facing type \u2014 workloads emit them via `pebble notify`.\n2. **`change-update`** and **`warning`** notices are Pebble-internal.\n3. In ops, observe **`self.on[\"<container>\"].pebble_custom_notice`** and dispatch on `event.notice.key`.\n4. Use **`container.get_notices()`** for imperative/catch-up queries.\n5. The `Notice` object carries timestamps, occurrence count, and arbitrary `last_data` metadata.",
+    "stop_reason": "end_turn",
+    "session_id": "1d913622-d318-46f4-a0c7-5d47a3110041",
+    "total_cost_usd": 0.6847621499999998,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4732,
+      "cache_read_input_tokens": 18043,
+      "output_tokens": 2079,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4732,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 173621,
+        "outputTokens": 16358,
+        "cacheReadInputTokens": 354965,
+        "cacheCreationInputTokens": 183595,
+        "webSearchRequests": 11,
+        "costUSD": 0.6304012499999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 2079,
+        "cacheReadInputTokens": 18043,
+        "cacheCreationInputTokens": 4732,
+        "webSearchRequests": 0,
+        "costUSD": 0.0543609,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "7d73db4b-23c8-4911-a6eb-e83cfdd42843"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:26:41+1300"
+}

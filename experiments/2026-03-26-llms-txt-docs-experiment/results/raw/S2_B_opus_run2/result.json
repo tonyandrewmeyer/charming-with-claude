@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_B_opus_run2",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 27905,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 26745,
+    "duration_api_ms": 26708,
+    "num_turns": 4,
+    "result": "No existing code yet. I'll write the handler directly. Here's a `_on_pebble_ready` implementation following the CLAUDE.md guidelines:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    \"\"\"Configure the workload container when Pebble is ready.\"\"\"\n    container = event.workload\n    if not container.can_connect():\n        event.defer()\n        return\n\n    # Get command from charm config.\n    command = str(self.config.get(\"command\", \"\"))\n    if not command:\n        self.unit.status = ops.BlockedStatus(\"'command' config option is required\")\n        return\n\n    # Get environment variables from database relation.\n    env = self._get_database_env()\n    if env is None:\n        self.unit.status = ops.WaitingStatus(\"waiting for database relation\")\n        return\n\n    # Build the Pebble layer with an HTTP health check.\n    layer = ops.pebble.Layer({\n        \"services\": {\n            self.app.name: {\n                \"override\": \"replace\",\n                \"summary\": f\"{self.app.name} service\",\n                \"command\": command,\n                \"startup\": \"enabled\",\n                \"environment\": env,\n                \"on-check-failure\": {\"health\": \"restart\"},\n            },\n        },\n        \"checks\": {\n            \"health\": {\n                \"override\": \"replace\",\n                \"level\": \"alive\",\n                \"period\": \"30s\",\n                \"timeout\": \"5s\",\n                \"threshold\": 3,\n                \"http\": {\n                    \"url\": f\"http://localhost:{self.config.get('port', 8080)}/health\",\n                },\n            },\n        },\n    })\n\n    container.add_layer(self.app.name, layer, combine=True)\n    container.replan()\n    self.unit.status = ops.ActiveStatus()\n\n\ndef _get_database_env(self) -> dict[str, str] | None:\n    \"\"\"Extract environment variables from the database relation.\n\n    Returns None if the relation is not yet available.\n    \"\"\"\n    relation = self.model.get_relation(\"database\")\n    if relation is None:\n        return None\n\n    relation_data = relation.data.get(relation.app)\n    if not relation_data:\n        return None\n\n    # Map standard database relation fields to environment variables.\n    endpoints = relation_data.get(\"endpoints\", \"\")\n    username = relation_data.get(\"username\", \"\")\n    password = relation_data.get(\"password\", \"\")\n\n    if not all((endpoints, username, password)):\n        return None\n\n    return {\n        \"DB_HOST\": endpoints,\n        \"DB_USER\": username,\n        \"DB_PASSWORD\": password,\n        \"DB_NAME\": relation_data.get(\"database\", self.app.name),\n    }\n```\n\nKey points:\n\n- **Command from config**: Reads `self.config[\"command\"]` and blocks if unset.\n- **Database env vars**: `_get_database_env` pulls credentials from the `database` relation using the standard data-platform interface fields (`endpoints`, `username`, `password`, `database`). Returns `None` if the relation isn't ready, putting the unit into `WaitingStatus`.\n- **HTTP health check**: Configured at the Pebble layer level using `checks.health.http.url`, with `on-check-failure` set to restart the service on failure. The check uses `level: alive` so Juju knows the workload is healthy.\n- **`combine=True`**: Ensures the layer merges with any existing layers rather than failing on conflict.\n\nYou'd wire this up in `__init__` with:\n\n```python\nself.framework.observe(self.on[\"workload-container\"].pebble_ready, self._on_pebble_ready)\n```\n\nAnd the corresponding `charmcraft.yaml` would need:\n\n```yaml\ncontainers:\n  workload-container:\n    resource: oci-image\n\nresources:\n  oci-image:\n    type: oci-image\n\nrequires:\n  database:\n    interface: mysql_client\n    optional: true\n```",
+    "stop_reason": "end_turn",
+    "session_id": "73bb490c-90a4-44ed-bc64-bf110ccac0fd",
+    "total_cost_usd": 0.10518300000000001,
+    "usage": {
+      "input_tokens": 5,
+      "cache_creation_input_tokens": 7794,
+      "cache_read_input_tokens": 49041,
+      "output_tokens": 1277,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7794,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 5,
+        "outputTokens": 1277,
+        "cacheReadInputTokens": 49041,
+        "cacheCreationInputTokens": 7794,
+        "webSearchRequests": 0,
+        "costUSD": 0.10518300000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "5e076d71-9182-4908-bba5-cff275181d6a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:52:40+1300"
+}

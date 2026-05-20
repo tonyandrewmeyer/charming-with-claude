@@ -1,0 +1,67 @@
+{
+  "session_id": "Q5_D_sonnet_run2",
+  "question_id": "Q5",
+  "category": "ops_api",
+  "question": "How do you use `ops.CollectStatusEvent` to set charm status? Show a complete example.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 49111,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 47805,
+    "duration_api_ms": 47180,
+    "num_turns": 2,
+    "result": "`collect_app_status` and `collect_unit_status` replace the older pattern of directly calling `self.unit.status = ...` in individual event handlers. Instead, you register handlers that call `event.add_status()`, and the framework picks the highest-priority status at the end of every hook.\n\n```python\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.install, self._on_install)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n        # Observed on the leader unit only\n        framework.observe(self.on.collect_app_status, self._on_collect_app_status)\n        # Observed on all units\n        framework.observe(self.on.collect_unit_status, self._on_collect_unit_status)\n\n        self._installed = False\n\n    def _on_install(self, event: ops.InstallEvent) -> None:\n        # Do installation work \u2014 do NOT set status here\n        self._installed = True\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        # React to config changes \u2014 do NOT set status here\n        pass\n\n    def _on_collect_app_status(self, event: ops.CollectAppStatusEvent) -> None:\n        # Called on the leader at the end of every hook.\n        # Add as many statuses as are relevant; the framework picks the\n        # highest-priority one (Blocked > Maintenance > Waiting > Active).\n        if not self._peer_relation_ready():\n            event.add_status(ops.WaitingStatus(\"waiting for peer relation\"))\n            return\n        event.add_status(ops.ActiveStatus())\n\n    def _on_collect_unit_status(self, event: ops.CollectUnitStatusEvent) -> None:\n        # Called on every unit at the end of every hook.\n        if not self._installed:\n            event.add_status(ops.MaintenanceStatus(\"installing workload\"))\n            return\n\n        config = self.model.config\n        if not config.get(\"api-key\"):\n            event.add_status(ops.BlockedStatus(\"api-key config required\"))\n            return\n\n        if not self._workload_ready():\n            event.add_status(ops.WaitingStatus(\"workload not yet ready\"))\n            return\n\n        event.add_status(ops.ActiveStatus())\n\n    def _peer_relation_ready(self) -> bool:\n        return self.model.get_relation(\"peers\") is not None\n\n    def _workload_ready(self) -> bool:\n        # Check the workload is actually running, e.g. via a health endpoint\n        return True\n```\n\nKey points:\n\n- **`collect_unit_status`** \u2014 observed on every unit; use for unit-level concerns (workload running, config valid, etc.)\n- **`collect_app_status`** \u2014 observed on the **leader only**; use for application-level concerns (peer relations, cluster health, etc.)\n- Call `event.add_status()` one or more times per handler \u2014 you don't need to pick just one\n- The framework selects the **highest-priority** status across all added statuses: `Blocked > Maintenance > Waiting > Active`\n- If two statuses share the same priority, the **first added wins**\n- Never use `ErrorStatus` or `UnknownStatus` with `add_status()`\n- You should **not** set `self.unit.status` directly in other event handlers \u2014 let `collect_unit_status` own the status",
+    "stop_reason": "end_turn",
+    "session_id": "b31f94a8-79cb-46b8-9a0c-079daa57d0da",
+    "total_cost_usd": 0.1546901,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8104,
+      "cache_read_input_tokens": 29971,
+      "output_tokens": 1103,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8104,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1103,
+        "cacheReadInputTokens": 29971,
+        "cacheCreationInputTokens": 8104,
+        "webSearchRequests": 0,
+        "costUSD": 0.055944299999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 71791,
+        "outputTokens": 1920,
+        "cacheReadInputTokens": 45623,
+        "cacheCreationInputTokens": 10234,
+        "webSearchRequests": 0,
+        "costUSD": 0.09874580000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "deaf8f50-d198-4a56-ad1a-efcf10822d48"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:55:08+1300"
+}

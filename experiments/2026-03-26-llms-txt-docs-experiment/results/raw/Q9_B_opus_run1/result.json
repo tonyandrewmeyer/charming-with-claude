@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_B_opus_run1",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 29909,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 28845,
+    "duration_api_ms": 28421,
+    "num_turns": 3,
+    "result": "## Pebble Log Forwarding to Loki\n\n### Layer YAML\n\n```yaml\nlog-targets:\n  my-loki:\n    override: replace\n    type: loki\n    location: http://loki-host:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      app: my-workload\n      env: production\n```\n\n### Protocol options (`type`)\n\n| Type | Protocol | Location format |\n|---|---|---|\n| `loki` | Grafana Loki push API | `http://<host>:3100/loki/api/v1/push` |\n| `opentelemetry` | OTLP HTTP (no path suffix) | `http://<host>:4318` |\n| `syslog` | RFC 5424 over TCP or UDP | `tcp://<host>:<port>` or `udp://<host>:<port>` |\n\n### Key fields\n\n- **`override`**: `merge` (combine with earlier layers) or `replace` (overwrite entirely).\n- **`type`**: One of `loki`, `opentelemetry`, or `syslog`.\n- **`location`**: URL of the remote log receiver, format depends on type.\n- **`services`**: List of service names, or `[all]` for every service. Prefix with `-` to exclude (e.g. `-debug-svc`).\n- **`labels`**: Key-value pairs attached to log entries. Supports `$ENV_VAR` substitution from each service's environment block.\n\n### Automatic labels\n\nEach protocol auto-adds a label identifying the source service:\n\n- **Loki**: adds `pebble_service` label\n- **OpenTelemetry**: adds `service.name` label\n- **Syslog**: sets `APP-NAME` to the service name, and uses SD-ID `pebble@28978`\n\n### Charm integration example\n\nIn a Kubernetes charm, you'd typically get the Loki URL from a `loki-push-api` relation and build the layer in your charm code:\n\n```python\ndef _pebble_layer(self, loki_url: str) -> ops.pebble.LayerDict:\n    return {\n        \"services\": {\n            \"myapp\": {\n                \"override\": \"replace\",\n                \"command\": \"/usr/bin/myapp\",\n            },\n        },\n        \"log-targets\": {\n            \"loki\": {\n                \"override\": \"replace\",\n                \"type\": \"loki\",\n                \"location\": loki_url,\n                \"services\": [\"all\"],\n            },\n        },\n    }\n```",
+    "stop_reason": "end_turn",
+    "session_id": "233053fc-eec7-4e26-92cd-661326a31fcd",
+    "total_cost_usd": 0.10911475000000001,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 8673,
+      "cache_read_input_tokens": 49447,
+      "output_tokens": 930,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8673,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 7,
+        "outputTokens": 930,
+        "cacheReadInputTokens": 49447,
+        "cacheCreationInputTokens": 8673,
+        "webSearchRequests": 0,
+        "costUSD": 0.10221475,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 4660,
+        "outputTokens": 448,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.0069,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a89d5bf1-9d8e-4d3e-af70-e07078f41a46"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:26:52+1300"
+}

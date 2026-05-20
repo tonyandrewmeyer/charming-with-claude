@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_A_opus_run1",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 93989,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 92845,
+    "duration_api_ms": 88048,
+    "num_turns": 3,
+    "result": "\n\nHere's how to add a relation between two applications and verify data was exchanged using **jubilant**:\n\n---\n\n## 1. Add a Relation with `juju.integrate()`\n\nThe method signature is:\n\n```python\njuju.integrate(app1: str, app2: str, *, via: str | None = None) -> None\n```\n\n**Basic usage (Juju resolves the endpoint):**\n\n```python\njuju.integrate('my-database', 'my-webapp')\n```\n\n**With explicit endpoints:**\n\n```python\njuju.integrate('my-database:db', 'my-webapp:db')\n```\n\n**Cross-model relation (with optional network CIDR):**\n\n```python\njuju.integrate('my-webapp', 'other-model.my-database', via='192.168.0.0/16')\n```\n\n---\n\n## 2. Wait for the Relation to Settle\n\nAfter integrating, wait for both apps to become active (or whatever status you expect):\n\n```python\nstatus = juju.wait(jubilant.all_active)\n```\n\n---\n\n## 3. Verify Data Was Exchanged\n\nThe `status` object returned by `juju.wait()` gives you access to each app's relations and status messages. A typical charm sets its status message to confirm it received relation data.\n\n```python\n# Verify the relation exists on both sides\nassert status.apps['my-database'].relations['db'][0].related_app == 'my-webapp'\nassert status.apps['my-webapp'].relations['db'][0].related_app == 'my-database'\n\n# Verify data was exchanged via the charm's status message\nassert status.apps['my-database'].app_status.message == 'relation created'\nassert status.apps['my-webapp'].app_status.message == 'relation changed: dbkey=dbvalue'\n```\n\nEach relation entry is an `AppStatusRelation` with these fields:\n\n| Field | Description |\n|---|---|\n| `related_app` | Name of the related application |\n| `interface` | The interface name (e.g. `mysql`, `pgsql`) |\n| `scope` | Relation scope (`global` or `container`) |\n\n---\n\n## Full Example in a Test\n\n```python\nimport jubilant\n\ndef test_relation_data_exchange(juju: jubilant.Juju):\n    # Deploy both applications\n    juju.deploy('my-database')\n    juju.deploy('my-webapp')\n    juju.wait(jubilant.all_active)\n\n    # Add the relation\n    juju.integrate('my-database', 'my-webapp')\n\n    # Wait for everything to settle after relation hooks fire\n    status = juju.wait(jubilant.all_active)\n\n    # Verify the relation is established\n    db_relations = status.apps['my-database'].relations['db']\n    assert any(r.related_app == 'my-webapp' for r in db_relations)\n\n    # Verify data exchange via status messages set by the charms\n    assert 'dbkey=dbvalue' in status.apps['my-webapp'].app_status.message\n```\n\n---\n\n## Removing a Relation\n\nYou can also remove a relation and verify the charms react:\n\n```python\njuju.remove_relation('my-database', 'my-webapp')\nstatus = juju.wait(jubilant.all_active)\n# Verify relation is gone\nassert 'db' not in status.apps['my-database'].relations\n```\n\nUse `force=True` if the relation is stuck:\n\n```python\njuju.remove_relation('my-database', 'my-webapp', force=True)\n```\n\n---\n\n**Key takeaway:** The typical pattern is `integrate()` \u2192 `wait()` \u2192 inspect `status.apps[name].relations` and `status.apps[name].app_status.message` to confirm the relation was created and data flowed between charms.",
+    "stop_reason": "end_turn",
+    "session_id": "940503e9-4afc-45f2-9870-1a69dd2bd1d1",
+    "total_cost_usd": 0.22699125,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 4189,
+      "cache_read_input_tokens": 18203,
+      "output_tokens": 1260,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4189,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1260,
+        "cacheReadInputTokens": 18203,
+        "cacheCreationInputTokens": 4189,
+        "webSearchRequests": 0,
+        "costUSD": 0.06681275,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 118,
+        "outputTokens": 6030,
+        "cacheReadInputTokens": 641580,
+        "cacheCreationInputTokens": 52602,
+        "webSearchRequests": 0,
+        "costUSD": 0.1601785,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c8481af0-177a-46b2-bd16-a952fa7a6859"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:03:11+1300"
+}

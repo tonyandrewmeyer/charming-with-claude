@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_A_opus_run2",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 78100,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 76928,
+    "duration_api_ms": 76525,
+    "num_turns": 4,
+    "result": "The charm already has a complete, well-structured `_on_pebble_ready` handler. Let me walk you through how it works:\n\n---\n\n## `_on_pebble_ready` \u2014 How It Works\n\nThe handler at **line 58** of `src/charm.py` orchestrates four steps to configure the workload container:\n\n### Step 1 \u2014 Validate the command from config\n\n```python\ncommand = self._get_workload_command()\nif not command:\n    self.unit.status = ops.BlockedStatus(\n        \"Config option 'workload-command' is required\"\n    )\n    return\n```\n\nThe `workload-command` config option (`charmcraft.yaml` line 34) is the shell command Pebble will exec. If the operator hasn't set it yet, the unit enters **BlockedStatus** \u2014 a clear signal that human action is needed.\n\n### Step 2 \u2014 Collect environment variables from the database relation\n\n```python\ndb_env = self._get_database_env()\nif db_env is None:\n    self.unit.status = ops.WaitingStatus(\"Waiting for database credentials\")\n    event.defer()\n    return\n```\n\n`_get_database_env()` (line 165) reads the `pgsql` relation data bag and returns one of three outcomes:\n\n| Return value | Meaning | Handler behavior |\n|---|---|---|\n| `{}` | No relation joined (DB is optional) | Proceed with empty env |\n| `None` | Relation exists but credentials incomplete | **Defer** the event |\n| `{...}` | Full credential dict (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DATABASE_URL`) | Proceed |\n\nDeferring is key: Juju will re-emit the event once more relation data arrives.\n\n### Step 3 \u2014 Build and apply the Pebble layer\n\n```python\nlayer = self._build_layer(command=command, environment=db_env)\ncontainer.add_layer(WORKLOAD_SERVICE, layer, combine=True)\n```\n\n`_build_layer()` (line 211) constructs a `Layer` with two sections:\n\n- **Service** \u2014 runs the command with `startup: enabled`, `override: replace`, and the database env vars injected.\n- **HTTP health check** \u2014 Pebble GETs `http://localhost:{http-port}{health-check-path}` every 10 s. After 3 consecutive failures it **restarts** the service (because `level: \"alive\"`).\n\nThe resulting layer dict looks like:\n\n```python\n{\n    \"services\": {\n        \"workload\": {\n            \"override\": \"replace\",\n            \"command\": command,          # from config\n            \"startup\": \"enabled\",\n            \"environment\": environment,  # from DB relation\n        }\n    },\n    \"checks\": {\n        \"workload-http-health\": {\n            \"level\": \"alive\",            # auto-restart on failure\n            \"period\": \"10s\",\n            \"timeout\": \"3s\",\n            \"threshold\": 3,\n            \"http\": {\n                \"url\": f\"http://localhost:{http_port}{health_path}\",\n            },\n        }\n    },\n}\n```\n\n`combine=True` merges this layer with any existing layers rather than replacing them entirely.\n\n### Step 4 \u2014 Start (or replan) the service\n\n```python\nif container.get_service(WORKLOAD_SERVICE).is_running():\n    container.replan()\nelse:\n    container.start(WORKLOAD_SERVICE)\n```\n\nIf the service is already running (e.g. from a previous layer), `replan()` picks up the new configuration. Otherwise, `start()` launches it for the first time. Finally the unit is set to **ActiveStatus**.\n\n---\n\n### Key design patterns used\n\n1. **Guard-clause validation** \u2014 each precondition (`command` set? credentials ready?) is checked early with an appropriate status and `return`/`defer`, keeping the happy path unindented.\n2. **Event deferral** \u2014 when the relation exists but data hasn't arrived yet, `event.defer()` ensures Juju will retry rather than silently dropping the event.\n3. **Reconciliation reuse** \u2014 the same validation + layer + replan logic lives in `_reconcile()` so that `config-changed` and `relation-changed` events share the same code path without duplicating it.\n4. **`combine=True`** \u2014 makes the handler idempotent; calling it multiple times produces the same result.",
+    "stop_reason": "end_turn",
+    "session_id": "94055cff-c5c9-48bd-8fba-d89781871cd5",
+    "total_cost_usd": 0.18688724999999998,
+    "usage": {
+      "input_tokens": 595,
+      "cache_creation_input_tokens": 6265,
+      "cache_read_input_tokens": 29461,
+      "output_tokens": 1452,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6265,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 595,
+        "outputTokens": 1452,
+        "cacheReadInputTokens": 29461,
+        "cacheCreationInputTokens": 6265,
+        "webSearchRequests": 0,
+        "costUSD": 0.09316174999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 83,
+        "outputTokens": 3496,
+        "cacheReadInputTokens": 369125,
+        "cacheCreationInputTokens": 31400,
+        "webSearchRequests": 0,
+        "costUSD": 0.09372549999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "b12da6a0-86b3-424a-8de2-bf160bdc2f2e"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:28:04+1300"
+}

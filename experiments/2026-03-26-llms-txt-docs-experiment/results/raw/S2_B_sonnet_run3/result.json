@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_B_sonnet_run3",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 37195,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 35886,
+    "duration_api_ms": 35869,
+    "num_turns": 4,
+    "result": "Here's what the handler does and how each piece works:\n\n---\n\n### `_on_pebble_ready`\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n```\n\n**1. Config \u2014 command**\n\n`CharmConfig.from_charm(self)` reads the `command` config option and wraps it in a typed dataclass. If it's empty the unit is set to `BlockedStatus` and returns early \u2014 there's nothing to run.\n\n**2. Environment \u2014 database relation**\n\n`_database_env()` reads the `database` relation's application bag for `host`, `port`, `dbname`, `username`, and `password`. It returns a fully-populated dict (including a `DATABASE_URL` convenience variable) only when *all* fields are present; otherwise it returns `{}`. This means the service starts without env vars if no database is related yet \u2014 you can tighten that gate in `_on_pebble_ready` if the database is mandatory.\n\n**3. HTTP health check**\n\nThe layer includes a `checks` block at the `ready` level:\n\n```python\n\"checks\": {\n    HEALTH_CHECK_NAME: {\n        \"override\": \"replace\",\n        \"level\": \"ready\",       # gates ops.ActiveStatus in Pebble\n        \"period\": \"10s\",\n        \"timeout\": \"3s\",\n        \"threshold\": 3,         # 3 failures before unhealthy\n        \"http\": {\"url\": \"http://localhost:8080/health\"},\n    },\n},\n```\n\n`level: ready` means Pebble won't report the container as ready until the check passes, which integrates cleanly with Juju's `ActiveStatus`.\n\n**4. `combine=True` + `replan()`**\n\n`add_layer(..., combine=True)` merges the new layer over any existing ones. `replan()` starts the service if it isn't running, or restarts it if the layer changed \u2014 idempotent and safe to call repeatedly.\n\n---\n\n### Supporting handlers\n\n| Handler | Purpose |\n|---|---|\n| `_on_database_relation_changed` | Merges updated env vars into the running service via a partial layer (`override: merge`) and replans. Defers if Pebble isn't reachable yet. |\n| `_on_database_relation_broken` | Stops the service cleanly and sets `BlockedStatus` when the database is removed. |",
+    "stop_reason": "end_turn",
+    "session_id": "0a8dd2f3-53d7-4361-ab8a-4925c8bd92f4",
+    "total_cost_usd": 0.08059949999999999,
+    "usage": {
+      "input_tokens": 5,
+      "cache_creation_input_tokens": 9080,
+      "cache_read_input_tokens": 48765,
+      "output_tokens": 2127,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9080,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 5,
+        "outputTokens": 2127,
+        "cacheReadInputTokens": 48765,
+        "cacheCreationInputTokens": 9080,
+        "webSearchRequests": 0,
+        "costUSD": 0.08059949999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4ad9f639-b575-4457-995a-4eead5859252"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T16:27:12+1300"
+}

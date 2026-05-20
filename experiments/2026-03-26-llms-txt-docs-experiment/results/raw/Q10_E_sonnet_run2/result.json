@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_E_sonnet_run2",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 74945,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 73658,
+    "duration_api_ms": 77313,
+    "num_turns": 11,
+    "result": "Here is a complete explanation with real API details sourced directly from the jubilant source code.\n\n---\n\n## Deploying a Charm and Waiting for Active/Idle with jubilant\n\n### Core API\n\n| Symbol | What it does |\n|---|---|\n| `jubilant.temp_model()` | Context manager \u2014 creates a throw-away Juju model, destroys it on exit |\n| `juju.deploy(charm, ...)` | Runs `juju deploy`; returns immediately (non-blocking) |\n| `juju.wait(ready, ...)` | Polls `juju status` until `ready(status)` returns `True` **3 times in a row** |\n| `jubilant.all_active(status, *apps)` | `True` when every app/unit workload status is `active` |\n| `jubilant.all_agents_idle(status, *apps)` | `True` when every unit **agent** status is `idle` |\n\n> **Note:** jubilant has no `all_idle`. The correct pair is `all_active` (workload) + `all_agents_idle` (agent/juju status). Together they correspond to the `active/idle` you see in `juju status`.\n\n---\n\n### Complete Test Code\n\n```python\n# conftest.py\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Provide a temporary Juju model for the whole test module.\"\"\"\n    with jubilant.temp_model() as juju:\n        juju.wait_timeout = 10 * 60  # 10 min global timeout (seconds)\n        yield juju\n```\n\n```python\n# tests/integration/test_charm.py\nimport pathlib\nimport jubilant\nimport pytest\nimport requests\n\n\nCHARM_PATH = pathlib.Path(__file__).parent.parent.parent  # root of your repo\n\n\n# ---------------------------------------------------------------------------\n# Deployment (runs once per module thanks to module-scoped fixture)\n# ---------------------------------------------------------------------------\n\n@pytest.fixture(scope=\"module\", autouse=True)\ndef deploy(juju: jubilant.Juju):\n    \"\"\"Deploy the charm under test and block until active/idle.\"\"\"\n\n    juju.deploy(\n        CHARM_PATH / \"my-charm_amd64.charm\",  # or a Charmhub name like \"nginx-ingress-integrator\"\n        app=\"my-charm\",\n        config={\"some-key\": \"some-value\"},\n        num_units=1,\n        trust=True,\n    )\n\n    # Wait for BOTH workload=active AND agent=idle\n    juju.wait(\n        lambda status: (\n            jubilant.all_active(status, \"my-charm\")\n            and jubilant.all_agents_idle(status, \"my-charm\")\n        ),\n        timeout=5 * 60,  # override global timeout for this specific wait\n    )\n\n\n# ---------------------------------------------------------------------------\n# Tests\n# ---------------------------------------------------------------------------\n\ndef test_status_is_active(juju: jubilant.Juju):\n    status = juju.status()\n    app = status.apps[\"my-charm\"]\n    assert app.status.current == \"active\", f\"Unexpected status: {app.status.current}\"\n\n\ndef test_unit_agent_is_idle(juju: jubilant.Juju):\n    status = juju.status()\n    unit = status.apps[\"my-charm\"].units[\"my-charm/0\"]\n    assert unit.agent_status.current == \"idle\"\n\n\ndef test_http_endpoint(juju: jubilant.Juju):\n    status = juju.status()\n    address = status.apps[\"my-charm\"].units[\"my-charm/0\"].address\n    response = requests.get(f\"http://{address}:8080/health\", timeout=10)\n    response.raise_for_status()\n    assert response.json()[\"status\"] == \"ok\"\n```\n\n---\n\n### Key `wait()` Parameters\n\n```python\njuju.wait(\n    ready,              # Callable[[Status], bool] \u2014 your condition\n    error=None,         # Callable[[Status], bool] \u2014 raises WaitError if True\n    delay=1.0,          # seconds between polls\n    timeout=None,       # seconds; falls back to juju.wait_timeout (default: None = unlimited)\n    successes=3,        # must be True this many times *in a row* before returning\n)\n```\n\nThe `successes=3` default prevents flapping \u2014 jubilant won't declare success on a single passing poll.\n\n---\n\n### `deploy()` Commonly Used Parameters\n\n```python\njuju.deploy(\n    charm,              # str (Charmhub name) or pathlib.Path (local .charm file)\n    app=None,           # override application name\n    channel=\"stable\",   # Charmhub channel, e.g. \"latest/edge\"\n    config={},          # charm config key/values\n    num_units=1,        # scale\n    resources={},       # resource overrides, e.g. {\"oci-image\": \"myrepo/img:tag\"}\n    revision=None,      # pin a specific Charmhub revision\n    trust=False,        # grant cloud-credential access\n    to=None,            # placement, e.g. \"lxd:0\"\n)\n```\n\n---\n\n### Waiting for Multiple Related Apps\n\n```python\njuju.deploy(\"my-charm_amd64.charm\", app=\"my-charm\")\njuju.deploy(\"postgresql\", channel=\"14/stable\", trust=True)\n\njuju.integrate(\"my-charm:db\", \"postgresql:database\")\n\njuju.wait(\n    lambda status: (\n        jubilant.all_active(status, \"my-charm\", \"postgresql\")\n        and jubilant.all_agents_idle(status, \"my-charm\", \"postgresql\")\n    )\n)\n```\n\nWhen `*apps` are passed to `all_active` / `all_agents_idle`, only those apps are checked \u2014 any other apps in the model are ignored.",
+    "stop_reason": "end_turn",
+    "session_id": "67f8d18f-af4b-4f45-a14b-186da3dc9728",
+    "total_cost_usd": 0.13916855,
+    "usage": {
+      "input_tokens": 539,
+      "cache_creation_input_tokens": 4951,
+      "cache_read_input_tokens": 77771,
+      "output_tokens": 2820,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4951,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 539,
+        "outputTokens": 2820,
+        "cacheReadInputTokens": 77771,
+        "cacheCreationInputTokens": 4951,
+        "webSearchRequests": 0,
+        "costUSD": 0.08581455,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 39709,
+        "outputTokens": 2729,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.053354000000000006,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "40e7f2a0-3cd4-4428-9e99-9b5dc65d119b"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:47:26+1300"
+}

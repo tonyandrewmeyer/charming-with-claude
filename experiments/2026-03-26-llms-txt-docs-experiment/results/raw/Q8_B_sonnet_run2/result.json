@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_B_sonnet_run2",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 31256,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 30131,
+    "duration_api_ms": 28445,
+    "num_turns": 2,
+    "result": "## Pebble Change/Task Model\n\n**Changes** are trackable operations (e.g. starting/stopping services, `exec` calls). Each Change contains one or more **Tasks** \u2014 the individual steps that make up the operation.\n\n### Key attributes on a `Change`\n\n| Attribute | Description |\n|---|---|\n| `id` | `ChangeID` used to reference it |\n| `kind` | Operation type: `\"start\"`, `\"stop\"`, `\"restart\"`, `\"exec\"`, etc. |\n| `status` | Current `ChangeStatus` |\n| `ready` | `bool` \u2014 `True` when complete (success or error) |\n| `tasks` | List of `Task` objects |\n\n### Change statuses\n\n`DO` \u2192 `DOING` \u2192 `DONE` (success path)  \n`DOING` \u2192 `ERROR` (failure)  \n`ABORT` \u2192 `UNDO` \u2192 `UNDOING` (rollback)  \n`HOLD`, `WAIT` (paused/awaiting external event)\n\n### Checking completion\n\n**Blocking wait** \u2014 the main approach for long-running operations:\n\n```python\nchange_id = container.start_services([\"myservice\"])\nchange = container.wait_change(change_id, timeout=30.0)\nif change.status == ops.pebble.ChangeStatus.ERROR:\n    raise RuntimeError(f\"Service failed to start: {change.err}\")\n```\n\n**Non-blocking poll** \u2014 check status without waiting:\n\n```python\nchange = container.get_change(change_id)\nif change.ready:\n    ...\n```\n\n**List in-progress changes:**\n\n```python\nchanges = container.get_changes(select=ops.pebble.ChangeState.IN_PROGRESS)\n```\n\n### High-level service methods\n\n`start_services()`, `stop_services()`, and `restart_services()` return a `ChangeID` but also accept a `timeout` parameter \u2014 if provided, they block internally and raise `ops.pebble.ChangeError` on failure, so you often don't need to call `wait_change` manually:\n\n```python\ncontainer.start_services([\"myservice\"], timeout=30.0)\n```\n\nFor `exec()`, the returned `ExecProcess` has its own `.wait()` / `.wait_output()` methods rather than using `wait_change` directly.",
+    "stop_reason": "end_turn",
+    "session_id": "c80aac3f-5bd4-4e0f-8f8e-134813eb5fe9",
+    "total_cost_usd": 0.1059944,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8288,
+      "cache_read_input_tokens": 29884,
+      "output_tokens": 846,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8288,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 846,
+        "cacheReadInputTokens": 29884,
+        "cacheCreationInputTokens": 8288,
+        "webSearchRequests": 0,
+        "costUSD": 0.0527532,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 34767,
+        "outputTokens": 1223,
+        "cacheReadInputTokens": 8567,
+        "cacheCreationInputTokens": 9202,
+        "webSearchRequests": 0,
+        "costUSD": 0.053241199999999995,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "84bc745e-eee8-47a7-8f94-858235d5be9a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:08:20+1300"
+}

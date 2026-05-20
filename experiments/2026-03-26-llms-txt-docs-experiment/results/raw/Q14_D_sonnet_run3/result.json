@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_D_sonnet_run3",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 277779,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 276166,
+    "duration_api_ms": 317137,
+    "num_turns": 9,
+    "result": "Here's what the TLS certificates library (`charmlibs.interfaces.tls_certificates`) provides:\n\n## Events\n\n### Requirer side (`TLSCertificatesRequiresV4`)\n\n| Event | Fires when |\n|---|---|\n| `certificate_available` | The provider has issued a certificate for a submitted CSR. Carries `certificate`, `certificate_signing_request`, `ca`, and `chain` (use `.chain_as_pem()` for the full PEM chain). |\n| `certificate_denied` | The provider rejected the CSR. Carries `certificate_signing_request` and an `error` (`CertificateError`) with `code`, `name`, `message`, `reason`, `provider`, and `endpoint`. |\n\n### Provider side (`TLSCertificatesProvidesV4`)\n\nThe provider side does not emit custom events \u2014 it exposes methods the provider charm calls directly:\n\n- `get_certificate_requests()` \u2014 all submitted CSRs\n- `get_outstanding_certificate_requests()` \u2014 CSRs not yet fulfilled\n- `set_relation_certificate()` \u2014 issue a signed certificate\n- `set_relation_error()` \u2014 report a failure with an error code\n- `revoke_all_certificates()` \u2014 revoke everything\n\n## When to request a new certificate\n\n**Initial request:** Pass `certificate_requests` (a list of `CertificateRequestAttributes`) when constructing `TLSCertificatesRequiresV4`. The library submits CSRs automatically when the relation is established.\n\n**Automatic renewal:** The `renewal_relative_time` parameter (default `0.9`) controls when renewal is triggered \u2014 at 90% of the certificate's validity period elapsed. The library handles this automatically.\n\n**On config/state changes:** Pass `refresh_events` to `TLSCertificatesRequiresV4`. These are Ops `BoundEvent`s that, when fired, cause the library to re-sync relation data (regenerating CSRs if the attributes have changed). For example, pass `[self.on.config_changed]` if the SANs depend on charm config.\n\n**Manual renewal:** Call `.renew_certificate()` on a `ProviderCertificate` object to force renewal before the automatic threshold.\n\n**After `certificate_denied`:** Inspect the error code, fix the underlying issue (e.g., adjust the CSR attributes), then re-submit.",
+    "stop_reason": "end_turn",
+    "session_id": "0be31e49-e8b5-456d-8259-01cccb413951",
+    "total_cost_usd": 0.8669408000000004,
+    "usage": {
+      "input_tokens": 18,
+      "cache_creation_input_tokens": 13985,
+      "cache_read_input_tokens": 160020,
+      "output_tokens": 1792,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 13985,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 18,
+        "outputTokens": 1792,
+        "cacheReadInputTokens": 160020,
+        "cacheCreationInputTokens": 13985,
+        "webSearchRequests": 0,
+        "costUSD": 0.12738375,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 376375,
+        "outputTokens": 19323,
+        "cacheReadInputTokens": 592083,
+        "cacheCreationInputTokens": 109887,
+        "webSearchRequests": 7,
+        "costUSD": 0.7395570500000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0863c240-09d4-4041-ae0c-357ecadb241d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:46:21+1300"
+}

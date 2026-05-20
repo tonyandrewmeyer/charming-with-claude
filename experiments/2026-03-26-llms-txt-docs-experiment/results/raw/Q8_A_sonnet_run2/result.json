@@ -1,0 +1,57 @@
+{
+  "session_id": "Q8_A_sonnet_run2",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 26632,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 25449,
+    "duration_api_ms": 25440,
+    "num_turns": 1,
+    "result": "## Pebble Change/Task Model\n\nPebble uses a **Change/Task** model to track long-running operations asynchronously.\n\n### Core Concepts\n\n- **Task**: A single unit of work (e.g., starting one service). Has its own status, progress, and log.\n- **Change**: A group of one or more related Tasks that together accomplish a higher-level operation (e.g., starting multiple services). Changes are the primary thing you track.\n\nEvery mutating Pebble operation (starting/stopping services, executing commands, etc.) returns a **Change ID** (a string like `\"1\"`, `\"2\"`, etc.).\n\n### Change/Task Statuses\n\n| Status | Meaning |\n|---|---|\n| `\"Do\"` | Waiting to run |\n| `\"Doing\"` | Currently running |\n| `\"Done\"` | Completed successfully |\n| `\"Error\"` | Failed |\n| `\"Undo\"` | Being rolled back |\n| `\"Undone\"` | Rolled back |\n| `\"Hold\"` | Held (won't run) |\n| `\"Abort\"` | Aborted |\n\n---\n\n### How to Check if a Long-Running Operation Has Completed\n\nYou get a `ChangeID` back from async operations, then poll or wait on it using the Pebble client:\n\n#### Option 1: **Wait (blocking)** \u2014 `client.wait_change()`\nThe simplest approach. Blocks until the change is done (or errors):\n\n```python\nfrom ops import pebble\n\ndef _on_some_event(self, event):\n    container = self.unit.get_container(\"myapp\")\n    client = container.get_plan()  # or use self._get_pebble_client()\n\n    # Start services asynchronously\n    change_id = container.pebble.start_services([\"myservice\"], timeout=0)\n    # timeout=0 means \"fire and forget, return change ID immediately\"\n\n    # Block until the change completes\n    change = container.pebble.wait_change(change_id)\n\n    if change.err:\n        raise RuntimeError(f\"Service start failed: {change.err}\")\n    # Change is done!\n```\n\n#### Option 2: **Poll (non-blocking)** \u2014 `client.get_change()`\nCheck the status without blocking \u2014 useful if you want to defer and retry:\n\n```python\nchange_id = container.pebble.start_services([\"myservice\"], timeout=0)\n\n# Later, poll the change\nchange = container.pebble.get_change(change_id)\n\nif change.status == pebble.ChangeStatus.DOING:\n    # Still in progress \u2014 defer the event and check again later\n    event.defer()\n    return\nelif change.status == pebble.ChangeStatus.ERROR:\n    raise RuntimeError(f\"Failed: {change.err}\")\nelif change.status == pebble.ChangeStatus.DONE:\n    # Success!\n    pass\n```\n\n#### Option 3: **Synchronous helpers** (default `timeout` > 0)\nMost Pebble client methods accept a `timeout` parameter. By default they block until done:\n\n```python\n# This blocks until services are started (or timeout is reached)\ncontainer.pebble.start_services([\"myservice\"])  # default timeout=30s\n```\n\n---\n\n### Key `Change` Object Attributes\n\n```python\nchange = container.pebble.get_change(change_id)\n\nchange.id       # str \u2014 the change ID\nchange.kind     # str \u2014 e.g. \"start\", \"stop\", \"exec\"\nchange.status   # pebble.ChangeStatus enum\nchange.ready    # bool \u2014 True if Done, Error, or terminal state\nchange.err      # Optional[str] \u2014 error message if status is Error\nchange.tasks    # List[Task] \u2014 individual tasks within the change\nchange.summary  # str \u2014 human-readable description\n```\n\n### `Task` Object Attributes\n\n```python\nfor task in change.tasks:\n    task.id        # str\n    task.status    # pebble.TaskStatus\n    task.summary   # str\n    task.progress  # pebble.TaskProgress (done/total)\n    task.log       # List[str] \u2014 log lines from this task\n```\n\n---\n\n### Typical Pattern in a Charm\n\n```python\ndef _on_pebble_ready(self, event):\n    container = event.workload\n    container.add_layer(\"myapp\", self._pebble_layer, combine=True)\n\n    # start_services() with default timeout blocks until complete\n    try:\n        container.pebble.start_services([\"myapp\"])\n    except pebble.ChangeError as e:\n        self.unit.status = ops.BlockedStatus(f\"Failed to start: {e}\")\n        return\n\n    self.unit.status = ops.ActiveStatus(\"Ready\")\n```\n\nThe **`pebble.ChangeError`** exception is raised automatically when a waited/synchronous operation fails, so you don't always need to inspect the change status manually.",
+    "stop_reason": "end_turn",
+    "session_id": "b9584604-f19f-4973-94ed-4515a2248a4e",
+    "total_cost_usd": 0.025746150000000002,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1069,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1279,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1069,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1279,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1069,
+        "webSearchRequests": 0,
+        "costUSD": 0.025746150000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "55d3d788-d343-4982-80ef-0c4644f64fb1"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:05:38+1300"
+}

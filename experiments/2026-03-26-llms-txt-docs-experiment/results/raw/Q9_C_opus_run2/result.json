@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_C_opus_run2",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 41480,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 40164,
+    "duration_api_ms": 39843,
+    "num_turns": 4,
+    "result": "Here's a complete guide to configuring Pebble log forwarding to Loki:\n\n---\n\n## Layer YAML Configuration\n\nLog forwarding is configured in the `log-targets` section of a Pebble layer:\n\n```yaml\nlog-targets:\n  my-loki-target:\n    override: merge\n    type: loki\n    location: http://loki-host:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      app: my-charm\n      environment: production\n```\n\n### Field Reference\n\n| Field | Required | Description |\n|---|---|---|\n| `override` | Yes | `merge` (combine with existing definitions) or `replace` (overwrite entirely) |\n| `type` | Yes | The log forwarding protocol (see below) |\n| `location` | Yes | The remote endpoint URL |\n| `services` | No | List of services whose logs to forward. If omitted, **no logs are forwarded**. |\n| `labels` | No | Custom key-value labels attached to each log entry. Supports `$ENV_VAR` interpolation. |\n\nPebble automatically adds a **`pebble_service`** label to all forwarded logs containing the originating service name.\n\n---\n\n## Protocol Options (`type`)\n\nPebble supports three log forwarding protocols:\n\n### 1. `loki` \u2014 Grafana Loki\nPush logs to a Loki instance using its HTTP API:\n```yaml\ntype: loki\nlocation: http://loki-host:3100/loki/api/v1/push\n```\n\n### 2. `syslog` \u2014 Syslog (TCP or UDP)\nForward logs via the standard syslog protocol. Specify the transport in the URL scheme:\n```yaml\n# TCP\ntype: syslog\nlocation: tcp://syslog-host:514\n\n# UDP\ntype: syslog\nlocation: udp://syslog-host:514\n```\n\n### 3. `opentelemetry` \u2014 OpenTelemetry Collector\nPush logs to an OpenTelemetry Collector's OTLP HTTP endpoint. Note: only include the host and port \u2014 **not** the API path:\n```yaml\ntype: opentelemetry\nlocation: http://otel-collector:4318\n```\n\n---\n\n## Service Selection\n\nThe `services` field controls which services' logs are forwarded:\n\n```yaml\n# Forward logs from all services\nservices: [all]\n\n# Forward only specific services\nservices: [nginx, webapp]\n\n# Forward all services EXCEPT specific ones\nservices: [all, -debug-svc, -noisy-svc]\n```\n\n> **Important:** If `services` is omitted entirely, no logs are forwarded for that target.\n\n---\n\n## Charm Example (Python Operator)\n\nIn a Kubernetes charm, you'd typically configure log forwarding in the workload container's Pebble layer:\n\n```python\ndef _pebble_layer(self) -> ops.pebble.LayerDict:\n    return {\n        \"services\": {\n            \"my-app\": {\n                \"override\": \"replace\",\n                \"command\": \"/usr/bin/my-app\",\n            },\n        },\n        \"log-targets\": {\n            \"loki\": {\n                \"override\": \"replace\",\n                \"type\": \"loki\",\n                \"location\": self._loki_push_api_url,\n                \"services\": [\"all\"],\n                \"labels\": {\n                    \"juju_model\": self.model.name,\n                    \"juju_unit\": self.unit.name,\n                },\n            },\n        },\n    }\n```\n\nThe `location` URL is typically obtained from a relation with the `loki-push-api` interface (e.g., via the `cos-lite` bundle's Loki charm).",
+    "stop_reason": "end_turn",
+    "session_id": "94ddf745-7aad-47da-87fb-17c276818eb3",
+    "total_cost_usd": 0.071766,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 2508,
+      "cache_read_input_tokens": 39494,
+      "output_tokens": 1296,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2508,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 1296,
+        "cacheReadInputTokens": 39494,
+        "cacheCreationInputTokens": 2508,
+        "webSearchRequests": 0,
+        "costUSD": 0.06786199999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 1954,
+        "outputTokens": 390,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.003904,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "28c6e379-4b8e-46fb-9722-c070bf67be47"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:07:49+1300"
+}

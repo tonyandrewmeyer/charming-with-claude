@@ -1,0 +1,67 @@
+{
+  "session_id": "Q4_E_sonnet_run1",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 116852,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 115720,
+    "duration_api_ms": 163940,
+    "num_turns": 2,
+    "result": "Great question! These two approaches produce meaningfully different outcomes for both the charm and the operator. Here's the breakdown:\n\n---\n\n## `ActionEvent.fail()` vs Raising an Exception\n\n### `event.fail(message)`\n\n- **Execution continues** \u2014 `fail()` does *not* stop the handler. You must explicitly `return` afterwards.\n- **Controlled failure message** \u2014 the message is shown directly in `juju run` output, giving the operator clear feedback.\n- **Results are preserved** \u2014 anything set via `event.set_results()` before calling `fail()` is still delivered.\n- **Signals an expected, graceful failure** \u2014 e.g. a precondition wasn't met, a resource was unavailable.\n\n```python\ndef _on_backup_action(self, event: ops.ActionEvent):\n    if not self._is_ready():\n        event.fail(\"Service is not ready; cannot back up.\")\n        return  # \u2190 required, fail() doesn't stop execution\n    event.set_results({\"path\": self._do_backup()})\n```\n\n---\n\n### Raising an Unhandled Exception\n\n- **Execution stops immediately** \u2014 the traceback unwinds naturally.\n- **Less visible to the operator** \u2014 the traceback goes to `juju debug-log`, *not* to the `juju run` output. The operator sees a generic failure with no useful message unless they dig into the logs.\n- **Results may be lost** \u2014 anything set via `set_results()` may not be delivered cleanly.\n- **Signals an unexpected bug** \u2014 something went wrong that the charm didn't anticipate.\n\n```python\ndef _on_backup_action(self, event: ops.ActionEvent):\n    # If this raises, the operator sees a cryptic failure in juju run\n    # and must check juju debug-log for the traceback\n    result = self._do_backup()\n    event.set_results({\"path\": result})\n```\n\n---\n\n### Summary Table\n\n| | `event.fail()` | Unhandled Exception |\n|---|---|---|\n| **Stops execution?** | No (must `return` manually) | Yes |\n| **Failure message in `juju run`?** | \u2705 Yes, your message | \u274c No, goes to `debug-log` |\n| **`set_results()` data delivered?** | \u2705 Yes | \u26a0\ufe0f Possibly not |\n| **Appropriate for** | Expected/graceful failures | Unexpected bugs |\n| **Operator experience** | Clear, actionable | Requires `juju debug-log` to debug |\n\n---\n\n### Rule of Thumb\n\n> Use `event.fail()` for **anything you anticipate** (bad params, wrong state, external service down). Let exceptions propagate only for **genuine programming errors** \u2014 and even then, consider catching them and calling `event.fail()` with a helpful message so operators aren't left in the dark.\n\nAlso note: **action events cannot be deferred** (`event.defer()` raises a `RuntimeError`), since operators are waiting synchronously for the result.",
+    "stop_reason": "end_turn",
+    "session_id": "851d18e2-a12b-4558-b829-1067a782c12d",
+    "total_cost_usd": 0.60841085,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 2720,
+      "cache_read_input_tokens": 18041,
+      "output_tokens": 1049,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2720,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1049,
+        "cacheReadInputTokens": 18041,
+        "cacheCreationInputTokens": 2720,
+        "webSearchRequests": 0,
+        "costUSD": 0.0313653,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 138892,
+        "outputTokens": 10151,
+        "cacheReadInputTokens": 209723,
+        "cacheCreationInputTokens": 197141,
+        "webSearchRequests": 12,
+        "costUSD": 0.57704555,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c0483cc1-9d9d-4274-9188-446ce9b96baa"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:45:30+1300"
+}

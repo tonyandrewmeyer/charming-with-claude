@@ -1,0 +1,67 @@
+{
+  "session_id": "Q13_D_sonnet_run3",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "D",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 184081,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 182902,
+    "duration_api_ms": 176348,
+    "num_turns": 8,
+    "result": "Here's how to use the ingress library on the requires side. The standard library is `charms.traefik_k8s.v2.ingress`.\n\n## 1. Fetch the library\n\n```bash\ncharmcraft fetch-lib charms.traefik_k8s.v2.ingress\n```\n\n## 2. Declare the relation in `charmcraft.yaml`\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n    optional: true\n```\n\n## 3. Implement in `src/charm.py`\n\n```python\nimport charms.traefik_k8s.v2.ingress as traefiklib\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        self.ingress = traefiklib.IngressPerAppRequirer(\n            self,\n            port=8080,\n            # Optional overrides:\n            # scheme=\"https\",\n            # strip_prefix=True,\n            # redirect_https=True,\n        )\n\n        framework.observe(self.ingress.on.ready, self._on_ingress_ready)\n        framework.observe(self.ingress.on.revoked, self._on_ingress_revoked)\n\n    def _on_ingress_ready(self, event: traefiklib.IngressPerAppReadyEvent) -> None:\n        logger.info(\"Ingress URL: %s\", event.url)\n\n    def _on_ingress_revoked(self, event: traefiklib.IngressPerAppRevokedEvent) -> None:\n        logger.info(\"Ingress revoked\")\n```\n\n## Key points\n\n- **`port`** can be passed at construction time (most common) or deferred to `provide_ingress_requirements(port=...)` if the port is dynamic.\n- **`self.ingress.url`** is a property returning the current URL (or `None` if not yet ready). Use this when you need the URL outside of event handlers, e.g. in `_on_config_changed`.\n- **`on.ready`** fires when the URL first becomes available *and* whenever it changes.\n- **`on.revoked`** fires when the relation is removed \u2014 clean up any stored URL here.\n- The `limit: 1` constraint is conventional; a service typically only needs one ingress.\n- Always mark the relation `optional: true` so the charm stays functional without an ingress relation.",
+    "stop_reason": "end_turn",
+    "session_id": "657e16f4-444b-409b-91f0-9c9601638c08",
+    "total_cost_usd": 0.3722876500000001,
+    "usage": {
+      "input_tokens": 16,
+      "cache_creation_input_tokens": 12643,
+      "cache_read_input_tokens": 160129,
+      "output_tokens": 1722,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 12643,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 16,
+        "outputTokens": 1722,
+        "cacheReadInputTokens": 160129,
+        "cacheCreationInputTokens": 12643,
+        "webSearchRequests": 0,
+        "costUSD": 0.12132795000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 125197,
+        "outputTokens": 10254,
+        "cacheReadInputTokens": 367952,
+        "cacheCreationInputTokens": 22158,
+        "webSearchRequests": 1,
+        "costUSD": 0.2509597,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "e5bd3faf-3932-41ba-a3ae-ad18dc62ebe9"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:24:12+1300"
+}

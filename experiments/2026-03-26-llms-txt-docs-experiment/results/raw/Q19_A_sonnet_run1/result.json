@@ -1,0 +1,57 @@
+{
+  "session_id": "Q19_A_sonnet_run1",
+  "question_id": "Q19",
+  "category": "charmcraft",
+  "question": "How do you configure resource declarations for OCI images in `charmcraft.yaml`?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 20365,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 18632,
+    "duration_api_ms": 18623,
+    "num_turns": 1,
+    "result": "## Configuring OCI Image Resources in `charmcraft.yaml`\n\nIn Juju charms, OCI image resources are declared under the `resources` key in `charmcraft.yaml`. Here's a full breakdown:\n\n---\n\n### Basic Declaration\n\n```yaml\nresources:\n  my-image:\n    type: oci-image\n    description: \"The OCI image for the main workload container\"\n    upstream-source: ubuntu/ubuntu:22.04\n```\n\n### Key Fields\n\n| Field | Required | Description |\n|---|---|---|\n| `type` | \u2705 Yes | Must be `oci-image` for container images |\n| `description` | \u274c No | Human-readable description of the resource |\n| `upstream-source` | \u274c No | Default image to pull (registry path); used by `charmcraft` during builds and as a fallback |\n\n---\n\n### Multiple OCI Image Resources\n\nYou can declare multiple images if your charm manages more than one container:\n\n```yaml\nresources:\n  app-image:\n    type: oci-image\n    description: \"Primary application image\"\n    upstream-source: ghcr.io/canonical/myapp:latest\n\n  sidecar-image:\n    type: oci-image\n    description: \"Sidecar proxy image\"\n    upstream-source: docker.io/envoyproxy/envoy:v1.28.0\n```\n\n---\n\n### Referencing Resources in `containers` (Kubernetes Charms)\n\nFor **sidecar/Kubernetes charms**, OCI image resources must be linked to containers via the `containers` key:\n\n```yaml\ncontainers:\n  myapp:\n    resource: app-image   # Must match a resource name declared above\n    mounts:\n      - storage: data\n        location: /var/lib/myapp\n\nresources:\n  app-image:\n    type: oci-image\n    description: \"OCI image for the myapp container\"\n    upstream-source: ghcr.io/canonical/myapp:1.0.0\n```\n\n> \u26a0\ufe0f The `resource` field in `containers` must exactly match a key under `resources`.\n\n---\n\n### Fetching the Resource in Charm Code\n\nIn your charm's Python code, retrieve the image details using the `ops` library:\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(self.on.install, self._on_install)\n\n    def _on_install(self, event):\n        # Get the OCI image resource reference\n        image_info = self.model.resources.fetch(\"app-image\")\n        # For Kubernetes charms, image details come via the pod spec or pebble\n```\n\nFor **Kubernetes/sidecar charms**, the image is automatically injected into the container \u2014 you don't manually fetch it; `ops` and Juju handle it via the `containers` binding.\n\n---\n\n### Deploying with a Custom Image Override\n\nWhen deploying or refreshing, operators can override the default image:\n\n```bash\n# At deploy time\njuju deploy ./my-charm.charm \\\n  --resource app-image=ghcr.io/myorg/myapp:custom-tag\n\n# After deployment\njuju attach-resource my-app app-image=ghcr.io/myorg/myapp:new-tag\n```\n\n---\n\n### Key Rules to Remember\n\n- **`type: oci-image`** is the only valid type for container images (vs `type: file` for binary/file resources).\n- **`upstream-source`** is the image reference used as a default; it's pulled during `charmcraft pack` for air-gapped or CI scenarios.\n- For **Kubernetes charms**, every entry in `containers` **must** reference a corresponding `oci-image` resource.\n- For **machine charms**, OCI image resources can still be declared and fetched manually (e.g., to run Docker/Podman workloads), but there is no automatic container binding.",
+    "stop_reason": "end_turn",
+    "session_id": "aa2f1451-b31c-4286-ba12-67fe379fd18c",
+    "total_cost_usd": 0.02188365,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1063,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1023,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1063,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1023,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1063,
+        "webSearchRequests": 0,
+        "costUSD": 0.02188365,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "f258221e-8a30-4abe-ab3d-713423731d63"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:29:46+1300"
+}

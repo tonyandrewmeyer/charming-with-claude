@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_E_sonnet_run2",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 104203,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 103082,
+    "duration_api_ms": 144078,
+    "num_turns": 2,
+    "result": "## `charmlibs.pathops` \u2014 Managing Files in Workload Containers\n\n### What is `charmlibs.pathops`?\n\n`charmlibs.pathops` is a Canonical charm library that provides a **unified, `pathlib`-like interface** for filesystem operations in Juju charms. Its key value is abstracting away the difference between:\n\n| Class | Where it operates |\n|---|---|\n| `LocalPath` | The charm container or machine filesystem |\n| `ContainerPath` | A Pebble-managed **workload** container (K8s charms) |\n\nBoth implement the `PathProtocol` interface, so you can write code that works against either without changes.\n\nInstall it with:\n```bash\npip install charmlibs-pathops\n```\n\n---\n\n### `ContainerPath`\n\n`ContainerPath` wraps the **Pebble file API** behind a `pathlib.Path`-like object. You construct one by providing an absolute path and an `ops.Container` instance:\n\n```python\nfrom charmlibs import pathops\n\ncontainer = self.unit.get_container(\"myapp\")\nroot = pathops.ContainerPath(\"/\", container=container)\n\n# Navigate like pathlib\nconfig_path = root / \"etc\" / \"myapp\" / \"config.yaml\"\n```\n\n**Key behaviours:**\n- **Absolute paths only** \u2014 relative paths raise `RelativePathError` (Pebble requires absolute paths).\n- **Connectivity errors** \u2014 raises `PebbleConnectionError` if the container isn't reachable yet (guard with `container.can_connect()`).\n- **No recursive glob** \u2014 the `**` wildcard is unsupported.\n- Supports `exists()`, `is_file()`, `is_dir()`, `read_text()`, `read_bytes()`, `write_text()`, `write_bytes()`, `mkdir()`, `iterdir()`, `owner()`, `group()`, and path manipulation (`joinpath`, `with_name`, `with_suffix`, etc.).\n\n---\n\n### `ensure_contents`\n\n`ensure_contents()` is a **declarative, idempotent** helper that ensures a file has the right content, permissions, and ownership \u2014 all in one call:\n\n```python\nchanged = pathops.ensure_contents(\n    path,           # ContainerPath (or LocalPath) target\n    source,         # str, bytes, or file-like object\n    *,\n    mode=0o644,     # Unix permission bits\n    user=None,      # Owner username (optional)\n    group=None,     # Owner group (optional)\n)\n# Returns True if anything changed, False if already correct\n```\n\nIt compares the current on-disk state to the desired state and **only writes when something differs** (content, permissions, or ownership). The boolean return value is the key to avoiding unnecessary service restarts.\n\n---\n\n### Putting It Together \u2014 A Complete Example\n\n```python\nimport ops\nfrom charmlibs import pathops\n\n\nclass MyK8sCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(self.on.myapp_pebble_ready, self._on_pebble_ready)\n        self.framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _container_root(self) -> pathops.ContainerPath:\n        container = self.unit.get_container(\"myapp\")\n        return pathops.ContainerPath(\"/\", container=container)\n\n    def _charm_files(self) -> pathops.LocalPath:\n        # Files bundled inside the charm package\n        return pathops.LocalPath(self.charm_dir)\n\n    def _configure(self) -> bool:\n        \"\"\"Push config files; returns True if anything changed.\"\"\"\n        container = self.unit.get_container(\"myapp\")\n        if not container.can_connect():\n            return False\n\n        root = self._container_root()\n        charm = self._charm_files()\n\n        # Render config from a bundled template\n        config_content = (charm / \"templates\" / \"config.yaml\").read_text()\n        config_content = config_content.replace(\n            \"{{ log_level }}\", self.config[\"log-level\"]\n        )\n\n        changed = pathops.ensure_contents(\n            path=root / \"etc\" / \"myapp\" / \"config.yaml\",\n            source=config_content,\n            mode=0o640,\n            user=\"myapp\",\n            group=\"myapp\",\n        )\n        return changed\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent):\n        self._configure()\n        self._start_service()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent):\n        changed = self._configure()\n        if changed:\n            # Only restart when something actually changed\n            container = self.unit.get_container(\"myapp\")\n            if container.can_connect():\n                container.restart(\"myapp\")\n\n    def _start_service(self):\n        container = self.unit.get_container(\"myapp\")\n        container.add_layer(\"myapp\", self._pebble_layer(), combine=True)\n        container.replan()\n\n    def _pebble_layer(self) -> ops.pebble.LayerDict:\n        return {\n            \"services\": {\n                \"myapp\": {\n                    \"override\": \"replace\",\n                    \"command\": \"/usr/bin/myapp\",\n                    \"startup\": \"enabled\",\n                }\n            }\n        }\n```\n\n---\n\n### Why Use This Over Raw Pebble API?\n\n| Raw Pebble (`container.push(...)`) | `charmlibs.pathops` |\n|---|---|\n| Always writes, even if unchanged | Only writes on diff \u2192 idempotent |\n| Separate calls for content, mode, ownership | One call with `ensure_contents` |\n| Pebble-specific code | Same code works locally and in containers via `PathProtocol` |\n| Manual change detection | Boolean return value does it for you |\n\nThe combination of **`ContainerPath`** (for navigation) and **`ensure_contents`** (for state enforcement) is the idiomatic Canonical pattern for safely managing workload configuration files in Kubernetes charms.",
+    "stop_reason": "end_turn",
+    "session_id": "b511ad4d-8eae-4936-aecc-e27ee5f6d370",
+    "total_cost_usd": 0.5098360500000001,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 2532,
+      "cache_read_input_tokens": 19136,
+      "output_tokens": 1905,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2532,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1905,
+        "cacheReadInputTokens": 19136,
+        "cacheCreationInputTokens": 2532,
+        "webSearchRequests": 0,
+        "costUSD": 0.043828799999999994,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 57202,
+        "outputTokens": 8861,
+        "cacheReadInputTokens": 187015,
+        "cacheCreationInputTokens": 172639,
+        "webSearchRequests": 13,
+        "costUSD": 0.46600725000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "57c8f561-d0be-4701-9746-0e0d70c138ef"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:12:34+1300"
+}

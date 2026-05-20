@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_E_sonnet_run3",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 77417,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 76101,
+    "duration_api_ms": 78603,
+    "num_turns": 3,
+    "result": "Here is a comprehensive guide to configuring Pebble log forwarding to Loki in a Juju charm.\n\n---\n\n## Pebble Log Forwarding to Loki\n\n### Layer YAML Structure\n\nThe `log-targets` section is added to a Pebble layer, alongside `services`:\n\n```yaml\nlog-targets:\n  loki-prod:\n    override: merge\n    type: loki\n    location: http://10.0.0.5:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      env: production\n      app: $JUJU_APPLICATION_NAME   # interpolated from the service's env vars\n      unit: $JUJU_UNIT_NAME\n```\n\n---\n\n### Full Working Example (Charm Layer)\n\n```yaml\nsummary: Application with Loki log forwarding\n\nservices:\n  myapp:\n    override: replace\n    command: /usr/bin/myapp --config /etc/myapp.yaml\n    startup: enabled\n    environment:\n      JUJU_UNIT_NAME: myapp/0\n      JUJU_APPLICATION_NAME: myapp\n\nlog-targets:\n  loki-logging:\n    override: merge\n    type: loki\n    location: http://loki.example.com:3100/loki/api/v1/push\n    services:\n      - myapp\n    labels:\n      pebble_layer: charm\n      juju_unit: $JUJU_UNIT_NAME\n      juju_app: $JUJU_APPLICATION_NAME\n```\n\n---\n\n### Protocol / Type Options\n\n| `type` | `location` format | Notes |\n|---|---|---|\n| `loki` | `http://<host>:3100/loki/api/v1/push` | Must include the **full push API path** |\n| `opentelemetry` | `http://<host>:4318` | TCP port only \u2014 **no** API path suffix |\n| `syslog` | `tcp://<host>:<port>` or `udp://<host>:<port>` | Choose TCP or UDP |\n\n---\n\n### Key Field Reference\n\n#### `override` (required)\nControls how this definition merges with same-named targets in other layers:\n- **`merge`** \u2014 appends `services` lists and merges `labels` with existing definitions\n- **`replace`** \u2014 completely discards any prior definition with the same name\n\n#### `services` (optional, but logs won't flow without it)\n```yaml\nservices: [all]               # catch all services, including future ones\nservices: [web, worker]       # explicit list\nservices: [all, -debug-svc]   # all except debug-svc (minus prefix removes)\nservices: [-all]              # remove all (useful to disable in a top layer)\n```\n\n#### `labels` (optional)\n```yaml\nlabels:\n  pebble_service: myapp           # set automatically \u2014 you can override it\n  environment: staging\n  juju_unit: $JUJU_UNIT_NAME      # $VAR interpolated from the SERVICE's env\n  juju_model: $JUJU_MODEL_NAME\n```\n\n> **Important:** `$ENV_VAR` values are resolved per-service from that **service's** own `environment` block \u2014 not from the system environment. Populate service env vars in the charm via `container.add_layer()` or `service.replan()`.\n\n---\n\n### How to Apply This in a Charm\n\nIn your charm code (`ops` library), push the layer dynamically \u2014 for example in a relation-changed handler for a `loki_push_api` relation:\n\n```python\ndef _on_loki_push_api_endpoint_joined(self, event):\n    loki_url = event.relation.data[event.app][\"url\"]\n    # e.g. http://10.152.183.42:3100/loki/api/v1/push\n\n    layer = ops.pebble.Layer({\n        \"log-targets\": {\n            \"loki\": {\n                \"override\": \"replace\",\n                \"type\": \"loki\",\n                \"location\": loki_url,\n                \"services\": [\"all\"],\n                \"labels\": {\n                    \"juju_unit\": self.unit.name,\n                    \"juju_app\": self.app.name,\n                },\n            }\n        }\n    })\n\n    container = self.unit.get_container(\"myapp\")\n    container.add_layer(\"loki\", layer, combine=True)\n    container.replan()\n```\n\nIn practice, charms use the **`loki-k8s`** operator and the **`loki_push_api`** charm library (`charms.loki_k8s.v1.loki_push_api`) which handles this layer management automatically.\n\n---\n\n### Behaviour Summary\n\n| Scenario | Result |\n|---|---|\n| `services` key omitted | No logs forwarded at all |\n| `services: [all]` | All current **and future** services are forwarded |\n| Target unreachable | Pebble buffers and retries \u2014 logs are not lost immediately |\n| Multiple log targets | Fully supported; each target is independent |\n| `override: merge` on `services` | Lists are **appended**; use `-svcname` to remove entries |",
+    "stop_reason": "end_turn",
+    "session_id": "486bf5fd-e62d-47f4-a2f5-4286d722f0e2",
+    "total_cost_usd": 0.12369630000000001,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 2168,
+      "cache_read_input_tokens": 29418,
+      "output_tokens": 1835,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2168,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 9,
+        "outputTokens": 1835,
+        "cacheReadInputTokens": 29418,
+        "cacheCreationInputTokens": 2168,
+        "webSearchRequests": 0,
+        "costUSD": 0.044507399999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 4085,
+        "outputTokens": 3775,
+        "cacheReadInputTokens": 93414,
+        "cacheCreationInputTokens": 37510,
+        "webSearchRequests": 0,
+        "costUSD": 0.0791889,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "c8043219-6d20-4529-983b-672c0dd77783"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:57:14+1300"
+}

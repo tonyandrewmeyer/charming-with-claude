@@ -1,0 +1,67 @@
+{
+  "session_id": "S3_E_sonnet_run2",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 172414,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 171262,
+    "duration_api_ms": 257314,
+    "num_turns": 7,
+    "result": "Here is the full charm, split into three files.\n\n---\n\n## `charmcraft.yaml`\n\n```yaml\nname: my-service\ntype: charm\nsummary: A charm that advertises its endpoint over a custom relation interface.\ndescription: |\n  my-service exposes a single \"my-service\" relation endpoint using the\n  custom \"my-service-interface\" protocol.  When a remote application\n  joins the relation the charm writes its fully-qualified domain name\n  into the \"endpoint\" key of its unit relation-data bag so that the\n  consumer can reach it by name.\n\nbase: ubuntu@24.04\nbuild-base: ubuntu@24.04\n\nplatforms:\n  amd64:\n\nparts:\n  charm:\n    plugin: charm\n\nprovides:\n  my-service:\n    interface: my-service-interface\n```\n\nThe `provides` block declares the endpoint named **`my-service`** using the custom interface **`my-service-interface`**. Any application that `requires` the same interface name can integrate with this charm via `juju integrate`.\n\n---\n\n## `src/charm.py`\n\n```python\n#!/usr/bin/env python3\n\"\"\"Charm that advertises its FQDN to consumers via a custom relation interface.\n\nRelation data schema (unit bag)\n--------------------------------\nendpoint : str\n    The FQDN of this unit, set as soon as a remote application joins\n    the \"my-service\" relation.\n\"\"\"\n\nimport logging\nimport socket\n\nimport ops\n\nlogger = logging.getLogger(__name__)\n\nRELATION_NAME = \"my-service\"\n\n\nclass MyServiceCharm(ops.CharmBase):\n\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n\n        self.framework.observe(\n            self.on[RELATION_NAME].relation_joined,\n            self._on_relation_joined,\n        )\n        self.framework.observe(\n            self.on[RELATION_NAME].relation_changed,\n            self._on_relation_changed,\n        )\n        self.framework.observe(self.on.install,        self._set_active)\n        self.framework.observe(self.on.upgrade_charm,  self._set_active)\n        self.framework.observe(self.on.config_changed, self._set_active)\n\n    # \u2500\u2500 helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _fqdn(self) -> str:\n        \"\"\"Return the unit FQDN, falling back to Juju's ingress address.\"\"\"\n        name = socket.getfqdn()\n        if \".\" not in name:          # no DNS FQDN available\n            try:\n                binding = self.model.get_binding(RELATION_NAME)\n                name = str(binding.network.ingress_address)\n            except Exception:\n                logger.warning(\"Could not get ingress address; using %r\", name)\n        return name\n\n    def _publish_endpoint(self, relation: ops.Relation) -> None:\n        fqdn = self._fqdn()\n        relation.data[self.unit][\"endpoint\"] = fqdn\n        logger.info(\"Published endpoint=%r on relation id=%s\", fqdn, relation.id)\n\n    # \u2500\u2500 event handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _set_active(self, _event: ops.HookEvent) -> None:\n        self.unit.status = ops.ActiveStatus(\"ready\")\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent) -> None:\n        self._publish_endpoint(event.relation)\n        n = len(self.model.relations[RELATION_NAME])\n        self.unit.status = ops.ActiveStatus(f\"serving {n} relation(s)\")\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent) -> None:\n        self._publish_endpoint(event.relation)\n\n\nif __name__ == \"__main__\":\n    ops.main(MyServiceCharm)\n```\n\n---\n\n## Key design decisions\n\n| Decision | Reason |\n|---|---|\n| **`relation_joined` + `relation_changed`** | `joined` fires once for every new remote unit; `changed` refreshes the data if the FQDN ever changes (e.g. after a reboot or network reconfiguration). |\n| **`relation.data[self.unit]`** | Each unit owns its own databag; writing here is always safe regardless of leadership. |\n| **`socket.getfqdn()` with ingress-address fallback** | `getfqdn()` returns the DNS FQDN when DNS is configured correctly. When the resolver can only return a short hostname (no dot), the charm falls back to Juju's `ingress_address` for that binding \u2014 this covers cloud deployments where DNS is absent but Juju network info is reliable. |\n| **`self.on[RELATION_NAME].relation_joined`** | Using `self.on[...]` with the endpoint name (rather than `self.on.my_service_relation_joined`) keeps the constant `RELATION_NAME` as the single source of truth. |",
+    "stop_reason": "end_turn",
+    "session_id": "8af439e9-a6dd-4cb7-a5b4-e8f7b49d1311",
+    "total_cost_usd": 0.7883828999999998,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 6206,
+      "cache_read_input_tokens": 44785,
+      "output_tokens": 4957,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6206,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 125554,
+        "outputTokens": 13493,
+        "cacheReadInputTokens": 395494,
+        "cacheCreationInputTokens": 235782,
+        "webSearchRequests": 15,
+        "costUSD": 0.6772959,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-sonnet-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 4957,
+        "cacheReadInputTokens": 44785,
+        "cacheCreationInputTokens": 6206,
+        "webSearchRequests": 0,
+        "costUSD": 0.111087,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "7e679f55-40a1-4239-b1f9-1838d6f5f538"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T09:20:46+1300"
+}

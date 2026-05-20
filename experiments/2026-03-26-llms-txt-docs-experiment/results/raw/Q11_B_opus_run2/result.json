@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_B_opus_run2",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 72472,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 70906,
+    "duration_api_ms": 70444,
+    "num_turns": 6,
+    "result": "Here's how to add a relation and verify data exchange using Jubilant:\n\n### Adding a relation\n\n```python\njuju.integrate(\"app-a\", \"app-b\")\n# Or with explicit endpoints:\njuju.integrate(\"app-a:endpoint-name\", \"app-b:endpoint-name\")\n```\n\n### Waiting for the relation to settle\n\n```python\njuju.wait(lambda status: jubilant.all_active(status), timeout=120)\n```\n\n### Verifying data was exchanged\n\nJubilant doesn't have a dedicated relation-data introspection function, so you have two main approaches:\n\n**1. Use `juju.cli()` to call `show-unit` and inspect the relation data directly:**\n\n```python\nimport json\n\nresult = juju.cli(\"show-unit\", \"app-a/0\", \"--format=json\")\nunit_data = json.loads(result)\nrelations = unit_data[\"app-a/0\"][\"relation-info\"]\n# Find your relation and inspect the related-units / local-unit data\nfor rel in relations:\n    if rel[\"endpoint\"] == \"database\":\n        assert \"connection-string\" in rel[\"related-units\"][\"app-b/0\"][\"data\"]\n```\n\n**2. Verify indirectly through observable behaviour** (preferred for integration tests):\n\nRather than inspecting databags, verify that the relation had the expected *effect* \u2014 e.g. the app becomes active, a config file was written, or a service is reachable:\n\n```python\n# After integrating, wait for both apps to settle\njuju.integrate(\"myapp:db\", \"postgresql:database\")\njuju.wait(lambda status: jubilant.all_active(status, \"myapp\", \"postgresql\"), timeout=300)\n\n# Then verify the effect, e.g. check the workload is using the database\ntask = juju.exec(\"myapp/0\", \"cat\", \"/etc/myapp/db.conf\")\ntask.raise_on_failure()\nassert \"postgresql\" in task.stdout\n```\n\nThe second approach aligns with the testing philosophy in `CLAUDE.md` \u2014 integration tests should validate *charm behaviour* from the Juju user's perspective, not internal implementation details like databag contents.",
+    "stop_reason": "end_turn",
+    "session_id": "c86f3f61-ca3a-4187-8d10-2c7a7a2991a6",
+    "total_cost_usd": 0.2455805,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 10576,
+      "cache_read_input_tokens": 110693,
+      "output_tokens": 1184,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 10576,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 10,
+        "outputTokens": 1184,
+        "cacheReadInputTokens": 110693,
+        "cacheCreationInputTokens": 10576,
+        "webSearchRequests": 0,
+        "costUSD": 0.15109650000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 85164,
+        "outputTokens": 1864,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.094484,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4d12b2b8-190e-48aa-9d42-309ac25bd27f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:34:20+1300"
+}

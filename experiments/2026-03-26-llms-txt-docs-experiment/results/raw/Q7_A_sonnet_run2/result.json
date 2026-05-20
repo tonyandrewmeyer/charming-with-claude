@@ -1,0 +1,57 @@
+{
+  "session_id": "Q7_A_sonnet_run2",
+  "question_id": "Q7",
+  "category": "pebble",
+  "question": "How do Pebble notices work? What types are there and how does a charm observe them via ops?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 26102,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 24835,
+    "duration_api_ms": 24826,
+    "num_turns": 1,
+    "result": "## Pebble Notices\n\n**Pebble notices** are a pub/sub mechanism built into the Pebble daemon that allow processes (and Juju charms) to be notified of events asynchronously \u2014 without polling.\n\n---\n\n### Notice Types\n\nPebble defines several notice types:\n\n| Type | Key format | Description |\n|---|---|---|\n| `custom` | `<domain>/<path>` | User-defined notices sent via the Pebble API or CLI |\n| `change-update` | `<change-id>` | Fired whenever a Pebble *change* (e.g. a plan apply, service start/stop) transitions state |\n| `warning` | `<message-hash>` | Pebble-internal warnings (e.g. deprecated config) |\n\nThe most charm-relevant types are **`custom`** (your workload sends them) and **`change-update`** (Pebble lifecycle events).\n\n---\n\n### How Notices Flow to a Charm\n\n```\nWorkload process\n      \u2502  pebble notify custom <key> [--data '{\"k\":\"v\"}']\n      \u25bc\n  Pebble daemon   \u2500\u2500\u25ba  notice stored in Pebble's notice log\n      \u2502\n      \u2502  (Juju polls Pebble on the charm's behalf)\n      \u25bc\n  Juju agent  \u2500\u2500\u25ba  fires  pebble_custom_notice  event on the charm\n```\n\n---\n\n### Observing Notices in `ops`\n\n#### 1. `pebble_custom_notice` \u2014 for `custom` notices\n\n```python\nfrom ops.charm import CharmBase\nfrom ops import PebbleCustomNoticeEvent\n\nclass MyCharm(CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n        self.framework.observe(\n            self.on[\"mycontainer\"].pebble_custom_notice,\n            self._on_custom_notice,\n        )\n\n    def _on_custom_notice(self, event: PebbleCustomNoticeEvent):\n        notice = event.notice          # ops.pebble.Notice object\n\n        notice.id                      # unique notice ID (str)\n        notice.type                    # NoticeType.CUSTOM\n        notice.key                     # e.g. \"com.example.myapp/restart\"\n        notice.last_data               # dict[str, str] payload\n        notice.occurrences             # how many times it fired\n        notice.last_occurred           # datetime\n        notice.last_repeated           # datetime (de-duplication boundary)\n        notice.first_occurred          # datetime\n\n        # You can also query notices directly:\n        client = event.workload        # ops.model.Container\n        notices = client.get_notices(\n            types=[ops.pebble.NoticeType.CUSTOM],\n        )\n```\n\n#### 2. `pebble_ready` and `pebble_change_updated` \u2014 for lifecycle/change notices\n\n```python\nself.framework.observe(\n    self.on[\"mycontainer\"].pebble_ready,\n    self._on_pebble_ready,\n)\n# pebble_change_updated fires when a Pebble change transitions\nself.framework.observe(\n    self.on[\"mycontainer\"].pebble_change_updated,\n    self._on_change_updated,\n)\n```\n\n`pebble_change_updated` carries a `change_id` you can look up:\n\n```python\ndef _on_change_updated(self, event):\n    container = self.unit.get_container(\"mycontainer\")\n    change = container.get_change(event.change_id)\n    if change.kind == \"start\" and change.status == \"Done\":\n        # service finished starting\n        ...\n```\n\n---\n\n### Sending a Custom Notice from the Workload\n\nYour workload (any process inside the container) sends notices via the Pebble socket:\n\n```bash\n# CLI\npebble notify com.example.myapp/config-changed severity=high\n\n# Or via HTTP to the Pebble API\nPOST /v1/notices\n{\n  \"type\": \"custom\",\n  \"key\": \"com.example.myapp/config-changed\",\n  \"data\": {\"severity\": \"high\"}\n}\n```\n\n---\n\n### Key De-duplication Behaviour\n\nPebble **merges repeated notices** with the same `(type, key)`:\n- `occurrences` is incremented each time.\n- `last_repeated` only advances after a **repeat interval** (default 1 hour) \u2014 so a charm won't be re-woken for rapid-fire identical notices.\n- `last_data` is always updated to the most recent payload.\n\nThis makes notices safe to fire from a tight loop without flooding the charm.\n\n---\n\n### Summary\n\n| What you want | Event to observe |\n|---|---|\n| Workload signals something happened | `pebble_custom_notice` |\n| Pebble service started/stopped | `pebble_change_updated` |\n| Pebble is first ready | `pebble_ready` |",
+    "stop_reason": "end_turn",
+    "session_id": "87c8e322-1345-47a5-997e-3299307ef9fb",
+    "total_cost_usd": 0.025693650000000002,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1067,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1276,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1067,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1276,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1067,
+        "webSearchRequests": 0,
+        "costUSD": 0.025693650000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "44a071e3-a8b5-4e37-9122-c1cc155efdca"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:47:38+1300"
+}

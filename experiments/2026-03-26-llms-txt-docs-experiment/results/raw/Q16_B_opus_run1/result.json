@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_B_opus_run1",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 20316,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 19122,
+    "duration_api_ms": 19111,
+    "num_turns": 1,
+    "result": "The standard pattern is to use a charm library that provides a \"provider\" class. You integrate it like this:\n\n**1. Declare the relation in `charmcraft.yaml`:**\n\n```yaml\nprovides:\n  my-database:\n    interface: mysql_client\n    optional: true\n```\n\n**2. Fetch the relevant charm library:**\n\nAdd it to `charmcraft.yaml`:\n\n```yaml\ncharm-libs:\n  - lib: data_platform_libs.data_interfaces\n    version: \"0\"\n```\n\nThen run `charmcraft fetch-libs`.\n\n**3. Use the provider class in `src/charm.py`:**\n\n```python\nimport ops\n\nfrom charms.data_platform_libs.v0.data_interfaces import DatabaseProvides\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.db_provider = DatabaseProvides(self, relation_name=\"my-database\")\n\n        # Listen for events the library emits\n        self.framework.observe(\n            self.db_provider.on.database_requested, self._on_database_requested\n        )\n\n    def _on_database_requested(self, event):\n        # Create the database/credentials, then set the connection info\n        self.db_provider.set_credentials(event.relation.id, \"username\", \"password\")\n        self.db_provider.set_endpoints(event.relation.id, \"10.0.0.1:3306\")\n```\n\n**Key principles:**\n\n- The charm library handles the relation data bag schema \u2014 you never write to `event.relation.data` directly when using a library.\n- The library emits custom events (like `database_requested`) that abstract over the low-level `relation-joined`/`relation-changed` Juju events.\n- The provider is the charm that *offers* a service (e.g. a database). The requirer is the charm that *consumes* it.\n- Each library has its own API \u2014 read the docstring at the top of the fetched lib file in `lib/charms/...` for the specific classes and methods available.\n\n**If writing your own charm library** (i.e. defining a new interface), the pattern is:\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\nimport ops\n\nclass MyInterfaceProviderEvents(ops.CharmEvents):\n    data_requested = ops.EventSource(ops.RelationEvent)\n\nclass MyInterfaceProvider(ops.Object):\n    on = MyInterfaceProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str):\n        super().__init__(charm, relation_name)\n        self.charm = charm\n        self.relation_name = relation_name\n\n        self.framework.observe(\n            charm.on[relation_name].relation_changed, self._on_relation_changed\n        )\n\n    def _on_relation_changed(self, event: ops.RelationChangedEvent):\n        # Inspect requirer's data, emit custom event if appropriate\n        if event.relation.data[event.app].get(\"request\"):\n            self.on.data_requested.emit(event.relation)\n\n    def set_response(self, relation_id: int, data: dict[str, str]):\n        relation = self.model.get_relation(self.relation_name, relation_id)\n        if relation:\n            relation.data[self.charm.app].update(data)\n```\n\nThe library encapsulates all the relation data handling so charm authors get a clean, typed API rather than manipulating raw data bags.",
+    "stop_reason": "end_turn",
+    "session_id": "d5a4cb3b-8bc9-4e18-8d54-9c1f2bf44ff8",
+    "total_cost_usd": 0.074196,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 7328,
+      "cache_read_input_tokens": 11362,
+      "output_tokens": 908,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7328,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 908,
+        "cacheReadInputTokens": 11362,
+        "cacheCreationInputTokens": 7328,
+        "webSearchRequests": 0,
+        "costUSD": 0.074196,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ac034de6-c5ac-42e3-b7b6-208402ac56b4"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:30:53+1300"
+}

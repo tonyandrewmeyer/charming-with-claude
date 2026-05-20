@@ -124,6 +124,8 @@ charmcraft release my-charm --revision=5 --channel=stable --resource=my-resource
 
 ### Library Management
 
+Always look for a version of the library on [charmlibs](https://documentation.ubuntu.com/charmlibs/reference/) first, and use those in preference to ones from Charmhub via `charmcraft`.
+
 ```bash
 # Using libraries (define in charmcraft.yaml first)
 charmcraft fetch-libs              # Fetch defined libraries
@@ -194,22 +196,6 @@ Ignore: `*.charm`, `__pycache__/`, `.tox/`, `venv/`, `.claude/settings.local.jso
 
 ## Common Patterns
 
-### Multi-Base Builds
-```yaml
-bases:
-  - build-on:
-      - name: ubuntu
-        channel: "22.04"
-    run-on:
-      - name: ubuntu
-        channel: "22.04"
-  - build-on:
-      - name: ubuntu
-        channel: "24.04"
-    run-on:
-      - name: ubuntu
-        channel: "24.04"
-```
 
 Pack for specific base: `charmcraft pack --bases-index=0`
 

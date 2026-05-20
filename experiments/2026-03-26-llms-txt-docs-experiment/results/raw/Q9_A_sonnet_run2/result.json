@@ -1,0 +1,57 @@
+{
+  "session_id": "Q9_A_sonnet_run2",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 35449,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 34190,
+    "duration_api_ms": 34182,
+    "num_turns": 1,
+    "result": "## Pebble Log Forwarding to Loki\n\nPebble supports log forwarding via the `log-targets` section of a layer YAML. This is the primary mechanism Juju charms use to ship service logs to Grafana Loki (typically via the COS Lite observability stack).\n\n---\n\n### Layer YAML Structure\n\n```yaml\n# /var/lib/pebble/default/layers/99-log-forwarding.yaml\n\nlog-targets:\n    loki-endpoint:\n        type: loki                                        # target type (only \"loki\" currently)\n        location: http://loki.example.com:3100/loki/api/v1/push\n        services: [all]                                  # which services to forward\n        labels:\n            app: my-charm\n            model: \"{{ model }}\"                        # Juju topology labels\n            unit: \"{{ unit }}\"\n            charm: my-charm-name\n```\n\n---\n\n### Full Annotated Example (Charm Context)\n\n```yaml\nlog-targets:\n    loki-0:\n        override: replace                  # merge | replace\n        type: loki\n        location: http://10.1.2.3:3100/loki/api/v1/push\n\n        # \u2500\u2500 Service selection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        services: [all]           # shorthand: forward every service's stdout/stderr\n        # services: [myapp, worker]  # explicit allowlist\n        # services: [-all]           # disable forwarding (useful for overrides)\n\n        # \u2500\u2500 Static labels attached to every log stream \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        labels:\n            app:              my-application\n            juju_model:       my-model\n            juju_model_uuid:  abc-123-def\n            juju_unit:        my-application/0\n            juju_charm:       my-charm\n```\n\n---\n\n### Protocol Options Explained\n\n| Field | Options | Notes |\n|---|---|---|\n| `type` | `loki` | Currently the only supported target type |\n| `location` | any URL | Must be the full Loki **push endpoint** path |\n| `services` | `[all]`, service list, `[-svc]` | `all` is a magic keyword; prefix `-` to exclude |\n| `override` | `merge` / `replace` | Same semantics as Pebble service overrides |\n\n#### Transport / Protocol\n- Pebble sends logs via **Loki's HTTP Push API** (`POST /loki/api/v1/push`)\n- Payload format is **Protobuf** (preferred) or JSON \u2014 Pebble handles this internally\n- Both **HTTP** and **HTTPS** locations are supported\n- No built-in auth header support in the layer YAML \u2014 TLS client certs or a reverse proxy are used when auth is needed\n\n#### Service Selection Operators\n\n```yaml\n# Forward EVERYTHING\nservices: [all]\n\n# Forward only specific services\nservices: [web, worker, scheduler]\n\n# Forward all EXCEPT one (subtract syntax)\nservices: [all, -debug-sidecar]\n```\n\n---\n\n### Charm Integration Pattern\n\nIn a charm using `loki-k8s` via the `loki_push_api` relation, you'd typically do:\n\n```python\n# charm.py\nfrom charms.loki_k8s.v1.loki_push_api import LogForwarder\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self._log_forwarder = LogForwarder(self)   # handles layer writing automatically\n```\n\nThe `LogForwarder` helper (from the `loki_push_api` charm lib) automatically:\n1. Retrieves the push URL from the relation data\n2. Assembles the Pebble `log-targets` layer with correct Juju topology labels\n3. Calls `container.add_layer()` and `container.replan()` on relation change\n\n---\n\n### Key Behaviours to Know\n\n- **stdout + stderr** of each selected service are both captured\n- Logs are buffered locally if Loki is unreachable and replayed on reconnect\n- The `override: replace` on the target means a later layer completely replaces an earlier one with the same target name (use `merge` to only update specific keys)\n- Labels become **Loki stream selectors** \u2014 keep cardinality low (avoid per-request IDs as labels)",
+    "stop_reason": "end_turn",
+    "session_id": "304a92a0-24a4-48cb-a003-0de18c08629b",
+    "total_cost_usd": 0.03320865,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1071,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1776,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1071,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1776,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1071,
+        "webSearchRequests": 0,
+        "costUSD": 0.03320865,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "649c7633-0150-43b4-86ba-39185c76ced0"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:23:45+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q4_C_sonnet_run2",
+  "question_id": "Q4",
+  "category": "ops_api",
+  "question": "What's the difference between `ActionEvent.fail()` and raising an exception in an action handler?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 86431,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 85283,
+    "duration_api_ms": 85541,
+    "num_turns": 12,
+    "result": "Based on the documentation and source code, here is a thorough breakdown of the differences:\n\n---\n\n## `ActionEvent.fail()` vs. Raising an Exception\n\nThese two approaches both result in a failed action, but they differ significantly in **intent, presentation, and behaviour**.\n\n---\n\n### `ActionEvent.fail(message)`\n\nThis is the **deliberate, controlled way** to signal failure from within your handler:\n\n```python\ndef _on_backup_action(self, event: ops.ActionEvent):\n    if not self._is_ready():\n        event.fail(\"Service is not ready; cannot run backup.\")\n        return  # important: execution continues unless you return!\n    # ... do the backup ...\n```\n\nKey characteristics:\n- **Marks the action as failed** by calling `action-fail` under the hood with your message.\n- **Execution continues** after `fail()` \u2014 it does *not* raise or stop the handler. You must `return` (or otherwise stop) explicitly.\n- **Clean operator experience**: the failure message is exactly what you provide \u2014 no stack traces, no noise.\n- You can still call `event.set_results(...)` before or after `fail()` to return partial data alongside the failure message.\n- The action's final status in `juju show-task` will be **`failed`**, with your message shown as the reason.\n\n---\n\n### Raising an Unhandled Exception\n\n```python\ndef _on_backup_action(self, event: ops.ActionEvent):\n    result = do_something_that_raises()  # KeyError, etc.\n```\n\nKey characteristics:\n- The ops framework **catches the exception** at the dispatch level and exits with a non-zero code.\n- Because the hook exited with a non-zero code, **Juju automatically marks the action as failed**.\n- The failure message shown to the operator is a **generic one** \u2014 not your custom text.\n- When dispatching an action, ops configures the root logger so that **exception tracebacks are sent to stderr**, which Juju captures and surfaces to the operator in the task output. This is more diagnostic but noisier.\n- You lose the ability to call `set_results()` with any partial data, since the exception interrupts execution.\n\n---\n\n### Side-by-Side Comparison\n\n| Aspect | `event.fail(msg)` | Unhandled Exception |\n|---|---|---|\n| **Action status** | `failed` | `failed` |\n| **Failure message** | Your custom message | Generic / Juju-generated |\n| **Stack trace shown** | No | Yes (stderr \u2192 task output) |\n| **Execution stops?** | No \u2014 you must `return` | Yes \u2014 immediately |\n| **Can still set results?** | Yes | No (unless set before the raise) |\n| **Intent** | Expected, handled failure | Unexpected / bug |\n\n---\n\n### Practical Guidance\n\n- Use **`event.fail()`** for *expected* failure conditions (e.g., wrong config, precondition not met, resource unavailable). Always follow it with `return`.\n- Let exceptions **propagate** (or re-raise) for *unexpected* bugs \u2014 the stack trace helps you debug, and you'd want it surfaced.\n- Avoid silently swallowing exceptions and calling `fail()` with a vague message \u2014 you'll lose diagnostic information that helps operators and developers understand what went wrong.\n\n```python\ndef _on_my_action(self, event: ops.ActionEvent):\n    if not self.unit.is_leader():\n        event.fail(\"This action must be run on the leader unit.\")\n        return\n\n    try:\n        result = self._do_work()\n    except MyExpectedError as e:\n        event.fail(f\"Work failed: {e}\")\n        return\n    # Let unexpected exceptions propagate naturally \u2191\n\n    event.set_results({\"result\": result})\n```",
+    "stop_reason": "end_turn",
+    "session_id": "9184d71b-d5e5-434c-b739-5f12cdfc6769",
+    "total_cost_usd": 0.1765901,
+    "usage": {
+      "input_tokens": 51,
+      "cache_creation_input_tokens": 4808,
+      "cache_read_input_tokens": 103207,
+      "output_tokens": 2306,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4808,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 51,
+        "outputTokens": 2306,
+        "cacheReadInputTokens": 103207,
+        "cacheCreationInputTokens": 4808,
+        "webSearchRequests": 0,
+        "costUSD": 0.08373509999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 82400,
+        "outputTokens": 2091,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.092855,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a9a4977f-367b-4966-9f48-7542f4830165"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T01:10:52+1300"
+}

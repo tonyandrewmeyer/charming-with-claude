@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_A_sonnet_run2",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 24942,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 23861,
+    "duration_api_ms": 23850,
+    "num_turns": 1,
+    "result": "## Implementing the Provider Side of a Relation Using Charmlibs\n\nIn Juju charm development, the provider side of a relation is typically implemented using the **`ops`** library along with **charm libraries** (charmlibs). Here's the correct pattern:\n\n---\n\n### 1. Define the Relation in `metadata.yaml` (or `charmcraft.yaml`)\n\n```yaml\n# metadata.yaml\nprovides:\n  my-relation:\n    interface: my-interface\n```\n\n---\n\n### 2. Create or Use a Charm Library\n\nCharm libraries live in `lib/charms/<charm_name>/v<N>/<lib_name>.py`. The provider side typically uses a **`Provides`** class pattern.\n\n**Example library: `lib/charms/my_charm/v0/my_interface.py`**\n\n```python\n\"\"\"Library for the my-interface relation.\"\"\"\n\nimport logging\nfrom ops.charm import CharmBase, RelationChangedEvent, RelationJoinedEvent\nfrom ops.framework import Object, EventBase, EventSource, ObjectEvents\n\nlogger = logging.getLogger(__name__)\n\n# Increment this LIBPATCH when you fix bugs.\n# Increment LIBAPI when you break compatibility.\nLIBID = \"abc123\"  # unique ID from charmcraft\nLIBAPI = 0\nLIBPATCH = 1\n\n\nclass MyProviderEvents(ObjectEvents):\n    # Define custom events if needed\n    pass\n\n\nclass MyProvides(Object):\n    \"\"\"Provider-side logic for my-interface.\"\"\"\n\n    on = MyProviderEvents()\n\n    def __init__(self, charm: CharmBase, relation_name: str):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        # Observe relation events\n        self.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_broken,\n            self._on_relation_broken,\n        )\n\n    def _on_relation_joined(self, event: RelationJoinedEvent):\n        \"\"\"A new requirer has joined \u2014 publish data.\"\"\"\n        self._publish_data(event.relation)\n\n    def _on_relation_changed(self, event: RelationChangedEvent):\n        \"\"\"Requirer sent data \u2014 handle it.\"\"\"\n        requirer_data = event.relation.data[event.app]\n        logger.info(\"Received data from requirer: %s\", dict(requirer_data))\n\n    def _on_relation_broken(self, event):\n        \"\"\"Requirer is leaving \u2014 clean up.\"\"\"\n        pass\n\n    def _publish_data(self, relation):\n        \"\"\"Write provider data into the relation databag.\"\"\"\n        relation.data[self._charm.app].update({\n            \"host\": self._charm.app.name,\n            \"port\": \"8080\",\n        })\n\n    # \u2500\u2500 Public API (called from the charm) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def set_address(self, host: str, port: int):\n        \"\"\"Update the address published to all requirers.\"\"\"\n        for relation in self._charm.model.relations[self._relation_name]:\n            relation.data[self._charm.app].update({\n                \"host\": host,\n                \"port\": str(port),\n            })\n```\n\n---\n\n### 3. Use the Library in Your Charm\n\n```python\n# src/charm.py\nfrom ops.charm import CharmBase\nfrom ops.main import main\nfrom charms.my_charm.v0.my_interface import MyProvides\n\n\nclass MyCharm(CharmBase):\n\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # Instantiate the provider wrapper\n        self.my_provider = MyProvides(self, \"my-relation\")\n\n        self.framework.observe(self.on.install, self._on_install)\n\n    def _on_install(self, event):\n        # Once the service is ready, push data to relations\n        self.my_provider.set_address(\"10.0.0.1\", 8080)\n\n\nif __name__ == \"__main__\":\n    main(MyCharm)\n```\n\n---\n\n### Key Principles\n\n| Principle | Detail |\n|---|---|\n| **Databag ownership** | Only write to `relation.data[self.app]` (your app's bag) \u2014 never the requirer's |\n| **`relation_joined`** | Best place to publish initial provider data |\n| **`relation_changed`** | Use to react to data the requirer has sent |\n| **Unit vs App bag** | Use the **app** databag for data shared across all units; use the **unit** bag for per-unit data (e.g. per-unit IPs) |\n| **`LIBID`** | Must be a unique ID obtained via `charmcraft create-lib` |\n| **Versioning** | Bump `LIBPATCH` for bug fixes, `LIBAPI` for breaking changes |\n\n---\n\n### Getting a Real Library\n\nInstead of writing from scratch, check the **[Charmhub](https://charmhub.io)** for an existing interface library:\n\n```bash\n# Fetch an existing charm library\ncharmcraft fetch-lib charms.some_charm.v0.some_interface\n\n# Or create your own\ncharmcraft create-lib my_interface\n```\n\nThis is the idiomatic pattern used by the Canonical charm ecosystem (e.g., `ops-lib-*`, `charms.data_platform_libs`, etc.).",
+    "stop_reason": "end_turn",
+    "session_id": "3e0a4262-c467-4114-bed6-9e5b320260eb",
+    "total_cost_usd": 0.028003649999999998,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1063,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1431,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1063,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1431,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1063,
+        "webSearchRequests": 0,
+        "costUSD": 0.028003649999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "9fd9a8b4-4054-4cc3-855f-1f5b19c8cca2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:08:14+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_C_opus_run2",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 121205,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 120080,
+    "duration_api_ms": 122139,
+    "num_turns": 13,
+    "result": "Here's a comprehensive overview of the TLS certificates library (v4) events and certificate request lifecycle:\n\n---\n\n## Events Emitted\n\nThe **v4** library defines one custom event on the **requirer** side:\n\n### `certificate_available`\n- **Event class:** `CertificateAvailableEvent`\n- **When it fires:** When the TLS provider has issued a certificate matching one of the requirer's CSRs, and the certificate is not revoked.\n- **Attributes:**\n  - `certificate` \u2014 the issued TLS certificate\n  - `certificate_signing_request` \u2014 the CSR that was signed\n  - `ca` \u2014 the CA certificate\n  - `chain` \u2014 the full certificate chain (list)\n- **Helper method:** `chain_as_pem()` returns the entire chain as a concatenated PEM string.\n\nYour charm observes it like this:\n\n```python\nself.tls = TLSCertificatesRequiresV4(\n    charm=self,\n    relationship_name=\"certificates\",\n    certificate_requests=[CertificateRequestAttributes(common_name=\"myapp.example.com\")],\n)\nself.framework.observe(self.tls.on.certificate_available, self._on_certificate_available)\n```\n\n> **Note:** Unlike older versions (v2/v3) of the library, v4 does **not** expose separate `CertificateExpiringEvent` or `CertificateInvalidatedEvent` classes. Renewal is handled automatically via Juju secrets (see below).\n\n---\n\n## When to Request a New Certificate\n\nThere are three scenarios:\n\n### 1. Initial request (automatic)\nWhen your charm first joins a relation with a TLS provider, the library compares the `certificate_requests` you passed at init time against what's already in the relation data. For any `CertificateRequestAttributes` without a matching CSR, it **automatically generates a private key + CSR and sends it** to the provider. No manual action needed.\n\n### 2. Automatic renewal (via Juju secrets)\nThe library stores issued certificates in Juju secrets with an **expiration timer** based on `renewal_relative_time` (default `0.9`, meaning 90% of the certificate's validity period). When that timer fires, Juju emits a `SecretExpiredEvent`, which the library handles internally:\n- It extracts the old CSR\n- Removes it from relation data\n- Generates a fresh CSR and sends it to the provider\n\nThis is fully automatic \u2014 your charm doesn't need to handle it.\n\n### 3. Manual renewal / key regeneration\nYou can force a renewal or key change at any time:\n- **`renew_certificate()`** \u2014 re-requests a certificate for an existing CSR\n- **`regenerate_private_key()`** \u2014 generates a brand-new private key and new CSRs for all requests\n\n---\n\n## Typical Lifecycle Summary\n\n| Step | What happens | Who acts |\n|------|-------------|----------|\n| **Relation joined** | Library sends CSRs to the provider | Automatic |\n| **Provider signs CSR** | `certificate_available` fires on your charm | You handle it |\n| **90% of validity** | Library auto-renews via secret expiry | Automatic |\n| **Provider re-signs** | `certificate_available` fires again | You handle it |\n| **Key compromise** | You call `regenerate_private_key()` | Manual trigger |\n\nThe key takeaway: **your charm only needs to observe `certificate_available`** to store/apply the certificate. Renewal timing and CSR generation are managed for you by the library and Juju's secret expiry mechanism.",
+    "stop_reason": "end_turn",
+    "session_id": "29353230-db5c-4098-b620-db2174909ed3",
+    "total_cost_usd": 0.25802224999999995,
+    "usage": {
+      "input_tokens": 15,
+      "cache_creation_input_tokens": 6155,
+      "cache_read_input_tokens": 121009,
+      "output_tokens": 2317,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6155,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 15,
+        "outputTokens": 2317,
+        "cacheReadInputTokens": 121009,
+        "cacheCreationInputTokens": 6155,
+        "webSearchRequests": 0,
+        "costUSD": 0.15697324999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 92329,
+        "outputTokens": 1744,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.101049,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0d93ef8f-0cc8-4957-b65e-8faf2206a61e"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:24:46+1300"
+}

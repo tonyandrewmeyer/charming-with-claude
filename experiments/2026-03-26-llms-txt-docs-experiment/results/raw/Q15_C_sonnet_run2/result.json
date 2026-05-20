@@ -1,0 +1,67 @@
+{
+  "session_id": "Q15_C_sonnet_run2",
+  "question_id": "Q15",
+  "category": "charmlibs",
+  "question": "What is `charmlibs.pathops` and how do you use `ContainerPath` and `ensure_contents` to manage files in a workload container?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 2,
+  "wall_time_ms": 91408,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 90336,
+    "duration_api_ms": 99493,
+    "num_turns": 13,
+    "result": "Here is a comprehensive explanation of `charmlibs.pathops`, `ContainerPath`, and `ensure_contents`:\n\n---\n\n## `charmlibs.pathops` \u2014 Overview\n\n`charmlibs-pathops` is a charm library that provides a **`pathlib`-like interface** for managing files on both:\n- **Local filesystem paths** (via `LocalPath`) \u2014 where the charm unit itself runs\n- **Workload container paths** (via `ContainerPath`) \u2014 paths inside a Pebble-managed container on Kubernetes\n\nThe key idea is the **`PathProtocol`** type, which both `LocalPath` and `ContainerPath` implement. This allows you to write charm code that works uniformly across K8s and machine charms.\n\n### Installation\n\nAdd to your `charmcraft.yaml` or project deps:\n```\ncharmlibs-pathops\n```\n\nThen import:\n```python\nfrom charmlibs import pathops\nfrom charmlibs.pathops import ContainerPath, ensure_contents\n```\n\n---\n\n## `ContainerPath`\n\n`ContainerPath` wraps the **Pebble file API** (`ops.Container`) to give you a familiar `pathlib`-style interface for files inside a workload container.\n\n> \u26a0\ufe0f **Absolute paths only.** Pebble only supports absolute paths, so passing a relative path raises `RelativePathError`.\n\n### Constructor\n\n```python\nContainerPath(*parts: str | os.PathLike, container: ops.Container)\n```\n\n- `*parts` \u2014 path segments, joined like `pathlib.Path`\n- `container` \u2014 **required keyword argument**, an `ops.Container` obtained from `self.unit.get_container(...)`\n\n### Constructing a `ContainerPath`\n\n```python\n# In a charm event handler:\ncontainer = self.unit.get_container(\"myapp\")\n\n# All three are equivalent:\npath = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\npath = ContainerPath(\"/etc/myapp\", \"config.yaml\", container=container)\npath = ContainerPath(pathlib.PurePath(\"/etc/myapp\"), \"config.yaml\", container=container)\n```\n\n### Key Methods\n\n#### Reading files\n```python\ntext = path.read_text()        # str, UTF-8, newlines normalised to \\n\ndata = path.read_bytes()       # bytes\n```\n\n#### Writing files (with optional permissions + ownership)\n```python\npath.write_text(\"key=value\\n\", mode=0o640, user=\"myapp\", group=\"myapp\")\npath.write_bytes(b\"\\x00\\x01\\x02\", mode=0o600)\n```\n\n> Unlike standard `pathlib`, there is **no separate `chmod()`**. Set `mode`, `user`, and `group` directly on `write_text()`, `write_bytes()`, or `mkdir()`.\n\n#### Directory operations\n```python\npath.mkdir(mode=0o755, parents=True, exist_ok=True, user=\"myapp\", group=\"myapp\")\npath.rmdir()          # only if empty\npath.unlink()         # remove a file\npath.unlink(missing_ok=True)  # ignore if already gone\n```\n\n#### Introspection\n```python\npath.exists()         # bool\npath.is_file()        # bool\npath.is_dir()         # bool\npath.is_symlink()     # bool\npath.owner()          # str \u2014 username\npath.group()          # str \u2014 group name\n```\n\n#### Path composition (just like `pathlib`)\n```python\nconfig_dir  = path.parent\nbackup_path = path.with_suffix(\".bak\")\nnew_path    = path.with_name(\"other.yaml\")\njoined      = path / \"subdir\" / \"file.txt\"\n```\n\n#### Listing directory contents\n```python\nfor item in ContainerPath(\"/etc/myapp\", container=container).iterdir():\n    print(item.name)\n\nfor yaml_file in ContainerPath(\"/etc/myapp\", container=container).glob(\"*.yaml\"):\n    print(yaml_file)\n```\n\n#### Exceptions you should handle\n| Exception | Cause |\n|---|---|\n| `PebbleConnectionError` | Container not yet reachable (e.g., during `install`) |\n| `RelativePathError` | Relative path passed to constructor |\n| `FileNotFoundError` | Path doesn't exist |\n| `LookupError` | Unknown `user` or `group` name |\n| `PermissionError` | Insufficient permissions |\n\n---\n\n## `ensure_contents`\n\n```python\nensure_contents(\n    path: str | PathLike | PathProtocol,\n    source: bytes | str | BinaryIO | TextIO,\n    *,\n    mode: int = 0o644,     # default write mode\n    user: str | None = None,\n    group: str | None = None,\n) -> bool\n```\n\nThis is the **most important helper function** in the library. It:\n1. Checks if the file already exists with the **correct content, mode, user, and group**\n2. If **everything matches** \u2014 does nothing and returns `False`\n3. If **anything differs** (or the file is missing) \u2014 creates/overwrites the file and returns `True`\n\n### Why it's useful\n\nThe return value lets you **restart your workload only when necessary**:\n\n```python\ndef _update_config(self) -> None:\n    container = self.unit.get_container(\"myapp\")\n    config_path = ContainerPath(\"/etc/myapp/config.yaml\", container=container)\n    \n    new_config = self._render_config()   # generate config content\n    \n    changed = ensure_contents(\n        config_path,\n        new_config,\n        mode=0o640,\n        user=\"myapp\",\n        group=\"myapp\",\n    )\n    \n    if changed:\n        container.restart(\"myapp\")   # only restart if something actually changed\n```\n\n### Behaviour details\n\n- Automatically **creates parent directories** (`mkdir(parents=True, exist_ok=True)`) if they don't exist\n- Accepts `str`, `bytes`, or any **file-like object** (`.read()`) as `source`\n- Works with **both `ContainerPath` and `LocalPath`** (and plain `str`/`pathlib.Path` for local use)\n\n---\n\n## Full Example in a Charm\n\n```python\nfrom charmlibs.pathops import ContainerPath, ensure_contents, PebbleConnectionError\nimport ops\n\nclass MyCharm(ops.CharmBase):\n\n    CONTAINER = \"myapp\"\n    CONFIG_PATH = \"/etc/myapp/config.ini\"\n\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.myapp_pebble_ready, self._on_pebble_ready)\n        framework.observe(self.on.config_changed, self._on_config_changed)\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        self._configure_and_start()\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        self._configure_and_start()\n\n    def _configure_and_start(self) -> None:\n        container = self.unit.get_container(self.CONTAINER)\n        if not container.can_connect():\n            self.unit.status = ops.WaitingStatus(\"Waiting for container\")\n            return\n\n        config_path = ContainerPath(self.CONFIG_PATH, container=container)\n\n        content = f\"[myapp]\\nkey={self.config['my-key']}\\n\"\n\n        try:\n            changed = ensure_contents(\n                config_path,\n                content,\n                mode=0o640,\n                user=\"myapp\",\n                group=\"myapp\",\n            )\n        except PebbleConnectionError:\n            self.unit.status = ops.WaitingStatus(\"Pebble not ready\")\n            return\n\n        if changed:\n            container.restart(self.CONTAINER)  # only if config actually changed\n\n        self.unit.status = ops.ActiveStatus()\n```\n\n---\n\n## Summary\n\n| Concept | Purpose |\n|---|---|\n| `ContainerPath` | `pathlib`-like file operations **inside** a Pebble workload container |\n| `LocalPath` | Same interface for the **local** (charm unit) filesystem |\n| `PathProtocol` | Shared type \u2014 write one function that works with **both** |\n| `ensure_contents()` | Idempotently write a file; returns `True` only if something changed \u2014 perfect for **conditional restarts** |\n| `PebbleConnectionError` | Guard against container not yet being reachable |",
+    "stop_reason": "end_turn",
+    "session_id": "11f7a4d7-0ba1-4d8f-8a63-32bfcb1e39a9",
+    "total_cost_usd": 0.23742769999999996,
+    "usage": {
+      "input_tokens": 1439,
+      "cache_creation_input_tokens": 6630,
+      "cache_read_input_tokens": 86794,
+      "output_tokens": 3473,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6630,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 1439,
+        "outputTokens": 3473,
+        "cacheReadInputTokens": 86794,
+        "cacheCreationInputTokens": 6630,
+        "webSearchRequests": 0,
+        "costUSD": 0.10731270000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 110925,
+        "outputTokens": 3838,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.13011499999999998,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "35e2ba79-fe88-4741-9b8f-8cf59f60380d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T08:56:32+1300"
+}

@@ -1,0 +1,57 @@
+{
+  "session_id": "Q9_A_sonnet_run1",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 30783,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 29471,
+    "duration_api_ms": 29464,
+    "num_turns": 1,
+    "result": "## Pebble Log Forwarding to Loki\n\nPebble (the service manager used in Juju charms) supports forwarding service logs to a [Loki](https://grafana.com/oss/loki/) endpoint via its **`log-targets`** section in a layer YAML.\n\n---\n\n### Layer YAML Structure\n\n```yaml\n# /var/lib/pebble/default/layers/99-log-forwarding.yaml\n\nsummary: Configure Loki log forwarding\n\nlog-targets:\n  loki-app-logs:\n    type: loki\n    location: http://loki-hostname:3100/loki/api/v1/push\n    services: [all]          # or list specific service names\n    labels:\n      app: my-charm-app\n      env: production\n      juju_unit: \"{{ .Metadata.UnitName }}\"  # templated label\n```\n\n---\n\n### Full Annotated Example\n\n```yaml\nsummary: Pebble layer with services and Loki log forwarding\n\nservices:\n  myapp:\n    override: replace\n    summary: My application service\n    command: /usr/bin/myapp --config /etc/myapp/config.yaml\n    startup: enabled\n    environment:\n      LOG_LEVEL: info\n\n  worker:\n    override: replace\n    summary: Background worker\n    command: /usr/bin/myapp-worker\n    startup: enabled\n\nlog-targets:\n  # Target 1: forward ALL service logs to Loki\n  loki-all:\n    type: loki\n    location: http://10.0.0.5:3100/loki/api/v1/push\n    services: [all]                   # special keyword: every service\n    labels:\n      charm: my-charm\n      juju_model: \"{{ .Metadata.ModelName }}\"\n      juju_unit:  \"{{ .Metadata.UnitName }}\"\n\n  # Target 2: forward only specific services, with extra labels\n  loki-worker-only:\n    type: loki\n    location: http://10.0.0.5:3100/loki/api/v1/push\n    services: [worker]                # explicit service list\n    labels:\n      component: worker\n      severity: high\n```\n\n---\n\n### Key Fields Explained\n\n| Field | Required | Description |\n|---|---|---|\n| `type` | \u2705 | Must be `loki` (only supported type currently) |\n| `location` | \u2705 | Full URL to Loki's push API endpoint |\n| `services` | \u2705 | `[all]` or a list of named services defined in this/other layers |\n| `labels` | \u274c | Static or templated key/value pairs attached to every log stream |\n\n---\n\n### Protocol Details\n\nPebble uses **Loki's HTTP Push API**:\n\n```\nPOST <location>          \u2192  /loki/api/v1/push\nContent-Type: application/json\n```\n\n**Wire format** (Loki push payload):\n```json\n{\n  \"streams\": [\n    {\n      \"stream\": {\n        \"pebble_service\": \"myapp\",\n        \"app\": \"my-charm-app\"\n      },\n      \"values\": [\n        [\"1711440000000000000\", \"log line text here\"]\n      ]\n    }\n  ]\n}\n```\n\n- Timestamps are **nanosecond Unix epoch** strings\n- Each Pebble service becomes a **separate Loki stream** (keyed by its label set)\n- Pebble **always** injects the `pebble_service` label automatically\n\n---\n\n### Label Templating\n\nPebble supports Go-template variables in label values, populated from **Juju metadata** (when run inside a Juju charm):\n\n```yaml\nlabels:\n  juju_unit:        \"{{ .Metadata.UnitName }}\"        # e.g. myapp/0\n  juju_model:       \"{{ .Metadata.ModelName }}\"       # e.g. production\n  juju_model_uuid:  \"{{ .Metadata.ModelUUID }}\"\n  juju_application: \"{{ .Metadata.AppName }}\"\n  juju_charm:       \"{{ .Metadata.CharmName }}\"\n```\n\n---\n\n### Configuring from a Charm (Python)\n\nIn an **ops** charm, push the layer dynamically \u2014 for example in a relation-changed event with the `loki-push-api` interface:\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def _on_loki_push_api_endpoint_joined(self, event):\n        loki_url = event.relation.data[event.app].get(\"url\")\n        if not loki_url:\n            return\n\n        layer = ops.pebble.Layer({\n            \"summary\": \"Loki log forwarding\",\n            \"log-targets\": {\n                \"loki\": {\n                    \"type\": \"loki\",\n                    \"location\": loki_url,\n                    \"services\": [\"all\"],\n                    \"labels\": {\n                        \"juju_unit\": self.unit.name,\n                        \"juju_app\":  self.app.name,\n                    },\n                }\n            },\n        })\n\n        container = self.unit.get_container(\"myapp\")\n        container.add_layer(\"loki-forwarding\", layer, combine=True)\n        # No replan needed \u2014 log-targets take effect immediately\n```\n\n> **Note:** Log-target changes in Pebble do **not** require a service restart or `replan()`. Pebble picks them up immediately when the layer is added.\n\n---\n\n### Using the `loki-push-api` Charm Library\n\nIn practice, most Juju charms use the canonical **`loki-push-api`** library from `charmcraft fetch-lib charms.loki_k8s.v1.loki_push_api`, which handles layer management automatically:\n\n```python\nfrom charms.loki_k8s.v1.loki_push_api import LogProxyConsumer\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self._log_proxy = LogProxyConsumer(\n            self,\n            log_files=[],          # for file-based logs (not needed for Pebble stdout)\n            container_name=\"myapp\",\n        )\n```\n\nThis library automatically pushes the correct Pebble log-target layer when the `loki-push-api` relation is established.",
+    "stop_reason": "end_turn",
+    "session_id": "74e7c68c-fff3-4f1d-97a7-65a12a206d70",
+    "total_cost_usd": 0.031873649999999996,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1071,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1687,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1071,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1687,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1071,
+        "webSearchRequests": 0,
+        "costUSD": 0.031873649999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "037a2fef-59b1-44c8-b133-4db0ea3318a7"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:44:47+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_B_sonnet_run3",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 156082,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 150103,
+    "duration_api_ms": 200824,
+    "num_turns": 2,
+    "result": "## TLS Certificates Library (v4)\n\n### Events Emitted\n\nThe library emits one primary event on the **requirer** side:\n\n**`certificate_available`** (`CertificateAvailableEvent`) \u2014 fired when the provider has signed and returned a certificate. The event carries:\n- `certificate` \u2014 the X.509 certificate\n- `certificate_signing_request` \u2014 the CSR that was signed\n- `ca` \u2014 the CA certificate\n- `chain` \u2014 the full certificate chain\n\nThe **provider** side exposes no charm events; instead it offers query methods (`get_outstanding_certificate_requests()`, `get_issued_certificates()`, etc.) for use in the provider charm's own event handlers.\n\n---\n\n### When to Request a New Certificate\n\n| Trigger | How |\n|---|---|\n| **Initial setup** | Pass `certificate_requests` when constructing `TLSCertificatesRequiresV4` \u2014 the library sends the CSR automatically when the relation joins |\n| **Config changes** that affect the certificate (e.g. hostname) | Pass `refresh_events=[self.on.config_changed]` to the constructor; the library re-syncs CSRs automatically |\n| **Approaching expiry** | The library auto-renews at `renewal_relative_time` (default `0.9` = 90% through validity, minimum `0.5`) |\n| **Forced renewal** | Call `self.certificates.renew_certificate(certificate)` |\n| **New private key needed** | Call `self.certificates.regenerate_private_key()` \u2014 generates a new key and re-requests all certificates |\n\n---\n\n### Minimal Usage Pattern\n\n```python\nfrom charms.tls_certificates_interface.v4 import tls_certificates\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.certificates = tls_certificates.TLSCertificatesRequiresV4(\n            charm=self,\n            relationship_name=\"certificates\",\n            certificate_requests=[\n                tls_certificates.CertificateRequestAttributes(\n                    common_name=\"myapp.example.com\",\n                )\n            ],\n            refresh_events=[self.on.config_changed],\n        )\n        self.framework.observe(\n            self.certificates.on.certificate_available,\n            self._on_certificate_available,\n        )\n\n    def _on_certificate_available(self, event: tls_certificates.CertificateAvailableEvent):\n        certificate = event.certificate\n        ca = event.ca\n        chain = event.chain_as_pem()\n        # write to workload config, restart service, etc.\n```\n\nThe library manages private key generation and CSR lifecycle internally, so the charm only needs to react to `certificate_available` and configure the workload.",
+    "stop_reason": "end_turn",
+    "session_id": "3ac58682-975c-4437-b995-a1675e5a1930",
+    "total_cost_usd": 0.8107039999999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8998,
+      "cache_read_input_tokens": 29876,
+      "output_tokens": 969,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8998,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 969,
+        "cacheReadInputTokens": 29876,
+        "cacheCreationInputTokens": 8998,
+        "webSearchRequests": 0,
+        "costUSD": 0.0572583,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 236887,
+        "outputTokens": 13435,
+        "cacheReadInputTokens": 435762,
+        "cacheCreationInputTokens": 188646,
+        "webSearchRequests": 17,
+        "costUSD": 0.7534456999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "0090066d-4c17-4d75-bef9-8be328423138"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:52:25+1300"
+}

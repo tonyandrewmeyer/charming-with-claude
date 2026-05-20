@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_A_sonnet_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 23930,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 22779,
+    "duration_api_ms": 22769,
+    "num_turns": 1,
+    "result": "## Implementing the Provider Side of a Relation Using Charmlibs\n\nIn Juju charm development, the provider side of a relation is implemented using the **`ops`** library alongside **charm libraries** (charmlibs). Here's the correct approach:\n\n---\n\n### 1. Define the Relation in `metadata.yaml` (or `charmcraft.yaml`)\n\n```yaml\nprovides:\n  my-relation:\n    interface: my-interface\n```\n\n---\n\n### 2. Use or Create a Charm Library\n\nCharm libraries live in `lib/charms/<charm_name>/v<N>/<library_name>.py`. The provider side typically exposes a **`Provides`** class.\n\n#### Standard Structure of a Provider Charmlib\n\n```python\n# lib/charms/my_charm/v0/my_interface.py\n\n\"\"\"Library for the my-interface relation.\"\"\"\n\nimport logging\nfrom ops.charm import CharmBase, RelationChangedEvent, RelationJoinedEvent\nfrom ops.framework import Object, EventBase, EventSource, ObjectEvents\n\nLIBID = \"abc123...\"        # unique library ID (from charmcraft)\nLIBAPI = 0\nLIBPATCH = 1\n\nlogger = logging.getLogger(__name__)\n\n\n# --- Custom Events ---\n\nclass MyDataRequestedEvent(EventBase):\n    \"\"\"Event emitted when a requirer joins and requests data.\"\"\"\n    def __init__(self, handle, relation_id):\n        super().__init__(handle)\n        self.relation_id = relation_id\n\n    def snapshot(self):\n        return {\"relation_id\": self.relation_id}\n\n    def restore(self, snapshot):\n        self.relation_id = snapshot[\"relation_id\"]\n\n\nclass MyProviderEvents(ObjectEvents):\n    data_requested = EventSource(MyDataRequestedEvent)\n\n\n# --- Provider Class ---\n\nclass MyProvides(Object):\n    \"\"\"Provider-side handler for my-interface.\"\"\"\n\n    on = MyProviderEvents()\n\n    def __init__(self, charm: CharmBase, relation_name: str):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n\n        # Observe relation events\n        self.framework.observe(\n            charm.on[relation_name].relation_joined,\n            self._on_relation_joined,\n        )\n        self.framework.observe(\n            charm.on[relation_name].relation_changed,\n            self._on_relation_changed,\n        )\n\n    def _on_relation_joined(self, event: RelationJoinedEvent):\n        \"\"\"Emit a custom event so the charm can respond.\"\"\"\n        self.on.data_requested.emit(event.relation.id)\n\n    def _on_relation_changed(self, event: RelationChangedEvent):\n        \"\"\"Handle updates from the requirer side.\"\"\"\n        # Read data sent by the requirer\n        requirer_data = event.relation.data[event.app]\n        logger.info(\"Requirer data: %s\", dict(requirer_data))\n\n    def set_data(self, relation_id: int, data: dict):\n        \"\"\"Write provider data into the relation databag.\"\"\"\n        relation = self._charm.model.get_relation(self._relation_name, relation_id)\n        if relation is None:\n            raise RuntimeError(f\"No relation with id {relation_id}\")\n\n        # Write to the APPLICATION databag (not unit databag)\n        relation.data[self._charm.app].update(data)\n```\n\n---\n\n### 3. Wire It Into Your Charm\n\n```python\n# src/charm.py\n\nfrom ops.charm import CharmBase\nfrom ops.main import main\nfrom charms.my_charm.v0.my_interface import MyProvides\n\n\nclass MyCharm(CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n\n        # Instantiate the provider handler\n        self.my_provider = MyProvides(self, \"my-relation\")\n\n        # Observe the custom event emitted by the library\n        self.framework.observe(\n            self.my_provider.on.data_requested,\n            self._on_data_requested,\n        )\n\n    def _on_data_requested(self, event):\n        \"\"\"Called when a requirer joins; send our data.\"\"\"\n        self.my_provider.set_data(\n            relation_id=event.relation_id,\n            data={\n                \"host\": self.model.unit.name,\n                \"port\": \"8080\",\n            },\n        )\n\n\nif __name__ == \"__main__\":\n    main(MyCharm)\n```\n\n---\n\n### Key Design Principles\n\n| Principle | Detail |\n|---|---|\n| **Separation of concerns** | The charmlib handles relation events; the charm handles business logic |\n| **Custom events** | The lib emits semantic events (e.g., `data_requested`) instead of raw relation events |\n| **App vs Unit databag** | Use `relation.data[self.app]` for app-level data (shared across all units); `relation.data[self.unit]` for unit-level data |\n| **`set_data()` method** | Expose a clean API for the charm to write data, rather than exposing the databag directly |\n| **Validation** | Optionally validate data before writing (e.g., using `pydantic` \u2014 common in modern charmlibs) |\n\n---\n\n### Fetching Existing Charmlibs\n\nMany interfaces already have published charmlibs. Use:\n\n```bash\ncharmcraft fetch-lib charms.some_charm.v0.some_interface\n```\n\nCheck [Charmhub](https://charmhub.io) for existing libraries before writing your own.",
+    "stop_reason": "end_turn",
+    "session_id": "4e9effa4-a404-406b-a6a7-4005d10c912a",
+    "total_cost_usd": 0.02792865,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1063,
+      "cache_read_input_tokens": 8478,
+      "output_tokens": 1426,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1063,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1426,
+        "cacheReadInputTokens": 8478,
+        "cacheCreationInputTokens": 1063,
+        "webSearchRequests": 0,
+        "costUSD": 0.02792865,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "54f08e17-e599-4f0c-8224-42cdd13ee5c9"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:06:52+1300"
+}

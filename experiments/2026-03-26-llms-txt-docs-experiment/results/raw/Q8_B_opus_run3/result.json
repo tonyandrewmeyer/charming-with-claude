@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_B_opus_run3",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "B",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 35297,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 34186,
+    "duration_api_ms": 36095,
+    "num_turns": 6,
+    "result": "## Pebble Change/Task Model\n\nWhen Pebble performs a potentially long-running operation (starting, stopping, or restarting services), it records a **change** object containing one or more **tasks**. A change represents the overall operation; tasks are the individual steps within it.\n\nPebble persists this state in `$PEBBLE/.pebble.state` as JSON.\n\n### Statuses\n\nThe `ChangeStatus` enum values are:\n\n| Status | Meaning |\n|---|---|\n| `DOING` | In progress |\n| `DONE` | Successfully completed |\n| `ERROR` | Failed |\n| `HOLD` / `WAIT` | Paused |\n| `UNDO` / `UNDOING` | Reverting |\n\n### Checking completion in a charm\n\nThe `Change` object has a `ready` attribute (boolean) that indicates whether the operation has finished (successfully or not).\n\n**Preferred approach \u2014 `Container.get_change()` with polling or `pebble.Client.wait_change()`:**\n\n```python\n# Non-blocking: check if a change is done\nchange = container.pebble.get_change(change_id)\nif change.ready:\n    if change.status == ops.pebble.ChangeStatus.DONE:\n        logger.info(\"Operation succeeded\")\n    else:\n        logger.error(\"Operation failed: %s\", change.err)\n```\n\n**Blocking wait (useful outside of event handlers):**\n\n```python\ncompleted = container.pebble.wait_change(change_id, timeout=30.0)\n```\n\nThis polls until the change reaches a ready state or raises `TimeoutError`.\n\n### Key error handling\n\n- `ops.pebble.ChangeError` \u2014 raised when a change completes with errors\n- `ops.pebble.TimeoutError` \u2014 raised when `wait_change()` exceeds its timeout\n\n### Typical pattern in charms\n\nMost charm code doesn't need to deal with changes directly because `container.replan()`, `container.start()`, etc. are synchronous by default and raise `ChangeError` on failure. You only need the change/task model when you pass `timeout=0` to get a non-blocking call and then check completion later (e.g. for very slow service starts).",
+    "stop_reason": "end_turn",
+    "session_id": "e09745aa-ce1d-4492-ad36-6d625e492992",
+    "total_cost_usd": 0.1624605,
+    "usage": {
+      "input_tokens": 8,
+      "cache_creation_input_tokens": 9684,
+      "cache_read_input_tokens": 69189,
+      "output_tokens": 1079,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9684,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 8,
+        "outputTokens": 1079,
+        "cacheReadInputTokens": 69189,
+        "cacheCreationInputTokens": 9684,
+        "webSearchRequests": 0,
+        "costUSD": 0.12213450000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 36166,
+        "outputTokens": 832,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.04032600000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1ef2f411-f628-44ec-8928-9d12a2309660"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:31:32+1300"
+}

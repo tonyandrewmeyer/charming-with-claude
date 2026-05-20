@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_D_opus_run2",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 26701,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 25533,
+    "duration_api_ms": 25083,
+    "num_turns": 3,
+    "result": "Here's a complete integration test using Jubilant:\n\n```python\nimport jubilant\nimport pytest\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Provide a Juju instance with a temporary model.\"\"\"\n    juju = jubilant.Juju()\n    juju.add_model(\"test-mycharm\")\n    yield juju\n    juju.destroy_model(\"test-mycharm\")\n\n\ndef test_deploy_reaches_active_idle(juju: jubilant.Juju):\n    juju.deploy(\"./mycharm_amd64.charm\", resources={\"some-image\": \"some-image:latest\"})\n    juju.wait(lambda status: jubilant.all_active(status, \"mycharm\"), timeout=300)\n\n    status = juju.status()\n    assert status.apps[\"mycharm\"].status.current == \"active\"\n\n\ndef test_deploy_with_config(juju: jubilant.Juju):\n    juju.deploy(\n        \"./mycharm_amd64.charm\",\n        app=\"mycharm-custom\",\n        config={\"port\": \"9090\"},\n        num_units=1,\n    )\n    juju.wait(\n        lambda status: jubilant.all_active(status, \"mycharm-custom\"),\n        error=jubilant.any_error,\n        timeout=300,\n    )\n\n    status = juju.status()\n    assert status.apps[\"mycharm-custom\"].status.current == \"active\"\n```\n\nKey points:\n\n- **`jubilant.Juju()`** \u2014 creates a Juju client instance.\n- **`juju.deploy(charm, ...)`** \u2014 deploys a charm (local path or Charmhub name). Pass `config`, `resources`, `num_units`, etc. as needed.\n- **`juju.wait(condition, error=..., timeout=...)`** \u2014 polls `juju status` until `condition` returns `True` for three consecutive checks. Use `jubilant.all_active` to check that apps/units are active, and `jubilant.any_error` as the `error` callback to fail fast on errors.",
+    "stop_reason": "end_turn",
+    "session_id": "063db2b8-5ad6-4389-9fda-c23fc64c8cc1",
+    "total_cost_usd": 0.1231015,
+    "usage": {
+      "input_tokens": 7,
+      "cache_creation_input_tokens": 8826,
+      "cache_read_input_tokens": 49630,
+      "output_tokens": 780,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8826,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 7,
+        "outputTokens": 780,
+        "cacheReadInputTokens": 49630,
+        "cacheCreationInputTokens": 8826,
+        "webSearchRequests": 0,
+        "costUSD": 0.0995125,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 20879,
+        "outputTokens": 542,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.023589000000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "a659c752-e35e-489b-a03e-3780b4d2dacb"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T10:28:11+1300"
+}

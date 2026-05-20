@@ -1,0 +1,67 @@
+{
+  "session_id": "Q13_B_sonnet_run1",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "B",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 34365,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 33203,
+    "duration_api_ms": 34865,
+    "num_turns": 2,
+    "result": "Here's how to use the `traefik_k8s` ingress library on the requires side:\n\n## 1. Add the library dependency\n\nIn `charmcraft.yaml`:\n\n```yaml\ncharm-libs:\n  - lib: traefik_k8s.ingress\n    version: \"2\"\n```\n\nThen fetch it:\n\n```bash\ncharmcraft fetch-libs\n```\n\n## 2. Declare the relation\n\nIn `charmcraft.yaml`:\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n    optional: true\n```\n\n## 3. Wire it up in `charm.py`\n\n```python\nimport charms.traefik_k8s.v2.ingress as ingress_lib\nimport ops\n\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        self._ingress = ingress_lib.IngressPerAppRequirer(\n            self,\n            relation_name=\"ingress\",\n            port=8080,\n        )\n\n        framework.observe(self._ingress.on.ready, self._on_ingress_ready)\n        framework.observe(self._ingress.on.revoked, self._on_ingress_revoked)\n\n    def _on_ingress_ready(self, event: ingress_lib.IngressPerAppReadyEvent) -> None:\n        url = self._ingress.url\n        self.unit.status = ops.ActiveStatus(f\"Ingress ready: {url}\")\n\n    def _on_ingress_revoked(self, event: ingress_lib.IngressPerAppRevokedEvent) -> None:\n        self.unit.status = ops.ActiveStatus(\"Ingress revoked\")\n```\n\n## Key points\n\n- **`IngressPerAppRequirer`** handles publishing your app's requirements to Traefik automatically \u2014 you don't need to call `provide_ingress_requirements()` manually in most cases.\n- **`self._ingress.url`** returns the full URL Traefik assigned (e.g. `http://my-model-my-app.10.0.0.1.nip.io/my-model-my-app`), or `None` if ingress isn't ready.\n- **`self._ingress.is_ready()`** is useful for guard checks in other event handlers before using the URL.\n- The `strip_prefix=True` option is commonly needed if your app serves at `/` but Traefik routes via a path prefix.",
+    "stop_reason": "end_turn",
+    "session_id": "4108faab-5fab-4083-b07a-c536a1d934c9",
+    "total_cost_usd": 0.11605884999999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 8195,
+      "cache_read_input_tokens": 29874,
+      "output_tokens": 919,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8195,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 919,
+        "cacheReadInputTokens": 29874,
+        "cacheCreationInputTokens": 8195,
+        "webSearchRequests": 0,
+        "costUSD": 0.05349645,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 36579,
+        "outputTokens": 1523,
+        "cacheReadInputTokens": 13009,
+        "cacheCreationInputTokens": 13654,
+        "webSearchRequests": 0,
+        "costUSD": 0.06256239999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "aa000c1e-36b6-42af-b42e-49c285aca001"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T22:21:25+1300"
+}

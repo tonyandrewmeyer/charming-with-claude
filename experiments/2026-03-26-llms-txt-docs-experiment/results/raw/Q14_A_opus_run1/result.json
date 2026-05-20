@@ -1,0 +1,67 @@
+{
+  "session_id": "Q14_A_opus_run1",
+  "question_id": "Q14",
+  "category": "charmlibs",
+  "question": "What events does the TLS certificates library emit, and when should a charm request a new certificate?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 90391,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 89183,
+    "duration_api_ms": 88932,
+    "num_turns": 2,
+    "result": "\n\n## TLS Certificates Library (v4) \u2014 Events & Usage\n\nThe `tls_certificates` library (v4) emits **two events** on the **requirer** side (i.e., your charm that needs a certificate):\n\n### Events\n\n| Event | Class | When It Fires |\n|---|---|---|\n| **`certificate_available`** | `CertificateAvailableEvent` | A provider has successfully issued a certificate for your CSR. |\n| **`certificate_denied`** | `CertificateDeniedEvent` | A provider could not issue a certificate for your CSR (e.g., policy violation, invalid CSR). |\n\n#### `CertificateAvailableEvent` fields\n- **`certificate`** \u2014 the issued TLS certificate\n- **`certificate_signing_request`** \u2014 the CSR that was signed\n- **`ca`** \u2014 the CA certificate\n- **`chain`** \u2014 the full certificate chain (list); also available via `chain_as_pem()`\n\n#### `CertificateDeniedEvent` fields\n- **`certificate_signing_request`** \u2014 the CSR that was denied\n- **`error`** \u2014 a `CertificateError` with code, name, message, and reason\n\n---\n\n### When to Request a New Certificate\n\nYou should request (or re-request) a certificate when:\n\n1. **On initial relation join** \u2014 When the `tls-certificates` relation is first established, generate a private key and CSR, then call `sync()` to submit the request.\n\n2. **When configuration changes** \u2014 If a config value that affects the certificate changes (e.g., a new Subject Alternative Name, a new common name), regenerate the CSR and call `sync()`.\n\n3. **On certificate expiry / renewal** \u2014 The library handles automatic renewal via the `renewal_relative_time` parameter (a float between 0 and 1 indicating how far through the certificate's validity period to trigger renewal, e.g., `0.8` = renew at 80% of the way to expiry). You typically don't need to handle this manually.\n\n4. **After a `certificate_denied` event** \u2014 If the denial was due to a transient or fixable issue, correct the problem and re-submit.\n\n---\n\n### Typical Requirer Setup\n\n```python\nfrom charms.tls_certificates_interface.v4.tls_certificates import (\n    TLSCertificatesRequiresV4,\n    CertificateAvailableEvent,\n    CertificateDeniedEvent,\n    generate_private_key,\n    generate_csr,\n    Mode,\n)\n\nclass MyCharm(ops.CharmBase):\n\n    def __init__(self, framework):\n        super().__init__(framework)\n        private_key = generate_private_key()\n        csr = generate_csr(private_key=private_key, common_name=\"my-service\")\n\n        self.tls = TLSCertificatesRequiresV4(\n            charm=self,\n            relationship_name=\"certificates\",\n            certificate_requests=[csr],\n            mode=Mode.UNIT,\n            refresh_events=[self.on.config_changed],\n            private_key=private_key,\n        )\n\n        self.framework.observe(\n            self.tls.on.certificate_available, self._on_certificate_available\n        )\n        self.framework.observe(\n            self.tls.on.certificate_denied, self._on_certificate_denied\n        )\n\n    def _on_certificate_available(self, event: CertificateAvailableEvent):\n        # Store/apply the certificate\n        cert_pem = str(event.certificate)\n        ca_pem = str(event.ca)\n        chain_pem = event.chain_as_pem()\n        # ... configure your workload with the cert\n\n    def _on_certificate_denied(self, event: CertificateDeniedEvent):\n        self.unit.status = ops.BlockedStatus(\n            f\"Certificate denied: {event.error.message}\"\n        )\n```\n\n**Key points:**\n- Pass `refresh_events` (e.g., `config_changed`) so the library automatically re-syncs when relevant config changes.\n- Use `get_assigned_certificates()` to inspect currently valid certificates at any time.\n- The library internally tracks CSR-to-certificate mappings via relation data \u2014 you don't need to manage that yourself.",
+    "stop_reason": "end_turn",
+    "session_id": "3d8ac259-f3be-4e83-9218-d9fb24df0c9f",
+    "total_cost_usd": 0.17684255000000002,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 2397,
+      "cache_read_input_tokens": 18202,
+      "output_tokens": 1307,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 2397,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1307,
+        "cacheReadInputTokens": 18202,
+        "cacheCreationInputTokens": 2397,
+        "webSearchRequests": 0,
+        "costUSD": 0.05678725,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 71,
+        "outputTokens": 5069,
+        "cacheReadInputTokens": 450543,
+        "cacheCreationInputTokens": 39668,
+        "webSearchRequests": 0,
+        "costUSD": 0.12005530000000003,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "561cbc53-e5f7-4982-ac43-e3704f03a64d"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:02:08+1300"
+}

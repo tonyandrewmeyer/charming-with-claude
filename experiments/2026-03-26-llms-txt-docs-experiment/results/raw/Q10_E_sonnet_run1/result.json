@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_E_sonnet_run1",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 62027,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 60871,
+    "duration_api_ms": 61151,
+    "num_turns": 8,
+    "result": "Here is the complete picture for deploying a charm and waiting for **active/idle** with **jubilant**:\n\n---\n\n## How it works\n\n| Piece | Purpose |\n|---|---|\n| `jubilant.temp_model()` | Creates a temporary Juju model, tears it down on exit |\n| `juju.deploy()` | Runs `juju deploy` with full keyword-argument coverage |\n| `juju.wait(ready, ...)` | Polls `juju status` until `ready(status)` is `True` for `successes` consecutive checks |\n| `jubilant.all_active` | Built-in predicate: every unit's workload status is `active` |\n| `jubilant.all_agents_idle` | Built-in predicate: every unit's agent status is `idle` |\n\n`wait()` signature:\n\n```python\ndef wait(\n    self,\n    ready: Callable[[Status], bool],\n    *,\n    error: Callable[[Status], bool] | None = None,  # raise WaitError immediately if True\n    delay: float = 1.0,          # seconds between polls\n    timeout: float | None = None, # defaults to juju.wait_timeout (600 s)\n    successes: int = 3,           # must be True this many times in a row\n) -> Status: ...\n```\n\n---\n\n## Complete test code\n\n```python\n# tests/integration/conftest.py\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Provide a temporary Juju model for the whole test module.\"\"\"\n    with jubilant.temp_model() as juju:\n        yield juju\n```\n\n```python\n# tests/integration/test_deploy.py\nimport requests\nimport jubilant\n\n\n# ---------------------------------------------------------------------------\n# Helper predicate: active workload AND idle agent\n# ---------------------------------------------------------------------------\ndef all_active_idle(status: jubilant.Status) -> bool:\n    \"\"\"Return True when every unit is active/idle.\"\"\"\n    return jubilant.all_active(status) and jubilant.all_agents_idle(status)\n\n\n# ---------------------------------------------------------------------------\n# Tests\n# ---------------------------------------------------------------------------\ndef test_deploy(juju: jubilant.Juju):\n    # 1. Deploy from Charmhub (or a local .charm file)\n    juju.deploy(\n        \"my-charm\",            # charm name or pathlib.Path to .charm file\n        app=\"my-app\",          # optional: override application name\n        channel=\"latest/edge\",\n        num_units=1,\n        config={\"log-level\": \"debug\"},\n        trust=True,\n    )\n\n    # 2. Block until active/idle (raises TimeoutError after 10 min by default)\n    status = juju.wait(\n        all_active_idle,\n        error=jubilant.any_error,   # fail fast if any unit hits error status\n        timeout=600,                # seconds\n        delay=5,                    # poll every 5 s\n        successes=3,                # must be stable for 3 consecutive checks\n    )\n\n    # 3. Inspect the returned Status object\n    app_status = status.apps[\"my-app\"]\n    unit_status = app_status.units[\"my-app/0\"]\n\n    assert unit_status.workload.status == \"active\"\n    assert unit_status.agent.status == \"idle\"\n\n    address = unit_status.address\n    print(f\"Unit address: {address}\")\n\n\ndef test_with_relation(juju: jubilant.Juju):\n    \"\"\"Deploy two charms, relate them, wait for both to settle.\"\"\"\n    juju.deploy(\"postgresql\", channel=\"14/stable\")\n    juju.deploy(\"my-charm\", app=\"my-app\", channel=\"latest/edge\")\n\n    juju.integrate(\"my-app:database\", \"postgresql:database\")\n\n    # Wait for ALL apps (postgresql + my-app) to be active/idle\n    status = juju.wait(\n        lambda s: jubilant.all_active(s) and jubilant.all_agents_idle(s),\n        error=jubilant.any_error,\n        timeout=900,\n    )\n\n    assert \"my-app\" in status.apps\n    assert \"postgresql\" in status.apps\n\n\ndef test_deploy_local_charm(juju: jubilant.Juju):\n    \"\"\"Deploy from a locally-built .charm file.\"\"\"\n    import pathlib\n\n    charm_file = pathlib.Path(\"my-charm_ubuntu-22.04-amd64.charm\")\n\n    juju.deploy(\n        charm_file,\n        app=\"my-app\",\n        resources={\"oci-image\": \"ghcr.io/canonical/my-image:latest\"},\n    )\n\n    status = juju.wait(all_active_idle, timeout=300)\n    assert status.apps[\"my-app\"].units[\"my-app/0\"].workload.status == \"active\"\n```\n\n---\n\n## Key points\n\n- **`temp_model()`** \u2014 scoped to `module` so the model is shared across all tests in the file and destroyed automatically after, whether tests pass or fail.\n- **`wait()` returns `Status`** \u2014 you can immediately interrogate `.apps`, `.units`, `.address`, etc. without a separate `juju.status()` call.\n- **`error=jubilant.any_error`** \u2014 causes `wait()` to raise `WaitError` immediately instead of timing out if any unit reaches `error` status, giving faster feedback.\n- **Combine predicates with `and`** \u2014 `all_active` checks workload status; `all_agents_idle` checks agent status. Using both together is the precise equivalent of what `juju status` shows as `active/idle`.\n- **`successes=3`** (default) \u2014 prevents a flapping unit from triggering a false positive.",
+    "stop_reason": "end_turn",
+    "session_id": "3a15ed10-1740-4038-bb8a-93bd68eb084d",
+    "total_cost_usd": 0.11779780000000001,
+    "usage": {
+      "input_tokens": 48,
+      "cache_creation_input_tokens": 4698,
+      "cache_read_input_tokens": 63811,
+      "output_tokens": 2296,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4698,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 48,
+        "outputTokens": 2296,
+        "cacheReadInputTokens": 63811,
+        "cacheCreationInputTokens": 4698,
+        "webSearchRequests": 0,
+        "costUSD": 0.0713448,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 36603,
+        "outputTokens": 1970,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.046453,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "1a20d348-d06f-4426-a19e-b9806ace3d8f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:27:43+1300"
+}

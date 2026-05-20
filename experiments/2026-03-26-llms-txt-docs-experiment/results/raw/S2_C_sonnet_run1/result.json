@@ -1,0 +1,67 @@
+{
+  "session_id": "S2_C_sonnet_run1",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 144972,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 143756,
+    "duration_api_ms": 300545,
+    "num_turns": 3,
+    "result": "Here is a complete, well-structured implementation based on the official Ops SDK documentation:\n\n```python\n# src/charm.py\n\n\"\"\"Charm for a workload configured via Pebble.\"\"\"\n\nimport logging\nimport ops\nfrom charms.data_platform_libs.v0.data_interfaces import (\n    DatabaseCreatedEvent,\n    DatabaseEndpointsChangedEvent,\n    DatabaseRequires,\n)\n\nlogger = logging.getLogger(__name__)\n\nCONTAINER_NAME = \"app\"\nSERVICE_NAME   = \"app\"\nLAYER_NAME     = \"app\"\nDB_RELATION    = \"database\"\n\n\nclass AppCharm(ops.CharmBase):\n    \"\"\"Charm that configures a Pebble workload service.\"\"\"\n\n    def __init__(self, framework: ops.Framework) -> None:\n        super().__init__(framework)\n\n        # \u2500\u2500 Database relation (data-platform-libs) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        self._db = DatabaseRequires(\n            self,\n            relation_name=DB_RELATION,\n            database_name=\"app_db\",\n        )\n\n        # \u2500\u2500 Event observers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n        framework.observe(\n            self.on[CONTAINER_NAME].pebble_ready,\n            self._on_pebble_ready,\n        )\n        # Re-configure whenever the database credentials arrive or change.\n        framework.observe(self._db.on.database_created,   self._on_db_changed)\n        framework.observe(self._db.on.endpoints_changed,  self._on_db_changed)\n        # Re-configure when the operator changes a config option.\n        framework.observe(self.on.config_changed,         self._on_config_changed)\n\n    # \u2500\u2500 Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _get_db_env(self) -> dict[str, str]:\n        \"\"\"Return environment variables sourced from the database relation.\n\n        Returns an empty dict (and sets Waiting status) when the relation\n        data is not yet available.\n        \"\"\"\n        relations = self.model.relations[DB_RELATION]\n        if not relations:\n            return {}\n\n        # DatabaseRequires exposes a convenience method that returns the\n        # first relation's data as a plain dict.\n        data = self._db.fetch_relation_data()\n        if not data:\n            return {}\n\n        # fetch_relation_data() returns {relation_id: {key: value, ...}}.\n        rel_data = next(iter(data.values()))\n\n        return {\n            \"DB_HOST\":     rel_data.get(\"endpoints\", \"\").split(\":\")[0],\n            \"DB_PORT\":     rel_data.get(\"endpoints\", \"\").split(\":\")[-1],\n            \"DB_NAME\":     rel_data.get(\"database\", \"\"),\n            \"DB_USER\":     rel_data.get(\"username\", \"\"),\n            \"DB_PASSWORD\": rel_data.get(\"password\", \"\"),\n        }\n\n    def _build_pebble_layer(self) -> ops.pebble.LayerDict:\n        \"\"\"Compose the Pebble layer from config and relation data.\"\"\"\n        command = self.config.get(\"app-command\", \"/usr/bin/app\")\n        env     = self._get_db_env()\n\n        layer: ops.pebble.LayerDict = {\n            \"summary\": \"Application layer\",\n            \"services\": {\n                SERVICE_NAME: {\n                    \"override\":    \"replace\",\n                    \"summary\":     \"Main application process\",\n                    \"command\":     command,          # \u2190 from charm config\n                    \"startup\":     \"enabled\",\n                    \"environment\": env,              # \u2190 from database relation\n                    # Restart the service automatically if the health check fails.\n                    \"on-check-failure\": {\n                        \"http-health\": \"restart\",\n                    },\n                },\n            },\n            \"checks\": {\n                \"http-health\": {                     # \u2190 HTTP health check\n                    \"override\":  \"replace\",\n                    \"level\":     \"ready\",            # maps to K8s readiness probe\n                    \"period\":    \"10s\",\n                    \"timeout\":   \"3s\",\n                    \"threshold\": 3,\n                    \"http\": {\n                        \"url\": \"http://localhost:8080/health\",\n                    },\n                },\n            },\n        }\n        return layer\n\n    def _is_ready(self) -> bool:\n        \"\"\"Return True only when all preconditions for starting the service are met.\"\"\"\n        if not self.config.get(\"app-command\"):\n            self.unit.status = ops.BlockedStatus(\"'app-command' config option is not set\")\n            return False\n\n        if not self._get_db_env():\n            self.unit.status = ops.WaitingStatus(\"Waiting for database relation data\")\n            return False\n\n        return True\n\n    def _reconcile(self, container: ops.Container) -> None:\n        \"\"\"Push the current layer to Pebble and replan services.\"\"\"\n        if not container.can_connect():\n            self.unit.status = ops.WaitingStatus(\"Waiting for Pebble to be ready\")\n            return\n\n        if not self._is_ready():\n            return  # status already set inside _is_ready()\n\n        layer = self._build_pebble_layer()\n        container.add_layer(LAYER_NAME, layer, combine=True)\n        container.replan()\n\n        self.unit.status = ops.ActiveStatus()\n        logger.info(\"Service '%s' replanned successfully\", SERVICE_NAME)\n\n    # \u2500\u2500 Event handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n    def _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n        \"\"\"Configure and start the workload when Pebble becomes available.\"\"\"\n        self._reconcile(event.workload)\n\n    def _on_db_changed(\n        self,\n        event: DatabaseCreatedEvent | DatabaseEndpointsChangedEvent,\n    ) -> None:\n        \"\"\"Re-push the layer whenever database credentials arrive or change.\"\"\"\n        container = self.unit.get_container(CONTAINER_NAME)\n        self._reconcile(container)\n\n    def _on_config_changed(self, event: ops.ConfigChangedEvent) -> None:\n        \"\"\"Re-push the layer whenever a config option changes.\"\"\"\n        container = self.unit.get_container(CONTAINER_NAME)\n        self._reconcile(container)\n\n\nif __name__ == \"__main__\":\n    ops.main(AppCharm)\n```\n\n---\n\n### What each piece does and why\n\n| Concern | Where | Key detail |\n|---|---|---|\n| **Command** | `_build_pebble_layer` \u2192 `services[SERVICE_NAME][\"command\"]` | Read from `self.config[\"app-command\"]`; the charm blocks if the option is unset |\n| **DB env vars** | `_get_db_env()` \u2192 `services[SERVICE_NAME][\"environment\"]` | Uses `DatabaseRequires.fetch_relation_data()` (data-platform-libs); returns `{}` while the relation is not yet populated so the unit waits instead of starting with missing credentials |\n| **HTTP health check** | `checks[\"http-health\"]` | `level: ready` maps to the Kubernetes readiness probe via Pebble's `/v1/health` endpoint; `on-check-failure: restart` restarts the service after 3 consecutive failures |\n| **`combine=True`** | `container.add_layer(\u2026, combine=True)` | Merges the new layer with any existing layer of the same label rather than appending a duplicate |\n| **`container.replan()`** | `_reconcile` | Starts `startup: enabled` services that are not yet running and restarts those whose definition changed |\n| **Guard: `can_connect()`** | `_reconcile` | Defers action safely if Pebble isn't ready yet (e.g. during hook replay) |\n| **Single `_reconcile` method** | Called from all three handlers | Avoids duplicating logic across `pebble_ready`, `config_changed`, and `database_created` / `endpoints_changed` |\n\n### Required `charmcraft.yaml` snippets\n\n```yaml\n# config option the handler reads\nconfig:\n  options:\n    app-command:\n      type: string\n      description: Full command used to start the workload process.\n\n# database relation\nrequires:\n  database:\n    interface: postgresql_client\n    limit: 1\n\n# Pebble-managed container\ncontainers:\n  app:\n    resource: app-image\n\n# data-platform-libs for the DatabaseRequires helper\ncharm-libs:\n  - lib: data_platform_libs.data_interfaces\n    version: \"0\"\n```",
+    "stop_reason": "end_turn",
+    "session_id": "642518ac-1608-4ffd-9c2e-05d7bce419e7",
+    "total_cost_usd": 0.81142,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 5926,
+      "cache_read_input_tokens": 18080,
+      "output_tokens": 2853,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 5926,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 249250,
+        "outputTokens": 20536,
+        "cacheReadInputTokens": 388305,
+        "cacheCreationInputTokens": 200160,
+        "webSearchRequests": 10,
+        "costUSD": 0.7409605000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 2853,
+        "cacheReadInputTokens": 18080,
+        "cacheCreationInputTokens": 5926,
+        "webSearchRequests": 0,
+        "costUSD": 0.07045950000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "cb48f487-2345-4385-bdb8-670b6fe24e1e"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-26T23:52:06+1300"
+}

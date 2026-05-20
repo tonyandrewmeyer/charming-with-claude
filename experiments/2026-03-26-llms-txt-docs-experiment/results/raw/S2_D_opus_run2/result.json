@@ -1,0 +1,57 @@
+{
+  "session_id": "S2_D_opus_run2",
+  "question_id": "S2",
+  "category": "synthesis",
+  "question": "Write a charm handler for `_on_pebble_ready` that configures a workload container with: the command from a config option, environment variables from a database relation, and an HTTP health check.",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 28122,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 26845,
+    "duration_api_ms": 26832,
+    "num_turns": 3,
+    "result": "There's no existing charm scaffolded yet. Here's the `_on_pebble_ready` handler following the project's conventions:\n\n```python\ndef _on_pebble_ready(self, event: ops.PebbleReadyEvent) -> None:\n    \"\"\"Configure the workload container when Pebble is ready.\"\"\"\n    if not self._database_ready():\n        event.defer()\n        return\n\n    container = event.workload\n    layer = ops.pebble.Layer({\n        \"services\": {\n            self.app.name: {\n                \"override\": \"replace\",\n                \"summary\": f\"{self.app.name} service\",\n                \"command\": self.config[\"command\"],\n                \"startup\": \"enabled\",\n                \"environment\": self._database_environment(),\n                \"on-check-failure\": {\"health\": \"restart\"},\n            },\n        },\n        \"checks\": {\n            \"health\": {\n                \"override\": \"replace\",\n                \"period\": \"30s\",\n                \"timeout\": \"5s\",\n                \"threshold\": 3,\n                \"http\": {\"url\": f\"http://localhost:{self.config['port']}/health\"},\n            },\n        },\n    })\n    container.add_layer(self.app.name, layer, combine=True)\n    container.replan()\n    self.unit.status = ops.ActiveStatus()\n```\n\nAnd the supporting method + relation handling:\n\n```python\ndef _database_ready(self) -> bool:\n    \"\"\"Check whether the database relation has provided connection details.\"\"\"\n    relation = self.model.get_relation(\"database\")\n    if not relation or not relation.data.get(relation.app):\n        return False\n    app_data = relation.data[relation.app]\n    return all(key in app_data for key in (\"host\", \"port\", \"database\", \"username\", \"password\"))\n\ndef _database_environment(self) -> dict[str, str]:\n    \"\"\"Build environment variables from the database relation data.\"\"\"\n    relation = self.model.get_relation(\"database\")\n    app_data = relation.data[relation.app]  # type: ignore[union-attr]\n    return {\n        \"DB_HOST\": str(app_data[\"host\"]),\n        \"DB_PORT\": str(app_data[\"port\"]),\n        \"DB_NAME\": str(app_data[\"database\"]),\n        \"DB_USER\": str(app_data[\"username\"]),\n        \"DB_PASSWORD\": str(app_data[\"password\"]),\n    }\n```\n\nKey points about this implementation:\n\n- **Defers if the database isn't ready** \u2014 Pebble may become ready before the database relation provides credentials, so we defer and wait.\n- **`on-check-failure`** ties the HTTP health check to automatic service restarts (Pebble handles this natively).\n- **`combine=True`** on `add_layer` means the layer is merged with any existing layer of the same name, making the handler idempotent.\n- **`replan()`** applies the layer and starts/restarts services as needed.\n- **Command comes from config** (`self.config[\"command\"]`), so `charmcraft.yaml` needs a `command` config option of type `string`.\n- **No `from` imports** outside of `typing`, per the style guide.\n\nThe corresponding `charmcraft.yaml` snippets you'd need:\n\n```yaml\nconfig:\n  options:\n    command:\n      type: string\n      description: The command to run in the workload container.\n    port:\n      type: int\n      default: 8080\n      description: The port the workload listens on for HTTP.\n\nrequires:\n  database:\n    interface: postgresql_client\n    optional: false\n\ncontainers:\n  workload:\n    resource: oci-image\n\nresources:\n  oci-image:\n    type: oci-image\n    description: OCI image for the workload.\n```\n\nAnd in `__init__`, observe both `pebble-ready` and relation-changed so the layer is updated when database credentials arrive after Pebble:\n\n```python\nself.framework.observe(self.on[\"workload\"].pebble_ready, self._on_pebble_ready)\nself.framework.observe(self.on[\"database\"].relation_changed, self._on_pebble_ready)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "5e49a238-a17e-4184-b309-02458dc55891",
+    "total_cost_usd": 0.09765175000000001,
+    "usage": {
+      "input_tokens": 4,
+      "cache_creation_input_tokens": 7823,
+      "cache_read_input_tokens": 30176,
+      "output_tokens": 1346,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7823,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 4,
+        "outputTokens": 1346,
+        "cacheReadInputTokens": 30176,
+        "cacheCreationInputTokens": 7823,
+        "webSearchRequests": 0,
+        "costUSD": 0.09765175000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "2ed6805e-3a53-4822-a0f9-ea021f643f12"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:10:07+1300"
+}

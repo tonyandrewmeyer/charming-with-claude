@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_C_opus_run2",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 86930,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 85394,
+    "duration_api_ms": 97468,
+    "num_turns": 13,
+    "result": "Here's a comprehensive guide to implementing the **provider side of a relation** using charm libraries (charmlibs):\n\n---\n\n## 1. Declare the Relation in `charmcraft.yaml`\n\n```yaml\nprovides:\n  my-database:\n    interface: my_database\n```\n\n---\n\n## 2. Define the Data Schema with Pydantic\n\nCreate structured models for the data your provider will publish:\n\n```python\nimport pydantic\n\nclass DatabaseProviderAppData(pydantic.BaseModel):\n    \"\"\"Data the provider puts in the application databag.\"\"\"\n    api_endpoint: str = pydantic.Field(\n        description=\"URL to the database endpoint\",\n        examples=[\"https://db.example.com:5432\"],\n    )\n    credentials: str | None = pydantic.Field(\n        default=None, description=\"A Juju secret ID for credentials\"\n    )\n\nclass DatabaseProviderUnitData(pydantic.BaseModel):\n    \"\"\"Data the provider puts in the per-unit databag.\"\"\"\n    secret_id: str = pydantic.Field(\n        description=\"Per-unit secret ID for authentication\",\n        examples=[\"secret:12312323112313123213\"],\n    )\n```\n\n---\n\n## 3. Define Custom Events in the Library\n\nLibraries should define custom events \u2014 **charms themselves should never define custom events**. Events must inherit from `ops.EventBase` (not from Ops subclasses like `RelationEvent`), and must implement `snapshot()`/`restore()` for any stored data:\n\n```python\nimport ops\nfrom typing import Any\n\nclass DatabaseReadyEvent(ops.EventBase):\n    \"\"\"Fired when the database is ready for use.\"\"\"\n    def __init__(self, handle: ops.Handle, *, credential_secret: ops.Secret):\n        super().__init__(handle)\n        self.credential_secret = credential_secret\n\n    def snapshot(self) -> dict[str, str]:\n        data = super().snapshot()\n        data['credential_secret_id'] = self.credential_secret.id\n        return data\n\n    def restore(self, snapshot: dict[str, Any]):\n        super().restore(snapshot)\n        self.credential_secret = self.framework.model.get_secret(\n            id=snapshot['credential_secret_id']\n        )\n```\n\n---\n\n## 4. Build the Provider Class\n\nThe provider class extends `ops.Object`, wraps the raw Juju relation events, and emits custom events for consuming charms:\n\n```python\nclass DatabaseProviderEvents(ops.ObjectEvents):\n    ready = ops.EventSource(DatabaseReadyEvent)\n\nclass DatabaseProvider(ops.Object):\n    \"\"\"Provider side of the my_database interface.\"\"\"\n    on = DatabaseProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, endpoint: str = \"my-database\"):\n        super().__init__(charm, endpoint)\n        self._charm = charm\n        self._endpoint = endpoint\n\n        # Observe raw Juju relation events internally\n        self.framework.observe(\n            charm.on[endpoint].relation_created, self._on_relation_created\n        )\n        self.framework.observe(\n            charm.on[endpoint].relation_joined, self._on_relation_joined\n        )\n        self.framework.observe(\n            charm.on[endpoint].relation_broken, self._on_relation_broken\n        )\n\n    def _on_relation_created(self, event: ops.RelationCreatedEvent):\n        \"\"\"Set up app-level resources when a relation is first created.\"\"\"\n        if not self._charm.unit.is_leader():\n            return\n        # Create resources, e.g. a database for the remote app\n        credentials = self._create_database(event.app.name)\n        # Publish structured data to the app databag\n        data = DatabaseProviderAppData(\n            api_endpoint=\"https://db.example.com:5432\",\n            credentials=credentials,\n        )\n        event.relation.save(data, self._charm.app)\n\n    def _on_relation_joined(self, event: ops.RelationJoinedEvent):\n        \"\"\"Set up per-unit resources when a remote unit joins.\"\"\"\n        secret_id = self._create_unit_credentials(event.unit.name)\n        data = DatabaseProviderUnitData(secret_id=secret_id)\n        event.relation.save(data, event.unit)\n\n    def _on_relation_broken(self, event: ops.RelationBrokenEvent):\n        \"\"\"Clean up when the relation is fully removed.\"\"\"\n        if not self._charm.unit.is_leader():\n            return\n        self._drop_database(event.app.name)\n\n    # ... internal helper methods ...\n```\n\n**Key points:**\n- Use `relation.save(pydantic_model, entity)` to persist structured data.\n- Use `relation.data[self.app][\"key\"] = \"value\"` for simple key/value writes.\n- Only the **leader unit** can write to the **app databag**.\n- Any unit can write to its own **unit databag**.\n\n---\n\n## 5. Use the Library in Your Charm\n\nThe charm consumes the library and observes only the **custom events**, not the raw Juju events:\n\n```python\nfrom charms.my_database_operator.v0.my_database import DatabaseProvider\n\nclass MyDatabaseCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.database_provider = DatabaseProvider(self)\n        # Observe the library's custom events\n        self.framework.observe(\n            self.database_provider.on.ready, self._on_database_ready\n        )\n\n    def _on_database_ready(self, event: DatabaseReadyEvent):\n        # React to the database being ready\n        ...\n```\n\n---\n\n## 6. Testing\n\nUse `ops.testing` (Scenario-based) to test the provider without a live Juju environment:\n\n```python\nfrom ops import testing\n\nctx = testing.Context(MyDatabaseCharm)\nrelation = testing.Relation(\n    endpoint='my-database',\n    remote_units_data={1: {}},\n)\nstate_in = testing.State(relations={relation}, leader=True)\nstate_out = ctx.run(\n    ctx.on.relation_joined(relation, remote_unit=1),\n    state=state_in,\n)\n# Assert the expected data was written to the databag\n```\n\n---\n\n## Best Practices Summary\n\n| Practice | Details |\n|---|---|\n| **Use Pydantic schemas** | Define `ProviderAppData` / `ProviderUnitData` models for structured, validated databags |\n| **Custom events in libraries only** | Charms should never define custom events themselves |\n| **Inherit from `ops.EventBase`** | Not from `RelationEvent` or other Ops subclasses |\n| **Implement `snapshot`/`restore`** | For any data stored on custom events |\n| **Use Juju Secrets** | For credentials \u2014 never put sensitive data directly in databags |\n| **Leader-gate app writes** | Always check `self.unit.is_leader()` before writing to the app databag |\n| **Support custom endpoint names** | Accept `endpoint` as a constructor parameter with a sensible default |",
+    "stop_reason": "end_turn",
+    "session_id": "c805b74c-597f-4756-8fb2-8b9aebfa3420",
+    "total_cost_usd": 0.22747525000000002,
+    "usage": {
+      "input_tokens": 551,
+      "cache_creation_input_tokens": 7299,
+      "cache_read_input_tokens": 98299,
+      "output_tokens": 3028,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7299,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 551,
+        "outputTokens": 3028,
+        "cacheReadInputTokens": 98299,
+        "cacheCreationInputTokens": 7299,
+        "webSearchRequests": 0,
+        "costUSD": 0.17322325,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 37287,
+        "outputTokens": 3393,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.054252,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "f53bd703-09e3-446d-a7d4-20b11ffd3e15"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T09:19:25+1300"
+}

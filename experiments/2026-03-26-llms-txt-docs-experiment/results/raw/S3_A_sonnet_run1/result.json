@@ -1,0 +1,57 @@
+{
+  "session_id": "S3_A_sonnet_run1",
+  "question_id": "S3",
+  "category": "synthesis",
+  "question": "Write a complete charm class that provides data over a custom relation interface. When a remote app joins the relation, set the 'endpoint' key in the relation data to the unit's FQDN.",
+  "condition": "A",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 68494,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 67304,
+    "duration_api_ms": 67185,
+    "num_turns": 13,
+    "result": "Everything looks great. Here is a full walkthrough of every file created and every design decision made.\n\n---\n\n## Project layout\n\n```\nendpoint-provider-charm/\n\u251c\u2500\u2500 charmcraft.yaml          # build configuration\n\u251c\u2500\u2500 metadata.yaml            # charm metadata & relation declaration\n\u251c\u2500\u2500 requirements.txt         # Python dependencies\n\u2514\u2500\u2500 src/\n    \u2514\u2500\u2500 charm.py             # \u2190 the charm\n```\n\n---\n\n## `metadata.yaml`\n\n```yaml\nprovides:\n  endpoint-info:\n    interface: endpoint-info\n```\n\nThe charm **provides** a single relation endpoint named `endpoint-info` using a custom interface of the same name. A requirer charm declares a matching `requires` block with `interface: endpoint-info`.\n\n---\n\n## `src/charm.py` \u2014 design decisions\n\n### 1. `socket.getfqdn()` for the FQDN\n\n```python\ndef _fqdn(self) -> str:\n    return socket.getfqdn()\n```\n\n`socket.getfqdn()` is the idiomatic stdlib call. It consults the OS hostname resolution stack and returns the fully-qualified domain name (e.g. `myunit.myapp.svc.cluster.local`).\n\n### 2. Write only into `self.unit`'s data bag\n\n```python\nrelation.data[self.unit][\"endpoint\"] = fqdn\n```\n\nJuju enforces a strict ownership rule: **a unit may only write into its own data bag**. Writing into a remote bag raises a `RelationDataError`. The requirer reads it with `relation.data[provider_unit][\"endpoint\"]`.\n\n### 3. Two relation hooks subscribed\n\n| Hook | Why |\n|---|---|\n| `relation_joined` | Primary write point \u2014 fires when any remote unit first joins, so the value is available immediately in the same hook sequence seen by the requirer. |\n| `relation_changed` | Safety net \u2014 covers late-arriving units, upgrades, and the rare case where the FQDN changed after the relation was already established. |\n\n### 4. Idempotent `_publish_endpoint`\n\n```python\ncurrent = relation.data[self.unit].get(\"endpoint\")\nif current == fqdn:\n    return   # nothing to do, avoids a spurious hook on the requirer side\n```\n\nUnnecessary writes are skipped because every write to relation data triggers a `relation-changed` hook on every remote unit \u2014 wasteful if the value hasn't changed.\n\n### 5. `_publish_endpoint_all_relations` in `config_changed`\n\nIf the machine's hostname/FQDN ever changes (rare but possible), `config-changed` is the safest catch-all to refresh **every** active relation at once.\n\n### 6. Status messages\n\n- `MaintenanceStatus` during install (good practice even if trivial here).\n- `ActiveStatus(\"Endpoint published to <app>\")` after writing \u2014 gives operators an at-a-glance confirmation in `juju status`.\n\n---\n\n## Requirer side (quick reference)\n\n```python\n# In the requirer charm:\ndef _on_relation_changed(self, event):\n    endpoint = event.relation.data[event.unit].get(\"endpoint\")\n    if endpoint:\n        logger.info(\"Provider is at: %s\", endpoint)\n```",
+    "stop_reason": "end_turn",
+    "session_id": "1adcc663-c00f-4648-839c-af3ddaa615b8",
+    "total_cost_usd": 0.10700160000000002,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 6638,
+      "cache_read_input_tokens": 83297,
+      "output_tokens": 3806,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 6638,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 10,
+        "outputTokens": 3806,
+        "cacheReadInputTokens": 83297,
+        "cacheCreationInputTokens": 6638,
+        "webSearchRequests": 0,
+        "costUSD": 0.10700160000000002,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "6b21d7d2-b5fa-4c4c-86fc-50b4ce8ea2b6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:34:51+1300"
+}

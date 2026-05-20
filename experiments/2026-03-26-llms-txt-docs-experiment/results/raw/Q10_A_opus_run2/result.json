@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_A_opus_run2",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 171823,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 170702,
+    "duration_api_ms": 164792,
+    "num_turns": 2,
+    "result": "\n\nHere's a complete example of deploying a charm and waiting for it to reach active/idle using **jubilant**:\n\n```python\nimport jubilant\nimport pytest\n\n\n@pytest.fixture(scope=\"module\")\ndef juju():\n    \"\"\"Create a temporary Juju model for the test session.\"\"\"\n    with jubilant.temp_model() as juju:\n        juju.wait_timeout = 10 * 60  # 10 minute default timeout\n        yield juju\n\n\ndef test_deploy_and_reach_active(juju: jubilant.Juju):\n    \"\"\"Deploy a charm and wait for active/idle.\"\"\"\n    juju.deploy(\"my-charm\", channel=\"stable\", trust=True)\n\n    juju.wait(\n        lambda status: (\n            jubilant.all_active(status, \"my-charm\")\n            and jubilant.all_agents_idle(status, \"my-charm\")\n        ),\n        timeout=600,\n    )\n\n    # Verify the status explicitly\n    status = juju.status()\n    assert status.apps[\"my-charm\"].status.current == \"active\"\n```\n\n### Key concepts\n\n| Function | Purpose |\n|---|---|\n| `jubilant.temp_model()` | Context manager that creates a temporary Juju model and destroys it on exit |\n| `jubilant.Juju(model=name)` | Connect to an existing model by name |\n| `juju.deploy(name, ...)` | Deploy a charm (supports `channel`, `trust`, `config`, `revision`, `num_units`, etc.) |\n| `juju.wait(condition)` | Poll `juju status` and block until `condition(status)` returns `True` |\n| `jubilant.all_active(status, *apps)` | Returns `True` if all units of the given apps have `active` status |\n| `jubilant.all_agents_idle(status, *apps)` | Returns `True` if all agents for the given apps are `idle` |\n\n### A more realistic multi-app example\n\n```python\ndef all_active_idle(status: jubilant.Status, *apps: str) -> bool:\n    \"\"\"Combined check: all units active AND all agents idle.\"\"\"\n    return jubilant.all_active(status, *apps) and jubilant.all_agents_idle(status, *apps)\n\n\ndef test_deploy_with_relation(juju: jubilant.Juju):\n    \"\"\"Deploy two charms, integrate them, and wait for active/idle.\"\"\"\n    juju.deploy(\"postgresql-k8s\", channel=\"14/stable\", trust=True)\n    juju.deploy(\"my-app\", channel=\"stable\", trust=True)\n\n    juju.wait(\n        lambda status: all_active_idle(status, \"postgresql-k8s\"),\n        timeout=900,\n    )\n\n    juju.integrate(\"my-app:database\", \"postgresql-k8s:database\")\n\n    juju.wait(\n        lambda status: all_active_idle(status, \"my-app\", \"postgresql-k8s\"),\n        delay=3,\n        successes=10,  # require 10 consecutive successes (avoids flaky transitions)\n        timeout=1800,\n    )\n```\n\n### `juju.wait()` parameters\n\n- **`condition`** \u2013 a callable `(Status) -> bool` that is polled until it returns `True`\n- **`timeout`** \u2013 max seconds to wait (default: `juju.wait_timeout`)\n- **`delay`** \u2013 seconds between polls (default: ~5s)\n- **`successes`** \u2013 number of consecutive `True` results required before returning (useful when status can briefly flip during hook execution)\n\n### Dependency setup\n\nIn `pyproject.toml`:\n```toml\n[project.optional-dependencies]\nintegration = [\n    \"jubilant>=1.7.0\",\n    \"pytest\",\n]\n```\n\nEverything is **synchronous** \u2014 no `async`/`await` needed, which is a major simplification over the older `python-libjuju`/`pytest-operator` approach.",
+    "stop_reason": "end_turn",
+    "session_id": "04f6ffb4-1cd6-4f23-a211-46a336bd9222",
+    "total_cost_usd": 0.23699049999999994,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 3472,
+      "cache_read_input_tokens": 18207,
+      "output_tokens": 1265,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 3472,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1265,
+        "cacheReadInputTokens": 18207,
+        "cacheCreationInputTokens": 3472,
+        "webSearchRequests": 0,
+        "costUSD": 0.0624585,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 101,
+        "outputTokens": 6241,
+        "cacheReadInputTokens": 554135,
+        "cacheCreationInputTokens": 70250,
+        "webSearchRequests": 0,
+        "costUSD": 0.174532,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "61d7c678-46cf-4526-b2a8-39f8e8cf4fc6"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:01:05+1300"
+}

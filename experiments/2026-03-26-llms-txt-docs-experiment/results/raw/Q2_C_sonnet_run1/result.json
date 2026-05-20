@@ -1,0 +1,67 @@
+{
+  "session_id": "Q2_C_sonnet_run1",
+  "question_id": "Q2",
+  "category": "ops_api",
+  "question": "How do you access relation data for a specific remote unit? Show the code.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 94201,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 93051,
+    "duration_api_ms": 96783,
+    "num_turns": 15,
+    "result": "I now have enough information from the official Juju documentation to give you a comprehensive answer. Here's how to access relation data for a specific remote unit, covering both the **`ops` Python library** (the modern way) and the **hook command** (low-level):\n\n---\n\n## Using the `ops` Library (Python \u2014 Recommended)\n\n### 1. Access via a relation hook event\n\nIn a `relation-changed` event, the remote unit is available directly on the event object:\n\n```python\nimport ops\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, *args):\n        super().__init__(*args)\n        self.framework.observe(\n            self.on.database_relation_changed,\n            self._on_database_relation_changed,\n        )\n\n    def _on_database_relation_changed(self, event: ops.RelationChangedEvent):\n        # The remote unit that triggered the event\n        remote_unit = event.unit  # ops.Unit object\n\n        # Access that unit's databag in this relation\n        unit_data = event.relation.data[remote_unit]\n\n        username = unit_data.get(\"username\")\n        password = unit_data.get(\"password\")\n\n        if username and password:\n            self._configure_connection(username, password)\n```\n\n### 2. Iterate all remote units in a relation\n\nWhen you need to inspect data from **all** remote units (e.g., during `config-changed` or `install`):\n\n```python\ndef _on_config_changed(self, event: ops.ConfigChangedEvent):\n    # Get all relations on the \"database\" endpoint\n    for relation in self.model.relations[\"database\"]:\n\n        # Iterate every remote unit in the relation\n        for remote_unit in relation.units:  # set of ops.Unit objects\n            unit_data = relation.data[remote_unit]\n\n            address = unit_data.get(\"private-address\")\n            port    = unit_data.get(\"port\")\n\n            if address and port:\n                self._add_backend(address, port)\n```\n\n### 3. Access a specific known unit by name\n\n```python\ndef _get_data_from_unit(self, relation_name: str, unit_name: str):\n    remote_unit = self.model.get_unit(unit_name)  # e.g. \"postgresql/0\"\n\n    for relation in self.model.relations[relation_name]:\n        if remote_unit in relation.units:\n            unit_data = relation.data[remote_unit]\n            return unit_data.get(\"connection-string\")\n\n    return None\n```\n\n### Key `ops` objects\n\n| Object | Description |\n|---|---|\n| `event.relation` | The `ops.Relation` for the current hook |\n| `event.unit` | The `ops.Unit` of the remote unit that triggered the event |\n| `relation.units` | `set[ops.Unit]` \u2014 all remote units in the relation |\n| `relation.data[unit]` | `ops.RelationDataContent` \u2014 dict-like databag for that unit |\n| `relation.data[app]` | App-level databag (use `event.app` for the remote app) |\n\n---\n\n## Using the Hook Command (Low-Level / Shell)\n\nThe `relation-get` hook tool retrieves data directly from a remote unit's databag:\n\n```bash\n# Syntax\nrelation-get [options] <key> <unit-id>\n\n# Get ALL data from a specific remote unit in a specific relation\nrelation-get -r database:7 - mongodb/5\n# Output:\n# username: bob\n# password: 2db673e81ffa264c\n\n# Get a single key from a remote unit\nrelation-get -r database:7 username mongodb/5\n# Output: bob\n\n# Within a relation hook, JUJU_REMOTE_UNIT is set automatically,\n# so you can omit the unit ID:\nrelation-get username\n```\n\n| Flag | Purpose |\n|---|---|\n| `-r <relation-id>` | Target a specific relation (required outside a hook context) |\n| `--app` | Read the **application-level** databag instead of unit-level |\n| `--format json\\|yaml\\|smart` | Control output format |\n\n---\n\n## Important Notes\n\n- **Read permissions**: In a non-peer relation, all units of your application can **read** all remote unit databags; they can only **write** their own unit databag (or the app databag if they're the leader).\n- **`relation-departed` hook**: The departing unit's data is still accessible *during* that hook, but disappears afterwards.\n- **`JUJU_REMOTE_UNIT`**: Automatically set in relation hooks \u2014 `relation-get` uses it as the default, so you don't need to specify the unit explicitly in that context.",
+    "stop_reason": "end_turn",
+    "session_id": "cda3ef5d-c59f-43dd-bdb6-47cb8cdbd425",
+    "total_cost_usd": 0.19247085000000003,
+    "usage": {
+      "input_tokens": 183,
+      "cache_creation_input_tokens": 7485,
+      "cache_read_input_tokens": 147017,
+      "output_tokens": 2797,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7485,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 183,
+        "outputTokens": 2797,
+        "cacheReadInputTokens": 147017,
+        "cacheCreationInputTokens": 7485,
+        "webSearchRequests": 0,
+        "costUSD": 0.11467785,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 64273,
+        "outputTokens": 2704,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.077793,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "59fe97c4-328b-43ae-a950-eaeb719f38d2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:06:25+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q11_D_opus_run1",
+  "question_id": "Q11",
+  "category": "jubilant",
+  "question": "How do you add a relation between two applications and verify data was exchanged, using jubilant?",
+  "condition": "D",
+  "model": "opus",
+  "run_number": 1,
+  "wall_time_ms": 73696,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 72506,
+    "duration_api_ms": 72071,
+    "num_turns": 11,
+    "result": "Here's how to add a relation and verify data exchange using Jubilant:\n\n### Adding a relation\n\nUse `juju.integrate()` to create a relation between two applications:\n\n```python\nimport jubilant\n\njuju = jubilant.Juju()\n\n# Deploy two applications\njuju.deploy(\"my-app\", charm_path)\njuju.deploy(\"postgresql\", channel=\"14/stable\")\n\n# Integrate them (create a relation)\njuju.integrate(\"my-app:database\", \"postgresql:db\")\n\n# Wait for both to settle\njuju.wait(lambda status: status.apps[\"my-app\"].is_active)\n```\n\nIf the endpoint names are unambiguous, you can omit them:\n\n```python\njuju.integrate(\"my-app\", \"postgresql\")\n```\n\n### Verifying data was exchanged\n\nJubilant doesn't have a `show-relation` or `get-relation-data` function. Instead, you verify relation data was exchanged by checking observable effects via `status()`:\n\n```python\nstatus = juju.status()\n\n# Check that the relation exists in the app's status\napp_status = status.apps[\"my-app\"]\nassert \"database\" in app_status.relations\nrel = app_status.relations[\"database\"][0]\nassert rel.related_app == \"postgresql\"\nassert rel.interface == \"pgsql\"\n\n# Verify the app reached active status (implying successful data exchange)\nassert app_status.is_active\n```\n\nThe `AppStatusRelation` object has three fields:\n- **`related_app`** \u2014 the name of the connected application\n- **`interface`** \u2014 the relation interface type\n- **`scope`** \u2014 the relation scope\n\n### Removing a relation\n\n```python\njuju.remove_relation(\"my-app:database\", \"postgresql:db\")\n```\n\n### Practical pattern in integration tests\n\nThe typical approach is to verify that integrating causes the charm to become active (or reach the expected status), which implicitly proves data was exchanged:\n\n```python\ndef test_database_relation(juju: jubilant.Juju):\n    juju.deploy(\"my-app\", resources={\"oci-image\": \"...\"})\n    juju.deploy(\"postgresql-k8s\", channel=\"14/stable\", trust=True)\n\n    # App should be blocked/waiting without the relation\n    juju.wait(lambda s: s.apps[\"my-app\"].is_blocked)\n\n    # Add the relation\n    juju.integrate(\"my-app\", \"postgresql-k8s\")\n\n    # App should become active once relation data is exchanged\n    juju.wait(lambda s: s.apps[\"my-app\"].is_active)\n\n    # Verify the relation is visible in status\n    status = juju.status()\n    assert \"database\" in status.apps[\"my-app\"].relations\n```",
+    "stop_reason": "end_turn",
+    "session_id": "3d2245c4-6aa8-4234-b859-09aa539c790a",
+    "total_cost_usd": 0.31720099999999996,
+    "usage": {
+      "input_tokens": 15,
+      "cache_creation_input_tokens": 11562,
+      "cache_read_input_tokens": 217355,
+      "output_tokens": 1843,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11562,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 15,
+        "outputTokens": 1843,
+        "cacheReadInputTokens": 217355,
+        "cacheCreationInputTokens": 11562,
+        "webSearchRequests": 0,
+        "costUSD": 0.22709000000000004,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 81591,
+        "outputTokens": 1704,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.090111,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "885c16eb-5a71-4be6-a04c-6f8a4f8c835a"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T00:41:44+1300"
+}

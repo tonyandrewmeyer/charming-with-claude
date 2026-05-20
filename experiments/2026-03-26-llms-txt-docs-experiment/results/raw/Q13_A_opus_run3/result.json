@@ -1,0 +1,57 @@
+{
+  "session_id": "Q13_A_opus_run3",
+  "question_id": "Q13",
+  "category": "charmlibs",
+  "question": "How do you use the ingress library to provide ingress to your charm? Show the requires side.",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 20769,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 19647,
+    "duration_api_ms": 19637,
+    "num_turns": 1,
+    "result": "# Using the Ingress Library (Requires Side)\n\nThe most common ingress library for Juju charms is **`charms.traefik_k8s.v2.ingress`**, which provides `IngressPerAppRequirer`. Here's how to use it:\n\n## 1. Fetch the library\n\n```bash\ncharmcraft fetch-lib charms.traefik_k8s.v2.ingress\n```\n\n## 2. Add the relation to `charmcraft.yaml`\n\n```yaml\nrequires:\n  ingress:\n    interface: ingress\n    limit: 1\n```\n\n## 3. Use `IngressPerAppRequirer` in your charm\n\n```python\nfrom charms.traefik_k8s.v2.ingress import IngressPerAppRequirer\n\nclass MyCharm(ops.CharmBase):\n    def __init__(self, framework):\n        super().__init__(framework)\n\n        # Declare the ingress requirer.\n        # - port: the port your workload listens on\n        # - strip_prefix: whether Traefik should strip the model-name prefix\n        self.ingress = IngressPerAppRequirer(\n            self,\n            relation_name=\"ingress\",\n            port=self.app.planned_units(),  # or just a static int\n            strip_prefix=True,\n        )\n\n        # Typically you just set the port directly:\n        self.ingress = IngressPerAppRequirer(\n            self,\n            relation_name=\"ingress\",\n            port=8080,\n        )\n\n        # Observe ingress events\n        self.framework.observe(\n            self.ingress.on.ready, self._on_ingress_ready\n        )\n        self.framework.observe(\n            self.ingress.on.revoked, self._on_ingress_revoked\n        )\n\n    def _on_ingress_ready(self, event):\n        \"\"\"Ingress is ready \u2014 the URL is now available.\"\"\"\n        url = self.ingress.url  # e.g. \"http://traefik-ip/model-myapp\"\n        logger.info(\"Ingress URL available: %s\", url)\n        self.unit.status = ops.ActiveStatus()\n\n    def _on_ingress_revoked(self, event):\n        \"\"\"Ingress relation was removed.\"\"\"\n        logger.info(\"Ingress no longer available\")\n        self.unit.status = ops.WaitingStatus(\"Waiting for ingress\")\n```\n\n## Key API surface\n\n| Property / Method | Description |\n|---|---|\n| `self.ingress.url` | The externally-reachable URL (available after `ready`) |\n| `self.ingress.is_ready()` | Returns `True` if the ingress relation has provided a URL |\n| `on.ready` | Fired when the ingress provider publishes a URL |\n| `on.revoked` | Fired when the ingress relation is broken |\n\n## 4. Relate it to Traefik\n\n```bash\njuju relate my-charm traefik-k8s\n```\n\n## Tips\n\n- **`strip_prefix=True`** is useful when Traefik routes based on a path prefix like `/model-name-app-name`. It strips that prefix before forwarding to your workload so your app sees clean paths.\n- **`scheme`** can be passed (`\"http\"` or `\"https\"`) if you need to override the default.\n- If you need **per-unit** ingress (e.g., each unit gets its own URL), use `IngressPerAppRequirer` with `IngressPerUnitRequirer` from the same library instead.",
+    "stop_reason": "end_turn",
+    "session_id": "5b877096-bad2-46c0-8bc3-69181cc442bb",
+    "total_cost_usd": 0.03645575,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1065,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1020,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1065,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1020,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1065,
+        "webSearchRequests": 0,
+        "costUSD": 0.03645575,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "271fa9a4-9277-472d-b33d-cf6846abaf33"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:47:26+1300"
+}

@@ -1,0 +1,67 @@
+{
+  "session_id": "Q10_C_opus_run2",
+  "question_id": "Q10",
+  "category": "jubilant",
+  "question": "How do you deploy a charm and wait for it to reach active/idle using jubilant? Show complete test code.",
+  "condition": "C",
+  "model": "opus",
+  "run_number": 2,
+  "wall_time_ms": 56776,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 55334,
+    "duration_api_ms": 55057,
+    "num_turns": 6,
+    "result": "Here's a complete example of deploying a charm and waiting for it to reach active/idle using **jubilant**:\n\n---\n\n## Complete Test Code\n\n### `conftest.py` \u2014 Test Fixture\n\n```python\nimport pytest\nimport jubilant\n\n\n@pytest.fixture(scope='module')\ndef juju(request: pytest.FixtureRequest):\n    \"\"\"Create a temporary Juju model for the test module.\"\"\"\n    with jubilant.temp_model() as juju:\n        juju.wait_timeout = 10 * 60  # 10 minutes\n        yield juju\n        # Dump debug log on failure\n        if request.session.testsfailed:\n            log = juju.debug_log(limit=1000)\n            print(log, end='')\n```\n\n### `test_charm.py` \u2014 Integration Tests\n\n```python\nimport jubilant\n\n\ndef test_deploy_and_active(juju: jubilant.Juju):\n    \"\"\"Deploy the charm and wait for active/idle.\"\"\"\n    juju.deploy('./my-charm_amd64.charm')\n\n    # Wait until all units are active AND all agents are idle\n    juju.wait(\n        lambda status: jubilant.all_active(status) and jubilant.all_agents_idle(status),\n    )\n\n    # Verify status explicitly\n    status = juju.status()\n    app = status.apps['my-charm']\n    assert app.is_active\n    for name, unit in app.units.items():\n        assert unit.is_active\n        assert unit.juju_status.current == 'idle'\n\n\ndef test_deploy_with_config(juju: jubilant.Juju):\n    \"\"\"Deploy with config, integrate, and wait for specific apps.\"\"\"\n    juju.deploy('postgresql', channel='latest/edge')\n    juju.deploy('./my-charm_amd64.charm', config={'port': '8080'})\n    juju.integrate('my-charm', 'postgresql')\n\n    # Wait for specific apps to be active\n    juju.wait(lambda status: jubilant.all_active(status, 'my-charm', 'postgresql'))\n\n\ndef test_custom_wait_condition(juju: jubilant.Juju):\n    \"\"\"Use a custom readiness check.\"\"\"\n    juju.deploy('./my-charm_amd64.charm')\n\n    def ready(status: jubilant.Status) -> bool:\n        return (\n            status.apps['my-charm'].is_active\n            and 'ready' in status.apps['my-charm'].app_status.message\n        )\n\n    juju.wait(ready, error=jubilant.any_error)\n```\n\n---\n\n## Key Concepts\n\n| Feature | API |\n|---|---|\n| **Deploy** | `juju.deploy('charm-or-path', app='name', num_units=1, channel='...', config={...})` |\n| **Wait for active** | `juju.wait(jubilant.all_active)` |\n| **Wait for idle agents** | `juju.wait(jubilant.all_agents_idle)` |\n| **Combined active + idle** | `juju.wait(lambda s: jubilant.all_active(s) and jubilant.all_agents_idle(s))` |\n| **Wait for specific apps** | `juju.wait(lambda s: jubilant.all_active(s, 'app1', 'app2'))` |\n| **Error detection** | `juju.wait(ready_fn, error=jubilant.any_error)` |\n| **Temp model fixture** | `with jubilant.temp_model() as juju: ...` |\n\nThe `wait()` method polls `juju status` every 1 second (configurable via `delay`), requires **3 consecutive successes** by default, and raises `TimeoutError` if the timeout expires or `WaitError` if the `error` condition triggers.",
+    "stop_reason": "end_turn",
+    "session_id": "93d44011-81b7-4581-a018-dda27edce210",
+    "total_cost_usd": 0.16552050000000001,
+    "usage": {
+      "input_tokens": 9,
+      "cache_creation_input_tokens": 4728,
+      "cache_read_input_tokens": 50287,
+      "output_tokens": 1628,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 4728,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 9,
+        "outputTokens": 1628,
+        "cacheReadInputTokens": 50287,
+        "cacheCreationInputTokens": 4728,
+        "webSearchRequests": 0,
+        "costUSD": 0.09543850000000001,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 58962,
+        "outputTokens": 2224,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.070082,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "815d79d6-1f56-40a2-9f5c-22857737252f"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T02:04:22+1300"
+}

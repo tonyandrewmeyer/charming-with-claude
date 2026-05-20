@@ -1,0 +1,67 @@
+{
+  "session_id": "Q8_E_sonnet_run1",
+  "question_id": "Q8",
+  "category": "pebble",
+  "question": "What is the Pebble change/task model? How do you check if a long-running operation has completed?",
+  "condition": "E",
+  "model": "sonnet",
+  "run_number": 1,
+  "wall_time_ms": 100931,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 99803,
+    "duration_api_ms": 101011,
+    "num_turns": 19,
+    "result": "Here is a comprehensive explanation of the Pebble change/task model and how to work with long-running operations in Juju charms:\n\n---\n\n## The Pebble Change/Task Model\n\nPebble uses a **change/task system** to track potentially invasive or long-running operations (e.g., starting/stopping services, executing commands, replan). When you trigger such an operation, Pebble creates a **Change** object containing one or more **Task** objects that do the actual work.\n\n---\n\n### Changes\n\nA **Change** represents a single high-level operation. Key attributes (from `ops.pebble.Change`):\n\n| Attribute | Description |\n|---|---|\n| `id` | Unique `ChangeID` string |\n| `kind` | Operation type (e.g. `\"start\"`, `\"stop\"`, `\"exec\"`) |\n| `summary` | Human-readable description |\n| `status` | Current `ChangeStatus` |\n| `tasks` | List of `Task` objects |\n| `ready` | `bool` \u2014 `True` when the change has finished (success or error) |\n| `err` | Error string if failed, otherwise `None` |\n| `spawn_time` / `ready_time` | Timestamps |\n| `data` | Arbitrary metadata dict |\n\n#### Change/Task Statuses (`ops.pebble.ChangeStatus`)\n\n| Status | Meaning |\n|---|---|\n| `HOLD` | Not yet scheduled to run |\n| `DO` | Ready to start |\n| `DOING` | Currently running |\n| `DONE` | Completed successfully |\n| `ERROR` | Errored out |\n| `ABORT` | Abort requested |\n| `UNDO` | Needs to be rolled back |\n| `UNDOING` | Rollback in progress |\n| `WAIT` | Waiting on an external condition |\n\nA change is **finished** when `change.ready == True`. If `change.err` is non-`None`, it failed.\n\n---\n\n### Tasks\n\nA **Task** is a unit of work within a change. Key attributes (`ops.pebble.Task`):\n\n| Attribute | Description |\n|---|---|\n| `id` | Task ID |\n| `kind` / `summary` | Description |\n| `status` | Same `ChangeStatus` enum |\n| `log` | List of log message strings |\n| `progress` | `TaskProgress` with `label`, `done`, `total` |\n| `spawn_time` / `ready_time` | Timestamps |\n\n---\n\n## Checking if a Long-Running Operation Has Completed\n\n### Option 1: Synchronous (default) \u2014 let the ops library wait for you\n\nThe `Container` methods `start()`, `stop()`, `restart()`, etc., call through to `start_services()` / `stop_services()` / `restart_services()` on the Pebble client. By default these **block until the operation completes** (timeout = 30s):\n\n```python\ncontainer = self.unit.get_container(\"myapp\")\ncontainer.start(\"myservice\")   # blocks until done or timeout\ncontainer.stop(\"myservice\")    # same\n```\n\nIf the operation fails or times out, a `ops.pebble.ChangeError` is raised, which contains:\n- `.err` \u2014 the error string\n- `.change` \u2014 the full `Change` object (including task logs for debugging)\n\n```python\nfrom ops.pebble import ChangeError\n\ntry:\n    container.start(\"myservice\")\nexcept ChangeError as e:\n    logger.error(\"Failed to start: %s\", e.err)\n    # e.change.tasks contains task-level logs\n```\n\n---\n\n### Option 2: Non-blocking \u2014 get a `ChangeID` and poll/wait manually\n\nPass `timeout=0` to submit the operation without waiting:\n\n```python\nclient = container.get_plan()  # or access via container._backend\nchange_id = container._pebble.start_services([\"myservice\"], timeout=0)\n# change_id is a ChangeID string, returned immediately\n```\n\nThen later, **wait for it explicitly**:\n\n```python\n# Blocks until done, raises ChangeError on failure\nchange = container._pebble.wait_change(change_id, timeout=60.0)\n```\n\nOr **poll manually** using `get_change()`:\n\n```python\nchange = container._pebble.get_change(change_id)\nif change.ready:\n    if change.err:\n        logger.error(\"Change failed: %s\", change.err)\n    else:\n        logger.info(\"Change completed successfully\")\n```\n\nOr list **all in-progress changes**:\n\n```python\nfrom ops.pebble import ChangeState\n\nin_progress = container._pebble.get_changes(select=ChangeState.IN_PROGRESS)\nall_changes = container._pebble.get_changes(select=ChangeState.ALL)\n```\n\n---\n\n### Option 3: `wait_change()` with timeout\n\n```python\nfrom ops.pebble import ChangeError\n\nchange_id = container._pebble.start_services([\"myservice\"], timeout=0)\n\ntry:\n    change = container._pebble.wait_change(change_id, timeout=120.0, delay=0.5)\n    # change.ready == True here\nexcept ChangeError as e:\n    logger.error(\"Service failed to start: %s\", e)\n```\n\n`wait_change()` will use the Pebble `/v1/changes/{id}/wait` API if available (avoiding polling), or fall back to polling every `delay` seconds.\n\n---\n\n## Summary\n\n| Approach | API | Use when |\n|---|---|---|\n| Default blocking | `container.start(\"svc\")` | Simple cases; 30s timeout is fine |\n| Custom timeout | `client.start_services([\"svc\"], timeout=N)` | Need longer/shorter wait |\n| Fire-and-forget + poll | `timeout=0` + `get_change(id)` | Async/deferred work |\n| Fire-and-forget + wait | `timeout=0` + `wait_change(id)` | Clean async then explicit wait |\n\nThe key insight: **`change.ready`** is your signal that an operation has finished, and **`change.err`** tells you whether it succeeded or failed.",
+    "stop_reason": "end_turn",
+    "session_id": "b5b53e95-7a46-4072-9091-6bc85a0ab446",
+    "total_cost_usd": 0.21324419999999997,
+    "usage": {
+      "input_tokens": 167,
+      "cache_creation_input_tokens": 7484,
+      "cache_read_input_tokens": 133064,
+      "output_tokens": 3662,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 7484,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 167,
+        "outputTokens": 3662,
+        "cacheReadInputTokens": 133064,
+        "cacheCreationInputTokens": 7484,
+        "webSearchRequests": 0,
+        "costUSD": 0.12341519999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 78654,
+        "outputTokens": 2235,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.08982899999999999,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "ac22d123-3a1b-4dbb-ab90-f3c35e14a623"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-28T08:41:59+1300"
+}

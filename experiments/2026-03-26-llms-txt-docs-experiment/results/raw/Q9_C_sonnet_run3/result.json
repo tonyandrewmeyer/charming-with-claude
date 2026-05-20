@@ -1,0 +1,67 @@
+{
+  "session_id": "Q9_C_sonnet_run3",
+  "question_id": "Q9",
+  "category": "pebble",
+  "question": "How do you configure Pebble log forwarding to Loki? Show the layer YAML and explain the protocol options.",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 29899,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 28647,
+    "duration_api_ms": 31902,
+    "num_turns": 2,
+    "result": "## Pebble Log Forwarding to Loki\n\nLog targets are configured in the `log-targets` section of a Pebble layer file.\n\n### Layer YAML Example\n\n```yaml\nlog-targets:\n  loki:\n    override: merge\n    type: loki\n    location: http://loki-host:3100/loki/api/v1/push\n    services: [all]\n    labels:\n      app: my-charm\n      env: production\n```\n\n### Key Fields Explained\n\n| Field | Required | Description |\n|---|---|---|\n| `override` | \u2705 | `merge` combines with existing config; `replace` overwrites it |\n| `type` | \u2705 | The log backend protocol (see below) |\n| `location` | \u2705 | The remote endpoint URL |\n| `services` | \u274c | Which services to forward; `[all]` captures every service |\n| `labels` | \u274c | Key/value metadata attached to every log entry |\n\n---\n\n### Protocol Options\n\nPebble supports three `type` values, each with a different `location` URL format:\n\n#### 1. `loki`\n```yaml\ntype: loki\nlocation: http://<host>:3100/loki/api/v1/push\n```\n- Uses the **full Loki Push API path** \u2014 the `/loki/api/v1/push` suffix is **required**.\n- Most common choice in Juju charms alongside the `loki-push-api` interface.\n\n#### 2. `opentelemetry`\n```yaml\ntype: opentelemetry\nlocation: http://<host>:4318\n```\n- Points to the **OTLP HTTP receiver** port \u2014 **no API path suffix**.\n- Port `4318` is the standard OpenTelemetry HTTP port.\n\n#### 3. `syslog`\n```yaml\n# TCP\ntype: syslog\nlocation: tcp://<host>:<port>\n\n# UDP\ntype: syslog\nlocation: udp://<host>:<port>\n```\n- Uses `tcp://` or `udp://` URI schemes.\n- Compatible with traditional syslog aggregators.\n\n---\n\n### Charm Integration Tip\n\nIn a Juju charm, you'd typically push this layer dynamically using the `loki-push-api` relation data to discover the `location` URL at runtime:\n\n```python\n# In your charm's relation handler\ndef _on_loki_push_api_endpoint_joined(self, event):\n    loki_url = event.relation.data[event.app].get(\"url\")\n    layer = {\n        \"log-targets\": {\n            \"loki\": {\n                \"override\": \"replace\",\n                \"type\": \"loki\",\n                \"location\": loki_url,\n                \"services\": [\"all\"],\n                \"labels\": {\n                    \"app\": self.app.name,\n                    \"juju_model\": self.model.name,\n                },\n            }\n        }\n    }\n    self.container.add_layer(\"loki\", layer, combine=True)\n    self.container.replan()\n```\n\n> **Labels** also support environment variable interpolation \u2014 values like `$JUJU_UNIT_NAME` are expanded from the service's environment, making it easy to tag logs per unit automatically.",
+    "stop_reason": "end_turn",
+    "session_id": "09d4bc5f-1c89-4592-9079-39a3ded5c125",
+    "total_cost_usd": 0.0445469,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 1886,
+      "cache_read_input_tokens": 18063,
+      "output_tokens": 1088,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1886,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 6,
+        "outputTokens": 1088,
+        "cacheReadInputTokens": 18063,
+        "cacheCreationInputTokens": 1886,
+        "webSearchRequests": 0,
+        "costUSD": 0.0288294,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 3798,
+        "outputTokens": 1332,
+        "cacheReadInputTokens": 24795,
+        "cacheCreationInputTokens": 2224,
+        "webSearchRequests": 0,
+        "costUSD": 0.0157175,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "acef0bae-1660-4b1d-8a3b-5e69f79515f4"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T14:34:20+1300"
+}

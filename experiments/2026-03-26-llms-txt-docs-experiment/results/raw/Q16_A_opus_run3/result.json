@@ -1,0 +1,57 @@
+{
+  "session_id": "Q16_A_opus_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "A",
+  "model": "opus",
+  "run_number": 3,
+  "wall_time_ms": 26320,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 25249,
+    "duration_api_ms": 25239,
+    "num_turns": 1,
+    "result": "# Implementing the Provider Side of a Relation with Charmlibs\n\nIn Juju charm development, **charmlibs** (charm libraries) provide reusable interface implementations. Here's how to correctly implement the **provider** side of a relation:\n\n## 1. Fetch the Charm Library\n\nFirst, fetch the library for the interface you want to provide:\n\n```bash\ncharmcraft fetch-lib charms.data_platform_libs.v0.data_interfaces\n```\n\nThis places the library under `lib/charms/<charm_name>/...`.\n\n## 2. Declare the Relation in `charmcraft.yaml`\n\n```yaml\nprovides:\n  database:\n    interface: mysql_client\n```\n\n## 3. Import and Use the Provider Class in Your Charm\n\nMost charmlibs expose a **Provider** class (or similarly named object) that encapsulates the relation logic. You instantiate it in your charm's `__init__`:\n\n```python\n#!/usr/bin/env python3\nimport ops\nfrom charms.data_platform_libs.v0.data_interfaces import DatabaseProvides\n\nclass MyDatabaseCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n\n        # Instantiate the provider-side library object.\n        # The second argument must match the relation name in charmcraft.yaml.\n        self.database_provider = DatabaseProvides(self, relation_name=\"database\")\n\n        # The library typically emits custom events you should observe:\n        self.framework.observe(\n            self.database_provider.on.database_requested,\n            self._on_database_requested,\n        )\n\n    def _on_database_requested(self, event):\n        \"\"\"Handle a new consumer requesting a database.\"\"\"\n        # Use the library's helper methods to set relation data.\n        # The library abstracts away raw relation data bags.\n        self.database_provider.set_credentials(\n            event.relation.id,\n            username=\"user\",\n            password=\"s3cret\",\n        )\n        self.database_provider.set_endpoints(\n            event.relation.id,\n            connection_string=\"host=10.0.0.1:3306\",\n        )\n```\n\n## Key Principles\n\n### \u2705 Do\n- **Instantiate in `__init__`** \u2014 the library object must be created during charm init so it can register its event handlers.\n- **Match the `relation_name`** \u2014 the string you pass must exactly match the key under `provides:` in `charmcraft.yaml`.\n- **Observe the library's custom events** \u2014 libraries emit domain-specific events (e.g., `database_requested`) instead of making you parse raw `relation-changed` hooks.\n- **Use library helper methods** to set data \u2014 they handle serialization, app vs. unit data bags, and schema validation for you.\n\n### \u274c Don't\n- **Don't manually write to `event.relation.data[self.app]`** when a library is in use \u2014 let the library manage the data bag to avoid schema mismatches.\n- **Don't re-implement the interface protocol yourself** \u2014 that defeats the purpose of the charmlib.\n\n## How It Works Under the Hood\n\n```\n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510          \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502   Provider Charm         \u2502          \u2502   Requirer Charm         \u2502\n\u2502                          \u2502          \u2502                          \u2502\n\u2502  DatabaseProvides(...)   \u2502\u25c4\u2500relation\u2500\u25ba DatabaseRequires(...)   \u2502\n\u2502    - sets credentials    \u2502          \u2502    - reads credentials   \u2502\n\u2502    - sets endpoints      \u2502          \u2502    - emits db_created    \u2502\n\u2502    - emits db_requested  \u2502          \u2502                          \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518          \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\nThe library pair (`DatabaseProvides` / `DatabaseRequires`) ensures both sides agree on the data schema \u2014 field names, serialization format, and versioning.\n\n## Finding Available Libraries\n\n```bash\n# Search for libraries related to an interface\ncharmcraft list-lib <charm-name>\n\n# Common examples:\n# charms.data_platform_libs.v0.data_interfaces   (databases)\n# charms.tls_certificates_interface.v3.tls_certificates\n# charms.grafana_k8s.v0.grafana_dashboard\n# charms.prometheus_k8s.v0.prometheus_scrape\n```\n\nEach library's docstring (at the top of the fetched `.py` file) documents the exact Provider/Requirer class names and the events they emit \u2014 always read it as your primary reference.",
+    "stop_reason": "end_turn",
+    "session_id": "6d0ad725-9fa6-4d68-a428-5434928f9973",
+    "total_cost_usd": 0.04011825,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 1063,
+      "cache_read_input_tokens": 8569,
+      "output_tokens": 1167,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 1063,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-opus-4-6": {
+        "inputTokens": 3,
+        "outputTokens": 1167,
+        "cacheReadInputTokens": 8569,
+        "cacheCreationInputTokens": 1063,
+        "webSearchRequests": 0,
+        "costUSD": 0.04011825,
+        "contextWindow": 200000,
+        "maxOutputTokens": 64000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "4087d178-dc20-4015-926b-b0e21faf9069"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T15:09:18+1300"
+}

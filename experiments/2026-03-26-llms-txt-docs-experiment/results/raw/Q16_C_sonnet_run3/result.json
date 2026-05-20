@@ -1,0 +1,67 @@
+{
+  "session_id": "Q16_C_sonnet_run3",
+  "question_id": "Q16",
+  "category": "charmlibs",
+  "question": "What is the correct way to implement a provider side of a relation using charmlibs?",
+  "condition": "C",
+  "model": "sonnet",
+  "run_number": 3,
+  "wall_time_ms": 256380,
+  "claude_output": {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 250568,
+    "duration_api_ms": 247104,
+    "num_turns": 28,
+    "result": "Here is a comprehensive guide to implementing the **provider side** of a relation using charmlibs, based on the official Ops framework documentation.\n\n---\n\n## 1. Declare the endpoint in `charmcraft.yaml`\n\n```yaml\nprovides:\n  smtp:\n    interface: smtp\n```\n\nBy convention, if one side runs a server workload, that side should be the **provider**. This matters especially for cross-model relation network permissions.\n\n---\n\n## 2. Model your databag with Pydantic\n\nDefine a Pydantic model for the data the provider will publish. `ops.Relation.save()` / `.load()` serialise/deserialise each field as JSON automatically \u2014 **do not** manually wrap fields in `pydantic.Json`.\n\n```python\nimport pydantic\n\nclass SMTPProviderAppData(pydantic.BaseModel):\n    credentials: str | None = pydantic.Field(\n        default=None, description=\"A Juju secret ID\"\n    )\n\nclass SMTPProviderUnitData(pydantic.BaseModel):\n    smtp_credentials: str = pydantic.Field(description=\"A Juju secret ID\")\n```\n\n---\n\n## 3. Handle relation events in `src/charm.py`\n\n### `relation-created` \u2014 app-level setup (leader only)\n\nCalled when the relation is first established. Perform one-time setup and write to the **app databag** (leader only).\n\n```python\nclass MyProviderCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        framework.observe(self.on.smtp_relation_created, self._on_smtp_relation_created)\n        framework.observe(self.on.smtp_relation_joined, self._on_smtp_relation_joined)\n        framework.observe(self.on.smtp_relation_departed, self._on_smtp_relation_departed)\n        framework.observe(self.on.smtp_relation_broken, self._on_smtp_relation_broken)\n\n    def _on_smtp_relation_created(self, event: ops.RelationCreatedEvent):\n        if not self.unit.is_leader():\n            return\n        credentials_secret_id = self.create_smtp_credentials()\n        data = SMTPProviderAppData(credentials=credentials_secret_id)\n        event.relation.save(data, self.app)\n```\n\n### `relation-joined` \u2014 per-unit setup\n\nCalled each time a remote unit joins. Write to the **unit databag** for per-unit credentials or state.\n\n```python\n    def _on_smtp_relation_joined(self, event: ops.RelationJoinedEvent):\n        per_unit_secret_id = self.create_smtp_user(event.unit.name)\n        data = SMTPProviderUnitData(smtp_credentials=per_unit_secret_id)\n        event.relation.save(data, self.unit)\n```\n\n### `relation-changed` \u2014 react to requirer data\n\nUse a **holistic handler** (shared with config-changed, secret-changed, etc.) to respond when the requirer publishes its data.\n\n```python\n    def _update_configuration(self, _: ops.EventBase):\n        rel = self.model.get_relation(\"smtp\")\n        if not rel:\n            return\n        # Read requirer's app databag\n        remote_data = rel.data[rel.app]\n        requested_domain = remote_data.get(\"domain\")\n        if not requested_domain:\n            return\n        self.reconfigure_smtp(domain=requested_domain)\n```\n\n### `relation-departed` \u2014 per-unit cleanup\n\n```python\n    def _on_smtp_relation_departed(self, event: ops.RelationDepartedEvent):\n        if self.unit != event.departing_unit:\n            self.remove_smtp_user(event.unit.name)\n```\n\n### `relation-broken` \u2014 full teardown (leader only)\n\n```python\n    def _on_smtp_relation_broken(self, event: ops.RelationBrokenEvent):\n        if not self.unit.is_leader():\n            return\n        self.drop_smtp_credentials(event.app.name)\n```\n\n---\n\n## 4. Writing a reusable charm library (the preferred pattern)\n\nIf you want other charms to easily consume your interface, package the provider logic into a library under `lib/charms/<your_charm>/v0/smtp_lib.py`.\n\n### Define custom events\n\n```python\nimport ops\nfrom typing import Any\n\nclass SMTPReadyEvent(ops.EventBase):\n    \"\"\"Emitted when the SMTP provider has credentials ready.\"\"\"\n    def __init__(self, handle: ops.Handle, *, credential_secret: ops.Secret):\n        super().__init__(handle)\n        self.credential_secret = credential_secret\n\n    def snapshot(self) -> dict[str, str]:\n        data = super().snapshot()\n        data[\"credential_secret_id\"] = self.credential_secret.id\n        return data\n\n    def restore(self, snapshot: dict[str, Any]):\n        super().restore(snapshot)\n        self.credential_secret = self.framework.model.get_secret(\n            id=snapshot[\"credential_secret_id\"]\n        )\n\nclass SMTPProviderEvents(ops.ObjectEvents):\n    ready = ops.EventSource(SMTPReadyEvent)\n```\n\n### Implement the Provider class\n\n```python\nclass SMTPProvider(ops.Object):\n    on = SMTPProviderEvents()\n\n    def __init__(self, charm: ops.CharmBase, relation_name: str = \"smtp\"):\n        super().__init__(charm, relation_name)\n        self._charm = charm\n        self._relation_name = relation_name\n        charm.framework.observe(\n            charm.on[relation_name].relation_created,\n            self._on_relation_created,\n        )\n\n    def _on_relation_created(self, event: ops.RelationCreatedEvent):\n        if not self._charm.unit.is_leader():\n            return\n        secret = self._create_credentials()\n        data = SMTPProviderAppData(credentials=secret.id)\n        event.relation.save(data, self._charm.app)\n        # Emit a high-level custom event for the charm author to handle\n        self.on.ready.emit(credential_secret=secret)\n\n    def _create_credentials(self) -> ops.Secret:\n        # implementation-specific\n        ...\n```\n\n> \u26a0\ufe0f **Important rule:** Libraries must **never** set unit/app status. Return values or raise exceptions and let the charm author handle them.\n\n### Use the library in your charm\n\n```python\nfrom charms.my_charm.v0.smtp_lib import SMTPProvider, SMTPReadyEvent\n\nclass MyProviderCharm(ops.CharmBase):\n    def __init__(self, framework: ops.Framework):\n        super().__init__(framework)\n        self.smtp = SMTPProvider(self, relation_name=\"smtp\")\n        framework.observe(self.smtp.on.ready, self._on_smtp_ready)\n\n    def _on_smtp_ready(self, event: SMTPReadyEvent):\n        secret_content = event.credential_secret.get_content()\n        self.unit.status = ops.ActiveStatus(\"SMTP credentials ready\")\n```\n\n---\n\n## 5. Key rules summary\n\n| Concern | Rule |\n|---|---|\n| **App databag writes** | Leader unit only |\n| **Unit databag writes** | Any unit, for its own databag |\n| **Custom events** | Only define and emit in libraries, never in charm code directly |\n| **Status mutations** | Only in the charm, never in a library |\n| **Databag serialisation** | Use `relation.save(pydantic_model, app_or_unit)` and `relation.load(MyModel, app_or_unit)` |\n| **Interface definition** | Register new interfaces in the [`charm-relation-interfaces`](https://github.com/canonical/charm-relation-interfaces) repository |",
+    "stop_reason": "end_turn",
+    "session_id": "50a4439f-601d-4896-8457-e23397fb0d0b",
+    "total_cost_usd": 0.5291867,
+    "usage": {
+      "input_tokens": 337,
+      "cache_creation_input_tokens": 21454,
+      "cache_read_input_tokens": 297364,
+      "output_tokens": 5210,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 21454,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-sonnet-4-6": {
+        "inputTokens": 337,
+        "outputTokens": 5210,
+        "cacheReadInputTokens": 297364,
+        "cacheCreationInputTokens": 21454,
+        "webSearchRequests": 0,
+        "costUSD": 0.2488227,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 207019,
+        "outputTokens": 14669,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 0,
+        "costUSD": 0.280364,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000
+      }
+    },
+    "permission_denials": [],
+    "fast_mode_state": "off",
+    "uuid": "3d5a14f5-d4ac-4a8b-9b36-0d03d191fad2"
+  },
+  "stderr": null,
+  "timestamp": "2026-03-27T11:17:17+1300"
+}
