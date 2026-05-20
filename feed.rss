@@ -6,6 +6,227 @@
     <description>Updates from the Charming with Claude repository: new experiments and reading list additions</description>
     <atom:link href="https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss" rel="self" type="application/rss+xml"/>
     <item>
+      <title>New Experiment: Code Review Skills Our Data</title>
+      <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data</link>
+      <description>New experiment: code review skills our data</description>
+      <content:encoded><![CDATA[<h1>I read ~7000 charming bug fixes so you didn't have to</h1>
+<p>Ok, not really, Claude Code read them. And even then, it was actually a sample of 15-20%.</p>
+<p>In this experiment, I took <a href="https://cra.mr/skill-synthesis">David Cramer's skill synthesis idea</a> — mine your project's actual bug history instead of relying on generic guidelines — and applied it to charm development. Rather than one repository, I progressively scaled from a single repo (canonical/operator: 235 fixes) through the Charm Tech team's 10 repos (452 fixes) to 134 charm repositories across 10 Canonical teams (6,116 fixes). The end product is a <a href="charming-analysis/.claude/skills/charm-find-bugs/">bug-finding skill</a> that found 166 confirmed bugs (of varying severity) across 41 test repos, built entirely from our ecosystem's own mistakes.</p>
+<p>The work happened in three stages, each its own directory with a detailed write-up. This README covers the arc and the interesting bits; the write-ups have all the methodology and data.</p>
+<h2>Goals</h2>
+<ul>
+<li>Test whether skill synthesis — learning bug patterns from a project's own history — works for charm development.</li>
+<li>Scale the approach from one repo to an entire ecosystem and see what changes.</li>
+<li>Produce a reusable bug-finding skill that catches real bugs with a low false-positive rate.</li>
+<li>Understand what kinds of bugs recur across charm teams and where the patterns differ. Even if the AI piece is not useful, perhaps this would show where Charm Tech can help, with improved documentation, charm libraries, helper functions, and so on.</li>
+</ul>
+<h2>The Three Stages</h2>
+<h3>Stage 1: <a href="operator-analysis/">Operator Framework</a> (1 repo, 235 fixes)</h3>
+<p>The <a href="https://github.com/canonical/operator">operator</a> repository has ~2,000 commits. Of those, ~235 are bug fixes. Claude classified them all (leaning heavily on the use of conventional commits in recent years), produced a pattern catalogue of 13 categories, and built an initial skill. Running it against the current HEAD found 10 real bugs, including data mutability issues that had been fixed six separate times already but kept recurring.</p>
+<p>A takeaway was that false-positive controls matter as much as the patterns themselves. Without them, every <code>return self._data[key]</code> gets flagged as a mutability bug even when the values are immutable primitives.</p>
+<h3>Stage 2: <a href="charm-tech-analysis/">Charm Tech Team</a> (10 repos, 452 fixes)</h3>
+<p>Scaling to the whole team revealed that (for us) <strong>Python and Go bug patterns have almost zero overlap</strong>. The Go repos (Pebble and Concierge) are dominated by concurrency bugs — deadlocks, nil maps, error wrapping — while the Python repos share patterns around data mutability, falsy values, and relation data handling. This meant splitting into two separate skills.</p>
+<p>Validation against four held-out repos found six novel bugs with no false positives, including a password exposure in charmlibs where CLI arguments were visible in the process list.</p>
+<h3>Stage 3: <a href="charming-analysis/">Full Ecosystem</a> (134 repos, 6,116 fixes)</h3>
+<p>This was the big one. 134 charm repositories (from a list Charm Tech maintains internally, used to evaluate the impact of changes and make data-driven decisions), spanning Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, and BootStack. The extraction used both conventional commit parsing and keyword scoring, which was important, as expected — the K8s team has only 35% conventional commit adoption, so keyword scoring recovered 37% of their fixes that would otherwise have been missed entirely.</p>
+<p>The skill was validated over 10 rounds against 41 repos:</p>
+<table>
+<thead>
+<tr>
+<th>Rounds</th>
+<th>Repos</th>
+<th>Confirmed Bugs</th>
+<th>False Positives</th>
+<th>FP Rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1–4 (automated)</td>
+<td>14</td>
+<td>59</td>
+<td>0</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>5 (first human review)</td>
+<td>8</td>
+<td>28</td>
+<td>10</td>
+<td>26.3%</td>
+</tr>
+<tr>
+<td>6–10 (human-reviewed)</td>
+<td>16</td>
+<td>63</td>
+<td>2</td>
+<td>1.6%</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>41</strong></td>
+<td><strong>166</strong></td>
+<td><strong>12</strong></td>
+<td><strong>6.7%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Round 5 was where the interesting learning happened. Adding human (unfortunately, only me) review for the first time caught ten false positives that the automated rounds had missed, and they fell into just three systematic categories: <code>relation.app</code> is never <code>None</code> in modern <code>ops</code> (5 FPs), unconditional <code>container.replan()</code> is fine because Pebble handles idempotency (3 FPs), and <code>ExecError</code> on workload binaries is sometimes acceptable (1 FP). Fixing those three categories dropped the FP rate to 1.6% for the remaining rounds.</p>
+<p>The final skill catalogues <strong>69 anti-patterns</strong> (AP-001 through AP-069, minus AP-008 and AP-014 which were removed as false positives) and <strong>25 cross-cutting concerns</strong>.</p>
+<h2>What Bugs Look Like at (Current) Ecosystem Scale</h2>
+<p>The most pervasive patterns, by how many of the 41 validation repos they appeared in:</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Repos</th>
+<th>What It Is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Non-string Pebble env values</td>
+<td>14/41</td>
+<td>Pebble environment dicts should contain only strings (see <a href="charming-analysis/pebble-non-string-env.md">research note</a>)</td>
+</tr>
+<tr>
+<td>Restart without ChangeError handling</td>
+<td>8/41</td>
+<td>Pebble restart can raise ChangeError if the service is already stopped</td>
+</tr>
+<tr>
+<td>Missing <code>can_connect()</code> guard</td>
+<td>7/41</td>
+<td>Pebble operations before the container is ready (mixed feelings on this one)</td>
+</tr>
+<tr>
+<td>Missing return/fail in actions</td>
+<td>7/41</td>
+<td>Action handler runs to completion without calling <code>event.fail()</code> on error paths</td>
+</tr>
+<tr>
+<td>Credential exposure</td>
+<td>7/41</td>
+<td>Passwords in log messages, Pebble CLI args, or exception tracebacks</td>
+</tr>
+<tr>
+<td>Missing <code>relation_broken</code> handler</td>
+<td>5/41</td>
+<td>Cleanup logic defined but never wired up with <code>framework.observe()</code></td>
+</tr>
+<tr>
+<td>Truthiness on config values</td>
+<td>4/41</td>
+<td><code>if self.config['key']:</code> treats 0 as "not configured"</td>
+</tr>
+</tbody>
+</table>
+<p>Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But "Pebble environment variables should be strings" or "you need a <code>can_connect()</code> guard" are things you only know from experience with the charm ecosystem. That's the whole point of mining the history rather than starting from general principles.</p>
+<p>(A note on the most pervasive pattern: <a href="charming-analysis/pebble-non-string-env.md">follow-up research</a> into how Pebble actually handles non-string environment values revealed that Pebble's Go YAML decoder silently coerces them to strings, so non-string values don't cause runtime errors. It's still best practice to use explicit strings — Python <code>True</code> becomes <code>"True"</code> not <code>"true"</code>, and static type checkers flag it — but the severity is lower than originally assessed. The skill has been updated accordingly.)</p>
+<p>Each team also has its own distinctive patterns. The Data team hits TLS toggle race conditions because coordinating TLS state between charm and database requires a two-phase handshake. The Observability team repeatedly fixes wrong datasource variable names in Grafana dashboards (<code>${DS_PROMETHEUS}</code> vs <code>${prometheusds}</code>). The IS team gets bitten by Pebble lifecycle ordering because web app charms need config files pushed before the service starts. These are patterns that emerge when you look at enough repos and fixes from the same team.</p>
+<h2>The Review Tool</h2>
+<p>By round 5, reviewing findings in markdown files wasn't scaling. I needed to track which findings were true positives, record domain knowledge from each review, and feed that back into the skill. So I had Claude built a <a href="charming-analysis/review-tool/">review tool</a> — a SQLite-backed web/TUI/CLI (I thought web would be nice, then figured out TUI is actually more convenient) app for triaging findings. FastAPI + htmx for the web interface, Textual for the terminal, keyboard shortcuts for rapid review (<code>j</code>/<code>k</code> navigate, <code>r</code> reviewed, <code>f</code> false positive). The export feeds directly back into skill improvement.</p>
+<p>(Despite multiple attempts at Claude fixing it, there's still an annoying bug in the TUI version where it will sometimes show the first item's findings instead of the selected one, but I gave up trying to get that solved for now.)</p>
+<p>It's not a complicated tool, but it closed the feedback loop that made rounds 6–10 much more efficient than the earlier rounds.</p>
+<h2>What I Learned</h2>
+<p><strong>Skills built from real data are probably better than generic ones.</strong> This isn't thst surprising -- Cramer's team found the same thing at Sentry -- but the margin is larger than I expected. A generic "check for bugs" prompt would likely miss things in the top patterns list above.</p>
+<p><strong>Scale changes what you see.</strong> At single-repo scale, data mutability was the most significant pattern. At team scale, the Python/Go split was the story. At ecosystem scale, per-team patterns and the sheer pervasiveness of things like non-string Pebble env values became visible. The methodology works at all these scales, but you get qualitatively different insights at each level.</p>
+<p><strong>Human review is essential but doesn't need to be exhaustive.</strong> The automated rounds were valuable for building the initial catalogue, but the first human review round caught systematic FP categories that automated validation couldn't. After fixing those, the remaining rounds were mostly clean. The investment was a few hours over a few days of reviewing findings, not weeks.</p>
+<p><strong>Conventional commit adoption is very convenient for this kind of analysis.</strong> Teams with high adoption (Identity at 96%) are trivial to collect data from. Teams with low adoption (K8s at 35%) need keyword scoring to avoid missing many of their fixes. This might be worth evangelising independently of the skill synthesis work - I see three conventional commit specs; we could add one to cover charming engineering.</p>
+<p><strong>The iteration story is the real story.</strong> The skill at the end of round ten is substantially different from the one at the end of round one. Anti-patterns were added, removed, and refined. False-positive controls were tightened. Domain knowledge captured in reviewer notes shaped the skill's evolution. Without a structured iteration process (and the review tool to support it), the skill would likely have plateaued much earlier.</p>
+<h2>Filing Bugs Upstream</h2>
+<p>After completing the analysis and building the skills, I went back through the audit findings and reviewed them in detail to determine which were genuine bugs worth fixing. This turned out to be a significant filtering step — of the 52 findings across the operator and charm-tech analyses, only 11 survived human review as worth PRing (plus one that was opened and closed after closer inspection).</p>
+<h3>operator (stages 1 and 2 combined)</h3>
+<p>From the operator-specific analysis (13 findings) and the charm-tech supplementary analysis (7 more), detailed review produced <strong>4 merged-worthy PRs</strong> and closed 1:</p>
+<table>
+<thead>
+<tr>
+<th>PR</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/canonical/operator/pull/2376">#2376</a></td>
+<td>Harness <code>relation_get()</code> returns copy instead of direct reference</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/operator/pull/2378">#2378</a></td>
+<td>Timezone-aware datetimes in expiry calculation and file info</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/operator/pull/2379">#2379</a></td>
+<td>Scenario <code>secret_get()</code> and <code>action_get()</code> return copies</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/operator/pull/2380">#2380</a></td>
+<td>Scenario deep-copies layer objects during plan rendering</td>
+</tr>
+<tr>
+<td><a href="https://github.com/canonical/operator/pull/2377">#2377</a></td>
+<td><em>(Closed)</em> Secret temp file permissions — false positive (<code>TemporaryDirectory</code> already provides <code>0o700</code> protection)</td>
+</tr>
+</tbody>
+</table>
+<p>Key false positives caught during review: <code>secret-set</code> does accept <code>--owner</code> (retracted), <code>Service.to_dict()</code> dropping <code>user-id: 0</code> is not a real bug (Pebble runs as root), <code>_event_context()</code> missing <code>try/finally</code> only affects Harness (mostly unmaintained, Scenario has its own mechanism).</p>
+<h3>charm-tech (stage 2)</h3>
+<p>From the broader team analysis, review produced <strong>5 PRs</strong> across 3 repos:</p>
+<table>
+<thead>
+<tr>
+<th>Repo</th>
+<th>PR</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>charmlibs</td>
+<td><a href="https://github.com/canonical/charmlibs/pull/363">#363</a></td>
+<td>passwd <code>TypeError</code> with printf-style formatting</td>
+</tr>
+<tr>
+<td>pytest-jubilant</td>
+<td><a href="https://github.com/canonical/pytest-jubilant/pull/25">#25</a></td>
+<td>Wrong exception attribute in model-exists check</td>
+</tr>
+<tr>
+<td>concierge</td>
+<td><a href="https://github.com/canonical/concierge/pull/166">#166</a></td>
+<td>MicroK8s copy-paste bug using Google's config</td>
+</tr>
+<tr>
+<td>concierge</td>
+<td><a href="https://github.com/canonical/concierge/pull/163">#163</a></td>
+<td><code>writeCredentials</code> overwrites map instead of merging</td>
+</tr>
+<tr>
+<td>concierge</td>
+<td><a href="https://github.com/canonical/concierge/pull/164">#164</a></td>
+<td><code>RunWithRetries</code> retries permanent errors for 5 minutes</td>
+</tr>
+<tr>
+<td>concierge</td>
+<td><a href="https://github.com/canonical/concierge/pull/165">#165</a></td>
+<td>Disabled snaps treated as uninstalled</td>
+</tr>
+</tbody>
+</table>
+<p>Key false positives caught: <code>lxd init --minimal</code> is idempotent (tested directly — it succeeds on re-run), UID/GID 0 falsy checks in passwd are not real bugs (UID 0 already exists as root), all snap library findings skipped (rewrite pending). All 5 pebble findings skipped as too narrow, documented workarounds, or design-level concerns.</p>
+<p>Full details in the coda sections of <a href="operator-analysis/WRITEUP.md#coda-filing-the-bugs-upstream">operator-analysis/WRITEUP.md</a> and <a href="charm-tech-analysis/WRITEUP.md#coda-filing-the-bugs-upstream">charm-tech-analysis/WRITEUP.md</a>.</p>
+<h2>Files</h2>
+<p>Each stage has its own directory with a detailed write-up:</p>
+<ul>
+<li><strong><a href="operator-analysis/">operator-analysis/</a></strong> — Single-repo analysis, initial skill, methodology proof. Start here for the approach (I didn't know I would go further than this when starting it).</li>
+<li><strong><a href="charm-tech-analysis/">charm-tech-analysis/</a></strong> — Team-scale analysis, Python/Go split, cross-repo patterns.</li>
+<li><strong><a href="charming-analysis/">charming-analysis/</a></strong> — Full ecosystem analysis, 10 validation rounds, review tool, final skill. The bulk of the data and findings are here.</li>
+</ul>
+<p>The final skill itself is at <a href="charming-analysis/.claude/skills/charm-find-bugs/"><code>charming-analysis/.claude/skills/charm-find-bugs/</code></a>. I might put it in <a href="https://github.com/canonical/copilot-collections">copilot-collections</a> or some other more visible place later.</p>]]></content:encoded>
+      <dc:creator>Tony Meyer</dc:creator>
+      <pubDate>Thu, 21 May 2026 09:17:12 +1200</pubDate>
+      <guid isPermaLink="false">experiment-2026-03-13-code-review-skills-our-data</guid>
+    </item>
+    <item>
       <title>Reading List Update: Add new resource links to READTHEM.md</title>
       <link>https://github.com/tonyandrewmeyer/charming-with-claude/commit/aa4faf1f4d32b7672972625b252c213d6d84d102</link>
       <description>Add new resource links to READTHEM.md</description>
