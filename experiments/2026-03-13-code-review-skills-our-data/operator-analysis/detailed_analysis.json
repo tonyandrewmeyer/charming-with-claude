@@ -1,0 +1,1163 @@
+[
+  {
+    "sha": "0ce8a0fdbe89ce4d55b7f23fd245366d4d83698f",
+    "subject": "fix: only show executable in ExecError.__str__, not full command line (#2336)",
+    "date": "2026-02-23",
+    "severity": "high",
+    "root_cause": "The ExecError.__str__ method was formatting the entire command list (including all arguments) into the error message via self.command!r. When command-line arguments contained sensitive data such as credentials or API keys, this information would leak into exception messages, log files, and tracing outputs.",
+    "fix_description": "Changed ExecError.__str__ to only include self.command[0] (the executable name) rather than the full self.command list. This prevents command-line arguments from appearing in error messages while still providing enough context to identify which command failed.",
+    "pattern": "sensitive-data-in-error-messages",
+    "pattern_description": "Error messages or log outputs inadvertently include sensitive information (credentials, keys, tokens) that was passed as function arguments or command-line parameters.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "pebble"
+    ],
+    "security_relevant": true,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Error messages should never include the full set of command arguments, as these may contain sensitive data."
+  },
+  {
+    "sha": "d6d1746b812f1a64d91248cff95cf2d53b43fa58",
+    "subject": "fix: credential-get is available on k8s in newer Juju (#2307)",
+    "date": "2026-02-09",
+    "severity": "high",
+    "root_cause": "The Scenario consistency checker unconditionally rejected CloudSpec on Kubernetes models, but Juju 3.6.10 added support for the credential-get hook command on K8s models. This caused false consistency errors for charms targeting newer Juju versions on Kubernetes.",
+    "fix_description": "Added a juju_version parameter to check_cloudspec_consistency and changed the check to only reject CloudSpec on K8s when the Juju version is less than 3.6.10. The error message was updated to suggest either upgrading the Juju version or simulating a machine substrate.",
+    "pattern": "hardcoded-version-assumption",
+    "pattern_description": "A capability check is hardcoded based on an assumption about a dependency's version, but a newer version of the dependency has changed that capability. The check needs to be version-aware.",
+    "recurrence_risk": "high",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When restricting functionality based on an external system's capabilities, make the check version-aware rather than absolute."
+  },
+  {
+    "sha": "85e677ef38856f54978a70a6341b2b544aa2547e",
+    "subject": "fix: replace git reference injection with wheel artifacts in charm test workflow",
+    "date": "2026-01-27",
+    "severity": "high",
+    "root_cause": "The CI workflow was injecting git references into charm build dependencies, which could be exploited for supply chain attacks or cause build inconsistencies due to mutable references.",
+    "fix_description": "Replaced git reference injection with pre-built wheel artifacts in the charm test workflow, ensuring deterministic and secure builds.",
+    "pattern": "mutable-dependency-reference",
+    "pattern_description": "Build or CI systems reference dependencies via mutable references (git branches, latest tags) instead of pinned, verified artifacts, creating security and reproducibility risks.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "ci"
+    ],
+    "security_relevant": true,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "CI workflows should use immutable, verified artifacts rather than mutable git references for dependencies."
+  },
+  {
+    "sha": "d7473832343c46f4f5c534162d4f1505161529a4",
+    "subject": "fix: prevent KeyError on auth-type when creating CloudCredential object (#2268)",
+    "date": "2026-01-14",
+    "severity": "high",
+    "root_cause": "The code used dataclasses.asdict() to convert hookcmds dataclass objects into dictionaries, then used from_dict() to create model objects. However, dataclasses.asdict() preserves Python attribute names (with underscores like auth_type), while from_dict() expected Juju-style hyphenated keys (like auth-type). This caused a KeyError when accessing credential-get results.",
+    "fix_description": "Replaced the dataclasses.asdict() + from_dict() pattern with new _from_hookcmds() class methods on CloudCredential and CloudSpec that directly map between the hookcmds and model dataclass objects, avoiding the naming convention mismatch entirely.",
+    "pattern": "naming-convention-mismatch",
+    "pattern_description": "Converting between objects that use different naming conventions (snake_case vs kebab-case) through an intermediate dictionary format that assumes one particular convention, causing key lookup failures.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When converting between objects with different naming conventions, use explicit mapping rather than relying on generic serialization like dataclasses.asdict()."
+  },
+  {
+    "sha": "0422491787a573de4b2ac527c5b85a32521f2bef",
+    "subject": "fix: detect categories with an explanation mark indicating breaking changes (#2132)",
+    "date": "2025-10-22",
+    "severity": "high",
+    "root_cause": "The release script's regex for parsing commit messages did not account for the '!' character used in conventional commits to indicate breaking changes (e.g., 'feat!: ...'). Breaking changes were silently dropped from the changelog and release notes. Additionally, the version tag regex did not support alpha/beta/rc suffixes.",
+    "fix_description": "Updated the commit parsing regex to use named groups and capture the optional '!' breaking change indicator. Breaking changes are now collected into a separate 'breaking' category and prominently displayed in release notes. The version format regex was also extended to support pre-release versions.",
+    "pattern": "incomplete-regex-parsing",
+    "pattern_description": "A regular expression used for parsing structured text does not account for all valid input formats, causing valid data to be silently dropped rather than raising an error.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "general"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": true,
+    "lesson": "When parsing structured formats like conventional commits, ensure the regex covers the full specification, including optional markers."
+  },
+  {
+    "sha": "6aaacfdf7322ccc258c6fcdf19d74a3b3e25ade4",
+    "subject": "fix: raise ActionFailed when using Context as a context manager (#2121)",
+    "date": "2025-10-21",
+    "severity": "high",
+    "root_cause": "The ActionFailed exception and action log/result cleanup code was only in Context.run(), not in the shared _run() context manager method. When Context was used as a context manager (with ctx(...) as mgr: mgr.run()), the ActionFailed exception was never raised even when the action called event.fail(), silently swallowing the failure.",
+    "fix_description": "Moved the action state reset code (clearing logs, results, failure message) and the ActionFailed raising code from Context.run() to the _run() context manager method, which is shared by both the direct run() path and the context manager path.",
+    "pattern": "code-path-divergence",
+    "pattern_description": "Two code paths that should have identical behavior (direct call vs. context manager) diverge because important logic is only placed in one of them, causing silent behavioral differences.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "actions",
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When providing multiple APIs for the same operation, ensure critical behavior (like exception raising) is in the shared implementation, not duplicated in each entry point."
+  },
+  {
+    "sha": "5a63e01e2b2eec9e23f226f08f9c47c6ddeb3e0a",
+    "subject": "fix: only add the remote unit for departed and broken relation events, fix ordering (#1918)",
+    "date": "2025-07-28",
+    "severity": "high",
+    "root_cause": "Two bugs: (1) The remote unit was being injected into Relation.units for ALL relation events, not just departed/broken. For relation-joined, this incorrectly added a unit before its data was available. (2) The remote unit was inserted into the relation AFTER RelationData was constructed, meaning the injected unit's data was not accessible even in departed/broken events.",
+    "fix_description": "Changed the remote unit injection to only occur for relation_departed and relation_broken events by checking the event name. Also reordered the code so that the unit is added to relation.units BEFORE RelationData is initialized, ensuring the data is accessible.",
+    "pattern": "incorrect-event-scope-and-ordering",
+    "pattern_description": "A fix applied too broadly to all events when it should only apply to specific ones, combined with incorrect initialization ordering that prevents the fix from working even in the correct cases.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "main/dispatch",
+      "model",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When adding special behavior for specific event types, explicitly check the event type rather than applying it universally, and verify initialization ordering."
+  },
+  {
+    "sha": "a93d676363efb269d7459a27a17fd35804fb47e5",
+    "subject": "fix: if self.app is not actually set avoid a new crash location (#1897)",
+    "date": "2025-07-08",
+    "severity": "high",
+    "root_cause": "A Juju bug (LP#1960934) causes JUJU_REMOTE_APP to not be set in certain situations, leading to self.app being None. Code that was added to inject the departing unit into Relation.units accessed self.app.name without a None check, causing an AttributeError crash.",
+    "fix_description": "Added a None check for self.app before attempting to access self.app.name in the remote unit injection code. This is a workaround for the upstream Juju bug.",
+    "pattern": "missing-none-check-for-upstream-bug",
+    "pattern_description": "Code assumes a value will always be set based on documentation or specification, but an upstream bug in a dependency means the value can be None, causing a crash when accessed.",
+    "recurrence_risk": "high",
+    "areas": [
+      "model"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When interacting with external systems, always add defensive None checks even when the documentation says a value will always be present."
+  },
+  {
+    "sha": "31091898e169032f7165afe77157be982da521ea",
+    "subject": "fix: in meter-status-changed JUJU_VERSION is not set (#1840)",
+    "date": "2025-06-24",
+    "severity": "high",
+    "root_cause": "Despite Juju documentation claiming JUJU_VERSION is set for all hooks, it is not set for meter-status-changed and collect-metrics events. After a refactoring that moved from optional to required JUJU_VERSION access, this caused a KeyError crash. Additionally, in the restricted context of these events, is-leader is not available, causing collect-status to fail.",
+    "fix_description": "Changed JUJU_VERSION reading to use env.get('JUJU_VERSION', '0.0.0') with a fallback. Added meter-status-changed to the restricted context list (alongside collect-metrics). Skipped collect-status evaluation in restricted contexts where is-leader is unavailable.",
+    "pattern": "undocumented-environment-variance",
+    "pattern_description": "An environment variable or API that is documented as always available is actually missing in certain edge-case contexts, causing crashes when code assumes its presence.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "juju-context",
+      "main/dispatch",
+      "status"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Never trust documentation about environment variable availability; always use get() with a sensible default for environment variables."
+  },
+  {
+    "sha": "668701b4396098b3e7a93288cd272c11dd2a8af6",
+    "subject": "fix: turn on databag access validation in __init__ (#1737)",
+    "date": "2025-05-28",
+    "severity": "high",
+    "root_cause": "During charm initialization (__init__), the event context was not set, which meant relation data access validation was disabled. This allowed non-leader units to silently read/write application databags in __init__ without raising RelationDataAccessError, while the same access would correctly fail during event handlers. In testing frameworks, this silently passed instead of surfacing the error.",
+    "fix_description": "Set the event context to a dummy event name '__init__' during charm initialization, enabling relation data access validation during __init__. This ensures consistent access control regardless of whether code runs in __init__ or in event handlers.",
+    "pattern": "missing-validation-in-initialization",
+    "pattern_description": "Validation or access control that is active during normal operation is not active during object initialization, allowing invalid operations to succeed silently during __init__ but fail at runtime.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "main/dispatch",
+      "relations",
+      "testing-framework"
+    ],
+    "security_relevant": true,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Ensure that access control and validation are active from the earliest point of object lifecycle, including during initialization."
+  },
+  {
+    "sha": "3dda5b5f64bdea21d43a42431edcca62669c3173",
+    "subject": "fix: assorted fixes for Pebble layer merging in Harness and Scenario (#1627)",
+    "date": "2025-03-14",
+    "severity": "high",
+    "root_cause": "Multiple bugs in Pebble layer merging: (1) Layers were sorted by key name instead of preserving insertion order when rendering services/checks/log-targets, diverging from real Pebble behavior. (2) When layers had same-named items with override='merge', the item was replaced instead of merged. (3) Check._merge did not handle CheckStartup.UNSET correctly, allowing unset values to override set ones. (4) Scenario Container.plan ignored checks and log targets entirely.",
+    "fix_description": "Changed layer rendering to iterate in insertion order (dict values()) instead of sorted order. Added merge logic for same-named items across different layers. Fixed Check._merge to skip CheckStartup.UNSET values. Added _render_checks and _render_log_targets to Scenario Container and included them in the plan property.",
+    "pattern": "test-double-behavioral-divergence",
+    "pattern_description": "Testing mocks/doubles diverge from the real implementation in subtle but important ways, such as wrong ordering semantics, missing merge logic, or incomplete feature coverage.",
+    "recurrence_risk": "high",
+    "areas": [
+      "pebble",
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test doubles must faithfully replicate the ordering, merging, and feature semantics of the real system they simulate."
+  },
+  {
+    "sha": "d14c30331bc4fdde0d5a880475ace04fe6b5d455",
+    "subject": "fix: maintain transaction integrity on first run (#1558)",
+    "date": "2025-02-03",
+    "severity": "high",
+    "root_cause": "During the first dispatch when the SQLite database is created, DDL statements (CREATE TABLE) were followed by an explicit self._db.commit(). This committed the DDL early and switched SQLite to autocommit mode, breaking the transactional guarantees that the rest of the code relies on for atomic state updates.",
+    "fix_description": "Removed the explicit self._db.commit() call after the CREATE TABLE statements. SQLite safely handles DDL within transactions, so the commit is unnecessary and harmful to transaction integrity.",
+    "pattern": "premature-transaction-commit",
+    "pattern_description": "An explicit commit in the middle of a transaction breaks the atomicity guarantee, causing subsequent operations to run in autocommit mode where they cannot be rolled back together.",
+    "recurrence_risk": "low",
+    "areas": [
+      "storage"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": true,
+    "lesson": "Never commit DDL separately within a transaction scope; let all DDL and DML commit together to maintain atomicity."
+  },
+  {
+    "sha": "79706f401d93a4e85b729de52a81367f6d3f6451",
+    "subject": "fix: adjust Harness secret behaviour to align with Juju (#1248)",
+    "date": "2024-06-25",
+    "severity": "high",
+    "root_cause": "Harness was raising incorrect exception types for secret operations compared to actual Juju behavior. It was also incorrectly invalidating the local secret content cache on set_content, and had inaccurate documentation about when SecretNotFoundError vs ModelError would be raised. The documentation also lacked clarity about secret content caching behavior.",
+    "fix_description": "Aligned Harness error behavior to match Juju: SecretNotFoundError for 'not found' responses, ModelError for 'permission denied', RuntimeError for hook-completion failures. Fixed set_content to not invalidate the cache (content doesn't change until refresh). Updated extensive documentation clarifying caching, error types, and behavior of secret operations.",
+    "pattern": "test-harness-error-mismatch",
+    "pattern_description": "The test harness raises different exceptions or has different error semantics than the real system, causing charms to handle errors incorrectly in production vs. testing.",
+    "recurrence_risk": "high",
+    "areas": [
+      "charm",
+      "framework",
+      "model",
+      "secrets",
+      "testing-framework"
+    ],
+    "security_relevant": true,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test harnesses must raise the same exception types as the real system; verify error behavior against actual system behavior, not documentation alone."
+  },
+  {
+    "sha": "e4b0f9d4e232d384745a9823bcf0e481b222a006",
+    "subject": "fix: reduce mode of SQLite storage file to 0o600 (#1057)",
+    "date": "2023-11-16",
+    "severity": "high",
+    "root_cause": "The SQLite storage file (.unit-state.db) was created with default file permissions, potentially allowing other users on the system to read sensitive charm state data including secrets and configuration.",
+    "fix_description": "Added _ensure_db_permissions that creates the file with mode 0o600 (owner read/write only) for new files, or chmods existing files to 0o600. Handles race conditions where the file is created between the existence check and the create call.",
+    "pattern": "insecure-default-file-permissions",
+    "pattern_description": "A file containing sensitive data is created with overly permissive default permissions, allowing unauthorized local users to read its contents.",
+    "recurrence_risk": "low",
+    "areas": [
+      "security",
+      "storage"
+    ],
+    "security_relevant": true,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Files containing sensitive data should be created with restrictive permissions (0o600) from the start, not relying on system defaults."
+  },
+  {
+    "sha": "6fcda007bff2671fa97924fbf70f480753f862d6",
+    "subject": "Avoid error in FileInfo repr due to permissions being None (#956)",
+    "date": "2023-06-16",
+    "severity": "high",
+    "root_cause": "FileInfo.__repr__ used an ':o' format string for permissions, which crashes with TypeError when permissions is None. The _FileKwargs TypedDict declared permissions as non-optional (int) but dict.get('permissions') can return None, so Pyright did not catch the type error.",
+    "fix_description": "Changed the TypedDict to declare permissions as Optional[int] to match reality. Added a fallback of 'or 0' when getting permissions from kwargs, ensuring the format string never receives None.",
+    "pattern": "type-annotation-reality-mismatch",
+    "pattern_description": "Type annotations declare a field as non-optional when the actual runtime value can be None, causing type checkers to miss potential None-related crashes.",
+    "recurrence_risk": "high",
+    "areas": [
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Type annotations must accurately reflect all possible runtime values, including None, or type checkers will provide a false sense of safety."
+  },
+  {
+    "sha": "3f8fb9b91ec28f2330df663c8f068de46260e75a",
+    "subject": "fix: hold only copies of user provided dicts in testing.Context (#2349)",
+    "date": "2026-03-11",
+    "severity": "medium",
+    "root_cause": "testing.Context stored direct references to user-provided dict objects for meta, config, and actions. If the user mutated these dicts after creating the Context, the internal state would be silently corrupted, leading to unpredictable test behavior.",
+    "fix_description": "Added copy.deepcopy() calls for meta, config, and actions dicts in Context.__init__, ensuring the Context holds independent copies that are immune to external mutation.",
+    "pattern": "shared-mutable-state",
+    "pattern_description": "An object stores a direct reference to a mutable object provided by external code, allowing unintended mutation of internal state through the shared reference.",
+    "recurrence_risk": "high",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Always deep-copy mutable objects received from external callers before storing them internally."
+  },
+  {
+    "sha": "aa06bf54b286c435d7d889146ba209a0920620dd",
+    "subject": "fix: correct type annotation for StorageMeta.properties (#2348)",
+    "date": "2026-02-26",
+    "severity": "medium",
+    "root_cause": "StorageMeta.properties was written as '= list[str]' (assignment) instead of ': list[str]' (annotation), making it a class attribute holding the list type object rather than a type annotation for an instance attribute.",
+    "fix_description": "Changed '= list[str]' to ': list[str]' to make it a proper type annotation.",
+    "pattern": "annotation-vs-assignment-typo",
+    "pattern_description": "Using = instead of : for a type annotation creates a class attribute holding a type object rather than annotating an instance attribute, which confuses both type checkers and runtime behavior.",
+    "recurrence_risk": "low",
+    "areas": [
+      "charm",
+      "storage"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Be careful to use : for type annotations and = for assignments; mixing them up creates subtle bugs that type checkers may not catch."
+  },
+  {
+    "sha": "38eab2ba06670ae925e209d73509e9be98ac0cce",
+    "subject": "fix: support Pydantic MISSING sentinel in ops.Relation.save (#2306)",
+    "date": "2026-02-25",
+    "severity": "medium",
+    "root_cause": "When using Pydantic's experimental MISSING sentinel for fields, model_dump() omits those fields. The Relation.save() code assumed all fields in the field mapping would be present in the values dict, causing a KeyError when a field used the MISSING sentinel.",
+    "fix_description": "Changed the data encoding dict comprehension to check 'if attr in values' before encoding, and to use an empty string (which erases the key from the databag in Juju) for missing fields.",
+    "pattern": "missing-key-in-dynamic-dict",
+    "pattern_description": "Code assumes all expected keys will be present in a dictionary that is dynamically populated, without handling the case where some keys may be absent.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When iterating over expected keys in a dynamically-populated dict, always check for key existence rather than assuming all keys are present."
+  },
+  {
+    "sha": "3df8ae9c665256d36f60e835ece4b4ac4ae22cef",
+    "subject": "fix: correct the Model.get_binding() return type (#2329)",
+    "date": "2026-02-17",
+    "severity": "medium",
+    "root_cause": "Model.get_binding() was annotated as returning 'Binding | None', but the implementation always returns a Binding (creating a new one if needed via the _bindings mapping's get method). The incorrect return type forced callers to handle None unnecessarily.",
+    "fix_description": "Changed the return type annotation from 'Binding | None' to 'Binding' to match the actual implementation.",
+    "pattern": "overly-broad-return-type",
+    "pattern_description": "A method's return type annotation includes None as a possibility when the implementation never actually returns None, forcing callers to add unnecessary None handling.",
+    "recurrence_risk": "low",
+    "areas": [
+      "model",
+      "networking"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Return type annotations should accurately reflect the implementation; overly broad types create unnecessary defensive code in callers."
+  },
+  {
+    "sha": "3d59df81a6344648708a35ca8c731d84b47180d1",
+    "subject": "fix: make testing.CheckInfo level arg type match pebble.CheckInfo.level (#2274)",
+    "date": "2026-01-29",
+    "severity": "medium",
+    "root_cause": "testing.CheckInfo's level parameter only accepted pebble.CheckLevel, but in practice users often had string values from pebble.Layer check definitions. This forced users to manually convert strings to CheckLevel before creating CheckInfo objects, and caused type checker complaints.",
+    "fix_description": "Added a custom __init__ to testing.CheckInfo that accepts 'pebble.CheckLevel | str | None' for level and converts string values to CheckLevel internally. Used object.__setattr__ for the frozen dataclass.",
+    "pattern": "type-coercion-gap",
+    "pattern_description": "A constructor requires a specific enum type but related APIs produce string values, forcing callers to do manual conversion that should be handled by the constructor.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "pebble",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Accept both string and enum types when the data commonly flows from string-producing APIs, and do the conversion internally."
+  },
+  {
+    "sha": "379d01322b02119a6110094495ea3bacca39b0f5",
+    "subject": "fix: _checks_action should return empty list when there are no changes (#2270)",
+    "date": "2026-01-15",
+    "severity": "medium",
+    "root_cause": "Pebble's check start/stop API can return 'changed: null' instead of an empty list when nothing has been stopped or started. The Client code directly returned this null value, causing downstream code expecting a list to fail.",
+    "fix_description": "Added 'or []' fallback to the return value: 'return resp['result']['changed'] or []', converting null/None to an empty list.",
+    "pattern": "null-from-api-response",
+    "pattern_description": "An external API returns null/None where the expected type is a list/array, and the client code does not handle this null case.",
+    "recurrence_risk": "high",
+    "areas": [
+      "pebble"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Always handle null/None responses from external APIs, especially where the documented return type is a list."
+  },
+  {
+    "sha": "337ce1db9fff89b9f143390a4924e9c1a7189424",
+    "subject": "fix: correct the value of additional_properties in the action meta in Juju 4 (#2250)",
+    "date": "2026-01-13",
+    "severity": "medium",
+    "root_cause": "Juju 4 changed the default value of additionalProperties from true to false, but ActionMeta unconditionally defaulted to True. This meant charms running on Juju 4 would have incorrect action parameter validation behavior.",
+    "fix_description": "Changed ActionMeta to read JUJU_VERSION from the environment and use it to determine the default: True for Juju < 4.0.0, False for Juju >= 4.0.0.",
+    "pattern": "version-dependent-default",
+    "pattern_description": "A default value that should change based on the version of an external system is hardcoded, causing incorrect behavior when the external system is upgraded.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "actions",
+      "charm"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When a dependency changes defaults between versions, make the default version-aware rather than hardcoding it."
+  },
+  {
+    "sha": "4529b3ffea58e8b5a966bd863aaa119eb806becb",
+    "subject": "fix: minor hookcmds fixes (#2175)",
+    "date": "2025-11-17",
+    "severity": "medium",
+    "root_cause": "Three issues: (1) format_result_dict only recursed into MutableMapping, missing immutable mappings like MappingProxyType. (2) action_get with a key was typed as returning str but could return any JSON type (int, bool, etc.). (3) relation-get docstring incorrectly said unit=None gets data for 'all units' instead of the triggering unit.",
+    "fix_description": "Changed MutableMapping check to Mapping for broader dict compatibility. Fixed action_get return type from str to Any. Corrected the docstring.",
+    "pattern": "overly-specific-type-check",
+    "pattern_description": "Using isinstance checks against overly specific types (MutableMapping instead of Mapping) causes the code to miss valid inputs that implement the broader interface.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "actions",
+      "model"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Use the broadest appropriate abstract base class for isinstance checks; prefer Mapping over MutableMapping unless mutation is actually needed."
+  },
+  {
+    "sha": "3ce1c7f3ec52b5d6fa1648e585ee5fd466f35360",
+    "subject": "fix: secret-info-get cannot be provided with both an ID and a label (#2170)",
+    "date": "2025-11-17",
+    "severity": "medium",
+    "root_cause": "The Juju secret-info-get hook command does not accept both an ID and a label simultaneously, but the model backend was passing both when both were provided. Juju would error out. The previous code also had a type: ignore that masked this issue.",
+    "fix_description": "Changed secret_info_get to prioritize id over label with an explicit if/elif/else chain, and added a TypeError if neither is provided. This matches the existing ops behavior of silently ignoring the label when both are provided.",
+    "pattern": "mutually-exclusive-parameters",
+    "pattern_description": "An external API does not accept certain parameter combinations, but the wrapper code does not enforce this constraint, passing conflicting parameters through.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When wrapping APIs with mutually exclusive parameters, enforce the constraint in the wrapper rather than passing both through."
+  },
+  {
+    "sha": "9323eadc17b76a1e34a5625fb8e19a839fd0a5c1",
+    "subject": "fix: don't cache secrets in Ops (#2143)",
+    "date": "2025-10-27",
+    "severity": "medium",
+    "root_cause": "Ops maintained a shared secret metadata cache (_secret_set_cache) that attempted to coalesce multiple secret-set calls within a hook. This cache was complex, error-prone, and made the behavior less predictable. Newer Juju versions (3.6+) handle coalescing natively, making the cache unnecessary for most users.",
+    "fix_description": "Removed the _secret_set_cache entirely. For Juju 3.6+, secret-set calls are made directly. For older Juju versions, a read-modify-write cycle is used in the backend to ensure consistency without an application-level cache.",
+    "pattern": "unnecessary-application-cache",
+    "pattern_description": "Application code maintains a cache to work around a limitation in the underlying system, but the cache adds complexity and bugs, and newer versions of the system have resolved the limitation natively.",
+    "recurrence_risk": "low",
+    "areas": [
+      "model",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": true,
+    "lesson": "Prefer using the system's native capabilities over application-level caching when the system supports the needed behavior."
+  },
+  {
+    "sha": "e7e2c8d7cbba9f48f3a62ca59adaa1f47b4058bc",
+    "subject": "fix: normalise Secret.owner to 'app' for ops[testing] output state (#2127)",
+    "date": "2025-10-23",
+    "severity": "medium",
+    "root_cause": "ops.Model.add_secret() sets owner='application', but Scenario's Secret.owner type is Literal['unit', 'app', None]. This inconsistency caused the output state in tests to have owner='application' instead of the expected 'app', causing assertion failures.",
+    "fix_description": "Added owner normalization in the Scenario mock backend's secret_add method: translates 'application' to 'app' when constructing the Secret object.",
+    "pattern": "string-literal-inconsistency",
+    "pattern_description": "Two components in the same system use different string literals to represent the same concept, causing comparison failures and confusing test output.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "testing-framework",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Use consistent string literals across components; when interfacing with code that uses different conventions, normalize at the boundary."
+  },
+  {
+    "sha": "3ac3706b0dda0c0139e9d565c376bde8cb5c4b54",
+    "subject": "fix!: ensure that the testing context manager is exited when an exception occurs (#2117)",
+    "date": "2025-10-20",
+    "severity": "medium",
+    "root_cause": "When an exception occurred during charm execution inside the testing Context manager, the __exit__ method of the inner context manager was never called. This left the environment in a dirty state (OPERATOR_DISPATCH still set), caused cascading test failures, and prevented exceptions from being wrapped in UncaughtCharmError.",
+    "fix_description": "Added a call to self._wrapped_ctx.__exit__(exc_type, exc_val, exc_tb) in the Manager.__exit__ when an exception is being handled, ensuring proper cleanup even on error paths.",
+    "pattern": "context-manager-cleanup-failure",
+    "pattern_description": "A context manager's __exit__ is not called on exception paths, leaving resources uncleaned and environment state polluted.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Always ensure context manager __exit__ is called on all paths, including exception paths; test error scenarios explicitly."
+  },
+  {
+    "sha": "0fa4497c8689d514c4cc79df2d8fa32fe67a2d46",
+    "subject": "fix: make secret info description visible to the charm in ops[testing] (#2115)",
+    "date": "2025-10-17",
+    "severity": "medium",
+    "root_cause": "The mock backend's secret_info_get method was not passing the secret's description to the SecretInfo constructor, so secret.get_info().description always returned None even when a description was set on the Secret object.",
+    "fix_description": "Added description=secret.description to the SecretInfo constructor call in _MockModelBackend.secret_info_get.",
+    "pattern": "missing-field-in-mock",
+    "pattern_description": "A mock or test double omits a field when constructing return objects, causing the field to always appear as None/empty in tests even when it has a value.",
+    "recurrence_risk": "high",
+    "areas": [
+      "scenario",
+      "testing-framework",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When creating mock responses, verify that ALL fields from the real response are included, not just the commonly used ones."
+  },
+  {
+    "sha": "a1574f4339f75cf196835a55e17a1eec4d103cdf",
+    "subject": "fix: ensure ops.Pebble.pull cleans up temporary files if it errors (#2087)",
+    "date": "2025-10-10",
+    "severity": "medium",
+    "root_cause": "The pebble.Client.pull() method created temporary files via _FilesParser but only called parser.remove_files() in the success path. If any exception occurred during response parsing (ProtocolError, etc.), the temporary files would be leaked on disk.",
+    "fix_description": "Wrapped the parsing logic in a try/finally block, moving parser.remove_files() into the finally clause to ensure cleanup happens regardless of exceptions.",
+    "pattern": "resource-leak-on-exception",
+    "pattern_description": "Resource cleanup code is only in the success path and not in a finally block, causing resource leaks when exceptions occur.",
+    "recurrence_risk": "high",
+    "areas": [
+      "pebble"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Always use try/finally for resource cleanup to ensure cleanup happens on both success and error paths."
+  },
+  {
+    "sha": "be0901227c1ba534f5948c1047377dd4c8638c87",
+    "subject": "fix: _MockModelBackend.relation_get will return a copy of the relation data (#2052)",
+    "date": "2025-09-26",
+    "severity": "medium",
+    "root_cause": "The mock backend's relation_get returned the same dict object used as the internal relation data store. This meant the proxy for Juju's relation data and the local cache in RelationDataContent were the same object. This hid a bug where relation_set did not handle empty-string-means-delete semantics, because RelationDataContent's update of its cache (the same dict) would mask the missing deletion.",
+    "fix_description": "Changed relation_get to return data.copy() instead of the direct reference. Also fixed relation_set to implement the Juju behavior where setting a key to empty string deletes it (tgt.pop(key, None)).",
+    "pattern": "shared-reference-masking-bug",
+    "pattern_description": "A test double returns the same object reference used internally, causing mutations through one path to automatically propagate to the other, hiding bugs where both paths should update independently.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "testing-framework",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": true,
+    "lesson": "Test doubles should return copies of internal state, not references to it, to avoid hiding bugs through shared mutation."
+  },
+  {
+    "sha": "5a999fa49e34afec21c1bf2906343473f15702a5",
+    "subject": "fix: add the remote unit to Relation.data but not Relation.units (#1925)",
+    "date": "2025-07-29",
+    "severity": "medium",
+    "root_cause": "A previous fix added the departed unit to Relation.units so that charms could access the departing unit's relation data. However, this changed the semantics of Relation.units (which previously matched relation-list output), causing holistic charms that loop over Relation.units to incorrectly see the departed unit as still active.",
+    "fix_description": "Changed the approach: instead of adding the remote unit to Relation.units, add it to Relation.data directly. The departed unit's data is accessible via explicit access (event.relation.data[event.unit]) but the unit is no longer in Relation.units, preserving the original semantics.",
+    "pattern": "semantic-change-in-fix",
+    "pattern_description": "A bug fix that changes the meaning of an existing API property (units set) rather than solving the problem through a less disruptive mechanism.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When fixing data accessibility bugs, prefer adding the data through a non-breaking mechanism rather than changing the semantics of existing properties."
+  },
+  {
+    "sha": "366d46d52f24c1fbdf8263549e04bd6c0211c458",
+    "subject": "fix: only provide the units belonging to the app in Relation.units (#1837)",
+    "date": "2025-06-24",
+    "severity": "medium",
+    "root_cause": "A previous fix for relation-departed data access unconditionally added the REMOTE_UNIT to all relations, but it should only be added to the relation where the app matches. For peer relations and unrelated relations, this incorrectly injected a foreign unit.",
+    "fix_description": "Added guards to only inject the remote unit when: (1) it's not a peer relation, and (2) the remote unit's name starts with the relation app's name. Also moved the injection after the app lookup to ensure self.app is available.",
+    "pattern": "overly-broad-fix",
+    "pattern_description": "A fix is applied too broadly, affecting cases it shouldn't (peer relations, unrelated relations), because the condition under which it should apply was not properly scoped.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When injecting entities into data structures, scope the injection precisely to the cases where it is needed."
+  },
+  {
+    "sha": "a7cfea6e69e0234f6834cd2168437fcf28886b37",
+    "subject": "fix: try to fix flaky pebble exec test (#1664)",
+    "date": "2025-04-09",
+    "severity": "medium",
+    "root_cause": "The test_no_wait_call test checked for a ResourceWarning from ExecProcess cleanup. However, garbage collection could clean up other temporary objects at the same time, producing additional ResourceWarnings that were caught first, making the test flaky.",
+    "fix_description": "Added a filter to only check for warnings whose message contains 'ExecProcess', ignoring unrelated ResourceWarnings from GC of other temporary objects.",
+    "pattern": "flaky-test-gc-interference",
+    "pattern_description": "A test that relies on garbage collection timing or catches warnings without filtering is fragile because GC of unrelated objects can produce interfering warnings.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "pebble"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When testing for specific warnings, filter by message content rather than relying on ordering, since GC can produce unrelated warnings at any time."
+  },
+  {
+    "sha": "101997e615bd82ed7d599038b9cbcc0518db912b",
+    "subject": "fix: expose the mocked Juju environment variables via os.environ again (#1573)",
+    "date": "2025-02-13",
+    "severity": "medium",
+    "root_cause": "During a refactoring, Scenario stopped putting all Juju environment variables into os.environ, only setting JUJU_VERSION. But charms access various env vars directly (not just through the framework), so this broke charms that read env vars like JUJU_REMOTE_APP directly.",
+    "fix_description": "Changed to copy the entire mock environment into os.environ during the test run, and properly restore the original environment in the finally block by removing added keys and restoring original values.",
+    "pattern": "incomplete-environment-simulation",
+    "pattern_description": "A test framework does not fully simulate the runtime environment, breaking code that directly accesses environment variables rather than going through the framework's abstraction layer.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test frameworks should faithfully simulate the complete runtime environment, not just the parts that the framework itself uses."
+  },
+  {
+    "sha": "427aaf3339099c3ad584d9f7683926dfa2549e3c",
+    "subject": "fix: put the Juju version in the environment as well as the JujuContext (#1559)",
+    "date": "2025-02-04",
+    "severity": "medium",
+    "root_cause": "After refactoring to use JujuContext instead of environment variables, JUJU_VERSION was no longer in os.environ during Scenario tests. Charms using JujuVersion.from_environ() could not determine the Juju version.",
+    "fix_description": "Added code to set JUJU_VERSION in os.environ alongside the JujuContext, and properly restore the original value in a finally block.",
+    "pattern": "abstraction-leakage",
+    "pattern_description": "An abstraction (JujuContext) replaces a lower-level mechanism (os.environ), but external code still depends on the lower-level mechanism, breaking when the abstraction does not maintain backward compatibility.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When introducing new abstractions, maintain backward compatibility with the old mechanism until all consumers have migrated."
+  },
+  {
+    "sha": "5ecee69c203c617603f3c5c2af5297530f8a677f",
+    "subject": "fix: require the same object to be in the testing state as in the event (#1468)",
+    "date": "2024-11-28",
+    "severity": "medium",
+    "root_cause": "During the import of ops-scenario code, the consistency checker was changed from checking object identity to checking for matching IDs (e.g., relation.id). This allowed users to create separate but ID-matching objects, which could cause confusing behavior since changes to the event's object wouldn't reflect in the state's object.",
+    "fix_description": "Reverted to checking 'event.relation not in state.relations' (object identity via set membership) instead of ID-based matching. Updated error messages to explicitly state that the same object must be used.",
+    "pattern": "identity-vs-equality-confusion",
+    "pattern_description": "Checking for logical equality (same ID) instead of object identity when the system requires the same actual object to be referenced in multiple places.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When objects must be shared (not just equivalent), use identity checks (is / in set) rather than equality-based checks."
+  },
+  {
+    "sha": "68cf2d7ce03865e4b23091ac8dbc3757aae4d4b7",
+    "subject": "fix: raise ModelError on unknown/error status set in Scenario (#1417)",
+    "date": "2024-10-11",
+    "severity": "medium",
+    "root_cause": "The Scenario mock backend accepted any status name in status_set without validation, silently accepting invalid statuses like ErrorStatus and UnknownStatus. In real Juju, these would cause a ModelError, so charms tested with Scenario could pass tests but fail at runtime.",
+    "fix_description": "Added validation in status_set to check the status name against the valid settable status names, raising ModelError for invalid statuses to match Juju behavior.",
+    "pattern": "missing-validation-in-mock",
+    "pattern_description": "A mock/test double lacks validation that the real system performs, allowing invalid inputs to pass in tests but fail at runtime.",
+    "recurrence_risk": "high",
+    "areas": [
+      "scenario",
+      "testing-framework",
+      "status"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test doubles should validate inputs the same way the real system does, to catch errors during testing rather than in production."
+  },
+  {
+    "sha": "18e62cde967df8082f233c5292d6d620e80cff5a",
+    "subject": "fix: remove enum | str unions in private TypedDicts (#1400)",
+    "date": "2024-10-08",
+    "severity": "medium",
+    "root_cause": "Private TypedDicts representing Pebble API responses included enum types in their definitions (e.g., Union[ServiceStartup, str]). These TypedDicts represent raw JSON data from Pebble which only contains simple types, not enums. This created type confusion and incorrect type checking.",
+    "fix_description": "Simplified the TypedDicts to only use str where enums were previously included, since the raw API data is always strings before conversion.",
+    "pattern": "incorrect-intermediate-types",
+    "pattern_description": "Type definitions for intermediate data representations (like raw API responses) incorrectly include high-level types (enums) that only exist after conversion, causing type confusion.",
+    "recurrence_risk": "low",
+    "areas": [
+      "pebble"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "TypedDicts for raw API responses should use primitive types matching the wire format, not the converted high-level types."
+  },
+  {
+    "sha": "7dec772d7903f03c33cd5524a7b595db93014908",
+    "subject": "fix: Secret.set_info and Secret.set_content can be called in the same hook (#1373)",
+    "date": "2024-09-25",
+    "severity": "medium",
+    "root_cause": "Each call to Juju's secret-set replaces all values from any previous secret-set call in the same hook. Since both Secret.set_content and Secret.set_info use secret-set, calling both in the same hook would cause the second call to undo the first. Similarly, calling set_info twice would undo the first call's metadata.",
+    "fix_description": "Added a _secret_set_cache that accumulates metadata across multiple set_info/set_content calls within a hook, and includes all cached metadata in each subsequent secret-set call. For content, only a sentinel is cached (not the actual content) to avoid keeping secrets in memory.",
+    "pattern": "last-write-wins-overwrite",
+    "pattern_description": "Multiple calls to an API that replaces rather than patches cause earlier calls to be silently overwritten, losing their effects.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": true,
+    "lesson": "When wrapping an API that uses replace semantics, implement accumulation logic to preserve the effects of all calls, not just the last one."
+  },
+  {
+    "sha": "794e0e1a720d54f8eb5feee2f15c93e3a6be1177",
+    "subject": "fix: remote unit data is available in relation-departed (#1364)",
+    "date": "2025-06-06",
+    "severity": "medium",
+    "root_cause": "During the relation-departed event, the departing remote unit is removed from Juju's relation-list output. This means the unit was not included in Relation.units, and its data was inaccessible to the charm. Charms need access to the departing unit's data to perform cleanup.",
+    "fix_description": "Added the remote unit name (from JUJU_REMOTE_UNIT) to the Model constructor, which passes it through to RelationMapping and Relation. The remote unit is then added to Relation.units to ensure its data is accessible.",
+    "pattern": "missing-data-in-lifecycle-event",
+    "pattern_description": "An entity's data becomes inaccessible during a lifecycle event (departure/deletion) when the charm still needs to reference it for cleanup operations.",
+    "recurrence_risk": "low",
+    "areas": [
+      "model",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "During lifecycle events like departure, ensure entities being removed are still accessible for cleanup until the event handler completes."
+  },
+  {
+    "sha": "5804652253926fea5c2aae5952d3032cea12ca5f",
+    "subject": "fix: add_relation consistency check and default network (#1138)",
+    "date": "2024-03-18",
+    "severity": "medium",
+    "root_cause": "Two Harness issues: (1) add_relation silently accepted endpoint names not declared in charm metadata, leading to confusing errors later. (2) add_relation did not create a default network binding for the endpoint, diverging from Juju's behavior where each relation has an associated network binding.",
+    "fix_description": "Added validation in add_relation to check that the endpoint exists in metadata, raising a clear error if not. Also automatically creates a default network binding for each new relation endpoint if one doesn't already exist.",
+    "pattern": "missing-harness-validation-and-defaults",
+    "pattern_description": "A test harness accepts invalid inputs without validation and fails to set up implicit state that the real system would create automatically.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "testing-framework",
+      "relations",
+      "networking"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test harnesses should validate inputs against metadata and set up implicit state that the real system creates automatically."
+  },
+  {
+    "sha": "f646fc870fe03335f946d0138abe9114ccfa482a",
+    "subject": "fix!: change JujuContext.machine_id from int to str (#2108)",
+    "date": "2025-10-16",
+    "severity": "medium",
+    "root_cause": "JUJU_MACHINE_ID was being converted from string to int in JujuContext, but the value is actually typed as a string in Juju and can be a non-integer string in some cases, causing int() conversion to crash.",
+    "fix_description": "Changed machine_id from int|None to str|None in JujuContext and Context, removing the int() conversion and passing the raw string value through.",
+    "pattern": "incorrect-type-conversion",
+    "pattern_description": "A value from an external system is converted to a narrower type (string to int) based on common cases, but the full specification allows values that don't fit the narrower type.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "juju-context",
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Never assume a string value can be safely converted to int without checking the specification and edge cases."
+  },
+  {
+    "sha": "733cd511f53a78e58121b4d27b3de8ce29a49fd4",
+    "subject": "fix: allow actions without params or descriptions in ops[testing] (#2090)",
+    "date": "2025-10-08",
+    "severity": "medium",
+    "root_cause": "Juju allows actions declared as null in YAML (e.g., 'add-secret: null' in actions.yaml), but Scenario's consistency checker called .get('params', {}) on None, causing an AttributeError.",
+    "fix_description": "Added 'or {}' guard: '(actions[action.name] or {}).get(\"params\", {})' to handle None action definitions gracefully.",
+    "pattern": "null-yaml-value-not-handled",
+    "pattern_description": "YAML parsing produces None for keys with no value (key: followed by nothing), but downstream code assumes the value will be a dict.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "actions",
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Always handle the case where YAML values are None, especially when using shorthand notation."
+  },
+  {
+    "sha": "23986fd88ffcd488462b6009cede136f38c11351",
+    "subject": "fix: if an event ends with _Abort(0) tests should behave as if it ended successfully (#1887)",
+    "date": "2025-07-04",
+    "severity": "medium",
+    "root_cause": "When ops raises _Abort(0) (indicating successful early exit), Scenario was treating it as an error and wrapping it in UncaughtCharmError. From Juju's perspective, _Abort(0) is a normal successful completion.",
+    "fix_description": "Added a special case in the exception handler to let _Abort(0) pass through as normal completion, while still treating _Abort with non-zero exit codes as errors.",
+    "pattern": "internal-abort-treated-as-error",
+    "pattern_description": "An internal framework signal for early successful exit is caught by a broad exception handler and treated as an error.",
+    "recurrence_risk": "low",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "When catching broad exceptions, add specific handlers for internal framework signals that indicate normal operation."
+  },
+  {
+    "sha": "25f38f33b2944543a404c7161f8df8c7d3beb654",
+    "subject": "fix: testing.PeerRelation properly defaults to no peers (#1832)",
+    "date": "2025-06-18",
+    "severity": "medium",
+    "root_cause": "PeerRelation's default peers_data included an entry for unit 0, which is typically the unit under test. This meant peer relations magically appeared to have a second unit, and the test unit's own data was duplicated between local_unit_data and peers_data.",
+    "fix_description": "Changed PeerRelation to default to an empty peers_data dict. Added a consistency check that errors if the test unit's ID is found in peers_data, with a message suggesting to use local_unit_data instead.",
+    "pattern": "incorrect-default-includes-self",
+    "pattern_description": "A default value for 'other entities' data incorrectly includes the current entity, leading to self-referencing and data duplication.",
+    "recurrence_risk": "low",
+    "areas": [
+      "relations",
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Default values for collections of 'other' entities should never include the current entity."
+  },
+  {
+    "sha": "ef35afc5824e74ccd58aac24b26072f63ea578a7",
+    "subject": "fix: do not return current unit in a mocked peer relation (#1828)",
+    "date": "2025-06-16",
+    "severity": "medium",
+    "root_cause": "Scenario's mock relation_list for peer relations returned all unit IDs from peers_data including the current unit. In real Juju, relation-list for peers never includes the current unit, only actual peers.",
+    "fix_description": "Added a filter to exclude the current unit ID from the peer relation unit list in the mock backend.",
+    "pattern": "mock-includes-self-in-peer-list",
+    "pattern_description": "A mock implementation of a peer listing includes the current entity, whereas the real system excludes it.",
+    "recurrence_risk": "low",
+    "areas": [
+      "relations",
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Mock implementations of peer lists should exclude the current unit, matching Juju's relation-list behavior."
+  },
+  {
+    "sha": "cb720c85818a776cb1cf6db419130ccc0f192fbc",
+    "subject": "fix: Juju allows access to the remote app databag in relation-broken, so Harness should too (#1787)",
+    "date": "2025-06-06",
+    "severity": "medium",
+    "root_cause": "Harness had an incorrect check that prevented accessing the remote app databag during relation-broken events, raising RuntimeError. In real Juju, the remote app databag IS accessible during relation-broken.",
+    "fix_description": "Removed the incorrect check in Harness that blocked remote app databag access during relation-broken events.",
+    "pattern": "incorrect-restriction-in-test-double",
+    "pattern_description": "A test double enforces a restriction that the real system does not have, causing valid charm code to fail in tests.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "relations",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test doubles should only enforce restrictions that the real system actually has; verify restrictions against actual behavior."
+  },
+  {
+    "sha": "f005747b95fe35a1f37b5a53be349487770f8ada",
+    "subject": "fix: correctly load an empty Juju config options map (#1778)",
+    "date": "2025-06-04",
+    "severity": "medium",
+    "root_cause": "When config.yaml contained 'options: null' or 'options:' (empty), CharmMeta would crash because it tried to iterate over None. There are many valid representations of 'no config options' in YAML that all need to be handled.",
+    "fix_description": "Changed config loading to use '(config_raw or {}).get(\"options\") or {}' which handles all the various empty/null forms of config YAML.",
+    "pattern": "multiple-empty-representations",
+    "pattern_description": "A YAML/JSON structure has multiple valid representations of 'empty' (null, empty map, missing key) that the code does not handle uniformly.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "charm",
+      "config"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Handle all representations of empty/null data from YAML/JSON uniformly using defensive chaining like '(x or {}).get(key) or {}'."
+  },
+  {
+    "sha": "983b7c7152c7c1399cb2414e79ad2e5de14aa270",
+    "subject": "fix: correctly remove suffix from event string in ops.testing (#1754)",
+    "date": "2025-05-29",
+    "severity": "medium",
+    "root_cause": "The event name parsing used rsplit without maxsplit, so 'my_action_action' (event name for action 'my-action') would split into three parts instead of two, causing a ValueError when unpacking into two variables.",
+    "fix_description": "Added maxsplit=1 to the rsplit call, ensuring only the last occurrence of the suffix is split off.",
+    "pattern": "rsplit-without-maxsplit",
+    "pattern_description": "Using str.rsplit() without maxsplit when the substring can appear multiple times, causing too many parts and unpacking errors.",
+    "recurrence_risk": "low",
+    "areas": [
+      "scenario",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When using rsplit to remove a known suffix, always specify maxsplit=1 to handle strings where the suffix appears multiple times."
+  },
+  {
+    "sha": "1b10db4035f92588de59eaf9a506119adfc93f61",
+    "subject": "fix: in tests, raise the same error as Pebble when an invalid service is provided (#1599)",
+    "date": "2025-03-04",
+    "severity": "medium",
+    "root_cause": "Harness raised RuntimeError when an invalid service name was provided to start/stop/restart, but real Pebble raises an APIError with a specific error message. This inconsistency caused charms that correctly handle Pebble errors to fail in tests.",
+    "fix_description": "Changed the error from RuntimeError to APIError with the same message format as Pebble. Also added validation for empty service lists.",
+    "pattern": "wrong-error-type-in-mock",
+    "pattern_description": "A mock raises a different exception type than the real system for the same error condition, causing error handling code to behave differently in tests vs. production.",
+    "recurrence_risk": "high",
+    "areas": [
+      "pebble",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Mock implementations should raise the same exception types with the same message format as the real system."
+  },
+  {
+    "sha": "d0f9f50195d9bcb2631c9f28d3efaaaddc0595af",
+    "subject": "fix: ensure that the event snapshot is available when one observer defers and the other does not (#1562)",
+    "date": "2025-02-05",
+    "severity": "medium",
+    "root_cause": "When an event had multiple observers and one deferred while the other didn't, the snapshot save was incorrectly skipped if the deferred (event+observer) pair was already in the deferral queue. This caused the non-deferred observer to fail when trying to process the event because the snapshot was never saved.",
+    "fix_description": "Changed the logic so that finding an existing deferral queue entry does not set the 'saved' flag, allowing the snapshot to be saved for other observers that need it.",
+    "pattern": "short-circuit-skips-needed-work",
+    "pattern_description": "An optimization that short-circuits processing for one case accidentally skips work needed for other cases that share the same control flow.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When optimizing with early-continue/skip logic, verify that the skip does not affect shared state needed by other iterations."
+  },
+  {
+    "sha": "20c962360d19f0802c98bbf1878631e4f9122bcb",
+    "subject": "fix: use StatusBase.__init_subclass__ instead of decorator to avoid obscuring subclasses",
+    "date": "2024-09-15",
+    "severity": "medium",
+    "root_cause": "A decorator pattern for registering StatusBase subclasses was obscuring the subclass types from type checkers and IDE autocompletion, making it harder for charm developers to use status classes correctly.",
+    "fix_description": "Replaced the decorator pattern with __init_subclass__ for registering status types, preserving type information for static analysis tools.",
+    "pattern": "decorator-obscures-types",
+    "pattern_description": "A class decorator used for registration obscures the class's actual type from static analysis tools, reducing IDE support and type safety.",
+    "recurrence_risk": "low",
+    "areas": [
+      "model",
+      "status"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Prefer __init_subclass__ over class decorators for registration patterns to preserve type information for static analysis."
+  },
+  {
+    "sha": "62fdfc03471c2569c704607868bc62c3771389fc",
+    "subject": "fix: update secret label when getting with both id and label (#172)",
+    "date": "2024-08-20",
+    "severity": "medium",
+    "root_cause": "When calling get_secret with both an id and a label, the Scenario mock did not update the secret's label to the new value. In real Juju, providing a label during get updates the label on the secret.",
+    "fix_description": "Updated the mock to set the secret's label when get_secret is called with both id and label, matching Juju's behavior.",
+    "pattern": "mock-missing-side-effect",
+    "pattern_description": "A mock implementation omits an important side effect (updating the label) that the real system performs during an operation.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "scenario",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Mock implementations must replicate all side effects of the real operation, not just the return value."
+  },
+  {
+    "sha": "43b5af9f8cf9452ab66766e412bf37dc92d359b4",
+    "subject": "fix: Juju passes the expiry in a field 'expiry', not 'expires' (#1317)",
+    "date": "2024-08-15",
+    "severity": "medium",
+    "root_cause": "The code looked for a field named 'expires' in the Juju response, but Juju actually uses the field name 'expiry'. This caused expiry information to always be None.",
+    "fix_description": "Changed the field name from 'expires' to 'expiry' to match Juju's actual response format.",
+    "pattern": "wrong-field-name",
+    "pattern_description": "Code uses an incorrect field name when accessing data from an external API response, causing the value to silently be None/missing.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "secrets"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": true,
+    "lesson": "Verify API field names against actual responses, not assumed naming conventions."
+  },
+  {
+    "sha": "fea6d2072435a62170d4c01272572f1a7e916e61",
+    "subject": "fix: use temp dir for secret data (#1290)",
+    "date": "2024-07-10",
+    "severity": "medium",
+    "root_cause": "Secret data was being written to files using predictable paths, which could be accessed by other processes. The data should use temporary directories with restricted permissions.",
+    "fix_description": "Changed secret data file handling to use temporary directories with appropriate permissions for better security.",
+    "pattern": "predictable-temp-path",
+    "pattern_description": "Sensitive data is written to predictable file paths instead of properly secured temporary directories.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "model",
+      "secrets"
+    ],
+    "security_relevant": true,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Use temporary directories with restricted permissions for sensitive data; never use predictable paths."
+  },
+  {
+    "sha": "5a21cd28a47b8d5f1142d794130ae70f23b5cd26",
+    "subject": "fix: add checks and log_targets to ops.testing (#1268)",
+    "date": "2024-06-20",
+    "severity": "medium",
+    "root_cause": "The ops.testing Harness did not support Pebble checks and log targets, causing charms that used these features to be untestable with Harness.",
+    "fix_description": "Added support for checks and log_targets in the testing Pebble client, including proper lifecycle management and state tracking.",
+    "pattern": "missing-feature-in-test-double",
+    "pattern_description": "A test double does not implement features that exist in the real system, making code that uses those features untestable.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "pebble",
+      "testing-framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Test doubles should keep pace with the real system's features to avoid making new functionality untestable."
+  },
+  {
+    "sha": "d8c98070e24707092de82f2942506a6157ef58b3",
+    "subject": "fix: add connect timeout for exec websockets to avoid hanging (#1247)",
+    "date": "2024-06-15",
+    "severity": "medium",
+    "root_cause": "Pebble exec websocket connections had no connect timeout, so if the Pebble server was unresponsive, the connection attempt would hang indefinitely.",
+    "fix_description": "Added a connect timeout to the websocket connection used for pebble exec, preventing indefinite hangs.",
+    "pattern": "missing-connection-timeout",
+    "pattern_description": "A network connection is made without a timeout, causing the operation to hang indefinitely if the server is unresponsive.",
+    "recurrence_risk": "high",
+    "areas": [
+      "pebble"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Always set timeouts on network connections; hanging indefinitely is worse than failing with a timeout error."
+  },
+  {
+    "sha": "0dd27df3d828b2d62e0a396667466a8f0263e45e",
+    "subject": "fix: the other argument to RelationDataContent.update(...) should be optional",
+    "date": "2024-05-20",
+    "severity": "medium",
+    "root_cause": "RelationDataContent.update() required the 'other' argument, but the standard dict.update() signature has it as optional (you can call update() with keyword arguments only). This broke code using the standard dict.update() patterns.",
+    "fix_description": "Made the 'other' argument optional in RelationDataContent.update() to match the standard dict.update() signature.",
+    "pattern": "non-standard-method-signature",
+    "pattern_description": "A method that overrides a standard protocol (like dict.update) has a non-standard signature, breaking code that uses the standard calling conventions.",
+    "recurrence_risk": "low",
+    "areas": [
+      "model",
+      "relations"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When implementing standard protocols (Mapping, MutableMapping), match the exact method signatures of the protocol."
+  },
+  {
+    "sha": "fa185b48563b4b67c20a8b46dbae03c71efc8fe9",
+    "subject": "fix!: correct the model config types (#1183)",
+    "date": "2024-04-15",
+    "severity": "medium",
+    "root_cause": "Config values from Juju were not being properly typed. Float config values could come through as int, and secret config references were not handled. The type annotations did not include float or secret types.",
+    "fix_description": "Corrected config type handling to properly convert values to their declared types and updated type annotations to include float. Added secret config type support.",
+    "pattern": "incomplete-config-type-handling",
+    "pattern_description": "A configuration system does not handle all declared types correctly, silently converting values to wrong types or failing on valid type declarations.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "config",
+      "model"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": false,
+    "could_cause_data_loss": false,
+    "lesson": "Config type handling must cover all types declared in the schema, including edge cases like float vs int coercion."
+  },
+  {
+    "sha": "13a178afccdd7c2167749e113956e54cc7dae614",
+    "subject": "fix: inspect the correct signature when validating observe arguments (#1147)",
+    "date": "2024-03-10",
+    "severity": "medium",
+    "root_cause": "When validating the arguments to framework.observe(), the code inspected the wrong method signature. If the observer method was decorated, it would inspect the decorator's signature instead of the actual handler, causing false validation failures.",
+    "fix_description": "Changed to inspect the correct underlying method signature using inspect.unwrap() to see through decorators.",
+    "pattern": "decorator-obscures-signature",
+    "pattern_description": "Inspecting a decorated function's signature returns the decorator's signature instead of the original function's, causing validation against the wrong parameter list.",
+    "recurrence_risk": "medium",
+    "areas": [
+      "framework"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "When inspecting function signatures, use inspect.unwrap() to see through decorators to the actual function."
+  },
+  {
+    "sha": "fb5a160808c8c8bf4ed4e2c0e1b1e54fc1a54608",
+    "subject": "fix: restrict the version of a dependency, opentelemetry-sdk (#1794)",
+    "date": "2025-06-05",
+    "severity": "medium",
+    "root_cause": "The opentelemetry-sdk dependency was not version-pinned, allowing incompatible newer versions to be installed that broke the tracing functionality with API changes.",
+    "fix_description": "Added version constraints for opentelemetry-sdk to prevent incompatible versions from being installed.",
+    "pattern": "unpinned-dependency",
+    "pattern_description": "A dependency is not version-constrained, allowing newer versions with breaking changes to be installed and cause runtime failures.",
+    "recurrence_risk": "high",
+    "areas": [
+      "packaging/build"
+    ],
+    "security_relevant": false,
+    "could_cause_crash": true,
+    "could_cause_data_loss": false,
+    "lesson": "Always pin or constrain dependency versions to prevent breaking changes from upstream from causing runtime failures."
+  }
+]

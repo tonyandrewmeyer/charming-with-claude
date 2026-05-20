@@ -1,0 +1,213 @@
+# fix: don't use private OpenTelemetry API (#1798)
+
+**Repository**: operator
+**Commit**: [aa2bc7c3](https://github.com/canonical/operator/commit/aa2bc7c35edb9ee2da60cea5cdc19bf13ed1704b)
+**Date**: 2025-06-09
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | error-handling |
+| Bug Type | api-contract |
+| Severity | high |
+| Fix Category | source-fix |
+
+## Summary
+
+don't use private opentelemetry api
+
+## Commit Message
+
+The recent opentelemetry-sdk release broke our private API access.
+
+Upstream:
+https://github.com/open-telemetry/opentelemetry-python/issues/4616
+
+## Changed Files
+
+- M	tracing/ops_tracing/_backend.py
+- M	tracing/ops_tracing/_mock.py
+- M	tracing/pyproject.toml
+- M	tracing/test/test_backend.py
+- M	tracing/test/test_storage.py
+
+## Diff
+
+```diff
+diff --git a/tracing/ops_tracing/_backend.py b/tracing/ops_tracing/_backend.py
+index bc39f04..0d28580 100644
+--- a/tracing/ops_tracing/_backend.py
++++ b/tracing/ops_tracing/_backend.py
+@@ -32,6 +32,9 @@ from ._export import BufferingSpanExporter
+ BUFFER_FILENAME: str = '.tracing-data.db'
+ """Name of the buffer file where the trace data is stored, next to .unit-state.db."""
+ 
++_exporter: BufferingSpanExporter | None = None
++"""A reference to the exporter that we passed to OpenTelemetry SDK at setup."""
++
+ 
+ def setup(juju_context: _JujuContext, charm_class_name: str) -> None:
+     """Set up the tracing subsystem and configure OpenTelemetry.
+@@ -67,21 +70,12 @@ def setup(juju_context: _JujuContext, charm_class_name: str) -> None:
+ def _create_provider(resource: Resource, charm_dir: pathlib.Path) -> TracerProvider:
+     """Create the OpenTelemetry tracer provider."""
+     # Separate function so that it's easy to override in tests
+-    exporter = BufferingSpanExporter(charm_dir / BUFFER_FILENAME)
+-    span_processor = BatchSpanProcessor(exporter)
+-    return TracerProvider(resource=resource, active_span_processor=span_processor)  # type: ignore
+-
+-
+-def get_exporter() -> BufferingSpanExporter | None:
+-    """Get our export from OpenTelemetry SDK."""
+-    try:
+-        exporter = get_tracer_provider()._active_span_processor.span_exporter  # type: ignore
+-    except AttributeError:
+-        # The global tracer provider was not configured by us and has a wrong processor.
+-        return None
+-    if not exporter or not isinstance(exporter, BufferingSpanExporter):
+-        return None
+-    return exporter
++    global _exporter
++    _exporter = BufferingSpanExporter(charm_dir / BUFFER_FILENAME)
++    span_processor = BatchSpanProcessor(_exporter)
++    provider = TracerProvider(resource=resource)
++    provider.add_span_processor(span_processor)
++    return provider
+ 
+ 
+ def set_destination(url: str | None, ca: str | None) -> None:
+@@ -98,20 +92,20 @@ def set_destination(url: str | None, ca: str | None) -> None:
+ 
+     config = Destination(url, ca)
+ 
+-    if not (exporter := get_exporter()):
++    if not _exporter:
+         # Perhaps our tracer provider was never set up.
+         return
+ 
+-    if config == exporter.buffer.load_destination():
++    if config == _exporter.buffer.load_destination():
+         return
+-    exporter.buffer.save_destination(config)
++    _exporter.buffer.save_destination(config)
+ 
+ 
+ def mark_observed() -> None:
+     """Mark the trace data collected in this dispatch as higher priority."""
+-    if not (exporter := get_exporter()):
++    if not _exporter:
+         return
+-    exporter.buffer.mark_observed()
++    _exporter.buffer.mark_observed()
+ 
+ 
+ def shutdown() -> None:
+diff --git a/tracing/ops_tracing/_mock.py b/tracing/ops_tracing/_mock.py
+index 7715996..748a833 100644
+--- a/tracing/ops_tracing/_mock.py
++++ b/tracing/ops_tracing/_mock.py
+@@ -38,10 +38,13 @@ def patch_tracing() -> Generator[None, None, None]:
+     real_otel_provider = opentelemetry.trace._TRACER_PROVIDER
+     real_otel_once_done = opentelemetry.trace._TRACER_PROVIDER_SET_ONCE._done
+     real_create_provider = _backend._create_provider
++    real_exporter = _backend._exporter
+     _backend._create_provider = _create_provider
++    _backend._exporter = None
+     try:
+         yield
+     finally:
++        _backend._exporter = real_exporter
+         _backend._create_provider = real_create_provider
+         opentelemetry.trace._TRACER_PROVIDER = real_otel_provider
+         opentelemetry.trace._TRACER_PROVIDER_SET_ONCE._done = real_otel_once_done
+@@ -49,7 +52,6 @@ def patch_tracing() -> Generator[None, None, None]:
+ 
+ def _create_provider(resource: Resource, charm_dir: pathlib.Path) -> TracerProvider:
+     """Create an OpenTelemetry tracing provider suitable for testing."""
+-    return TracerProvider(
+-        resource=resource,
+-        active_span_processor=SimpleSpanProcessor(InMemorySpanExporter()),  # type: ignore
+-    )
++    provider = TracerProvider(resource=resource)
++    provider.add_span_processor(SimpleSpanProcessor(InMemorySpanExporter()))
++    return provider
+diff --git a/tracing/pyproject.toml b/tracing/pyproject.toml
+index add0373..cb4b46a 100644
+--- a/tracing/pyproject.toml
++++ b/tracing/pyproject.toml
+@@ -31,7 +31,7 @@ classifiers = [
+     "Framework :: OpenTelemetry",
+ ]
+ dependencies = [
+-    "opentelemetry-sdk~=1.30,<1.34",
++    "opentelemetry-sdk~=1.30",
+     "ops==2.23.0.dev0",
+     "pydantic",
+ ]
+diff --git a/tracing/test/test_backend.py b/tracing/test/test_backend.py
+index b3104a3..7588ad6 100644
+--- a/tracing/test/test_backend.py
++++ b/tracing/test/test_backend.py
+@@ -25,27 +25,24 @@ from ops_tracing._buffer import Destination
+ 
+ 
+ def test_unset_destination(setup_tracing: None):
+-    exporter = _backend.get_exporter()
+-    assert exporter
++    assert _backend._exporter
+     ops_tracing.set_destination(None, None)
+-    assert exporter.buffer.load_destination() == Destination(None, None)
++    assert _backend._exporter.buffer.load_destination() == Destination(None, None)
+ 
+ 
+ def test_set_destination(setup_tracing: None):
+-    exporter = _backend.get_exporter()
+-    assert exporter
++    assert _backend._exporter
+     ops_tracing.set_destination('http://example.com', None)
+-    assert exporter.buffer.load_destination() == Destination('http://example.com', None)
++    assert _backend._exporter.buffer.load_destination() == Destination('http://example.com', None)
+ 
+ 
+ def test_set_destination_again(setup_tracing: None):
+-    exporter = _backend.get_exporter()
+-    assert exporter
++    assert _backend._exporter
+ 
+     with patch.object(
+-        exporter.buffer,
++        _backend._exporter.buffer,
+         'save_destination',
+-        wraps=exporter.buffer.save_destination,
++        wraps=_backend._exporter.buffer.save_destination,
+     ) as mock_dst:
+         ops_tracing.set_destination('http://example.com/foo', None)
+         ops_tracing.set_destination('http://example.com/foo', None)
+@@ -55,8 +52,7 @@ def test_set_destination_again(setup_tracing: None):
+ 
+ @pytest.mark.parametrize('url', ['file:///etc/passwd', 'gopher://aaa'])
+ def test_set_destination_invalid_url(setup_tracing: None, url: str):
+-    exporter = _backend.get_exporter()
+-    assert exporter
++    assert _backend._exporter
+     with pytest.raises(ValueError):
+         ops_tracing.set_destination(url, None)
+ 
+diff --git a/tracing/test/test_storage.py b/tracing/test/test_storage.py
+index d1a29b8..8900c35 100644
+--- a/tracing/test/test_storage.py
++++ b/tracing/test/test_storage.py
+@@ -39,9 +39,8 @@ def test_https_tracing_destination(
+     state = ops.testing.State(relations={https_relation, ca_relation})
+     ctx.run(ctx.on.relation_changed([https_relation, ca_relation][relation_to_poke]), state)
+ 
+-    exporter = _backend.get_exporter()
+-    assert exporter
+-    assert exporter.buffer.load_destination() == Destination(
++    assert _backend._exporter
++    assert _backend._exporter.buffer.load_destination() == Destination(
+         'https://tls.example/v1/traces',
+         'FIRST\nSECOND',
+     )
+```

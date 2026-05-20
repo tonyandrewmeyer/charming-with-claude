@@ -1,0 +1,75 @@
+# fix: fix link in breakpoint output, remove link from Harness error message (#1726)
+
+**Repository**: operator
+**Commit**: [1baaba82](https://github.com/canonical/operator/commit/1baaba821a509c5cb45ac6ad09b27ffe1910b22c)
+**Date**: 2025-05-15
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | testing-framework |
+| Bug Type | exception-type |
+| Severity | medium |
+| Fix Category | source-fix |
+
+## Summary
+
+fix link in breakpoint output, remove link from harness error message
+
+## Commit Message
+
+This PR addresses a couple of issues:
+
+- In the welcome message that's shown when a breakpoint is triggered,
+there's a link to https://juju.is/docs/sdk/debugging. This link is
+broken. I think a suitable replacement would be [`juju
+debug-code`](https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/debug-code/).
+
+- Harness raises an error if the charm tries to update an unknown config
+option. The error message includes a link to
+https://juju.is/docs/sdk/config, which redirects to
+[https://ops.readthedocs.io/en/latest/howto/manage-configurations.html](https://ops.readthedocs.io/en/latest/howto/manage-configurations.html).
+I was going to replace the link, but since this is Harness, I then
+figured that removing the link would be the more maintainable option.
+
+## Changed Files
+
+- M	ops/_private/harness.py
+- M	ops/framework.py
+
+## Diff
+
+```diff
+diff --git a/ops/_private/harness.py b/ops/_private/harness.py
+index f8733cd..4dd4fce 100644
+--- a/ops/_private/harness.py
++++ b/ops/_private/harness.py
+@@ -2281,12 +2281,7 @@ class _TestingConfig(Dict[str, Union[str, int, float, bool]]):
+         # has the expected type.
+         option = self._spec.get('options', {}).get(key)
+         if not option:
+-            raise RuntimeError(
+-                f'Unknown config option {key}; '
+-                'not declared in `config.yaml`.'
+-                'Check https://juju.is/docs/sdk/config for the '
+-                'spec.'
+-            )
++            raise RuntimeError(f'Unknown config option {key}; not declared in `config.yaml`.')
+ 
+         declared_type = option.get('type')
+         if not declared_type:
+diff --git a/ops/framework.py b/ops/framework.py
+index 92aff44..8fe050e 100644
+--- a/ops/framework.py
++++ b/ops/framework.py
+@@ -573,7 +573,8 @@ _BREAKPOINT_WELCOME_MESSAGE = """
+ Starting pdb to debug charm operator.
+ Run `h` for help, `c` to continue, or `exit`/CTRL-d to abort.
+ Future breakpoints may interrupt execution again.
+-More details at https://juju.is/docs/sdk/debugging
++For more information, see:
++https://documentation.ubuntu.com/juju/3.6/reference/juju-cli/list-of-juju-cli-commands/debug-code/
+ 
+ """
+```

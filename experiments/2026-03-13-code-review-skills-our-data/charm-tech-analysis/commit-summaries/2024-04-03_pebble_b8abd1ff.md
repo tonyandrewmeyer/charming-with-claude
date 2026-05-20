@@ -1,0 +1,184 @@
+# fix(daemon): require admin access for file pull API
+
+**Repository**: pebble
+**Commit**: [b8abd1ff](https://github.com/canonical/pebble/commit/b8abd1ff0090f3e0749e81eb1fc3ea16ba95f514)
+**Date**: 2024-04-03T11:57:24+13:00
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | http-api |
+| Bug Type | security |
+| Severity | high |
+| Fix Category | source-fix |
+
+## Summary
+
+Require admin access for file pull API and task-websocket endpoint (backport)
+
+## Commit Message
+
+This locks down the files "pull" API to require admin. Even though it's
+a read (GET), this meant any user could potentially read sensitive
+files.
+
+We also lock down the task-websocket endpoint to admin. This is a GET
+endpoint, but these websockets are used by exec to send stdin/out/err
+and commands to the exec'd process, so they should require admin too.
+
+## Changed Files
+
+- M	internals/daemon/api.go
+- M	internals/daemon/daemon_test.go
+
+## Diff
+
+```diff
+diff --git a/internals/daemon/api.go b/internals/daemon/api.go
+index e29a53e..b22d328 100644
+--- a/internals/daemon/api.go
++++ b/internals/daemon/api.go
+@@ -70,10 +70,10 @@ var API = []*Command{{
+ 	UserOK: true,
+ 	POST:   v1PostLayers,
+ }, {
+-	Path:   "/v1/files",
+-	UserOK: true,
+-	GET:    v1GetFiles,
+-	POST:   v1PostFiles,
++	Path:      "/v1/files",
++	AdminOnly: true,
++	GET:       v1GetFiles,
++	POST:      v1PostFiles,
+ }, {
+ 	Path:   "/v1/logs",
+ 	UserOK: true,
+@@ -83,9 +83,9 @@ var API = []*Command{{
+ 	UserOK: true,
+ 	POST:   v1PostExec,
+ }, {
+-	Path:   "/v1/tasks/{task-id}/websocket/{websocket-id}",
+-	UserOK: true,
+-	GET:    v1GetTaskWebsocket,
++	Path:      "/v1/tasks/{task-id}/websocket/{websocket-id}",
++	AdminOnly: true,
++	GET:       v1GetTaskWebsocket,
+ }, {
+ 	Path:   "/v1/signals",
+ 	UserOK: true,
+diff --git a/internals/daemon/daemon_test.go b/internals/daemon/daemon_test.go
+index b0ab874..bf9f63f 100644
+--- a/internals/daemon/daemon_test.go
++++ b/internals/daemon/daemon_test.go
+@@ -18,12 +18,15 @@ import (
+ 	"bytes"
+ 	"encoding/json"
+ 	"fmt"
++	"io"
+ 	"io/ioutil"
+ 	"net"
+ 	"net/http"
+ 	"net/http/httptest"
++	"net/url"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"sync"
+ 	"syscall"
+ 	"testing"
+@@ -1243,6 +1246,93 @@ services:
+ 	c.Check(tasks[0].Kind(), Equals, "stop")
+ }
+ 
++func (s *daemonSuite) TestAPIAccessLevels(c *C) {
++	_ = s.newDaemon(c)
++
++	tests := []struct {
++		method string
++		path   string
++		body   string
++		uid    int // -1 means no peer cred user
++		status int
++	}{
++		{"GET", "/v1/system-info", ``, -1, http.StatusOK},
++
++		{"GET", "/v1/health", ``, -1, http.StatusOK},
++
++		{"GET", "/v1/warnings", ``, -1, http.StatusUnauthorized},
++		{"GET", "/v1/warnings", ``, 42, http.StatusOK},
++		{"GET", "/v1/warnings", ``, 0, http.StatusOK},
++		{"POST", "/v1/warnings", ``, -1, http.StatusUnauthorized},
++		{"POST", "/v1/warnings", ``, 42, http.StatusUnauthorized},
++		{"POST", "/v1/warnings", ``, 0, http.StatusBadRequest},
++
++		{"GET", "/v1/changes", ``, -1, http.StatusUnauthorized},
++		{"GET", "/v1/changes", ``, 42, http.StatusOK},
++		{"GET", "/v1/changes", ``, 0, http.StatusOK},
++
++		{"GET", "/v1/services", ``, -1, http.StatusUnauthorized},
++		{"GET", "/v1/services", ``, 42, http.StatusOK},
++		{"GET", "/v1/services", ``, 0, http.StatusOK},
++		{"POST", "/v1/services", ``, -1, http.StatusUnauthorized},
++		{"POST", "/v1/services", ``, 42, http.StatusUnauthorized},
++		{"POST", "/v1/services", ``, 0, http.StatusBadRequest},
++
++		{"POST", "/v1/layers", ``, -1, http.StatusUnauthorized},
++		{"POST", "/v1/layers", ``, 42, http.StatusUnauthorized},
++		{"POST", "/v1/layers", ``, 0, http.StatusBadRequest},
++
++		{"GET", "/v1/files?action=list&path=/", ``, -1, http.StatusUnauthorized},
++		{"GET", "/v1/files?action=list&path=/", ``, 42, http.StatusUnauthorized}, // even reading files requires admin
++		{"GET", "/v1/files?action=list&path=/", ``, 0, http.StatusOK},
++		{"POST", "/v1/files", `{}`, -1, http.StatusUnauthorized},
++		{"POST", "/v1/files", `{}`, 42, http.StatusUnauthorized},
++		{"POST", "/v1/files", `{}`, 0, http.StatusBadRequest},
++
++		{"GET", "/v1/logs", ``, -1, http.StatusUnauthorized},
++		{"GET", "/v1/logs", ``, 42, http.StatusOK},
++		{"GET", "/v1/logs", ``, 0, http.StatusOK},
++
++		{"POST", "/v1/exec", `{}`, -1, http.StatusUnauthorized},
++		{"POST", "/v1/exec", `{}`, 42, http.StatusUnauthorized},
++		{"POST", "/v1/exec", `{}`, 0, http.StatusBadRequest},
++
++		{"POST", "/v1/signals", `{}`, -1, http.StatusUnauthorized},
++		{"POST", "/v1/signals", `{}`, 42, http.StatusUnauthorized},
++		{"POST", "/v1/signals", `{}`, 0, http.StatusBadRequest},
++
++		{"GET", "/v1/checks", ``, -1, http.StatusUnauthorized},
++		{"GET", "/v1/checks", ``, 42, http.StatusOK},
++		{"GET", "/v1/checks", ``, 0, http.StatusOK},
++	}
++
++	for _, test := range tests {
++		remoteAddr := ""
++		if test.uid >= 0 {
++			remoteAddr = fmt.Sprintf("pid=100;uid=%d;socket=;", test.uid)
++		}
++		requestURL, err := url.Parse("http://localhost" + test.path)
++		c.Assert(err, IsNil)
++		request := &http.Request{
++			Method:     test.method,
++			URL:        requestURL,
++			Body:       io.NopCloser(strings.NewReader(test.body)),
++			RemoteAddr: remoteAddr,
++		}
++		recorder := httptest.NewRecorder()
++		cmd := apiCmd(requestURL.Path)
++		cmd.ServeHTTP(recorder, request)
++
++		response := recorder.Result()
++		if response.StatusCode != test.status {
++			// Log response body to make it easier to debug if the test fails.
++			c.Logf("%s %s uid=%d: expected %d, got %d; response body:\n%s",
++				test.method, test.path, test.uid, test.status, response.StatusCode, recorder.Body.String())
++		}
++		c.Assert(response.StatusCode, Equals, test.status)
++	}
++}
++
+ type rebootSuite struct{}
+ 
+ var _ = Suite(&rebootSuite{})
+```

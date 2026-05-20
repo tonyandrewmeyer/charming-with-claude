@@ -1,0 +1,177 @@
+# fix (harness): only inspect the source file if it will be used (#1181)
+
+**Repository**: operator
+**Commit**: [d4a48fdf](https://github.com/canonical/operator/commit/d4a48fdf28511546ca939dc10d49f0e803a4472e)
+**Date**: 2024-04-17
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | testing-framework |
+| Bug Type | logic-error |
+| Severity | medium |
+| Fix Category | test-fix |
+
+## Summary
+
+harness): only inspect the source file if it will be used
+
+## Commit Message
+
+When experimenting in the REPL it would be convenient to be able to do something like this:
+
+```python
+>>> import ops.testing
+>>> class MyCharm(ops.CharmBase):
+...  pass
+... 
+>>> h = ops.testing.Harness(MyCharm, meta="{}")
+```
+
+This currently fails with `OSError: source code not available`. This PR changes that, so that it will work.
+
+We currently always use `inspect.getfile` to get the source file of the charm, even if metadata is provided to Harness, or if the default metadata would suffice. This PR makes a small adjustment so that we'll only do the `inspect` when needed, and also if it fails we'll fall back to the default metadata.
+
+The change is made for config as well, for consistency.
+
+## Changed Files
+
+- M	ops/testing.py
+- M	test/test_testing.py
+
+## Diff
+
+```diff
+diff --git a/ops/testing.py b/ops/testing.py
+index e9f2c73..88d56e2 100644
+--- a/ops/testing.py
++++ b/ops/testing.py
+@@ -492,16 +492,21 @@ class Harness(Generic[CharmType]):
+         ``<charm_dir>/metadata.yaml`` if charmcraft.yaml does not include metadata,
+         and ``<charm_dir>/actions.yaml`` if charmcraft.yaml does not include actions.
+         """
+-        filename = inspect.getfile(self._charm_cls)
+-        charm_dir = pathlib.Path(filename).parents[1]
++        try:
++            filename = inspect.getfile(self._charm_cls)
++        except OSError:
++            charm_dir = None
++        else:
++            charm_dir = pathlib.Path(filename).parents[1]
+ 
+         charm_metadata: Optional[Dict[str, Any]] = None
+         charmcraft_metadata: Optional[Dict[str, Any]] = None
+-        # Check charmcraft.yaml and load it if it exists
+-        charmcraft_meta = charm_dir / "charmcraft.yaml"
+-        if charmcraft_meta.is_file():
+-            self._charm_dir = charm_dir
+-            charmcraft_metadata = yaml.safe_load(charmcraft_meta.read_text())
++        if charm_dir:
++            # Check charmcraft.yaml and load it if it exists
++            charmcraft_meta = charm_dir / "charmcraft.yaml"
++            if charmcraft_meta.is_file():
++                self._charm_dir = charm_dir
++                charmcraft_metadata = yaml.safe_load(charmcraft_meta.read_text())
+ 
+         # Load metadata from parameters if provided
+         if charm_metadata_yaml is not None:
+@@ -517,7 +522,7 @@ class Harness(Generic[CharmType]):
+                     charm_metadata = charmcraft_metadata
+ 
+             # Still no metadata, check metadata.yaml
+-            if charm_metadata is None:
++            if charm_dir and charm_metadata is None:
+                 metadata_path = charm_dir / 'metadata.yaml'
+                 if metadata_path.is_file():
+                     charm_metadata = yaml.safe_load(metadata_path.read_text())
+@@ -539,7 +544,7 @@ class Harness(Generic[CharmType]):
+                 action_metadata = charmcraft_metadata["actions"]
+ 
+             # Still no actions, check actions.yaml
+-            if action_metadata is None:
++            if charm_dir and action_metadata is None:
+                 actions_path = charm_dir / 'actions.yaml'
+                 if actions_path.is_file():
+                     action_metadata = yaml.safe_load(actions_path.read_text())
+@@ -553,8 +558,12 @@ class Harness(Generic[CharmType]):
+         Otherwise try to load config from ``<charm_dir>/charmcraft.yaml`` first, then
+         ``<charm_dir>/config.yaml`` if charmcraft.yaml does not include config.
+         """
+-        filename = inspect.getfile(self._charm_cls)
+-        charm_dir = pathlib.Path(filename).parents[1]
++        try:
++            filename = inspect.getfile(self._charm_cls)
++        except OSError:
++            charm_dir = None
++        else:
++            charm_dir = pathlib.Path(filename).parents[1]
+         config: Optional[Dict[str, Any]] = None
+ 
+         # Load config from parameters if provided
+@@ -563,18 +572,20 @@ class Harness(Generic[CharmType]):
+                 charm_config_yaml = dedent(charm_config_yaml)
+             config = yaml.safe_load(charm_config_yaml)
+         else:
+-            # Check charmcraft.yaml for config if no config is provided
+-            charmcraft_meta = charm_dir / "charmcraft.yaml"
+-            if charmcraft_meta.is_file():
+-                charmcraft_metadata: Dict[str, Any] = yaml.safe_load(charmcraft_meta.read_text())
+-                config = charmcraft_metadata.get("config")
+-
+-            # Still no config, check config.yaml
+-            if config is None:
+-                config_path = charm_dir / 'config.yaml'
+-                if config_path.is_file():
+-                    config = yaml.safe_load(config_path.read_text())
+-                    self._charm_dir = charm_dir
++            if charm_dir:
++                # Check charmcraft.yaml for config if no config is provided
++                charmcraft_meta = charm_dir / "charmcraft.yaml"
++                if charmcraft_meta.is_file():
++                    charmcraft_metadata: Dict[str, Any] = yaml.safe_load(
++                        charmcraft_meta.read_text())
++                    config = charmcraft_metadata.get("config")
++
++                # Still no config, check config.yaml
++                if config is None:
++                    config_path = charm_dir / 'config.yaml'
++                    if config_path.is_file():
++                        config = yaml.safe_load(config_path.read_text())
++                        self._charm_dir = charm_dir
+ 
+             # Use default config if config is not found
+             if config is None:
+diff --git a/test/test_testing.py b/test/test_testing.py
+index b313e86..96694b5 100644
+--- a/test/test_testing.py
++++ b/test/test_testing.py
+@@ -1384,6 +1384,27 @@ class TestHarness(unittest.TestCase):
+         assert harness.model.config['opt_int'] == 1
+         assert isinstance(harness.model.config['opt_int'], int)
+ 
++    def test_config_in_repl(self):
++        # In a REPL, there is no "source file", but we should still be able to
++        # provide explicit metadata, and fall back to the default otherwise.
++        with patch.object(inspect, 'getfile', side_effect=OSError()):
++            harness = ops.testing.Harness(ops.CharmBase, meta='''
++                name: repl-charm
++            ''', config='''
++                options:
++                    foo:
++                        type: int
++                        default: 42
++            ''')
++            self.addCleanup(harness.cleanup)
++            harness.begin()
++            self.assertEqual(harness._meta.name, "repl-charm")
++            self.assertEqual(harness.charm.model.config['foo'], 42)
++
++            harness = ops.testing.Harness(ops.CharmBase)
++            self.addCleanup(harness.cleanup)
++            self.assertEqual(harness._meta.name, "test-charm")
++
+     def test_set_model_name(self):
+         harness = ops.testing.Harness(ops.CharmBase, meta='''
+             name: test-charm
+```

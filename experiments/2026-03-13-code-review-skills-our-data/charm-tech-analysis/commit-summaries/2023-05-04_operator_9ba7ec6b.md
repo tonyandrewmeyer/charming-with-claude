@@ -1,0 +1,46 @@
+# fixed bug in snapshot
+
+**Repository**: operator
+**Commit**: [9ba7ec6b](https://github.com/canonical/operator/commit/9ba7ec6b6018cb6fdf384de74ddfca8f642e918c)
+**Date**: 2023-05-04
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | event-framework |
+| Bug Type | logic-error |
+| Severity | medium |
+| Fix Category | source-fix |
+
+## Summary
+
+ed bug in snapshot
+
+## Changed Files
+
+- M	scenario/scripts/snapshot.py
+
+## Diff
+
+```diff
+diff --git a/scenario/scripts/snapshot.py b/scenario/scripts/snapshot.py
+index 357bbe4..0dc0005 100644
+--- a/scenario/scripts/snapshot.py
++++ b/scenario/scripts/snapshot.py
+@@ -648,10 +648,10 @@ def get_charm_version(target: JujuUnitName, juju_status: Dict) -> str:
+     """Get charm version info from juju status output."""
+     app_info = juju_status["applications"][target.app_name]
+     channel = app_info.get("charm-channel", "<local charm>")
+-    charm_name = app_info["charm-name"]
+-    app_version = app_info["version"]
+-    charm_rev = app_info["charm-rev"]
+-    charm_origin = app_info["charm-origin"]
++    charm_name = app_info.get("charm-name", "n/a")
++    app_version = app_info.get("version", "n/a")
++    charm_rev = app_info.get("charm-rev", "n/a")
++    charm_origin = app_info.get("charm-origin", "n/a")
+     return (
+         f"charm {charm_name!r} ({channel}/{charm_rev}); "
+         f"origin := {charm_origin}; app version := {app_version}."
+```

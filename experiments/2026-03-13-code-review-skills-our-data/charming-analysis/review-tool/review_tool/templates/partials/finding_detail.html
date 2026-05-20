@@ -1,0 +1,108 @@
+<article data-finding-id="{{ finding.id }}">
+    <header>
+        <h3>[{{ finding.bug_id }}] {{ finding.category }}</h3>
+        <p>{{ finding.title }}</p>
+    </header>
+
+    <div class="grid">
+        <div>
+            <small><strong>Severity:</strong> <span class="severity-badge severity-{{ finding.severity|lower }}">{{ finding.severity }}</span></small>
+        </div>
+        <div>
+            <small><strong>Pattern:</strong> {{ finding.pattern }}</small>
+        </div>
+        <div>
+            <small><strong>Location:</strong> <code>{{ finding.location }}</code></small>
+        </div>
+    </div>
+    <div class="grid">
+        <div>
+            <small><strong>Round:</strong> {{ finding.round }}</small>
+        </div>
+        <div>
+            <small><strong>Repo:</strong> {{ finding.repo }}</small>
+        </div>
+        <div>
+            <small><strong>Charm:</strong> {{ finding.charm_name }}</small>
+        </div>
+    </div>
+
+    <hr>
+
+    <h4>Issue</h4>
+    <div>{{ finding.issue|markdown }}</div>
+
+    <h4>Impact</h4>
+    <div>{{ finding.impact|markdown }}</div>
+
+    {% if evidence_html %}
+    <h4>Evidence</h4>
+    <div class="code-block">{{ evidence_html|safe }}</div>
+    {% endif %}
+
+    {% if fix_html %}
+    <h4>Recommended Fix</h4>
+    <div class="code-block">{{ fix_html|safe }}</div>
+    {% endif %}
+
+    {% if finding.historical_precedent %}
+    <h4>Historical Precedent</h4>
+    <div>{{ finding.historical_precedent|markdown }}</div>
+    {% endif %}
+
+    <hr>
+
+    <h4>Review</h4>
+    <div class="review-actions">
+        <div class="grid">
+            <button id="btn-reviewed"
+                    hx-patch="/findings/{{ finding.id }}"
+                    hx-vals='{"review_status": "{{ 'pending' if finding.review_status == 'reviewed' else 'reviewed' }}"}'
+                    hx-target="#finding-row-{{ finding.id }}"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="htmx.ajax('GET', '/findings/{{ finding.id }}', '#detail-panel')"
+                    class="{{ 'contrast' if finding.review_status == 'reviewed' else 'outline' }}">
+                &#10003; Reviewed <kbd>R</kbd>
+            </button>
+            <button id="btn-false-positive"
+                    hx-patch="/findings/{{ finding.id }}"
+                    hx-vals='{"review_status": "{{ 'pending' if finding.review_status == 'false_positive' else 'false_positive' }}"}'
+                    hx-target="#finding-row-{{ finding.id }}"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="htmx.ajax('GET', '/findings/{{ finding.id }}', '#detail-panel')"
+                    class="{{ 'contrast' if finding.review_status == 'false_positive' else 'outline secondary' }}">
+                &#10007; False Positive <kbd>F</kbd>
+            </button>
+        </div>
+
+        <form hx-patch="/findings/{{ finding.id }}"
+              hx-target="#finding-row-{{ finding.id }}"
+              hx-swap="outerHTML"
+              hx-encoding="application/x-www-form-urlencoded">
+            <textarea id="reviewer-notes"
+                      name="reviewer_notes"
+                      placeholder="Add review notes... (N to focus)"
+                      rows="3">{{ finding.reviewer_notes }}</textarea>
+            <button type="submit" class="outline">Save Notes</button>
+        </form>
+
+        <div style="text-align: right;">
+            <a href="/findings/{{ finding.id }}/next-unreviewed"
+               id="btn-next"
+               role="button"
+               hx-get="/findings/{{ finding.id }}/next-unreviewed"
+               hx-target="#detail-panel"
+               hx-swap="innerHTML"
+               class="primary"
+               style="width: auto; display: inline-block;">Next Unreviewed &rarr; <kbd>Space</kbd></a>
+        </div>
+    </div>
+
+    <footer>
+        <small>
+            Status: {{ finding.review_status }}
+            {% if finding.reviewed_at %} | Reviewed: {{ finding.reviewed_at }}{% endif %}
+            | Created: {{ finding.created_at }}
+        </small>
+    </footer>
+</article>

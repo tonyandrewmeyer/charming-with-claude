@@ -1,0 +1,290 @@
+# fix: allow stopping services in "starting" state (#503)
+
+**Repository**: pebble
+**Commit**: [acaacb2d](https://github.com/canonical/pebble/commit/acaacb2dcf6c3b5259062d74ad155a8f423b0284)
+**Date**: 2024-10-10T19:14:23+08:00
+
+## Classification
+
+| Field | Value |
+|-------|-------|
+| Bug Area | service-management |
+| Bug Type | state-management |
+| Severity | medium |
+| Fix Category | source-fix |
+
+## Summary
+
+Allow stopping services in starting state during okayWait period
+
+## Commit Message
+
+Pebble has a 1-second okayWait time period for starting services, after
+which, if the service is still not exited, it's considered as "running".
+Previously, when services were still in the starting state within this
+1-second okayWait period, they couldn't be stopped. This causes some
+issues in tests. And, just because services have just started doesn't
+mean they shouldn't be allowed to stop. This PR allows services in the
+starting state (within the 1s okayWait period) to be stopped, no matter
+if it's the daemon exits (Ctrl+C in the console) or the `pebble stop`
+command is issued.
+
+## Changed Files
+
+- M	internals/daemon/daemon_test.go
+- M	internals/overlord/servstate/handlers.go
+- M	internals/overlord/servstate/manager.go
+- M	internals/overlord/servstate/manager_test.go
+- M	internals/overlord/servstate/state-diagram.dot
+- M	internals/overlord/servstate/state-diagram.svg
+- M	tests/run_test.go
+
+## Diff
+
+```diff
+diff --git a/internals/daemon/daemon_test.go b/internals/daemon/daemon_test.go
+index 6751ead..58976c0 100644
+--- a/internals/daemon/daemon_test.go
++++ b/internals/daemon/daemon_test.go
+@@ -40,6 +40,7 @@ import (
+ 	"github.com/canonical/pebble/internals/overlord"
+ 	"github.com/canonical/pebble/internals/overlord/patch"
+ 	"github.com/canonical/pebble/internals/overlord/restart"
++	"github.com/canonical/pebble/internals/overlord/servstate"
+ 	"github.com/canonical/pebble/internals/overlord/standby"
+ 	"github.com/canonical/pebble/internals/overlord/state"
+ 	"github.com/canonical/pebble/internals/reaper"
+@@ -1148,7 +1149,7 @@ services:
+ 	// We have to wait for it be in running state.
+ 	for i := 0; ; i++ {
+ 		if i >= 25 {
+-			c.Fatalf("timed out waiting or service to start")
++			c.Fatalf("timed out waiting for service to start")
+ 		}
+ 		d.state.Lock()
+ 		change := d.state.Change(rsp.Change)
+@@ -1283,7 +1284,7 @@ services:
+ 	// We have to wait for it be in running state for StopRunning to stop it.
+ 	for i := 0; ; i++ {
+ 		if i >= 25 {
+-			c.Fatalf("timed out waiting or service to start")
++			c.Fatalf("timed out waiting for service to start")
+ 		}
+ 		d.state.Lock()
+ 		change := d.state.Change(rsp.Change)
+@@ -1317,6 +1318,65 @@ services:
+ 	c.Check(tasks[0].Kind(), Equals, "stop")
+ }
+ 
++func (s *daemonSuite) TestStopWithinOkayDelay(c *C) {
++	// Start the daemon.
++	writeTestLayer(s.pebbleDir, `
++services:
++    test1:
++        override: replace
++        command: sleep 10
++`)
++	d := s.newDaemon(c)
++	err := d.Init()
++	c.Assert(err, IsNil)
++	c.Assert(d.Start(), IsNil)
++
++	// Start the test service.
++	payload := bytes.NewBufferString(`{"action": "start", "services": ["test1"]}`)
++	req, err := http.NewRequest("POST", "/v1/services", payload)
++	c.Assert(err, IsNil)
++	rsp := v1PostServices(apiCmd("/v1/services"), req, nil).(*resp)
++	rec := httptest.NewRecorder()
++	rsp.ServeHTTP(rec, req)
++	c.Check(rec.Result().StatusCode, Equals, 202)
++
++	// Waiting for the change to be in doing state cannot guarantee the service is
++	// in the starting state, so here we wait until the service is in the starting
++	// state. We wait up to 25*20=500ms to make sure there is still half a second
++	// left to stop the service before okayDelay.
++	for i := 0; i < 25; i++ {
++		svcInfo, err := d.overlord.ServiceManager().Services([]string{"test1"})
++		c.Assert(err, IsNil)
++		if len(svcInfo) > 0 && svcInfo[0].Current == servstate.StatusActive {
++			break
++		}
++		time.Sleep(20 * time.Millisecond)
++	}
++
++	// Stop the daemon, which should stop services in starting state. At this point,
++	// it should still be within the okayDelay.
++	err = d.Stop(nil)
++	c.Assert(err, IsNil)
++
++	// Ensure a "stop" change is created, along with its "stop" tasks.
++	d.state.Lock()
++	defer d.state.Unlock()
++	changes := d.state.Changes()
++	var change *state.Change
++	for _, ch := range changes {
++		if ch.Kind() == "stop" {
++			change = ch
++		}
++	}
++	if change == nil {
++		c.Fatalf("stop change not found")
++	}
++	c.Check(change.Status(), Equals, state.DoneStatus)
++	tasks := change.Tasks()
++	c.Assert(tasks, HasLen, 1)
++	c.Check(tasks[0].Kind(), Equals, "stop")
++}
++
+ func (s *daemonSuite) TestWritesRequireAdminAccess(c *C) {
+ 	for _, cmd := range API {
+ 		if cmd.Path == "/v1/notices" {
+diff --git a/internals/overlord/servstate/handlers.go b/internals/overlord/servstate/handlers.go
+index 2bcdd69..24172e0 100644
+--- a/internals/overlord/servstate/handlers.go
++++ b/internals/overlord/servstate/handlers.go
+@@ -682,6 +682,10 @@ func (s *serviceData) stop() error {
+ 	defer s.manager.servicesLock.Unlock()
+ 
+ 	switch s.state {
++	case stateStarting:
++		s.started <- fmt.Errorf("stopped before the %s okay delay", okayDelay)
++		fallthrough
++
+ 	case stateRunning:
+ 		logger.Debugf("Attempting to stop service %q by sending SIGTERM", s.config.Name)
+ 		// First send SIGTERM to try to terminate it gracefully.
+diff --git a/internals/overlord/servstate/manager.go b/internals/overlord/servstate/manager.go
+index 43a379d..ac22d38 100644
+--- a/internals/overlord/servstate/manager.go
++++ b/internals/overlord/servstate/manager.go
+@@ -367,7 +367,7 @@ func servicesToStop(m *ServiceManager) ([][]string, error) {
+ 		return nil, err
+ 	}
+ 
+-	// Filter down to only those that are running or in backoff
++	// Filter down to only those that are starting, running or in backoff
+ 	m.servicesLock.Lock()
+ 	defer m.servicesLock.Unlock()
+ 	var result [][]string
+@@ -375,7 +375,7 @@ func servicesToStop(m *ServiceManager) ([][]string, error) {
+ 		var notStopped []string
+ 		for _, name := range services {
+ 			s := m.services[name]
+-			if s != nil && (s.state == stateRunning || s.state == stateBackoff) {
++			if s != nil && (s.state == stateStarting || s.state == stateRunning || s.state == stateBackoff) {
+ 				notStopped = append(notStopped, name)
+ 			}
+ 		}
+diff --git a/internals/overlord/servstate/manager_test.go b/internals/overlord/servstate/manager_test.go
+index c097336..3a8c9d3 100644
+--- a/internals/overlord/servstate/manager_test.go
++++ b/internals/overlord/servstate/manager_test.go
+@@ -297,6 +297,58 @@ services:
+ 	c.Assert(s.manager.StopTimeout(), Equals, time.Minute*60+time.Millisecond*200)
+ }
+ 
++func (s *S) TestStopServiceWithinOkayDelay(c *C) {
++	// A longer okayDelay is used so that the change for starting the service won't
++	// quickly transition into the running state.
++	fakeOkayDelay := 20 * shortOkayDelay
++	servstate.FakeOkayWait(fakeOkayDelay)
++
++	s.newServiceManager(c)
++	serviceName := "test-stop-within-okaywait"
++	// The service sleeps for fakeOkayDelay second then creates a side effect (a file at donePath).
++	layer := `
++services:
++    %s:
++        override: replace
++        command: /bin/sh -c "sleep %g; {{.NotifyDoneCheck}}"
++`
++	s.planAddLayer(c, fmt.Sprintf(layer, serviceName, fakeOkayDelay.Seconds()))
++	s.planChanged(c)
++
++	// Start the service without waiting for change ready.
++	s.st.Lock()
++	ts, err := servstate.Start(s.st, [][]string{{serviceName}})
++	c.Check(err, IsNil)
++	chgStart := s.st.NewChange("test", "Start test")
++	chgStart.AddAll(ts)
++	s.st.Unlock()
++	s.runner.Ensure()
++
++	// Wait until the service is in the starting state.
++	s.waitUntilService(c, serviceName, func(service *servstate.ServiceInfo) bool {
++		return service.Current == servstate.StatusActive
++	})
++
++	// Stop the service within okayDelay.
++	chg := s.stopServices(c, [][]string{{serviceName}})
++	s.st.Lock()
++	c.Assert(chg.Err(), IsNil)
++	s.st.Unlock()
++
++	waitChangeReady(c, s.runner, chgStart, "Start test")
++
++	s.st.Lock()
++	c.Check(chgStart.Status(), Equals, state.ErrorStatus)
++	c.Check(chgStart.Err(), ErrorMatches, fmt.Sprintf(`(?s).*stopped before the %s okay delay.*`, fakeOkayDelay))
++	s.st.Unlock()
++
++	donePath := filepath.Join(s.dir, serviceName)
++	// If the service is stopped within okayDelay and is indeed terminated, donePath should not exist.
++	if _, err := os.Stat(donePath); err == nil {
++		c.Fatalf("service %s waiting for service output", serviceName)
++	}
++}
++
+ func (s *S) TestKillDelayIsUsed(c *C) {
+ 	s.newServiceManager(c)
+ 	s.planAddLayer(c, testPlanLayer)
+diff --git a/internals/overlord/servstate/state-diagram.dot b/internals/overlord/servstate/state-diagram.dot
+index 7954864..63f9391 100644
+--- a/internals/overlord/servstate/state-diagram.dot
++++ b/internals/overlord/servstate/state-diagram.dot
+@@ -7,6 +7,7 @@ digraph service_state_machine {
+     node [penwidth=1]
+     initial -> starting [label="start"]
+     starting -> running [label="okay wait\nelapsed"]
++    starting -> terminating [label="stop (before\nokay wait elapses)"]
+     running -> terminating [label="stop"]
+     running -> terminating [label="check failed\n(action \"restart\")"]
+     terminating -> killing [label="terminate time\nelapsed"]
+diff --git a/internals/overlord/servstate/state-diagram.svg b/internals/overlord/servstate/state-diagram.svg
+index 4dd2f2b..44795c8 100644
+--- a/internals/overlord/servstate/state-diagram.svg
++++ b/internals/overlord/servstate/state-diagram.svg
+@@ -1,221 +1,229 @@
+ <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+ <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+-<!-- Generated by graphviz version 2.43.0 (0)
++<!-- Generated by graphviz version 12.1.1 (20240910.0053)
+  -->
+ <!-- Title: service_state_machine Pages: 1 -->
+-<svg width="966pt" height="626pt"
+- viewBox="0.00 0.00 965.62 626.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+-<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 622)">
++<svg width="789pt" height="641pt"
++ viewBox="0.00 0.00 788.59 641.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
++<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 637)">
+ <title>service_state_machine</title>
+-<polygon fill="white" stroke="transparent" points="-4,4 -4,-622 961.62,-622 961.62,4 -4,4"/>
++<polygon fill="white" stroke="none" points="-4,4 -4,-637 784.59,-637 784.59,4 -4,4"/>
+ <!-- initial -->
+ <g id="node1" class="node">
+ <title>initial</title>
+-<polygon fill="none" stroke="black" stroke-width="3" points="821.62,-618 735.62,-618 735.62,-582 821.62,-582 821.62,-618"/>
+-<text text-anchor="middle" x="778.62" y="-593.8" font-family="Times,serif" font-size="24.00">initial</text>
++<polygon fill="none" stroke="black" stroke-width="3" points="664.46,-633 592.21,-633 592.21,-597 664.46,-597 664.46,-633"/>
++<text text-anchor="middle" x="628.34" y="-605.7" font-family="Times,serif" font-size="24.00">initial</text>
+ </g>
+ <!-- starting -->
+ <g id="node2" class="node">
+ <title>starting</title>
+-<polygon fill="none" stroke="black" points="834.62,-531 722.62,-531 722.62,-495 834.62,-495 834.62,-531"/>
+-<text text-anchor="middle" x="778.62" y="-506.8" font-family="Times,serif" font-size="24.00">starting</text>
++<polygon fill="none" stroke="black" points="672.34,-544.5 584.34,-544.5 584.34,-508.5 672.34,-508.5 672.34,-544.5"/>
++<text text-anchor="middle" x="628.34" y="-517.2"
+... [truncated]
+```
