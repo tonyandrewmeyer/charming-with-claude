@@ -7,6 +7,7 @@
 # ///
 
 import os
+import posixpath
 import re
 import subprocess
 from datetime import datetime
@@ -163,6 +164,40 @@ def get_experiments() -> list[dict]:
     return experiments
 
 
+def rewrite_relative_urls(html: str, base_path: str) -> str:
+    """Rewrite relative href/src URLs to absolute GitHub URLs.
+
+    RSS readers have no base URL to resolve relative links against, so
+    `<a href="foo/bar.md">` is broken in the feed. Convert each relative
+    URL to an absolute github.com URL rooted at `base_path` (the repo-relative
+    directory of the source markdown file).
+
+    Directory-style links (trailing slash) become /tree/main/...; everything
+    else becomes /blob/main/... — GitHub serves both correctly.
+    """
+    attr_pattern = re.compile(r'(href|src)="([^"]+)"')
+
+    def fix(match: re.Match) -> str:
+        attr = match.group(1)
+        url = match.group(2)
+        if url.startswith(("http://", "https://", "mailto:", "#", "/")):
+            return match.group(0)
+        path_part, sep, fragment = url.partition("#")
+        if not path_part:
+            return match.group(0)
+        is_dir = path_part.endswith("/")
+        kind = "tree" if is_dir else "blob"
+        joined = posixpath.normpath(posixpath.join(base_path, path_part))
+        if is_dir:
+            joined += "/"
+        new_url = f"{REPO_URL}/{kind}/main/{joined}"
+        if sep:
+            new_url += sep + fragment
+        return f'{attr}="{new_url}"'
+
+    return attr_pattern.sub(fix, html)
+
+
 def markdown_to_html(md_content: str) -> str:
     """Convert markdown content to HTML.
     
@@ -196,7 +231,10 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
     for exp in experiments:
         # Convert markdown content to HTML
         html_content = markdown_to_html(exp["content"])
-        
+        html_content = rewrite_relative_urls(
+            html_content, f"experiments/{exp['folder']}"
+        )
+
         all_items.append({
             "title": f"New Experiment: {exp['name'].replace('-', ' ').title()}",
             "link": f"{REPO_URL}/tree/main/experiments/{exp['folder']}",

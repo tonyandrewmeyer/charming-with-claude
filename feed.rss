@@ -11,7 +11,7 @@
       <description>New experiment: code review skills our data</description>
       <content:encoded><![CDATA[<h1>I read ~7000 charming bug fixes so you didn't have to</h1>
 <p>Ok, not really, Claude Code read them. And even then, it was actually a sample of 15-20%.</p>
-<p>In this experiment, I took <a href="https://cra.mr/skill-synthesis">David Cramer's skill synthesis idea</a> — mine your project's actual bug history instead of relying on generic guidelines — and applied it to charm development. Rather than one repository, I progressively scaled from a single repo (canonical/operator: 235 fixes) through the Charm Tech team's 10 repos (452 fixes) to 134 charm repositories across 10 Canonical teams (6,116 fixes). The end product is a <a href="charming-analysis/.claude/skills/charm-find-bugs/">bug-finding skill</a> that found 166 confirmed bugs (of varying severity) across 41 test repos, built entirely from our ecosystem's own mistakes.</p>
+<p>In this experiment, I took <a href="https://cra.mr/skill-synthesis">David Cramer's skill synthesis idea</a> — mine your project's actual bug history instead of relying on generic guidelines — and applied it to charm development. Rather than one repository, I progressively scaled from a single repo (canonical/operator: 235 fixes) through the Charm Tech team's 10 repos (452 fixes) to 134 charm repositories across 10 Canonical teams (6,116 fixes). The end product is a <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/">bug-finding skill</a> that found 166 confirmed bugs (of varying severity) across 41 test repos, built entirely from our ecosystem's own mistakes.</p>
 <p>The work happened in three stages, each its own directory with a detailed write-up. This README covers the arc and the interesting bits; the write-ups have all the methodology and data.</p>
 <h2>Goals</h2>
 <ul>
@@ -21,13 +21,13 @@
 <li>Understand what kinds of bugs recur across charm teams and where the patterns differ. Even if the AI piece is not useful, perhaps this would show where Charm Tech can help, with improved documentation, charm libraries, helper functions, and so on.</li>
 </ul>
 <h2>The Three Stages</h2>
-<h3>Stage 1: <a href="operator-analysis/">Operator Framework</a> (1 repo, 235 fixes)</h3>
+<h3>Stage 1: <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/operator-analysis/">Operator Framework</a> (1 repo, 235 fixes)</h3>
 <p>The <a href="https://github.com/canonical/operator">operator</a> repository has ~2,000 commits. Of those, ~235 are bug fixes. Claude classified them all (leaning heavily on the use of conventional commits in recent years), produced a pattern catalogue of 13 categories, and built an initial skill. Running it against the current HEAD found 10 real bugs, including data mutability issues that had been fixed six separate times already but kept recurring.</p>
 <p>A takeaway was that false-positive controls matter as much as the patterns themselves. Without them, every <code>return self._data[key]</code> gets flagged as a mutability bug even when the values are immutable primitives.</p>
-<h3>Stage 2: <a href="charm-tech-analysis/">Charm Tech Team</a> (10 repos, 452 fixes)</h3>
+<h3>Stage 2: <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charm-tech-analysis/">Charm Tech Team</a> (10 repos, 452 fixes)</h3>
 <p>Scaling to the whole team revealed that (for us) <strong>Python and Go bug patterns have almost zero overlap</strong>. The Go repos (Pebble and Concierge) are dominated by concurrency bugs — deadlocks, nil maps, error wrapping — while the Python repos share patterns around data mutability, falsy values, and relation data handling. This meant splitting into two separate skills.</p>
 <p>Validation against four held-out repos found six novel bugs with no false positives, including a password exposure in charmlibs where CLI arguments were visible in the process list.</p>
-<h3>Stage 3: <a href="charming-analysis/">Full Ecosystem</a> (134 repos, 6,116 fixes)</h3>
+<h3>Stage 3: <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/">Full Ecosystem</a> (134 repos, 6,116 fixes)</h3>
 <p>This was the big one. 134 charm repositories (from a list Charm Tech maintains internally, used to evaluate the impact of changes and make data-driven decisions), spanning Data, Observability, MLOps, IS, Identity, Telco, Commercial Systems, K8s, and BootStack. The extraction used both conventional commit parsing and keyword scoring, which was important, as expected — the K8s team has only 35% conventional commit adoption, so keyword scoring recovered 37% of their fixes that would otherwise have been missed entirely.</p>
 <p>The skill was validated over 10 rounds against 41 repos:</p>
 <table>
@@ -87,7 +87,7 @@
 <tr>
 <td>Non-string Pebble env values</td>
 <td>14/41</td>
-<td>Pebble environment dicts should contain only strings (see <a href="charming-analysis/pebble-non-string-env.md">research note</a>)</td>
+<td>Pebble environment dicts should contain only strings (see <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/pebble-non-string-env.md">research note</a>)</td>
 </tr>
 <tr>
 <td>Restart without ChangeError handling</td>
@@ -122,10 +122,10 @@
 </tbody>
 </table>
 <p>Interestingly, many of these are domain-specific. A generic code review — human or AI — would catch the credential exposure, probably the truthiness bug. But "Pebble environment variables should be strings" or "you need a <code>can_connect()</code> guard" are things you only know from experience with the charm ecosystem. That's the whole point of mining the history rather than starting from general principles.</p>
-<p>(A note on the most pervasive pattern: <a href="charming-analysis/pebble-non-string-env.md">follow-up research</a> into how Pebble actually handles non-string environment values revealed that Pebble's Go YAML decoder silently coerces them to strings, so non-string values don't cause runtime errors. It's still best practice to use explicit strings — Python <code>True</code> becomes <code>"True"</code> not <code>"true"</code>, and static type checkers flag it — but the severity is lower than originally assessed. The skill has been updated accordingly.)</p>
+<p>(A note on the most pervasive pattern: <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/pebble-non-string-env.md">follow-up research</a> into how Pebble actually handles non-string environment values revealed that Pebble's Go YAML decoder silently coerces them to strings, so non-string values don't cause runtime errors. It's still best practice to use explicit strings — Python <code>True</code> becomes <code>"True"</code> not <code>"true"</code>, and static type checkers flag it — but the severity is lower than originally assessed. The skill has been updated accordingly.)</p>
 <p>Each team also has its own distinctive patterns. The Data team hits TLS toggle race conditions because coordinating TLS state between charm and database requires a two-phase handshake. The Observability team repeatedly fixes wrong datasource variable names in Grafana dashboards (<code>${DS_PROMETHEUS}</code> vs <code>${prometheusds}</code>). The IS team gets bitten by Pebble lifecycle ordering because web app charms need config files pushed before the service starts. These are patterns that emerge when you look at enough repos and fixes from the same team.</p>
 <h2>The Review Tool</h2>
-<p>By round 5, reviewing findings in markdown files wasn't scaling. I needed to track which findings were true positives, record domain knowledge from each review, and feed that back into the skill. So I had Claude built a <a href="charming-analysis/review-tool/">review tool</a> — a SQLite-backed web/TUI/CLI (I thought web would be nice, then figured out TUI is actually more convenient) app for triaging findings. FastAPI + htmx for the web interface, Textual for the terminal, keyboard shortcuts for rapid review (<code>j</code>/<code>k</code> navigate, <code>r</code> reviewed, <code>f</code> false positive). The export feeds directly back into skill improvement.</p>
+<p>By round 5, reviewing findings in markdown files wasn't scaling. I needed to track which findings were true positives, record domain knowledge from each review, and feed that back into the skill. So I had Claude built a <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/review-tool/">review tool</a> — a SQLite-backed web/TUI/CLI (I thought web would be nice, then figured out TUI is actually more convenient) app for triaging findings. FastAPI + htmx for the web interface, Textual for the terminal, keyboard shortcuts for rapid review (<code>j</code>/<code>k</code> navigate, <code>r</code> reviewed, <code>f</code> false positive). The export feeds directly back into skill improvement.</p>
 <p>(Despite multiple attempts at Claude fixing it, there's still an annoying bug in the TUI version where it will sometimes show the first item's findings instead of the selected one, but I gave up trying to get that solved for now.)</p>
 <p>It's not a complicated tool, but it closed the feedback loop that made rounds 6–10 much more efficient than the earlier rounds.</p>
 <h2>What I Learned</h2>
@@ -213,15 +213,15 @@
 </tbody>
 </table>
 <p>Key false positives caught: <code>lxd init --minimal</code> is idempotent (tested directly — it succeeds on re-run), UID/GID 0 falsy checks in passwd are not real bugs (UID 0 already exists as root), all snap library findings skipped (rewrite pending). All 5 pebble findings skipped as too narrow, documented workarounds, or design-level concerns.</p>
-<p>Full details in the coda sections of <a href="operator-analysis/WRITEUP.md#coda-filing-the-bugs-upstream">operator-analysis/WRITEUP.md</a> and <a href="charm-tech-analysis/WRITEUP.md#coda-filing-the-bugs-upstream">charm-tech-analysis/WRITEUP.md</a>.</p>
+<p>Full details in the coda sections of <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-13-code-review-skills-our-data/operator-analysis/WRITEUP.md#coda-filing-the-bugs-upstream">operator-analysis/WRITEUP.md</a> and <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-13-code-review-skills-our-data/charm-tech-analysis/WRITEUP.md#coda-filing-the-bugs-upstream">charm-tech-analysis/WRITEUP.md</a>.</p>
 <h2>Files</h2>
 <p>Each stage has its own directory with a detailed write-up:</p>
 <ul>
-<li><strong><a href="operator-analysis/">operator-analysis/</a></strong> — Single-repo analysis, initial skill, methodology proof. Start here for the approach (I didn't know I would go further than this when starting it).</li>
-<li><strong><a href="charm-tech-analysis/">charm-tech-analysis/</a></strong> — Team-scale analysis, Python/Go split, cross-repo patterns.</li>
-<li><strong><a href="charming-analysis/">charming-analysis/</a></strong> — Full ecosystem analysis, 10 validation rounds, review tool, final skill. The bulk of the data and findings are here.</li>
+<li><strong><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/operator-analysis/">operator-analysis/</a></strong> — Single-repo analysis, initial skill, methodology proof. Start here for the approach (I didn't know I would go further than this when starting it).</li>
+<li><strong><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charm-tech-analysis/">charm-tech-analysis/</a></strong> — Team-scale analysis, Python/Go split, cross-repo patterns.</li>
+<li><strong><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/">charming-analysis/</a></strong> — Full ecosystem analysis, 10 validation rounds, review tool, final skill. The bulk of the data and findings are here.</li>
 </ul>
-<p>The final skill itself is at <a href="charming-analysis/.claude/skills/charm-find-bugs/"><code>charming-analysis/.claude/skills/charm-find-bugs/</code></a>. I might put it in <a href="https://github.com/canonical/copilot-collections">copilot-collections</a> or some other more visible place later.</p>]]></content:encoded>
+<p>The final skill itself is at <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-13-code-review-skills-our-data/charming-analysis/.claude/skills/charm-find-bugs/"><code>charming-analysis/.claude/skills/charm-find-bugs/</code></a>. I might put it in <a href="https://github.com/canonical/copilot-collections">copilot-collections</a> or some other more visible place later.</p>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
       <pubDate>Thu, 21 May 2026 09:17:12 +1200</pubDate>
       <guid isPermaLink="false">experiment-2026-03-13-code-review-skills-our-data</guid>
@@ -436,12 +436,12 @@ index a6fb597..942c045 100644
 <p>For people writing AGENTS.md or similar instructions for charm development: instructions are the cheapest option (depending on how one measures the human cost of writing them) and help with cost/efficiency, but they're less effective than good docs for accuracy. Name specific doc URLs in your instructions rather than hoping the agent will find them.</p>
 <h2>Details</h2>
 <ul>
-<li><a href="WRITEUP.md">WRITEUP.md</a> — Full experiment report with methodology, infrastructure, per-question results, and detailed analysis of all findings</li>
-<li><a href="gold-standards.md">gold-standards.md</a> — The 23 questions and reference answers</li>
-<li><a href="results/">results/</a> — Raw data, scorecards, and analysis tables</li>
-<li><a href="scripts/">scripts/</a> — Automation pipeline (runner, judge, analysis, review TUI)</li>
-<li><a href="infra/">infra/</a> — nginx config, setup script, DNS toggle scripts</li>
-<li><a href="build-manifest.json">build-manifest.json</a> — Repo commits and doc build details</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-26-llms-txt-docs-experiment/WRITEUP.md">WRITEUP.md</a> — Full experiment report with methodology, infrastructure, per-question results, and detailed analysis of all findings</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-26-llms-txt-docs-experiment/gold-standards.md">gold-standards.md</a> — The 23 questions and reference answers</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-26-llms-txt-docs-experiment/results/">results/</a> — Raw data, scorecards, and analysis tables</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-26-llms-txt-docs-experiment/scripts/">scripts/</a> — Automation pipeline (runner, judge, analysis, review TUI)</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-26-llms-txt-docs-experiment/infra/">infra/</a> — nginx config, setup script, DNS toggle scripts</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-03-26-llms-txt-docs-experiment/build-manifest.json">build-manifest.json</a> — Repo commits and doc build details</li>
 </ul>
 <p>Run on an Ubuntu 24.04 VM using Claude Sonnet 4.6 and Opus 4.6 (there was no significant difference between Sonnet and Opus).</p>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
@@ -673,7 +673,7 @@ index 2fd9708..e395ca4 100644
 <p>All with ops 2.x in their supported range and significant upgrade room, none using the newer features, and a mix of domains and complexity levels.</p>
 <p>(I provided the selection rationale and let Claude do the picking, which seemed fairest, although there does seem to be a tendency towards certain charms.)</p>
 <h2>Results</h2>
-<p>Full results are in <a href="results/results.md">results/results.md</a> and <a href="results/evaluation.md">results/evaluation.md</a>. The detailed experimental design, phase descriptions, and methodology are in <a href="WRITE-UP.md">WRITE-UP.md</a>.</p>
+<p>Full results are in <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-01-25-ops-upgrade/results/results.md">results/results.md</a> and <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-01-25-ops-upgrade/results/evaluation.md">results/evaluation.md</a>. The detailed experimental design, phase descriptions, and methodology are in <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-01-25-ops-upgrade/WRITE-UP.md">WRITE-UP.md</a>.</p>
 <h3>Headline Numbers</h3>
 <table>
 <thead>
@@ -761,9 +761,9 @@ index 2fd9708..e395ca4 100644
 </ul>
 <h2>Files of Interest</h2>
 <ul>
-<li><a href="WRITE-UP.md">WRITE-UP.md</a> -- Full experimental design, methodology, and phase-by-phase details</li>
-<li><a href="results/results.md">results/results.md</a> -- Quantitative results</li>
-<li><a href="results/evaluation.md">results/evaluation.md</a> -- Detailed per-run evaluation</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-01-25-ops-upgrade/WRITE-UP.md">WRITE-UP.md</a> -- Full experimental design, methodology, and phase-by-phase details</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-01-25-ops-upgrade/results/results.md">results/results.md</a> -- Quantitative results</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-01-25-ops-upgrade/results/evaluation.md">results/evaluation.md</a> -- Detailed per-run evaluation</li>
 </ul>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
       <pubDate>Sun, 15 Mar 2026 08:18:37 +1300</pubDate>
@@ -797,13 +797,13 @@ index 2fd9708..e395ca4 100644
 <blockquote>
 <p>Migrate the tests in tests/unit/test_charm.py from Harness to State Transition. There is a skill available for this.</p>
 </blockquote>
-<p>The skill used is from <a href="https://github.com/canonical/copilot-collections/pull/29">this copilot-collections PR</a>. A copy of the skill files is in the <a href="./skill/">skill/</a> directory of this experiment.</p>
+<p>The skill used is from <a href="https://github.com/canonical/copilot-collections/pull/29">this copilot-collections PR</a>. A copy of the skill files is in the <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration/skill/">skill/</a> directory of this experiment.</p>
 <h3>Run 3: Charmkeeper Agent Instructions (added 10 March 2026)</h3>
 <p>The prompt was:</p>
 <blockquote>
 <p>Migrate the tests in tests/unit/test_charm.py from Harness to State Transition tests.</p>
 </blockquote>
-<p>The agent instructions used were from <a href="https://github.com/seb4stien/charmkeeper/blob/main/.github/agents/charmkeeper-unit-tests.md">charmkeeper's unit test agent</a>. This is a deliberately lightweight approach: it names the target (<code>ops.testing</code>, not <code>harness</code>), links to a migration guide and a reference implementation (haproxy-operator's fixtures), requires linting via <code>tox -e lint</code>, and introduces a "learnings" feedback loop where the agent records gotchas for future runs. A copy of the instructions is in the <a href="./charmkeeper/">charmkeeper/</a> directory of this experiment.</p>
+<p>The agent instructions used were from <a href="https://github.com/seb4stien/charmkeeper/blob/main/.github/agents/charmkeeper-unit-tests.md">charmkeeper's unit test agent</a>. This is a deliberately lightweight approach: it names the target (<code>ops.testing</code>, not <code>harness</code>), links to a migration guide and a reference implementation (haproxy-operator's fixtures), requires linting via <code>tox -e lint</code>, and introduces a "learnings" feedback loop where the agent records gotchas for future runs. A copy of the instructions is in the <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration/charmkeeper/">charmkeeper/</a> directory of this experiment.</p>
 <p>Unlike the copilot-collections skill, charmkeeper provides no recipes, no event playbooks, no checklist, and no code snippets. It trusts the agent to figure out the details from the migration guide and reference code.</p>
 <p>This run was initially done with Claude Code (Opus), then re-run with Copilot CLI (Sonnet) to provide a fair comparison with the other two runs, which both used GitHub Copilot. The Copilot run is the one analysed below; where the Claude run differed materially, that's noted.</p>
 <h2>Results</h2>
@@ -1066,9 +1066,9 @@ mock_reload.assert_not_called()
 <ul>
 <li><a href="https://github.com/tonyandrewmeyer/prometheus-k8s-operator/pull/1">PR #1</a> -- Bare prompt migration</li>
 <li><a href="https://github.com/tonyandrewmeyer/prometheus-k8s-operator/pull/2">PR #2</a> -- Migration using the skill</li>
-<li><a href="./skill/">skill/</a> -- Copy of the skill files used in PR #2</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration/skill/">skill/</a> -- Copy of the skill files used in PR #2</li>
 <li><a href="https://github.com/canonical/copilot-collections/pull/29">Skill PR</a> -- The original skill in copilot-collections</li>
-<li><a href="./charmkeeper/">charmkeeper/</a> -- Copy of the charmkeeper agent instructions used in Run 3</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration/charmkeeper/">charmkeeper/</a> -- Copy of the charmkeeper agent instructions used in Run 3</li>
 <li><a href="https://github.com/seb4stien/charmkeeper">Charmkeeper</a> -- The charmkeeper project</li>
 </ul>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
@@ -1083,15 +1083,15 @@ mock_reload.assert_not_called()
 <p>An experiment to evaluate how effectively GitHub Copilot (using Claude models) can migrate Juju charm integration tests from pytest-operator/python-libjuju to <a href="https://documentation.ubuntu.com/jubilant">Jubilant</a> and <a href="https://pypi.org/project/pytest-jubilant/">pytest-jubilant</a>.</p>
 <h2>Contents</h2>
 <ul>
-<li><a href="README.md">README.md</a> — This file: overview, goals, and summary of findings</li>
-<li><a href="methodology.md">methodology.md</a> — Detailed experimental methodology</li>
-<li><a href="results.md">results.md</a> — Full results with data tables and analysis</li>
-<li><a href="evaluation-rubric.md">evaluation-rubric.md</a> — Scoring criteria used to evaluate migrations</li>
-<li><a href="guidance.md">guidance.md</a> — Practical guide for charmers using Copilot to migrate</li>
-<li><a href="prompts/">prompts/</a> — The 6 prompt templates tested at each assistance level</li>
-<li><a href="results/">results/</a> — Raw Copilot session transcripts and diffs for each run</li>
-<li><a href="gold-standards/">gold-standards/</a> — Reference migrations used for comparison</li>
-<li><a href="discourse-post.md">discourse-post.md</a> — Draft Discourse post announcing findings</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/README.md">README.md</a> — This file: overview, goals, and summary of findings</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/methodology.md">methodology.md</a> — Detailed experimental methodology</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/results.md">results.md</a> — Full results with data tables and analysis</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/evaluation-rubric.md">evaluation-rubric.md</a> — Scoring criteria used to evaluate migrations</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/guidance.md">guidance.md</a> — Practical guide for charmers using Copilot to migrate</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-02-17-jubilant-migration-experiment/prompts/">prompts/</a> — The 6 prompt templates tested at each assistance level</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-02-17-jubilant-migration-experiment/results/">results/</a> — Raw Copilot session transcripts and diffs for each run</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-02-17-jubilant-migration-experiment/gold-standards/">gold-standards/</a> — Reference migrations used for comparison</li>
+<li><a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/discourse-post.md">discourse-post.md</a> — Draft Discourse post announcing findings</li>
 </ul>
 <h2>Background</h2>
 <p>Canonical's charm ecosystem is migrating integration tests from <a href="https://github.com/charmed-kubernetes/pytest-operator">pytest-operator</a> (which wraps <a href="https://github.com/juju/python-libjuju">python-libjuju</a>) to <a href="https://github.com/canonical/jubilant">Jubilant</a>, a simpler, synchronous library that wraps the Juju CLI directly. This migration involves:</p>
@@ -1120,7 +1120,7 @@ mock_reload.assert_not_called()
 <li>What patterns does Copilot handle well, and where does it consistently struggle?</li>
 </ol>
 <h2>Methodology Summary</h2>
-<p>See <a href="methodology.md">methodology.md</a> for full details.</p>
+<p>See <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/methodology.md">methodology.md</a> for full details.</p>
 <p>I tested <strong>6 levels of assistance</strong>, from a bare one-line prompt to a detailed recipe combined with a working example:</p>
 <table>
 <thead>
@@ -1165,7 +1165,7 @@ mock_reload.assert_not_called()
 </table>
 <p>I ran all 6 levels on <code>saml-integrator-operator</code> using both Claude Sonnet 4.6 and Claude Opus 4.6 (12 runs), additional targeted runs on <code>s3-integrator</code> (5 runs), then the best approach on 5 additional charms from diverse teams (5 runs) — 22 experiments in total.</p>
 <p>(It's worth noting that one of the reasons for the number of runs was that some of them used a lot of memory and OOM'd out a couple of times, so I dropped a couple of less promising ones. The VM doing the work only had 8GB of memory.)</p>
-<p>Each run was evaluated against the <a href="evaluation-rubric.md">evaluation rubric</a> scoring correctness, completeness, code quality, minimal diff, and human review needed.</p>
+<p>Each run was evaluated against the <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/evaluation-rubric.md">evaluation rubric</a> scoring correctness, completeness, code quality, minimal diff, and human review needed.</p>
 <h2>Charms Tested</h2>
 <h3>Full Matrix (all 6 levels, both models)</h3>
 <table>
@@ -1282,7 +1282,7 @@ mock_reload.assert_not_called()
 </table>
 <p>Note that all of these were done by others, not me.</p>
 <h2>Results Summary</h2>
-<p>See <a href="results.md">results.md</a> for the full data.</p>
+<p>See <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/results.md">results.md</a> for the full data.</p>
 <h3>TL;DR numbers</h3>
 <table>
 <thead>
@@ -1386,7 +1386,7 @@ mock_reload.assert_not_called()
 <li><strong>Check for hallucinated parameters</strong> — especially <code>successes=</code> in <code>juju.wait()</code> calls</li>
 <li><strong>Don't use the detailed recipe in non-interactive mode</strong> — it was designed for supervised use</li>
 </ol>
-<p>See <a href="guidance.md">guidance.md</a> for a complete step-by-step guide.</p>
+<p>See <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/guidance.md">guidance.md</a> for a complete step-by-step guide.</p>
 <h2>Example Migrations</h2>
 <p>To put this into practice, Copilot was instructed to pick 5 charms to migrate using the recommended approach (Level 3 + Sonnet 4.6), selecting a diverse set across teams. Although the tests are somewhat diverse in style and complexity, most of the charms are actually from the same team — sorry about that. The resulting migrations have been submitted as PRs upstream (currently draft):</p>
 <table>
@@ -1475,13 +1475,13 @@ mock_reload.assert_not_called()
 </ol>
 <p>These are all things the AI was able to fix once it could see the CI output. The pattern was consistent: the initial migration is structurally correct but needs a round or two of polish to handle project-specific linting rules, dependency tooling, and CI environment details that aren't visible from the source code alone.</p>
 <h2>Related Experiments</h2>
-<p>The <a href="../2026-03-05-harness-to-scenario-migration/">harness-to-scenario migration experiment</a> explores the same core question — how much does an AI model need to be guided to perform a mechanical test migration? — but for unit tests rather than integration tests. It compares a bare prompt against a detailed skill for migrating from the deprecated <code>ops.testing.Harness</code> to state-transition tests (<code>ops.testing</code> / Scenario), and is a much smaller study (2 runs on a single charm). The conclusions broadly align: a bare prompt does a creditable job, and a well-crafted skill offers modest but meaningful improvements.</p>
+<p>The <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-03-05-harness-to-scenario-migration/">harness-to-scenario migration experiment</a> explores the same core question — how much does an AI model need to be guided to perform a mechanical test migration? — but for unit tests rather than integration tests. It compares a bare prompt against a detailed skill for migrating from the deprecated <code>ops.testing.Harness</code> to state-transition tests (<code>ops.testing</code> / Scenario), and is a much smaller study (2 runs on a single charm). The conclusions broadly align: a bare prompt does a creditable job, and a well-crafted skill offers modest but meaningful improvements.</p>
 <h2>Post-script: Charmkeeper</h2>
 <p>Since this experiment was conducted, the <a href="https://github.com/seb4stien/charmkeeper">Charmkeeper</a> project has published a dedicated <a href="https://github.com/seb4stien/charmkeeper/blob/main/.github/agents/charmkeeper-integration-tests.md">integration test agent</a> for writing, updating, and migrating integration tests to Jubilant. Charmkeeper is a custom agent designed to automate charm maintenance and modernisation — it analyses charm repositories and proposes standardisation improvements via draft PRs, covering unit tests, integration tests, and Terraform modules.</p>
 <p>The integration test agent takes a more opinionated approach than our experiment's single-prompt strategy. It provides structured conventions around fixtures, test organisation, dependency management (including Renovate configuration for tracking charm revisions), and maintains a "learnings" folder to accumulate organisational knowledge across runs — letting the agent improve over time as it encounters new patterns.</p>
 <p>This wasn't evaluated as part of our experiment because it wasn't available at the time, but it's well worth investigating — particularly if you're looking for an ongoing, agent-based workflow for charm maintenance rather than one-off migrations.</p>
 <h2>TL;DR but somehow got this far down, how does this help you?</h2>
-<p>See <a href="guidance.md">guidance.md</a> for a practical, step-by-step guide to using Copilot for your own migration.</p>]]></content:encoded>
+<p>See <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2026-02-17-jubilant-migration-experiment/guidance.md">guidance.md</a> for a practical, step-by-step guide to using Copilot for your own migration.</p>]]></content:encoded>
       <dc:creator>Tony Meyer</dc:creator>
       <pubDate>Tue, 10 Mar 2026 23:16:14 +1300</pubDate>
       <guid isPermaLink="false">experiment-2026-02-17-jubilant-migration-experiment</guid>
@@ -1642,7 +1642,7 @@ index e9f839d..60653a6 100644
 <p>(I have a Sungrow inverter and would like better access to the data than the app provides).</p>
 <h2>Goals</h2>
 <ul>
-<li>Continue iterating on the charm development process from the <a href="../2025-12-23-beszel-k8s-operator/">beszel experiment</a>.</li>
+<li>Continue iterating on the charm development process from the <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2025-12-23-beszel-k8s-operator/">beszel experiment</a>.</li>
 <li>Test the new <strong>skills</strong> that were created for <code>charmcraft</code>, <code>jhack</code>, and <code>concierge</code>.</li>
 <li>Continue to improve integration testing, but not particularly with spread in this case.</li>
 </ul>
@@ -1874,14 +1874,14 @@ rockcraft pack
 <p>In this experiment, I had Claude Code build a charm for <a href="https://www.beszel.dev">beszel</a>, a simple monitoring utility.</p>
 <h2>Goals</h2>
 <ul>
-<li>Determine how much Claude has progressed since the earlier <a href="../2025-08-01-mosquitto-operator/">mosquitto experiment</a>.</li>
+<li>Determine how much Claude has progressed since the earlier <a href="https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2025-08-01-mosquitto-operator/">mosquitto experiment</a>.</li>
 <li>Develop a Kubernetes charm, rather than a machine one.</li>
 <li>Run Claude in YOLO mode (<code>--dangerously-skip-permissions</code>) inside of a <a href="https://canonical.com/multipass">Multipass</a> virtual machine. It seems like this is the best way to run Claude Code for anything other than trivial work.</li>
 <li>To see how much could be accomplished with minimal input - basically give an initial, very basic, instruction to build the charm (I literally gave it only <code>Build a charm for beszel. https://www.beszel.dev/</code>) and see how far Claude could get without help.</li>
 </ul>
 <h2>Setup</h2>
 <p>Inside of the VM, I installed Claude Code itself, and also <a href="https://github.com/canonical/concierge">Concierge</a>, and ran <code>sudo concierge prepare -p dev</code> so that Claude was starting with a completely bootstrapped Juju (with both K8s and machine controllers).</p>
-<p>The <a href="./CLAUDE.md">CLAUDE.md</a> file had a few updates from the one used with the <code>mosquitto</code> experiment.</p>
+<p>The <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2025-12-23-beszel-k8s-operator/CLAUDE.md">CLAUDE.md</a> file had a few updates from the one used with the <code>mosquitto</code> experiment.</p>
 <pre><code class="language-diff">5,6d4
 &lt; Note that to run `charmcraft` on macOS, you will need to run `uvx charmcraft`.
 &lt; 
