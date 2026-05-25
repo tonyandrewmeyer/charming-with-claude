@@ -12,6 +12,7 @@
 * [llms.txt for documentation](https://discourse.ubuntu.com/t/llms-txt-for-documentation/79900)
 * [Simme on long-lasting teams of agents](https://simme.dev/posts/what-happens-if-you-give-an-ai-agent-a-home-instead-of-a-session/)
 * [Ben on a looping agent](https://benhoyt.com/writings/indecisive-ai-agent/)
+* [Writing an AI Agent](https://tillenius.me/blog/2026/05/10/writing-an-ai-agent)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
 
 ## Read everything from
