@@ -6,6 +6,118 @@
     <description>Updates from the Charming with Claude repository: new experiments and reading list additions</description>
     <atom:link href="https://tonyandrewmeyer.github.io/charming-with-claude/feed.rss" rel="self" type="application/rss+xml"/>
     <item>
+      <title>New Experiment: Mastodon No Scaffolding</title>
+      <link>https://github.com/tonyandrewmeyer/charming-with-claude/tree/main/experiments/2026-06-13-mastodon-no-scaffolding</link>
+      <description>New experiment: mastodon no scaffolding</description>
+      <content:encoded><![CDATA[<h1>Experiment: A Mastodon charm with no scaffolding at all</h1>
+<p><strong>Date:</strong> 2026-06-13
+<strong>Agent:</strong> Claude Code, Claude Fable 5
+<strong>Result:</strong> <a href="https://github.com/tonyandrewmeyer/mastodon-operator">tonyandrewmeyer/mastodon-operator</a>
+<strong>Build transcripts:</strong> <a href="https://github.com/tonyandrewmeyer/mastodon-operator/tree/main/docs/transcripts">docs/transcripts</a> in that repo</p>
+<p>It's been ten months since the <a href="https://github.com/tonyandrewmeyer/charming-with-claude/blob/main/experiments/2025-08-01-mosquitto-operator/README.md">mosquitto experiment</a>, and quite a lot has happened in between: Fable (arriving and, at time of writing, leaving...), Opus 4.x, Sonnet 4.x, Haiku 4.5, skills, MCP, content negotiation for docs, <a href="https://pypi.org/project/pytest-jubilant/"><code>pytest-jubilant</code></a> 2.0, <a href="https://github.com/canonical/charmlibs">charmlibs</a>, and (somewhat ironically) a lot of writing here in <code>charming-with-claude</code> about how to <em>help</em> the agent do this kind of work.</p>
+<p>I also spent a lot of time playing with building <a href="https://tonyandrewmeyer.github.io/cantrip">cantrip</a>, a day on <a href="https://github.com/canonical/-craft">"-craft"</a> insanity, and a chunk of time over the last few weeks looking into getting Pi/Opencode able to write and improve a charm with only models that I can run locally. More on the latter later.</p>
+<p>I wanted to set all of that aside for one experiment and ask a much narrower question: with none of the help we've been building -- no <code>CLAUDE.md</code>, no skills, no <code>.claude/commands</code>, no curated MCP servers, no llms.txt-aware doc server (llms.txt is coming to Ops, Jubilant, and most of the Canonical docs any day now), no priming, and only minimal nudging after the initial build -- how far can a recent agent actually get on its own, from a one-line prompt, with a small number of follow-ups that a non-expert user might plausibly write?</p>
+<p>The aim isn't really to compare Fable to Sonnet 4 from August: that comparison is unfair in several directions (different workload, different sandbox, different host OS, different mood). The aim is to set a baseline for "what does the floor look like now". When someone who has never written a charm sits down with Claude Code and types "build me a Mastodon charm", what do they get?</p>
+<h2>Setup</h2>
+<p>The whole experiment ran in a throwaway sandbox VM with network access and <code>sudo</code>, and nothing else: no <code>charmcraft</code>, no <code>juju</code>, no <code>lxd</code>, no <code>concierge</code>, no Python deps, no vendored libs. I gave the agent:</p>
+<ul>
+<li>A one-sentence task in the first turn.</li>
+<li>Nothing in <code>~/.claude/</code>, no project <code>CLAUDE.md</code>, no skills.</li>
+<li>Permission to run anything it wanted in the VM (it's disposable).</li>
+<li>A handful of follow-up prompts over the session.</li>
+</ul>
+<p>That's it. No instructions on how to structure a charm, no link to Ops docs, no warning that <code>charmcraft pack</code> is slow, no "use Jubilant for integration tests", no "use <code>charmlibs</code>", no "don't catch <code>Exception</code>". I was deliberately curious about what would emerge unprompted.</p>
+<p>I counted the human turns afterwards: 19, give or take, depending on whether you count "logged in" and "fix the issues" as separate prompts. The full unedited transcript is in the result repo. The actual prompts are roughly:</p>
+<ol>
+<li>Build a Mastodon charm. (initial)</li>
+<li>Same again (I cancelled the first one in under a minute — probably it shouldn't count), but mentioning the sandbox VM.</li>
+<li>Fix the issues.</li>
+<li>Are there integration tests? Observability integrations?</li>
+<li>Yes, add <code>cos-agent</code>.</li>
+<li>Use the <code>uv</code> plugin rather than <code>charm</code>.</li>
+<li>Yes, add TLS.</li>
+<li>A charm should encapsulate best practice for day-2 ops -- please research Mastodon's operator practices and make sure the charm does this.</li>
+<li>Should <code>nginx</code>/<code>web</code>/<code>sidekiq</code>/<code>streaming</code> really all be one charm, or split into a collection? Would that be more "Juju"?</li>
+<li>Yes, implement the role option.</li>
+<li>Add an honest experimental/alpha warning to the README, and export the build transcripts somewhere readable on GitHub.</li>
+<li>Push it to <code>github.com/tonyandrewmeyer/mastodon-operator</code>, configure the repo appropriately. (And I logged in to <code>gh</code>.)</li>
+<li>Yes, update copyright headers.</li>
+<li>Add a Dependabot config (non-security updates).</li>
+<li>Set a 7-day cooldown on it.</li>
+<li>Update <code>CONTRIBUTING.md</code> for the uv/tox-uv workflow.</li>
+<li>Switch CI to use <code>concierge</code>.</li>
+<li>Re-export the transcripts to pick up the extra work.</li>
+</ol>
+<p>Most of those are one-liners. There's nothing in there about architecture, code style, testing approach, or any of the things we'd normally script into a <code>CLAUDE.md</code>. The agent did all of that itself, or didn't.</p>
+<h2>What it built</h2>
+<p>A working machine charm for Mastodon v4.5.11 on Ubuntu 24.04, packed for amd64 and arm64. It:</p>
+<ul>
+<li>Installs Ruby (via <code>rbenv</code>, with jemalloc, matching the release's <code>.ruby-version</code>), Node.js 24 from Nodesource, and the various system packages Mastodon needs.</li>
+<li>Fetches the official Mastodon release tarball, builds it on the unit, and manages the long-lived secrets (<code>SECRET_KEY_BASE</code>, <code>OTP_SECRET</code>, VAPID, Active Record encryption keys) as a shared Juju app secret.</li>
+<li>Runs Puma (port 3000), Sidekiq, and the Node streaming API (port 4000) as <code>systemd</code> services, with <code>nginx</code> in front terminating TLS and serving static assets.</li>
+<li>Integrates with <code>postgresql</code> (required), optionally with an external Redis provider, an <code>s3</code>-compatible object store, Elasticsearch for full-text search, an <code>smtp</code> integrator, and a <code>tls-certificates</code> v4 provider. Without the optional integrations it runs a colocated <code>redis-server</code> and stores media on a Juju storage volume.</li>
+<li>Provides <code>cos-agent</code> for COS observability, with bundled alert rules and Mastodon's native Prometheus exporters wired up.</li>
+<li>Supports asymmetric scale-out via a <code>role</code> config and a peer-ish <code>primary</code>/<code>cluster</code> relation, so you can deploy extra applications running <code>sidekiq</code>-only or <code>streaming</code>-only that follow the primary's version and config.</li>
+<li>Coordinates upgrades following Mastodon's documented procedure (pre-deployment migrations against the old code, symlink swap, restart, post-deployment migrations once every aux unit has caught up).</li>
+<li>Has a daily systemd timer that prunes cached remote media per Mastodon's storage optimisation guidance, plus <code>tootctl</code>, <code>create-admin</code>, and <code>media-cleanup</code> actions.</li>
+</ul>
+<p>It deployed cleanly on local LXD against the real <code>postgresql</code> charm, came up <code>active</code>, and a second <code>role=sidekiq</code> application joined and reached <code>active</code> too. I did not run it federating, I did not push real traffic at it, and I have not security-reviewed any of the code. The README in the result repo is appropriately loud about this.</p>
+<p>By the numbers: <code>src/charm.py</code> is 743 lines, <code>src/mastodon.py</code> is 959 lines, <code>charmcraft.yaml</code> is 278 lines, and there are around 900 lines of unit tests plus a thin integration suite. CI is <code>tox -e lint</code>, <code>tox -e unit</code>, a <code>uv.lock</code> sync check, packing through <code>concierge</code>, and Zizmor on the workflows.</p>
+<h2>What was good</h2>
+<ul>
+<li><strong>It just worked.</strong> That's the headline. The mosquitto experiment in August produced something that didn't deploy, and I noted then that "I would rather start from scratch than start from this". This time the charm deployed, integrated with <code>postgresql</code>, came up active, and -- crucially -- did so as part of the same session, with the agent watching the unit status and fixing the things that broke. The "agent" part of "agentic" is doing real work here in a way it visibly wasn't ten months ago.</li>
+<li><strong>Unprompted use of Ops correctly.</strong> No <code>Harness</code>, no <code>ops.main(MyCharm)</code> with positional args, no obviously dated patterns. It used Scenario for unit tests, including <code>Context</code>/<code>State</code> properly, without being told to. This is a real change: in August, Scenario v7 was almost invisible to the agent.</li>
+<li><strong>Unprompted use of <code>jubilant</code> for integration tests.</strong> Again, without being told. The mosquitto attempts produced fake-async imaginings of Jubilant; this attempt produced something that actually looks like Jubilant code, including <code>pytest-jubilant</code> fixtures. I expect the work that's gone into Jubilant docs and the charmcraft profiles is what makes the difference here.</li>
+<li><strong>Unprompted use of charm libs.</strong> It vendored <code>data_platform_libs</code>, <code>operator_libs_linux</code> (unfortunately not the newer charmlibs versions), <code>tls_certificates_interface</code> v4, <code>cos_agent</code>, and <code>smtp_integrator</code> directly from the canonical repos, and used them more-or-less correctly. The mosquitto run had to be told about <code>operator-libs-linux</code> and then ignored the instruction.</li>
+<li><strong>Sensible architectural questions.</strong> When I asked "should this really be one charm?", the agent gave a 'thoughtful' answer about Mastodon's components scaling at different rates, sketched what splitting would look like, then proposed and implemented the asymmetric <code>role</code> option as a middle path. That feels more like a conversation with a colleague than with a stochastic parrot.</li>
+<li><strong>Day-2 operations.</strong> The "please research Mastodon's operator practices" prompt produced material gains: pre/post-deployment migration ordering, media pruning timers, append-only Redis, the <code>tootctl</code> action, a backup-and-restore section in the README that names exactly which secrets are load-bearing. Some of that came from real Mastodon docs; I'm sure some of it came from the training set. Either way, it's substantially more grown-up than the mosquitto output.</li>
+<li><strong>Decent docs.</strong> The README is long but readable, the <code>CONTRIBUTING.md</code> describes the actual workflow (rather than a fantasy one), there's a <code>SECURITY.md</code>, and the <code>transcripts/</code> directory has both a single Markdown file and an HTML export with a working index. It even worked around GitHub-renders-HTML-as-source by pointing at <code>htmlpreview.github.io</code>.</li>
+<li><strong>Self-correcting on real signal.</strong> During the deploy, the first attempt hit <code>hook failed: "storage-attached"</code> and then <code>hook failed: "install"</code>. The agent watched the logs, found the actual problem, and fixed it -- this is the kind of loop the mosquitto run couldn't really close because <code>charmcraft pack</code> and the integration tests were both too slow for the model's 'patience' at the time. Faster packing and the <code>uv</code> plugin help, but I think the bigger change is that the agent is willing to wait, and uses <code>Monitor</code> to react to unit-status transitions rather than polling.</li>
+<li><strong>It pushed the result and configured the repo.</strong> Dependabot, cooldowns, copyright headers, transcripts, an honest warning in the README. Bookkeeping that I'd usually do at the end and grumble about.</li>
+</ul>
+<h2>What was bad, or at least worth flagging</h2>
+<ul>
+<li><strong>Charm size and surface area.</strong> Two files, 1,700 lines of Python, 278 lines of <code>charmcraft.yaml</code>, six integrations, one storage volume, roles, asymmetric upgrades, COS, TLS via three different mechanisms, daily timers. This is large for a charm built in a single sitting from one prompt. Some of that is Mastodon being genuinely complex, but some of it is the agent's tendency to want to do everything. A human starting from scratch would possibly have stopped after "Puma + Sidekiq + Postgres" and shipped that first.</li>
+<li><strong>One charm doing everything.</strong> I asked about splitting it; the agent considered it and then talked us both out of it. That's <em>probably</em> the right call given the deep coupling between Mastodon's components and the shared release tree on disk (I use Mastodon but have never hosted it, so don't know for sure), but it's also a charm doing four daemons in one unit, which is the thing we usually try to avoid. I'd want to revisit this if it were going anywhere real.</li>
+<li><strong>Integration tests are still thin.</strong> 101 lines for one test file. They check the happy path -- deploy, relate, get to active -- and not much else. That's better than the mosquitto runs (which were imagined), but it's not the red/green approach we'd want for something this load-bearing. The agent didn't write integration tests first, and I didn't ask for it to.</li>
+<li><strong>Vendored libs vs <code>charm-libs:</code>.</strong> It pulled libs by <code>curl</code>ing them from <code>main</code>, instead of declaring <code>charm-libs:</code> and using <code>charmcraft fetch-libs</code>. The result works, but it pins to <code>main</code> at the moment of build, and it doesn't track lib versions the way <code>charmcraft fetch-libs</code> does. It's interesting given that charm libs in this form are on the way out.</li>
+<li><strong>No <code>pytest-jubilant</code> for the integration suite either.</strong> It used <code>jubilant</code> directly. Again, fine, but the wrapper exists and is what I'd reach for first.</li>
+<li><strong>The "role" option is clever but bespoke.</strong> It invented a <code>primary</code>/<code>cluster</code> relation pair to share config and version between applications. That's a reasonable shape, but it's not a documented Juju pattern that I know of -- closer to a peer relation across applications. I'd want a charmer to look hard at this before depending on it.</li>
+<li><strong>Lots of low-confidence detail in the README.</strong> The <code>extra-env</code> table, the <code>MASTODON_PROMETHEUS_EXPORTER_WEB_DETAILED_METRICS=true</code> advice, the <code>ES_USER</code>/<code>ES_PASS</code>/<code>ES_CA_FILE</code> notes -- I have no way of being sure those are right without running them, and I haven't.</li>
+<li><strong>No formal review of the code.</strong> I read enough to write this up and to be happy that the shape is right, but I didn't do a line-by-line review. The README warning in the result repo reflects that honestly.</li>
+</ul>
+<h2>Other observations</h2>
+<ul>
+<li><strong>The number of prompts is the point.</strong> Nineteen-ish messages, almost all of them under 20 words. No template, no examples, no skills, no scaffolding. The cumulative time I spent typing was well under ten minutes. That's a very different mode to where we are when we're carefully crafting <code>CLAUDE.md</code> files, and it's worth holding both shapes in mind.</li>
+<li><strong>The agent volunteered structure I would have asked for.</strong> A <code>pyproject.toml</code>, a <code>tox.ini</code>, <code>ruff</code> + <code>pyright</code>, a <code>uv.lock</code>, a <code>CONTRIBUTING.md</code>, GitHub Actions CI, <code>concierge.yaml</code>, Zizmor, copyright headers. These are the things our <code>claude-instructions/CLAUDE.md</code> says to do; they emerged partly unprompted. Some of that is probably training data catching up, some is definitely <code>charmcraft init</code>, and some is probably the model being more confident about scaffolding conventions in general.</li>
+<li><strong>Skill-shaped behaviour without skills.</strong> It used <code>claude-transcript</code> and <code>claude-code-transcripts</code> to export the session, sensibly (I did point it there). It used <code>concierge prepare -p dev</code> when asked. It used <code>Monitor</code> to watch unit status. These are all things that <em>could</em> be a skill, and the agent is increasingly capable of figuring them out on its own when the task makes it obvious which tool fits.</li>
+<li><strong>Where help still wins.</strong> I am unsure if this means that <code>CLAUDE.md</code> and skills don't matter. The llms.txt experiment showed that inference-time docs add ~7pp to a different evaluation; instructions still bring down cost meaningfully; skills still encode hard-won shape. But a lot of what we used to write into <code>CLAUDE.md</code> is becoming default behaviour. The marginal value of a <code>CLAUDE.md</code> line that says "always use Jubilant for integration tests" is much lower in June 2026 than it was in August 2025.</li>
+<li><strong><code>Monitor</code> and background tasks changed the feel.</strong> A lot of the build transcript is the agent watching a long task in the background while doing something else. The "agent gives up because <code>charmcraft pack</code> is slow" failure mode from the mosquitto experiment has effectively been engineered away.</li>
+<li><strong>It thinks about itself.</strong> When I asked for the README disclaimer, it wrote one that's more honest than I would have expected -- "has not had a security review, and is not maintained or endorsed by anyone. Treat it as a reference/prototype". This is good. Less impressively, the changelog still has that I-am-pitching-to-a-VP tone in places.</li>
+</ul>
+<h2>So how far have things actually come?</h2>
+<p>Quite a long way, mainly in the agent's <em>behaviour</em> rather than in any individual capability:</p>
+<ul>
+<li>It will wait for slow things now.</li>
+<li>It will react to real signal (failing hooks, unit-status transitions) and not just to its own predictions.</li>
+<li>It will pick the modern tool unprompted more often than not.</li>
+<li>It will hold a multi-step plan across an hour and a half of real work.</li>
+<li>It will ask reasonable architectural questions when given the opening, and answer reasonable architectural questions when asked.</li>
+</ul>
+<p>What hasn't changed: it still over-builds, it still writes thinner tests than it should, it still wants to write code more than it wants to read it, and it still produces some prose that reads like it's trying too hard. But the gap between "what you get with no scaffolding" and "what you get with our best scaffolding" has narrowed considerably, and the floor has risen.</p>
+<p>Some of this is that the harness is better and the model is better. Some will definitely be a combination of improved documentation on our side and the training window capturing more of that. I think a lot is better scaffolding from <code>charmcraft init</code>, even though I didn't do that for the agent, or even mention it, just getting the latest version does a lot.</p>
+<p>For the question I actually care about -- can someone new to charming get a usable starting point out of an agent with no help -- the answer is now closer to "yes" than it was. Not "yes, ship this", but "yes, you have something concrete to read, learn from, and improve". That feels like real progress.</p>
+<h2>Next</h2>
+<ul>
+<li>Re-run with <code>CLAUDE.md</code> + skills + llms.txt available, on the same workload, and compare. The most interesting question is no longer "does scaffolding help" but "what's the marginal effect now". I suspect a lot smaller than it used to be, and concentrated in code quality rather than getting-to-active. I've been doing a lot with much simpler harnesses and local models, trying to find the right sort of assistance, and this is a valuable data point.</li>
+<li>Try the same one-line-prompt experiment with a Kubernetes charm. I expect the gap to widen there -- Pebble events are harder to reason about from training data alone.</li>
+<li>Have a real charmer review <code>mastodon-operator</code>'s charm code and write up the actual technical-debt list. The README warning is honest, but it would be more useful if it were specific. Tricky to do without loading someone up with a review they didn't ask for.</li>
+</ul>]]></content:encoded>
+      <dc:creator>Tony Meyer</dc:creator>
+      <pubDate>Sat, 13 Jun 2026 20:59:26 +1200</pubDate>
+      <guid isPermaLink="false">experiment-2026-06-13-mastodon-no-scaffolding</guid>
+    </item>
+    <item>
       <title>Reading List Update: Add new resource link about AI enthusiasts and skeptics</title>
       <link>https://github.com/tonyandrewmeyer/charming-with-claude/commit/818592709a8213978b4a1e6c59b0b6a4d93cb2f9</link>
       <description>Add new resource link about AI enthusiasts and skeptics</description>
