@@ -51,6 +51,7 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [A software library with no code](https://www.dbreunig.com/2026/01/08/a-software-library-with-no-code.html), and [follow-up](https://www.dbreunig.com/2026/02/06/the-rise-of-spec-driven-development.html), spec driven development.
 * [rsync and outrage](https://medium.com/@tridge60/rsync-and-outrage-d9849599e5a0), balanced take on handling critiscm on AI use
 * [AI enthusiasts are in a race against time, AI skeptics are in a race against entropy](https://charity.wtf/2026/06/02/ai-enthusiasts-are-in-a-race-against-time-ai-skeptics-are-in-a-race-against-entropy-xpost/), finding the middle ground
+* [AI demands more engineering discipline, not less](https://charity.wtf/2026/06/15/ai-demands-more-engineering-discipline-not-less-xpost/), a great follow-up to the previous post
 
 ### Agent instruction files:
 * [Stop using CLAUDE.md](https://www.xda-developers.com/claude-md-helping-your-projects-is-myth/)
