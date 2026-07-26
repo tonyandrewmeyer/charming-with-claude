@@ -17,11 +17,9 @@ Usage:
 
 import argparse
 import json
-import os
 import random
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -46,9 +44,9 @@ CONDITION_PROMPTS = {
     ),
     "D": None,  # Uses CLAUDE.md + skills + llms.txt hint appended
     "E": (
-        "You are writing a Juju charm. "
-        "Documentation is available at documentation.ubuntu.com."
-    ),  # Like C but no llms.txt hint — tests content negotiation (markdown format) without discovery index
+        "You are writing a Juju charm. Documentation is available at documentation.ubuntu.com."
+    ),  # Like C but no llms.txt hint: tests content negotiation (markdown
+    #     format) without a discovery index.
 }
 
 # Conditions that need /etc/hosts override (local docs with llms.txt + content negotiation)
@@ -64,6 +62,7 @@ MODEL_MAP = {
 
 
 def load_questions() -> list[dict]:
+    """Load the experiment's question set."""
     with open(QUESTIONS_FILE) as f:
         return json.load(f)
 
@@ -112,11 +111,7 @@ def setup_workdir(condition: str) -> Path:
 
     if condition in INSTRUCTIONS_CONDITIONS:
         # Copy CLAUDE.md and skills from claude-instructions/
-        claude_instructions = (
-            Path.home()
-            / "charming-with-claude"
-            / "claude-instructions"
-        )
+        claude_instructions = Path.home() / "charming-with-claude" / "claude-instructions"
         claude_md_src = claude_instructions / "CLAUDE.md"
         if claude_md_src.exists():
             shutil.copy2(claude_md_src, workdir / "CLAUDE.md")
@@ -168,10 +163,13 @@ def run_session(
     cmd = [
         "claude",
         "-p",
-        "--output-format", "json",
+        "--output-format",
+        "json",
         "--dangerously-skip-permissions",
-        "--model", MODEL_MAP[model],
-        "--max-budget-usd", "2.00",
+        "--model",
+        MODEL_MAP[model],
+        "--max-budget-usd",
+        "2.00",
         "--no-session-persistence",
     ]
 
@@ -183,10 +181,12 @@ def run_session(
     elif condition in ("B", "D"):
         # CLAUDE.md is in the workdir and will be auto-discovered.
         # Use --append-system-prompt for the base charm instruction.
-        cmd.extend([
-            "--append-system-prompt",
-            "You are writing a Juju charm.",
-        ])
+        cmd.extend(
+            [
+                "--append-system-prompt",
+                "You are writing a Juju charm.",
+            ]
+        )
 
     # The question itself
     cmd.append(question["question"])
@@ -260,16 +260,16 @@ def build_run_plan(
         for question in questions:
             for condition in conditions:
                 for model in models:
-                    session_id = (
-                        f"{question['id']}_{condition}_{model}_run{run_number}"
+                    session_id = f"{question['id']}_{condition}_{model}_run{run_number}"
+                    plan.append(
+                        {
+                            "question": question,
+                            "condition": condition,
+                            "model": model,
+                            "run_number": run_number,
+                            "session_id": session_id,
+                        }
                     )
-                    plan.append({
-                        "question": question,
-                        "condition": condition,
-                        "model": model,
-                        "run_number": run_number,
-                        "session_id": session_id,
-                    })
 
     # Randomise order within each run
     rng = random.Random(seed)
@@ -287,10 +287,9 @@ def build_run_plan(
 
 
 def main():
+    """Run the llms.txt documentation experiment."""
     parser = argparse.ArgumentParser(description="Run the llms.txt experiment")
-    parser.add_argument(
-        "--runs", type=int, default=3, help="Number of runs (default: 3)"
-    )
+    parser.add_argument("--runs", type=int, default=3, help="Number of runs (default: 3)")
     parser.add_argument(
         "--conditions",
         default="A,B,C,D,E",
@@ -309,12 +308,8 @@ def main():
     parser.add_argument(
         "--resume", action="store_true", help="Skip sessions with existing results"
     )
-    parser.add_argument(
-        "--seed", type=int, default=42, help="Random seed for run order"
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Print plan without running"
-    )
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for run order")
+    parser.add_argument("--dry-run", action="store_true", help="Print plan without running")
     args = parser.parse_args()
 
     conditions = [c.strip() for c in args.conditions.split(",")]
@@ -330,10 +325,7 @@ def main():
     plan = build_run_plan(questions, conditions, models, args.runs, args.seed)
 
     if args.resume:
-        plan = [
-            p for p in plan
-            if not (RESULTS_DIR / p["session_id"] / "result.json").exists()
-        ]
+        plan = [p for p in plan if not (RESULTS_DIR / p["session_id"] / "result.json").exists()]
 
     total = len(plan)
     print(f"Plan: {total} sessions")
@@ -345,7 +337,7 @@ def main():
     if args.dry_run:
         for i, item in enumerate(plan):
             print(
-                f"  [{i+1}/{total}] {item['session_id']}: "
+                f"  [{i + 1}/{total}] {item['session_id']}: "
                 f"{item['question']['id']} cond={item['condition']} "
                 f"model={item['model']}"
             )
@@ -369,7 +361,7 @@ def main():
                 current_local_docs = False
 
             print(
-                f"[{i+1}/{total}] {item['session_id']} "
+                f"[{i + 1}/{total}] {item['session_id']} "
                 f"(cond={item['condition']}, model={item['model']})"
             )
 

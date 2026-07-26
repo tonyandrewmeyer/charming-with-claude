@@ -96,6 +96,7 @@ class Context:
     def __init__(self, meta: dict):
         self._meta = meta  # Should be: dict(meta) or meta.copy()
 
+
 # BUG: internal state returned without copy — caller can mutate internal state
 def get_config(self):
     return self._config  # Should be: dict(self._config)

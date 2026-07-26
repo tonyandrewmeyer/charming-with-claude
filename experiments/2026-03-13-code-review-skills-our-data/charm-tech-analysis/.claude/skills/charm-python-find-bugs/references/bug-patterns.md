@@ -44,7 +44,7 @@ SQLite storage and secret temp files created with default 0o644 (world-readable)
 **Fix pattern**: Use `os.open()` with explicit mode.
 ```python
 fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=0o600)
-with os.fdopen(fd, 'w', encoding='utf-8') as f:
+with os.fdopen(fd, "w", encoding="utf-8") as f:
     f.write(secret_value)
 ```
 Precedent: `e4b0f9d4` (operator)
@@ -71,6 +71,7 @@ Dicts and lists passed by reference allow callers to corrupt internal state, or 
 def get_config(self):
     return self._config
 
+
 # Fix: copy on return
 def get_config(self):
     return dict(self._config)
@@ -92,6 +93,7 @@ class Context:
     def __init__(self, meta: dict):
         self._meta = meta
 
+
 # Fix: copy on store
 class Context:
     def __init__(self, meta: dict):
@@ -112,6 +114,7 @@ Precedents: `89d6218e`, `49e542c6` (charmlibs)
 # Bug: shared across all instances
 class Config(Mapping):
     _lazy_data: Optional[Dict] = None
+
 
 # Fix: initialize in __init__
 class Config(Mapping):
@@ -344,7 +347,7 @@ Precedent: `2c749e95` (jubilant)
 args.append(f'--channel="{channel}"')
 
 # Fix: no embedded quotes needed with list args
-args.append(f'--channel={channel}')
+args.append(f"--channel={channel}")
 ```
 Current bug: `_install` and `_refresh` in snap.py — operator-libs-linux + charmlibs
 
@@ -374,6 +377,7 @@ snapd API returns "too many requests". All snap operations need retry logic.
 class Config(Dict):
     def __init__(self):
         self._data = self._load_data()
+
     # dict methods like .items(), .keys() return empty results
 ```
 
@@ -462,6 +466,7 @@ def _event_context(self, event_name):
     self._event_name = event_name
     yield
     self._event_name = None  # never reached on exception
+
 
 # Fix:
 @contextmanager

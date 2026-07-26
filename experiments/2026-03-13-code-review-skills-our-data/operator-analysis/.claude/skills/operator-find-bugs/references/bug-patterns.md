@@ -80,7 +80,9 @@ When returning internal state, return a copy.
 Bad:
 ```python
 def relation_get(self, relation_id, member_name, is_app):
-    return self._relation_data_raw[relation_id][member_name]  # BUG: caller can corrupt internal state
+    return self._relation_data_raw[relation_id][
+        member_name
+    ]  # BUG: caller can corrupt internal state
 ```
 
 Good:

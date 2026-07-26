@@ -19,10 +19,12 @@ import ops
 class MyCharm(ops.CharmBase):
     def _on_database_relation_joined(self, event: ops.RelationJoinedEvent):
         # Writing: manual JSON serialisation into the string-keyed data bag
-        event.relation.data[self.app]["endpoint"] = json.dumps({
-            "host": "db.local",
-            "port": 5432,
-        })
+        event.relation.data[self.app]["endpoint"] = json.dumps(
+            {
+                "host": "db.local",
+                "port": 5432,
+            }
+        )
         event.relation.data[self.app]["version"] = "14"
 
     def _on_database_relation_changed(self, event: ops.RelationChangedEvent):
@@ -65,6 +67,7 @@ Alias support for dashes in relation data keys:
 @dataclasses.dataclass
 class Data:
     secret_id: str = dataclasses.field(metadata={"alias": "secret-id"})
+
 
 # Or with Pydantic:
 class Data(pydantic.BaseModel):

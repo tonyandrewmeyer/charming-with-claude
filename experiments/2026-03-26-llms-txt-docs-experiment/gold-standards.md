@@ -40,9 +40,7 @@ def _on_database_relation_changed(self, event: ops.RelationChangedEvent):
 ```python
 def _on_database_relation_changed(self, event: ops.RelationChangedEvent):
     remote_units_databags = {
-        event.relation.data[unit]
-        for unit in event.relation.units
-        if unit.app is not self.app
+        event.relation.data[unit] for unit in event.relation.units if unit.app is not self.app
     }
 ```
 
@@ -63,6 +61,7 @@ local_unit_databag = event.relation.data[self.unit]
 class MyData:
     foo: str
     bar: int
+
 
 data = event.relation.load(MyData, event.app)
 print(data.foo)
@@ -170,13 +169,13 @@ class MyCharm(ops.CharmBase):
         # Triggered for the leader unit only.
         num_degraded = ...  # inspect peer databags
         if num_degraded:
-            event.add_status(ops.ActiveStatus(f'degraded units: {num_degraded}'))
+            event.add_status(ops.ActiveStatus(f"degraded units: {num_degraded}"))
             return
         event.add_status(ops.ActiveStatus())
 
     def _on_collect_unit_status(self, event: ops.CollectStatusEvent):
         # Triggered for each unit.
-        if not self.model.config.get('port'):
+        if not self.model.config.get("port"):
             event.add_status(ops.BlockedStatus('please set "port" config'))
             return
         event.add_status(ops.ActiveStatus())
@@ -341,14 +340,14 @@ import pytest
 import jubilant
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def juju():
     with jubilant.temp_model() as juju:
         yield juju
 
 
 def test_deploy(juju: jubilant.Juju):
-    juju.deploy('my-charm')
+    juju.deploy("my-charm")
     juju.wait(jubilant.all_active)
 ```
 
@@ -373,8 +372,8 @@ juju.wait(lambda status: jubilant.all_active(status) and jubilant.all_agents_idl
 
 **Adding a relation:**
 ```python
-juju.integrate('app1', 'app2')
-juju.wait(lambda status: jubilant.all_active(status, 'app1', 'app2'))
+juju.integrate("app1", "app2")
+juju.wait(lambda status: jubilant.all_active(status, "app1", "app2"))
 ```
 
 **Key facts:**
@@ -399,8 +398,8 @@ juju.wait(lambda status: jubilant.all_active(status, 'app1', 'app2'))
 ## Q12: How do you run a Juju action on a unit and check its results using jubilant?
 
 ```python
-result = juju.run('mysql/0', 'get-password')
-assert result.results['username'] == 'USER0'
+result = juju.run("mysql/0", "get-password")
+assert result.results["username"] == "USER0"
 ```
 
 **Signature:** `juju.run(unit, action, params=None, wait=None) -> Task`
@@ -498,17 +497,17 @@ The `charmlibs.pathops` library provides a `pathlib`-like interface for working 
 
 **`ContainerPath` usage:**
 ```python
-container = self.unit.get_container('c')
-path = ContainerPath('/etc/myapp/config.yaml', container=container)
+container = self.unit.get_container("c")
+path = ContainerPath("/etc/myapp/config.yaml", container=container)
 
 # Supports pathlib-like operations
 path.read_text()
-path.write_text('content', mode=0o640, user='app', group='app')
+path.write_text("content", mode=0o640, user="app", group="app")
 path.mkdir(parents=True, exist_ok=True)
-path / 'subdir'  # join paths
+path / "subdir"  # join paths
 path.exists()
 path.iterdir()
-path.glob('*.conf')
+path.glob("*.conf")
 ```
 
 **`ensure_contents` signature:**
@@ -763,13 +762,13 @@ class MinimalCharm(ops.CharmBase):
         framework.observe(self.on.collect_unit_status, self._on_collect_status)
 
     def _on_collect_status(self, event: ops.CollectStatusEvent):
-        if not self.config.get('name'):
-            event.add_status(ops.WaitingStatus('waiting for name config'))
+        if not self.config.get("name"):
+            event.add_status(ops.WaitingStatus("waiting for name config"))
             return
         event.add_status(ops.ActiveStatus())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ops.main(MinimalCharm)
 ```
 
@@ -816,43 +815,43 @@ def _on_pebble_ready(self, event: ops.PebbleReadyEvent):
     container = event.workload
 
     # Get command from config
-    command = self.config.get('command', '/usr/bin/app')
+    command = self.config.get("command", "/usr/bin/app")
 
     # Get database connection details from relation
     env = {}
-    db_relation = self.model.get_relation('database')
+    db_relation = self.model.get_relation("database")
     if db_relation and db_relation.app:
         db_data = db_relation.data[db_relation.app]
-        env['DB_HOST'] = db_data.get('endpoints', '')
-        env['DB_NAME'] = db_data.get('database', '')
+        env["DB_HOST"] = db_data.get("endpoints", "")
+        env["DB_NAME"] = db_data.get("database", "")
         # For secrets-based interfaces, credentials come via Juju secrets
         # For simple interfaces, they may be in the databag directly
 
     layer = {
-        'summary': 'app layer',
-        'services': {
-            'app': {
-                'override': 'replace',
-                'command': command,
-                'startup': 'enabled',
-                'environment': env,
-                'on-check-failure': {
-                    'app-health': 'restart',
+        "summary": "app layer",
+        "services": {
+            "app": {
+                "override": "replace",
+                "command": command,
+                "startup": "enabled",
+                "environment": env,
+                "on-check-failure": {
+                    "app-health": "restart",
                 },
             },
         },
-        'checks': {
-            'app-health': {
-                'override': 'replace',
-                'level': 'ready',
-                'http': {
-                    'url': 'http://localhost:8080/health',
+        "checks": {
+            "app-health": {
+                "override": "replace",
+                "level": "ready",
+                "http": {
+                    "url": "http://localhost:8080/health",
                 },
             },
         },
     }
 
-    container.add_layer('app', layer, combine=True)
+    container.add_layer("app", layer, combine=True)
     container.replan()
 ```
 
@@ -881,20 +880,20 @@ class ProviderCharm(ops.CharmBase):
     def __init__(self, framework: ops.Framework):
         super().__init__(framework)
         framework.observe(
-            self.on['my_service'].relation_joined,
+            self.on["my_service"].relation_joined,
             self._on_relation_joined,
         )
 
     def _on_relation_joined(self, event: ops.RelationJoinedEvent):
         # Set the endpoint key in the relation data to this unit's FQDN
         # Unit databag is writable by the unit itself
-        event.relation.data[self.unit]['endpoint'] = self._get_fqdn()
+        event.relation.data[self.unit]["endpoint"] = self._get_fqdn()
 
     def _get_fqdn(self) -> str:
         return socket.getfqdn()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ops.main(ProviderCharm)
 ```
 

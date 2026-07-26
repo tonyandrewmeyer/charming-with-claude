@@ -83,9 +83,7 @@ plan.services["app"].environment["NEW_VAR"] = "value"
 
 **After (fixed):**
 ```python
-new_layer = Layer({
-    "services": {"app": {"environment": {"NEW_VAR": "value"}}}
-})
+new_layer = Layer({"services": {"app": {"environment": {"NEW_VAR": "value"}}}})
 container.add_layer("app", new_layer, combine=True)
 container.replan()
 ```
@@ -123,10 +121,14 @@ layer = Layer({"services": {"app": {"environment": env}}})
 
 **After (fixed):**
 ```python
-env = {k: v for k, v in {
-    "DB_HOST": self._get_db_host(),
-    "TRACING_ENABLED": "true",  # Explicit lowercase string
-}.items() if v is not None}
+env = {
+    k: v
+    for k, v in {
+        "DB_HOST": self._get_db_host(),
+        "TRACING_ENABLED": "true",  # Explicit lowercase string
+    }.items()
+    if v is not None
+}
 ```
 
 **Repos affected:** hydra-operator (bool in env dict), many SD-Core charms (None from _get_pod_ip()).
@@ -328,6 +330,7 @@ def _on_config_changed(self, event):
 def _on_config_changed(self, event):
     self._apply_config()
     self._update_status()
+
 
 def _update_status(self):
     if not self._database_ready():
@@ -588,16 +591,14 @@ def _on_delete_action(self, event):
 **Before (buggy):**
 ```python
 endpoint = next(
-    e for e in relation_data.endpoints
-    if e.name == "SingleSignOnService"
+    e for e in relation_data.endpoints if e.name == "SingleSignOnService"
 )  # Raises StopIteration if no match
 ```
 
 **After (fixed):**
 ```python
 endpoint = next(
-    (e for e in relation_data.endpoints
-     if e.name == "SingleSignOnService"),
+    (e for e in relation_data.endpoints if e.name == "SingleSignOnService"),
     None,
 )
 if endpoint is None:
@@ -734,6 +735,7 @@ def _handle_tls(self):
         self.unit.status = BlockedStatus("TLS not supported for this service")
         return  # Returns, but caller keeps going
 
+
 def _update(self):
     self._handle_tls()  # Sets BlockedStatus and returns, but...
     container.push(config_path, config)  # ...continues anyway
@@ -748,6 +750,7 @@ def _handle_tls(self) -> bool:
         self.unit.status = BlockedStatus("TLS not supported for this service")
         return False
     return True
+
 
 def _update(self):
     if not self._handle_tls():
@@ -854,10 +857,7 @@ api_endpoints = {
 **After (fixed):**
 ```python
 base_url = self.external_url or self._internal_url
-api_endpoints = {
-    key: f"{base_url}{path}"
-    for key, path in endpoints.items()
-}
+api_endpoints = {key: f"{base_url}{path}" for key, path in endpoints.items()}
 ```
 
 **Repos affected:** prometheus-k8s-operator (catalogue API endpoints with None external_url).

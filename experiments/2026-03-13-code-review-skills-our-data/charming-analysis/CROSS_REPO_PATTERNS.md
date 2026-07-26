@@ -126,14 +126,14 @@ grep -rn "except ValidationError:$" --include="*.py"
 **Before (buggy):**
 ```python
 # Zero is a valid value but is falsy in Python
-if self.config['max-content-length']:
-    superset_config['MAX_CONTENT_LENGTH'] = self.config['max-content-length']
+if self.config["max-content-length"]:
+    superset_config["MAX_CONTENT_LENGTH"] = self.config["max-content-length"]
 # Bug: max-content-length of 0 is treated as "not set"
 ```
 
 ```python
 # Any non-empty string is truthy, including "False"
-if relation_data.get('tls') or relation_data.get('tls-external'):
+if relation_data.get("tls") or relation_data.get("tls-external"):
     use_tls = True
 # Bug: tls="False" evaluates to True
 ```
@@ -146,12 +146,12 @@ if current_env["DISCOURSE_USE_S3"]:
 
 **After (fixed):**
 ```python
-if self.config['max-content-length'] is not None:
-    superset_config['MAX_CONTENT_LENGTH'] = self.config['max-content-length']
+if self.config["max-content-length"] is not None:
+    superset_config["MAX_CONTENT_LENGTH"] = self.config["max-content-length"]
 ```
 
 ```python
-if relation_data.get('tls') == 'True':
+if relation_data.get("tls") == "True":
     use_tls = True
 ```
 
@@ -281,6 +281,8 @@ grep -rn '\$__interval[^_]' --include="*.json"
 @property
 def tls_enabled(self):
     return self.relation_data.get("tls") == "enabled"
+
+
 # Bug: flag becomes stale when leader is removed
 ```
 
@@ -312,7 +314,7 @@ def tls_enabled(self):
 ```
 
 ```python
-ca_chain: Optional[list[str]] = certificate.ca_chain.split('\n\n')
+ca_chain: Optional[list[str]] = certificate.ca_chain.split("\n\n")
 ```
 
 ```python
@@ -450,9 +452,9 @@ grep -rn "relation_broken" --include="*.py" # Check: are all critical relations 
 ```python
 def fetch_postgres_relation_data(self):
     for data in relation_data:
-        host = val['endpoints']      # 'val' was renamed to 'data'
-        user = val['username']       # NameError at runtime
-        password = val['password']
+        host = val["endpoints"]  # 'val' was renamed to 'data'
+        user = val["username"]  # NameError at runtime
+        password = val["password"]
 ```
 
 ```python
@@ -465,9 +467,9 @@ self.framework.observe(self.on.secret_changed, self._on_secret_change)
 ```python
 def fetch_postgres_relation_data(self):
     for data in relation_data:
-        host = data['endpoints']
-        user = data['username']
-        password = data['password']
+        host = data["endpoints"]
+        user = data["username"]
+        password = data["password"]
 ```
 
 **What to search for:**
@@ -500,6 +502,7 @@ def _on_install(self, event):
         return
     self.unit.status = ActiveStatus()  # Premature: other preconditions not checked
 
+
 def _on_config_changed(self, event):
     # May overwrite the correct Waiting status from install
     self.unit.status = ActiveStatus()
@@ -515,9 +518,11 @@ def _get_status(self):
         return BlockedStatus("Kafka unhealthy")
     return ActiveStatus()
 
+
 def _on_install(self, event):
     self._do_install()
     self.unit.status = self._get_status()
+
 
 def _on_config_changed(self, event):
     self._do_config()
@@ -709,7 +714,7 @@ grep -rn "plan\.services\[.*\]\.environment" --include="*.py"
 ```python
 def _on_snapshot_action(self, event):
     if not valid:
-        event.set_results({'ReturnCode': 1, 'Stderr': 'Invalid snapshot'})
+        event.set_results({"ReturnCode": 1, "Stderr": "Invalid snapshot"})
         return  # Juju still marks this as "completed" (success)
 ```
 
@@ -721,7 +726,7 @@ event.set_results(email)  # TypeError: expects dict, got str
 ```python
 def _on_snapshot_action(self, event):
     if not valid:
-        event.fail('Invalid snapshot name')
+        event.fail("Invalid snapshot name")
         return
 ```
 

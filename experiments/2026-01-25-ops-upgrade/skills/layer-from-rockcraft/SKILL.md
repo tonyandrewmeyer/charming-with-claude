@@ -29,16 +29,18 @@ from ops import testing
 container = testing.Container(
     name="workload",
     layers={
-        "rock": ops.pebble.Layer({
-            "services": {
-                "myapp": {
-                    "command": "/bin/myapp serve",
-                    "override": "replace",
-                    "startup": "enabled",
-                    "environment": {"PORT": "8080"},
+        "rock": ops.pebble.Layer(
+            {
+                "services": {
+                    "myapp": {
+                        "command": "/bin/myapp serve",
+                        "override": "replace",
+                        "startup": "enabled",
+                        "environment": {"PORT": "8080"},
+                    }
                 }
             }
-        }),
+        ),
     },
 )
 

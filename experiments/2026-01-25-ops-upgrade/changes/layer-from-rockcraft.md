@@ -18,15 +18,17 @@ from ops import testing
 container = testing.Container(
     name="workload",
     layers={
-        "workload": ops.pebble.Layer({
-            "services": {
-                "myapp": {
-                    "command": "/bin/myapp --config /etc/myapp/config.yaml",
-                    "override": "replace",
-                    "startup": "enabled",
+        "workload": ops.pebble.Layer(
+            {
+                "services": {
+                    "myapp": {
+                        "command": "/bin/myapp --config /etc/myapp/config.yaml",
+                        "override": "replace",
+                        "startup": "enabled",
+                    }
                 }
             }
-        }),
+        ),
     },
 )
 ```

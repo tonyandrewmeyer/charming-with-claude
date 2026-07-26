@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import ClassVar
 
 from textual import work
 from textual.app import App, ComposeResult
@@ -46,6 +47,7 @@ class StatsBar(Static):
     """Top bar showing review progress."""
 
     def update_stats(self, stats: dict) -> None:
+        """Refresh the displayed review progress counts."""
         done = stats["reviewed"] + stats["false_positive"]
         total = stats["total"]
         pct = f"{100 * done / total:.0f}%" if total else "–"
@@ -61,9 +63,11 @@ class FindingDetail(VerticalScroll):
     """Right-hand pane showing a single finding's details."""
 
     def compose(self) -> ComposeResult:
+        """Build this widget's child widgets."""
         yield Label("Select a finding from the table.", id="detail-placeholder")
 
     def show_finding(self, f: dict) -> None:
+        """Display one finding's details."""
         self.remove_children()
 
         sev_style = SEVERITY_COLOURS.get(f["severity"], "")
@@ -97,6 +101,7 @@ class FindingDetail(VerticalScroll):
             self.mount(Static(body, markup=False))
 
     def show_empty(self) -> None:
+        """Show the placeholder used when nothing is selected."""
         self.remove_children()
         self.mount(Label("Select a finding from the table."))
 
@@ -169,7 +174,7 @@ class ReviewApp(App):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list] = [
         Binding("r", "mark_reviewed", "Reviewed", show=True),
         Binding("f", "mark_false_positive", "False Positive", show=True),
         Binding("p", "mark_pending", "Pending", show=True),
@@ -191,6 +196,7 @@ class ReviewApp(App):
         self._reloading: bool = False
 
     def compose(self) -> ComposeResult:
+        """Build the screen's child widgets."""
         yield Header()
         yield StatsBar(id="stats-bar")
         yield Horizontal(
@@ -228,6 +234,7 @@ class ReviewApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
+        """Populate the table once the screen is mounted."""
         table = self.query_one("#findings-table", DataTable)
         table.add_columns("Sev", "St", "Repo", "R", "Title")
         self._load_data(jump_to_unreviewed=True)
@@ -304,10 +311,12 @@ class ReviewApp(App):
         self._reloading = False
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Open the finding for the selected row."""
         if event.row_key and event.row_key.value:
             self._show_finding(int(event.row_key.value))
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        """Preview the finding for the highlighted row."""
         if self._reloading:
             return
         if event.row_key and event.row_key.value:
@@ -334,6 +343,7 @@ class ReviewApp(App):
         notes_area.load_text(finding.get("reviewer_notes", ""))
 
     def on_select_changed(self, event: Select.Changed) -> None:
+        """Re-filter the table when a filter changes."""
         sel_id = event.select.id
         raw = event.value if event.value != Select.BLANK else None
         val: str | None = str(raw) if raw is not None else None
@@ -374,14 +384,16 @@ class ReviewApp(App):
             if advance:
                 # Find the next pending finding after current
                 cursor = conn.execute(
-                    "SELECT id FROM findings WHERE review_status = 'pending' AND id > ? ORDER BY id LIMIT 1",
+                    "SELECT id FROM findings WHERE review_status = 'pending' AND id > ? ORDER BY "
+                    "id LIMIT 1",
                     [finding_id],
                 )
                 row = cursor.fetchone()
                 if not row:
                     # Wrap around
                     cursor = conn.execute(
-                        "SELECT id FROM findings WHERE review_status = 'pending' ORDER BY id LIMIT 1",
+                        "SELECT id FROM findings WHERE review_status = 'pending' ORDER BY id "
+                        "LIMIT 1",
                     )
                     row = cursor.fetchone()
                 if row:
@@ -406,31 +418,34 @@ class ReviewApp(App):
             table.move_cursor(row=table.get_row_index(str(finding_id)))
             self._show_finding(finding_id)
         except Exception:
-            log.debug(
-                "Could not advance to finding %d (not in current view)", finding_id
-            )
+            log.debug("Could not advance to finding %d (not in current view)", finding_id)
 
     def action_mark_reviewed(self) -> None:
+        """Mark the current finding as reviewed."""
         if self.focused and isinstance(self.focused, NotesInput):
             return
         self._do_review("reviewed", advance=True)
 
     def action_mark_false_positive(self) -> None:
+        """Mark the current finding as a false positive."""
         if self.focused and isinstance(self.focused, NotesInput):
             return
         self._do_review("false_positive", advance=True)
 
     def action_mark_pending(self) -> None:
+        """Return the current finding to the pending state."""
         if self.focused and isinstance(self.focused, NotesInput):
             return
         self._do_review("pending")
 
     def action_focus_notes(self) -> None:
+        """Move focus to the notes field."""
         if self.focused and isinstance(self.focused, NotesInput):
             return
         self.query_one("#notes-area", NotesInput).focus()
 
     def action_focus_table(self) -> None:
+        """Move focus back to the findings table."""
         self.query_one("#findings-table", DataTable).focus()
 
 

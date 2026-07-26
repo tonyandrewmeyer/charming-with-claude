@@ -1,11 +1,13 @@
 """Pydantic models for findings."""
 
 from __future__ import annotations
+
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class FindingCreate(BaseModel):
+    """A finding submitted for review."""
+
     bug_id: str
     repo: str
     charm_name: str
@@ -20,32 +22,40 @@ class FindingCreate(BaseModel):
     evidence: str
     recommended_fix: str
     historical_precedent: str = ""
-    source_file: Optional[str] = None
+    source_file: str | None = None
 
 
 class FindingUpdate(BaseModel):
-    review_status: Optional[str] = None
-    reviewer_notes: Optional[str] = None
+    """The reviewable fields of a finding."""
+
+    review_status: str | None = None
+    reviewer_notes: str | None = None
 
 
 class FindingOut(FindingCreate):
+    """A finding as returned by the API."""
+
     id: int
     review_status: str = "pending"
     reviewer_notes: str = ""
-    reviewed_at: Optional[str] = None
+    reviewed_at: str | None = None
     created_at: str = ""
     updated_at: str = ""
 
 
 class ConfirmedSafeCreate(BaseModel):
+    """A finding confirmed as a false positive."""
+
     repo: str
     round: int
     location: str
     explanation: str
-    source_file: Optional[str] = None
+    source_file: str | None = None
 
 
 class Stats(BaseModel):
+    """Aggregate review progress counts."""
+
     total: int = 0
     pending: int = 0
     reviewed: int = 0

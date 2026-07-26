@@ -34,15 +34,13 @@ The most critical findings are:
 # Line 986-1012
 def to_dict(self) -> ServiceDict:
     fields = [
-        ...
-        ('user-id', self.user_id),   # Can be 0 (root)
-        ('group-id', self.group_id), # Can be 0 (root)
-        ...
-        ('backoff-factor', self.backoff_factor),  # Can be 0 or 0.0
-        ...
+        ...("user-id", self.user_id),  # Can be 0 (root)
+        ("group-id", self.group_id),  # Can be 0 (root)
+        ...("backoff-factor", self.backoff_factor),  # Can be 0 or 0.0
+        ...,
     ]
     dct = {name: value for name, value in fields if value}  # Line 1011: drops 0!
-    return typing.cast('ServiceDict', dct)
+    return typing.cast("ServiceDict", dct)
 ```
 
 **Code (`_merge`):**
@@ -50,7 +48,7 @@ def to_dict(self) -> ServiceDict:
 # Line 1014-1028
 def _merge(self, other: Service):
     for name, value in other.__dict__.items():
-        if not value or name == 'name':  # Line 1021: skips 0!
+        if not value or name == "name":  # Line 1021: skips 0!
             continue
         ...
 ```
@@ -70,10 +68,10 @@ The `Check._merge()` method at line 1216 has the same `if not value` pattern, bu
 **Suggested fix:**
 ```python
 # In to_dict():
-dct = {name: value for name, value in fields if value is not None and value != ''}
+dct = {name: value for name, value in fields if value is not None and value != ""}
 
 # In _merge():
-if (not value and value is not None and value != 0) or name == 'name':
+if (not value and value is not None and value != 0) or name == "name":
     continue
 ```
 
@@ -104,9 +102,9 @@ def _event_context(self, event_name: str):
 
     old_hook_is_running = backend._hook_is_running
     backend._hook_is_running = event_name
-    yield                                            # Line 953: no try/finally!
-    backend._hook_is_running = old_hook_is_running   # Line 954: skipped on exception
-    self._event_name = old_event_name                # Line 956: skipped on exception
+    yield  # Line 953: no try/finally!
+    backend._hook_is_running = old_hook_is_running  # Line 954: skipped on exception
+    self._event_name = old_event_name  # Line 956: skipped on exception
 ```
 
 **Why this is a real bug:**
@@ -154,9 +152,9 @@ def secret_get(self, *, id=None, label=None, refresh=False, peek=False):
     ...
     if peek or refresh:
         ...
-        return secret.latest_content   # Line 484: direct reference!
+        return secret.latest_content  # Line 484: direct reference!
 
-    return secret.tracked_content       # Line 486: direct reference!
+    return secret.tracked_content  # Line 486: direct reference!
 ```
 
 **Why this is a real bug:**
@@ -171,8 +169,8 @@ This is exactly the pattern from commit `be090122` which fixed the same issue fo
 
 **Suggested fix:**
 ```python
-return secret.latest_content.copy()   # Line 484
-return secret.tracked_content.copy()   # Line 486
+return secret.latest_content.copy()  # Line 484
+return secret.tracked_content.copy()  # Line 486
 ```
 
 ---
@@ -192,7 +190,7 @@ def action_get(self):
     action = self._event.action
     if not action:
         raise ActionMissingFromContextError(...)
-    return action.params   # Direct reference to internal dict!
+    return action.params  # Direct reference to internal dict!
 ```
 
 **Why this is a real bug:**
@@ -223,10 +221,10 @@ def _render_services(self):
     services: dict[str, pebble.Service] = {}
     for layer in self.layers.values():
         for name, service in layer.services.items():
-            if name in services and service.override == 'merge':
-                services[name]._merge(service)      # Line 1092: mutates layer's Service!
+            if name in services and service.override == "merge":
+                services[name]._merge(service)  # Line 1092: mutates layer's Service!
             else:
-                services[name] = service             # Line 1094: stores reference!
+                services[name] = service  # Line 1094: stores reference!
     return services
 ```
 
@@ -256,7 +254,7 @@ def _render_services(self):
     services: dict[str, pebble.Service] = {}
     for layer in self.layers.values():
         for name, service in layer.services.items():
-            if name in services and service.override == 'merge':
+            if name in services and service.override == "merge":
                 services[name]._merge(service)
             else:
                 services[name] = copy.deepcopy(service)  # Deep copy to avoid mutation
@@ -284,7 +282,7 @@ def services(self) -> dict[str, Service]:
 
     This property is currently read-only.
     """
-    return self._services   # Line 844: direct reference to internal dict
+    return self._services  # Line 844: direct reference to internal dict
 ```
 
 **Why this is a real bug:**
@@ -315,7 +313,7 @@ def _merge_exec(self, other: ExecDict) -> None:
     if self.exec is None:
         self.exec = {}
     for name, value in other.items():
-        if not value:       # Line 1166: skips falsy values
+        if not value:  # Line 1166: skips falsy values
             continue
         ...
 ```
@@ -325,7 +323,7 @@ def _merge_exec(self, other: ExecDict) -> None:
 def _merge_tcp(self, other: HttpDict) -> None:
     ...
     for name, value in other.items():
-        if not value:       # Line 1202: skips falsy values
+        if not value:  # Line 1202: skips falsy values
             continue
         self.tcp[name] = value
 ```

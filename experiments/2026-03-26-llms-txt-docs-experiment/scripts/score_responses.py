@@ -22,97 +22,111 @@ SCORED_DIR = EXPERIMENT_DIR / "results" / "scored"
 GOLD_STANDARDS_FILE = EXPERIMENT_DIR / "gold-standards.md"
 
 # JSON schema for judge output
-SCORE_SCHEMA = json.dumps({
-    "type": "object",
-    "properties": {
-        "correctness": {
-            "type": "integer",
-            "description": "0=wrong/fabricated, 1=partially correct, 2=fully correct",
-            "minimum": 0,
-            "maximum": 2,
+SCORE_SCHEMA = json.dumps(
+    {
+        "type": "object",
+        "properties": {
+            "correctness": {
+                "type": "integer",
+                "description": "0=wrong/fabricated, 1=partially correct, 2=fully correct",
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "specificity": {
+                "type": "integer",
+                "description": "0=vague/generic, 1=some specifics, 2=precise API usage",
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "hallucination": {
+                "type": "integer",
+                "description": "0=invented APIs/params, 1=minor inaccuracies, 2=no hallucinations",
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "currency": {
+                "type": "integer",
+                "description": (
+                    "0=deprecated/removed APIs, 1=older but valid, 2=current recommended"
+                ),
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "correctness_notes": {
+                "type": "string",
+                "description": "Brief explanation of correctness score",
+            },
+            "hallucination_notes": {
+                "type": "string",
+                "description": "List any hallucinated APIs, parameters, or facts",
+            },
+            "overall_notes": {
+                "type": "string",
+                "description": "Any other notable observations",
+            },
         },
-        "specificity": {
-            "type": "integer",
-            "description": "0=vague/generic, 1=some specifics, 2=precise API usage",
-            "minimum": 0,
-            "maximum": 2,
-        },
-        "hallucination": {
-            "type": "integer",
-            "description": "0=invented APIs/params, 1=minor inaccuracies, 2=no hallucinations",
-            "minimum": 0,
-            "maximum": 2,
-        },
-        "currency": {
-            "type": "integer",
-            "description": "0=deprecated/removed APIs, 1=older but valid, 2=current recommended",
-            "minimum": 0,
-            "maximum": 2,
-        },
-        "correctness_notes": {
-            "type": "string",
-            "description": "Brief explanation of correctness score",
-        },
-        "hallucination_notes": {
-            "type": "string",
-            "description": "List any hallucinated APIs, parameters, or facts",
-        },
-        "overall_notes": {
-            "type": "string",
-            "description": "Any other notable observations",
-        },
-    },
-    "required": [
-        "correctness",
-        "specificity",
-        "hallucination",
-        "currency",
-        "correctness_notes",
-        "hallucination_notes",
-    ],
-})
+        "required": [
+            "correctness",
+            "specificity",
+            "hallucination",
+            "currency",
+            "correctness_notes",
+            "hallucination_notes",
+        ],
+    }
+)
 
 # For synthesis tasks, use a different schema
-SYNTHESIS_SCORE_SCHEMA = json.dumps({
-    "type": "object",
-    "properties": {
-        "runs_correctly": {
-            "type": "integer",
-            "description": "0=syntax errors/missing imports, 1=minor issues, 2=would run as-is",
-            "minimum": 0,
-            "maximum": 2,
+SYNTHESIS_SCORE_SCHEMA = json.dumps(
+    {
+        "type": "object",
+        "properties": {
+            "runs_correctly": {
+                "type": "integer",
+                "description": (
+                    "0=syntax errors/missing imports, 1=minor issues, 2=would run as-is"
+                ),
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "idiomatic": {
+                "type": "integer",
+                "description": (
+                    "0=not recognisable as ops charm, 1=some patterns, 2=follows conventions"
+                ),
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "complete": {
+                "type": "integer",
+                "description": (
+                    "0=missing major components, 1=structure but missing details, 2=all features"
+                ),
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "hallucination_free": {
+                "type": "integer",
+                "description": (
+                    "0=invented APIs, 1=minor API inaccuracies, 2=all API usage correct"
+                ),
+                "minimum": 0,
+                "maximum": 2,
+            },
+            "notes": {
+                "type": "string",
+                "description": "Key observations about the code quality and correctness",
+            },
         },
-        "idiomatic": {
-            "type": "integer",
-            "description": "0=not recognisable as ops charm, 1=some patterns, 2=follows conventions",
-            "minimum": 0,
-            "maximum": 2,
-        },
-        "complete": {
-            "type": "integer",
-            "description": "0=missing major components, 1=structure but missing details, 2=all features",
-            "minimum": 0,
-            "maximum": 2,
-        },
-        "hallucination_free": {
-            "type": "integer",
-            "description": "0=invented APIs, 1=minor API inaccuracies, 2=all API usage correct",
-            "minimum": 0,
-            "maximum": 2,
-        },
-        "notes": {
-            "type": "string",
-            "description": "Key observations about the code quality and correctness",
-        },
-    },
-    "required": [
-        "runs_correctly",
-        "idiomatic",
-        "complete",
-        "hallucination_free",
-        "notes",
-    ],
-})
+        "required": [
+            "runs_correctly",
+            "idiomatic",
+            "complete",
+            "hallucination_free",
+            "notes",
+        ],
+    }
+)
 
 
 def load_gold_standard(question_id: str) -> str:
@@ -131,7 +145,9 @@ def load_gold_standard(question_id: str) -> str:
     return content[start:next_section]
 
 
-def build_judge_prompt(question: str, response: str, gold_standard: str, is_synthesis: bool) -> str:
+def build_judge_prompt(
+    question: str, response: str, gold_standard: str, is_synthesis: bool
+) -> str:
     """Build the prompt for the judge."""
     if is_synthesis:
         return f"""You are scoring a code generation response against a gold standard.
@@ -234,9 +250,12 @@ def score_response(session_id: str, record: dict) -> dict | None:
     cmd = [
         "claude",
         "-p",
-        "--output-format", "json",
-        "--model", "sonnet",
-        "--max-budget-usd", "0.50",
+        "--output-format",
+        "json",
+        "--model",
+        "sonnet",
+        "--max-budget-usd",
+        "0.50",
         "--no-session-persistence",
         "--dangerously-skip-permissions",
         prompt,
@@ -279,6 +298,7 @@ def score_response(session_id: str, record: dict) -> dict | None:
 
 
 def main():
+    """Score the collected responses with an LLM judge."""
     parser = argparse.ArgumentParser(description="Score experiment responses")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -292,10 +312,7 @@ def main():
 
     sessions = sorted(RAW_DIR.iterdir())
     if args.resume:
-        sessions = [
-            s for s in sessions
-            if not (SCORED_DIR / s.name / "scorecard.json").exists()
-        ]
+        sessions = [s for s in sessions if not (SCORED_DIR / s.name / "scorecard.json").exists()]
 
     total = len(sessions)
     print(f"Scoring {total} sessions")
@@ -313,7 +330,7 @@ def main():
         with open(result_file) as f:
             record = json.load(f)
 
-        print(f"[{i+1}/{total}] Scoring {session_dir.name}...", end=" ", flush=True)
+        print(f"[{i + 1}/{total}] Scoring {session_dir.name}...", end=" ", flush=True)
         scorecard = score_response(session_dir.name, record)
 
         if scorecard:

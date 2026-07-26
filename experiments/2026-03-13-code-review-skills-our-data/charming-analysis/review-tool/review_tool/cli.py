@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import builtins
 import json
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import click
 import uvicorn
@@ -22,6 +21,9 @@ from review_tool.db import (
 )
 from review_tool.logging_setup import setup_logging
 from review_tool.parser import parse_validation_file
+
+if TYPE_CHECKING:
+    import builtins
 
 
 @click.group()
@@ -49,11 +51,9 @@ def tui():
 
 @cli.command(name="import")
 @click.argument("file_path", type=click.Path(exists=True))
-@click.option(
-    "--round", "round_num", type=int, required=True, help="Validation round number."
-)
+@click.option("--round", "round_num", type=int, required=True, help="Validation round number.")
 @click.option("--repo", default=None, help="Override repository name.")
-def import_file(file_path: str, round_num: int, repo: Optional[str]):
+def import_file(file_path: str, round_num: int, repo: str | None):
     """Import findings from a markdown validation file."""
     path = Path(file_path)
     init_db_sync()
@@ -86,7 +86,8 @@ def import_file(file_path: str, round_num: int, repo: Optional[str]):
         )
     except sqlite3.IntegrityError:
         conn.execute(
-            "UPDATE import_log SET imported_at = datetime('now'), findings_count = ?, safe_count = ? WHERE source_file = ?",
+            "UPDATE import_log SET imported_at = datetime('now'), findings_count = ?, safe_count "
+            "= ? WHERE source_file = ?",
             [inserted, safe_count, str(path)],
         )
 
@@ -94,7 +95,8 @@ def import_file(file_path: str, round_num: int, repo: Optional[str]):
     conn.close()
 
     click.echo(
-        f"Imported {inserted} findings, {skipped} skipped (duplicates), {safe_count} confirmed safe entries."
+        f"Imported {inserted} findings, {skipped} skipped (duplicates), {safe_count} confirmed "
+        "safe entries."
     )
 
 
@@ -174,12 +176,14 @@ def import_all():
 
         try:
             conn.execute(
-                "INSERT INTO import_log (source_file, findings_count, safe_count) VALUES (?, ?, ?)",
+                "INSERT INTO import_log (source_file, findings_count, safe_count) VALUES (?, ?, "
+                "?)",
                 [str(path), inserted, safe_count],
             )
         except sqlite3.IntegrityError:
             conn.execute(
-                "UPDATE import_log SET imported_at = datetime('now'), findings_count = ?, safe_count = ? WHERE source_file = ?",
+                "UPDATE import_log SET imported_at = datetime('now'), findings_count = ?, "
+                "safe_count = ? WHERE source_file = ?",
                 [inserted, safe_count, str(path)],
             )
 
@@ -190,9 +194,7 @@ def import_all():
         total_inserted += inserted
         total_safe += safe_count
 
-    click.echo(
-        f"\nTotal: {total_inserted} findings, {total_safe} confirmed safe entries."
-    )
+    click.echo(f"\nTotal: {total_inserted} findings, {total_safe} confirmed safe entries.")
 
 
 @cli.command(name="list")
@@ -201,10 +203,10 @@ def import_all():
 @click.option("--repo", default=None, help="Filter by repository.")
 @click.option("--round", "round_num", type=int, default=None, help="Filter by round.")
 def list_findings(
-    severity: Optional[str],
-    status: Optional[str],
-    repo: Optional[str],
-    round_num: Optional[int],
+    severity: str | None,
+    status: str | None,
+    repo: str | None,
+    round_num: int | None,
 ):
     """List findings in a table."""
     init_db_sync()
@@ -235,9 +237,7 @@ def list_findings(
         return
 
     # Print table
-    click.echo(
-        f"{'ID':>4} {'Sev':>8} {'Bug':>8} {'Repo':<25} {'R':>2} {'Status':<14} Title"
-    )
+    click.echo(f"{'ID':>4} {'Sev':>8} {'Bug':>8} {'Repo':<25} {'R':>2} {'Status':<14} Title")
     click.echo("-" * 100)
     for r in rows:
         status_icon = {"pending": ".", "reviewed": "+", "false_positive": "x"}.get(
@@ -264,12 +264,8 @@ def show(finding_id: int):
         click.echo(f"Finding {finding_id} not found.")
         sys.exit(1)
 
-    click.echo(
-        f"[{row['bug_id']}] {row['category']} -- {row['title']} ({row['severity']})"
-    )
-    click.echo(
-        f"Repo: {row['repo']} | Charm: {row['charm_name']} | Round: {row['round']}"
-    )
+    click.echo(f"[{row['bug_id']}] {row['category']} -- {row['title']} ({row['severity']})")
+    click.echo(f"Repo: {row['repo']} | Charm: {row['charm_name']} | Round: {row['round']}")
     click.echo(f"Location: {row['location']}")
     click.echo(f"Pattern: {row['pattern']}")
     click.echo(f"Status: {row['review_status']}")
@@ -291,7 +287,7 @@ def show(finding_id: int):
     type=click.Choice(["reviewed", "false_positive", "pending"]),
 )
 @click.option("--notes", default=None, help="Reviewer notes.")
-def review(finding_id: int, status: str, notes: Optional[str]):
+def review(finding_id: int, status: str, notes: str | None):
     """Update the review status of a finding."""
     init_db_sync()
     conn = get_db_sync()
@@ -341,37 +337,30 @@ def stats():
     click.echo(
         f"Total: {total} | Reviewed: {reviewed} | False Positive: {fp} | Pending: {pending}"
     )
-    click.echo(
-        f"Progress: {reviewed + fp}/{total} ({100 * (reviewed + fp) / total:.0f}%)"
-    )
+    click.echo(f"Progress: {reviewed + fp}/{total} ({100 * (reviewed + fp) / total:.0f}%)")
 
     click.echo("\nBy Severity:")
     for row in conn.execute(
         "SELECT severity, COUNT(*) FROM findings GROUP BY severity "
-        "ORDER BY CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 ELSE 4 END"
+        "ORDER BY CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 "
+        "ELSE 4 END"
     ):
         click.echo(f"  {row[0]}: {row[1]}")
 
     click.echo("\nBy Repository:")
-    for row in conn.execute(
-        "SELECT repo, COUNT(*) FROM findings GROUP BY repo ORDER BY repo"
-    ):
+    for row in conn.execute("SELECT repo, COUNT(*) FROM findings GROUP BY repo ORDER BY repo"):
         click.echo(f"  {row[0]}: {row[1]}")
 
     click.echo("\nBy Round:")
-    for row in conn.execute(
-        "SELECT round, COUNT(*) FROM findings GROUP BY round ORDER BY round"
-    ):
+    for row in conn.execute("SELECT round, COUNT(*) FROM findings GROUP BY round ORDER BY round"):
         click.echo(f"  Round {row[0]}: {row[1]}")
 
     conn.close()
 
 
 @cli.command()
-@click.option(
-    "--output", "-o", default=None, type=click.Path(), help="Output file path."
-)
-def export(output: Optional[str]):
+@click.option("--output", "-o", default=None, type=click.Path(), help="Output file path.")
+def export(output: str | None):
     """Export all findings as JSON."""
     init_db_sync()
     conn = get_db_sync()

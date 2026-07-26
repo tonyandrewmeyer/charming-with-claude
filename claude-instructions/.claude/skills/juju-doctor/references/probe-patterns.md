@@ -140,9 +140,7 @@ def status(juju_statuses: dict[str, dict]):
                         f"({ws.get('message', 'no message')})"
                     )
                 if agent.get("current") != "idle":
-                    errors.append(
-                        f"{unit}: agent is {agent.get('current')}"
-                    )
+                    errors.append(f"{unit}: agent is {agent.get('current')}")
     if errors:
         raise Exception("\n".join(errors))
 ```
@@ -178,9 +176,7 @@ def status(juju_statuses: dict[str, dict]):
         for machine_id, machine in data.get("machines", {}).items():
             state = machine.get("juju-status", {}).get("current", "")
             if state != "started":
-                raise Exception(
-                    f"Machine {machine_id} in {model}: {state}"
-                )
+                raise Exception(f"Machine {machine_id} in {model}: {state}")
 ```
 
 ### Relation Checks
@@ -193,6 +189,7 @@ REQUIRED_RELATIONS = {
     "postgresql": {"db"},
 }
 
+
 def status(juju_statuses: dict[str, dict]):
     """Check that required relations are established."""
     for model, data in juju_statuses.items():
@@ -203,9 +200,7 @@ def status(juju_statuses: dict[str, dict]):
             actual = set(app_data.get("relations", {}).keys())
             missing = required - actual
             if missing:
-                raise Exception(
-                    f"{app} in {model}: missing relations: {missing}"
-                )
+                raise Exception(f"{app} in {model}: missing relations: {missing}")
 ```
 
 #### Relation Data Populated
@@ -217,14 +212,11 @@ def show_unit(juju_show_units: dict[str, dict]):
         for unit_name, unit_data in units.items():
             for rel in unit_data.get("relation-info", []):
                 endpoint = rel.get("endpoint", "")
-                for related_unit, rel_data in rel.get(
-                    "related-units", {}
-                ).items():
+                for related_unit, rel_data in rel.get("related-units", {}).items():
                     data = rel_data.get("data", {})
                     if not data:
                         raise Exception(
-                            f"{unit_name}/{endpoint}: "
-                            f"{related_unit} has empty data bag"
+                            f"{unit_name}/{endpoint}: {related_unit} has empty data bag"
                         )
 ```
 
@@ -237,6 +229,7 @@ REQUIRED_CONFIG = {
     "myapp": ["external-hostname", "tls-secret-name"],
 }
 
+
 def bundle(juju_bundles: dict[str, dict]):
     """Check that required config options are present."""
     for model, bundle_data in juju_bundles.items():
@@ -245,9 +238,7 @@ def bundle(juju_bundles: dict[str, dict]):
             options = app_data.get("options", {})
             for key in required:
                 if key not in options or not options[key]:
-                    raise Exception(
-                        f"{app} in {model}: missing config '{key}'"
-                    )
+                    raise Exception(f"{app} in {model}: missing config '{key}'")
 ```
 
 ### Scale and Resource Checks
@@ -260,6 +251,7 @@ MIN_UNITS = {
     "myapp": 2,
 }
 
+
 def status(juju_statuses: dict[str, dict]):
     """Check applications have minimum required units."""
     for model, data in juju_statuses.items():
@@ -270,8 +262,7 @@ def status(juju_statuses: dict[str, dict]):
             units = app_data.get("units", {})
             if len(units) < minimum:
                 raise Exception(
-                    f"{app} in {model}: has {len(units)} units, "
-                    f"needs at least {minimum}"
+                    f"{app} in {model}: has {len(units)} units, needs at least {minimum}"
                 )
 ```
 
@@ -282,6 +273,7 @@ EXPECTED_PORTS = {
     "myapp": {"8080/tcp"},
     "nginx": {"80/tcp", "443/tcp"},
 }
+
 
 def status(juju_statuses: dict[str, dict]):
     """Check expected ports are open."""
@@ -294,9 +286,7 @@ def status(juju_statuses: dict[str, dict]):
                 ports = set(unit_data.get("open-ports", []))
                 missing = expected - ports
                 if missing:
-                    raise Exception(
-                        f"{unit}: missing ports: {missing}"
-                    )
+                    raise Exception(f"{unit}: missing ports: {missing}")
 ```
 
 ### K8s-Specific Checks
@@ -314,11 +304,8 @@ def status(juju_statuses: dict[str, dict]):
                 subordinates = unit_data.get("subordinates", {})
                 # Check for container readiness indicators
                 ws = unit_data.get("workload-status", {})
-                if "pebble" in ws.get("message", "").lower() and \
-                   ws.get("current") == "waiting":
-                    raise Exception(
-                        f"{unit}: Pebble not ready — {ws.get('message')}"
-                    )
+                if "pebble" in ws.get("message", "").lower() and ws.get("current") == "waiting":
+                    raise Exception(f"{unit}: Pebble not ready — {ws.get('message')}")
 ```
 
 ## Ruleset Patterns
@@ -381,8 +368,5 @@ Always include:
 - Any relevant status messages
 
 ```python
-raise Exception(
-    f"{unit} in {model}: workload is {actual} "
-    f"(expected active), message: {message}"
-)
+raise Exception(f"{unit} in {model}: workload is {actual} (expected active), message: {message}")
 ```

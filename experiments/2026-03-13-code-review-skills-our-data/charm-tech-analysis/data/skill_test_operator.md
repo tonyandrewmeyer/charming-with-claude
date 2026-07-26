@@ -58,16 +58,16 @@
   def to_dict(self) -> ServiceDict:
       fields = [
           # ...
-          ('user-id', self.user_id),   # user_id=0 is falsy
-          ('group-id', self.group_id), # group_id=0 is falsy
-          ('backoff-factor', self.backoff_factor),  # backoff_factor=0 is falsy
+          ("user-id", self.user_id),  # user_id=0 is falsy
+          ("group-id", self.group_id),  # group_id=0 is falsy
+          ("backoff-factor", self.backoff_factor),  # backoff_factor=0 is falsy
           # ...
       ]
       dct = {name: value for name, value in fields if value}  # drops 0 values
   ```
 - **Recommended fix**:
   ```python
-  dct = {name: value for name, value in fields if value is not None and value != ''}
+  dct = {name: value for name, value in fields if value is not None and value != ""}
   ```
   Or use a sentinel to distinguish "not set" from "set to 0".
 - **Historical precedent**: Referenced in `references/bug-patterns.md` as a current bug.
@@ -83,15 +83,15 @@
   ```python
   def _merge(self, other: Service):
       for name, value in other.__dict__.items():
-          if not value or name == 'name':  # skips user_id=0, group_id=0
+          if not value or name == "name":  # skips user_id=0, group_id=0
               continue
   ```
 - **Recommended fix**:
   ```python
   for name, value in other.__dict__.items():
-      if name == 'name':
+      if name == "name":
           continue
-      if value is None or (isinstance(value, str) and value == ''):
+      if value is None or (isinstance(value, str) and value == ""):
           continue
   ```
 - **Historical precedent**: Referenced in `references/bug-patterns.md` as a current bug.
@@ -131,7 +131,7 @@
   dct = {name: value for name, value in fields if value}
 
   # _merge() line 1301
-  if not value or name == 'name':
+  if not value or name == "name":
       continue
   ```
 - **Recommended fix**: Same as BUG-002/003.
@@ -172,7 +172,7 @@
       services: dict[str, pebble.Service] = {}
       for layer in self.layers.values():
           for name, service in layer.services.items():
-              if name in services and service.override == 'merge':
+              if name in services and service.override == "merge":
                   services[name]._merge(service)  # mutates original layer's service
               else:
                   services[name] = service  # stores reference, not copy

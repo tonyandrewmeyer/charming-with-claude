@@ -78,7 +78,15 @@ from ops.testing import Container, Exec, Relation, State
 The skill version imports from `scenario`:
 
 ```python
-from scenario import ActiveStatus, BlockedStatus, Container, Exec, MaintenanceStatus, Relation, State
+from scenario import (
+    ActiveStatus,
+    BlockedStatus,
+    Container,
+    Exec,
+    MaintenanceStatus,
+    Relation,
+    State,
+)
 ```
 
 The `ops.testing` import is the correct modern approach. Importing from `scenario` directly works but is the older style. This is a clear win for the bare prompt -- however, I'm fairly sure this could easily be solved with a small adjustment to the skill.
@@ -146,8 +154,7 @@ The skill version uses `pytest.mark.parametrize`:
 
 ```python
 @pytest.mark.parametrize("unit", ["y", "w", "d", "h", "m", "s"])
-def test_valid_metrics_retention_times_can_be_set(self, context, unit):
-    ...
+def test_valid_metrics_retention_times_can_be_set(self, context, unit): ...
 ```
 
 Parametrisation is clearly better here: each parameter combination gets its own test case, so a failure pinpoints exactly which unit caused the problem. This is a win for the skill version, although it feels a bit outside of the "migrate from Harness to Scenario" task.
@@ -204,9 +211,11 @@ Both approaches are valid. The skill version is more explicit about what it's do
 This test (`test_no_restart_nor_reload_when_nothing_changes`) is particularly tricky to migrate because the original Harness version patches the internal Pebble client methods to raise if called. The skill version handles this thoughtfully:
 
 ```python
-with patch("prometheus_client.Prometheus.reload_configuration") as reload_mock, \
-     patch.object(PrometheusCharm, "_generate_prometheus_config", return_value=False), \
-     patch.object(PrometheusCharm, "_set_alerts", return_value=False):
+with (
+    patch("prometheus_client.Prometheus.reload_configuration") as reload_mock,
+    patch.object(PrometheusCharm, "_generate_prometheus_config", return_value=False),
+    patch.object(PrometheusCharm, "_set_alerts", return_value=False),
+):
     state_out = context.run(context.on.config_changed(), state_mid)
 ```
 

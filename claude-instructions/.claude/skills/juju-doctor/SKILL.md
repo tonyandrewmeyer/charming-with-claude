@@ -60,8 +60,7 @@ def status(juju_statuses: dict[str, dict]):
                 ws = unit_data.get("workload-status", {})
                 if ws.get("current") != "active":
                     raise Exception(
-                        f"{unit_name} in {model_name} is "
-                        f"{ws.get('current')}, not active"
+                        f"{unit_name} in {model_name} is {ws.get('current')}, not active"
                     )
 ```
 
@@ -171,6 +170,8 @@ A scriptlet probe is a Python file containing one or more functions named after 
 
 ```python
 """Probe: Validate deployment health."""
+
+
 def status(juju_statuses: dict[str, dict]):
     """Check all units are active and idle."""
     for model_name, data in juju_statuses.items():
@@ -179,13 +180,9 @@ def status(juju_statuses: dict[str, dict]):
                 ws = unit.get("workload-status", {})
                 agent = unit.get("juju-status", {})
                 if ws.get("current") != "active":
-                    raise Exception(
-                        f"{unit_name}: workload is {ws.get('current')}"
-                    )
+                    raise Exception(f"{unit_name}: workload is {ws.get('current')}")
                 if agent.get("current") != "idle":
-                    raise Exception(
-                        f"{unit_name}: agent is {agent.get('current')}"
-                    )
+                    raise Exception(f"{unit_name}: agent is {agent.get('current')}")
 
 
 def bundle(juju_bundles: dict[str, dict]):

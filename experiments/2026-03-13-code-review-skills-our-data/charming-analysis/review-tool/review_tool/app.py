@@ -5,11 +5,11 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import markdown as md
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-import markdown as md
-from markupsafe import Markup
 from jinja2 import Environment, FileSystemLoader
+from markupsafe import Markup
 
 from review_tool import db
 from review_tool.config import DB_PATH
@@ -33,8 +33,9 @@ def create_app() -> FastAPI:
 
     # Templates
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
-    env.filters["markdown"] = (
-        lambda text: Markup(md.markdown(text, extensions=["fenced_code", "tables"]))
+    env.filters["markdown"] = lambda text: (
+        # Findings are authored locally by the reviewer, not untrusted input.
+        Markup(md.markdown(text, extensions=["fenced_code", "tables"]))  # noqa: S704
         if text
         else ""
     )
@@ -57,7 +58,9 @@ class _TemplateAdapter:
     def __init__(self, env: Environment):
         self.env = env
 
-    def TemplateResponse(self, name: str, context: dict, status_code: int = 200):
+    def TemplateResponse(  # noqa: N802  # Mirrors Starlette's Jinja2Templates API.
+        self, name: str, context: dict, status_code: int = 200
+    ):
         from starlette.responses import HTMLResponse
 
         template = self.env.get_template(name)

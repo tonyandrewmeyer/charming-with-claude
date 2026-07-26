@@ -6,7 +6,6 @@ named {date}_{sha_short}.md, matching the format from operator-analysis.
 """
 
 import json
-import os
 from pathlib import Path
 
 BASE_DIR = Path("/home/ubuntu/charm-tech-analysis")
@@ -91,8 +90,8 @@ def generate_summary(entry: dict, fix_data: dict | None) -> str:
         "",
         "## Classification",
         "",
-        f"| Field | Value |",
-        f"|-------|-------|",
+        "| Field | Value |",
+        "|-------|-------|",
         f"| Bug Area | {bug_area} |",
         f"| Bug Type | {bug_type} |",
         f"| Severity | {severity} |",
@@ -107,21 +106,24 @@ def generate_summary(entry: dict, fix_data: dict | None) -> str:
     if fix_data:
         body = fix_data.get("body", "").strip()
         if body:
-            lines.extend([
-                "## Commit Message",
-                "",
-                body,
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Commit Message",
+                    "",
+                    body,
+                    "",
+                ]
+            )
 
         changed_files = fix_data.get("changed_files", [])
         if changed_files:
-            lines.extend([
-                "## Changed Files",
-                "",
-            ])
-            for cf in changed_files:
-                lines.append(f"- {cf}")
+            lines.extend(
+                [
+                    "## Changed Files",
+                    "",
+                ]
+            )
+            lines.extend(f"- {cf}" for cf in changed_files)
             lines.append("")
 
         diff = fix_data.get("diff", "").strip()
@@ -129,19 +131,22 @@ def generate_summary(entry: dict, fix_data: dict | None) -> str:
             # Truncate very long diffs
             if len(diff) > 10000:
                 diff = diff[:10000] + "\n... [truncated]"
-            lines.extend([
-                "## Diff",
-                "",
-                "```diff",
-                diff,
-                "```",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Diff",
+                    "",
+                    "```diff",
+                    diff,
+                    "```",
+                    "",
+                ]
+            )
 
     return "\n".join(lines)
 
 
 def main():
+    """Generate per-repository summaries of the extracted fixes."""
     print("Loading fix data...")
     fix_by_sha = load_fix_data()
     print(f"  Loaded {len(fix_by_sha)} fix entries")

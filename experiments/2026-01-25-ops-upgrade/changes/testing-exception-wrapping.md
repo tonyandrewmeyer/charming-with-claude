@@ -28,6 +28,7 @@ except testing.UncaughtCharmError as e:
 ## After
 ```python
 import os
+
 os.environ["SCENARIO_BARE_CHARM_ERRORS"] = "true"
 
 import ops

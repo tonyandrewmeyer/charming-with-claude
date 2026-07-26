@@ -17,7 +17,8 @@ import json
 # The only way to call hook commands directly was via subprocess
 result = subprocess.run(
     ["relation-get", "--format=json", "-r", str(relation_id), "-", unit_name],
-    capture_output=True, text=True,
+    capture_output=True,
+    text=True,
 )
 data = json.loads(result.stdout)
 ```

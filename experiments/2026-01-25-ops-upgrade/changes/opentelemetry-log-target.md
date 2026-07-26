@@ -12,43 +12,47 @@ A new `opentelemetry` log target type is available in Pebble layer definitions, 
 ## Before
 ```python
 # Pebble log targets were limited to loki and syslog types
-layer = ops.pebble.Layer({
-    "services": {
-        "myapp": {
-            "command": "/bin/myapp",
-            "override": "replace",
-        }
-    },
-    "log-targets": {
-        "loki": {
-            "type": "loki",
-            "override": "merge",
-            "location": "http://loki:3100/loki/api/v1/push",
-            "services": ["all"],
-        }
-    },
-})
+layer = ops.pebble.Layer(
+    {
+        "services": {
+            "myapp": {
+                "command": "/bin/myapp",
+                "override": "replace",
+            }
+        },
+        "log-targets": {
+            "loki": {
+                "type": "loki",
+                "override": "merge",
+                "location": "http://loki:3100/loki/api/v1/push",
+                "services": ["all"],
+            }
+        },
+    }
+)
 ```
 
 ## After
 ```python
 # Can now use opentelemetry as a log target type
-layer = ops.pebble.Layer({
-    "services": {
-        "myapp": {
-            "command": "/bin/myapp",
-            "override": "replace",
-        }
-    },
-    "log-targets": {
-        "otel": {
-            "type": "opentelemetry",
-            "override": "merge",
-            "location": "http://otel-collector:4318",
-            "services": ["all"],
-        }
-    },
-})
+layer = ops.pebble.Layer(
+    {
+        "services": {
+            "myapp": {
+                "command": "/bin/myapp",
+                "override": "replace",
+            }
+        },
+        "log-targets": {
+            "otel": {
+                "type": "opentelemetry",
+                "override": "merge",
+                "location": "http://otel-collector:4318",
+                "services": ["all"],
+            }
+        },
+    }
+)
 ```
 
 ## Why Upgrade

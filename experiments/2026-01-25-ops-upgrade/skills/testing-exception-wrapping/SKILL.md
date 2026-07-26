@@ -45,11 +45,13 @@ env = [
 # Before:
 from ops.testing import UncaughtCharmError
 
+
 def test_bad_config():
     ctx = testing.Context(MyCharm)
     with pytest.raises(UncaughtCharmError) as exc_info:
         ctx.run(ctx.on.config_changed(), state)
     assert isinstance(exc_info.value.__cause__, ValueError)
+
 
 # After:
 def test_bad_config():

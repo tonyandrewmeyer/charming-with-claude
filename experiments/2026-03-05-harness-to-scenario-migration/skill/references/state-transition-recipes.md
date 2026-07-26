@@ -57,14 +57,16 @@ assert state_out.unit_status == testing.ActiveStatus()
 ```python
 from ops import pebble, testing
 
-layer = pebble.Layer({
-    "services": {
-        "workload": {
-            "command": "run",
-            "startup": "enabled",
+layer = pebble.Layer(
+    {
+        "services": {
+            "workload": {
+                "command": "run",
+                "startup": "enabled",
+            }
         }
     }
-})
+)
 container = testing.Container(
     "my-container",
     layers={"base": layer},

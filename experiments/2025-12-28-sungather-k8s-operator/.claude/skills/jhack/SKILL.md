@@ -312,7 +312,7 @@ import json
 
 from ops import testing
 
-with open('tests/state.json') as f:
+with open("tests/state.json") as f:
     state = testing.State.from_dict(json.load(f))
 
 # Test with real production state

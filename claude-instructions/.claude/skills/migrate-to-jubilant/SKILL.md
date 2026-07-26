@@ -67,12 +67,11 @@ Key changes:
 
    ```python
    # Before
-   async def test_deploy(ops_test: OpsTest):
-       ...
+   async def test_deploy(ops_test: OpsTest): ...
+
 
    # After
-   def test_deploy(juju: jubilant.Juju):
-       ...
+   def test_deploy(juju: jubilant.Juju): ...
    ```
 
 3. **Replace charm building** — Jubilant does not build charms. The charm should be packed before tests run (via `charmcraft pack` or CI). Pass the `.charm` path to `juju.deploy()`.
@@ -93,7 +92,9 @@ Key changes:
    await ops_test.model.wait_for_idle(apps=["foo"], status="active", timeout=600)
 
    # After
-   juju.wait(jubilant.all_active, timeout=600)  # Generally, wait for all apps, but you can specifically wait for "foo" if needed.
+   juju.wait(
+       jubilant.all_active, timeout=600
+   )  # Generally, wait for all apps, but you can specifically wait for "foo" if needed.
    ```
 
 5. **Replace relation/integration calls**:
