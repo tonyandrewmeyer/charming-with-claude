@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pygments import highlight
@@ -26,6 +24,7 @@ def highlight_python(code: str) -> str:
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
+    """Render the review dashboard."""
     conn = await db.get_db(DB_PATH)
     try:
         stats = await db.get_stats(conn)
@@ -40,11 +39,12 @@ async def dashboard(request: Request):
 @router.get("/findings", response_class=HTMLResponse)
 async def findings_page(
     request: Request,
-    severity: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    repo: Optional[str] = Query(None),
-    round: Optional[str] = Query(None),
+    severity: str | None = Query(None),
+    status: str | None = Query(None),
+    repo: str | None = Query(None),
+    round: str | None = Query(None),
 ):
+    """Render the filtered findings list."""
     # Treat empty strings from form selects as None
     severity = severity or None
     status = status or None
@@ -88,6 +88,7 @@ async def findings_page(
 
 @router.get("/findings/{finding_id}", response_class=HTMLResponse)
 async def finding_detail(request: Request, finding_id: int):
+    """Render one finding in detail."""
     conn = await db.get_db(DB_PATH)
     try:
         finding = await db.get_finding(conn, finding_id)
@@ -95,13 +96,9 @@ async def finding_detail(request: Request, finding_id: int):
             return HTMLResponse("<p>Finding not found</p>", status_code=404)
 
         # Highlight code blocks
-        evidence_html = (
-            highlight_python(finding["evidence"]) if finding["evidence"] else ""
-        )
+        evidence_html = highlight_python(finding["evidence"]) if finding["evidence"] else ""
         fix_html = (
-            highlight_python(finding["recommended_fix"])
-            if finding["recommended_fix"]
-            else ""
+            highlight_python(finding["recommended_fix"]) if finding["recommended_fix"] else ""
         )
 
         return request.app.state.templates.TemplateResponse(
@@ -119,6 +116,7 @@ async def finding_detail(request: Request, finding_id: int):
 
 @router.patch("/findings/{finding_id}", response_class=HTMLResponse)
 async def update_finding_html(request: Request, finding_id: int):
+    """Apply a review submitted from the detail form."""
     conn = await db.get_db(DB_PATH)
     try:
         form = await request.form()
@@ -143,6 +141,7 @@ async def update_finding_html(request: Request, finding_id: int):
 
 @router.get("/findings/{finding_id}/next-unreviewed")
 async def next_unreviewed(finding_id: int):
+    """Redirect to the next unreviewed finding."""
     conn = await db.get_db(DB_PATH)
     try:
         next_id = await db.get_next_unreviewed(conn, finding_id)

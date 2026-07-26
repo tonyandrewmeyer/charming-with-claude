@@ -515,7 +515,7 @@ jhack script <unit> <script-file>
 def run(charm):
     print(f"Status: {charm.unit.status}")
     print(f"Leader: {charm.unit.is_leader()}")
-    return charm.config.get('port')
+    return charm.config.get("port")
 ```
 
 **Usage:**

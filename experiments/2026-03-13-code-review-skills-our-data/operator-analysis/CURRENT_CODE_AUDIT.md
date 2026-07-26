@@ -36,8 +36,8 @@ The most critical findings are:
 **Code:**
 ```python
 def relation_get(self, relation_id: int, member_name: str, is_app: bool):
-    if is_app and '/' in member_name:
-        member_name = member_name.split('/')[0]
+    if is_app and "/" in member_name:
+        member_name = member_name.split("/")[0]
     if relation_id not in self._relation_data_raw:
         raise model.RelationNotFoundError()
     return self._relation_data_raw[relation_id][member_name]
@@ -61,7 +61,7 @@ def relation_get(self, relation_id: int, member_name: str, is_app: bool):
 ```python
 with tempfile.TemporaryDirectory() as tmp:
     for k, v in content.items():
-        with open(f'{tmp}/{k}', mode='w', encoding='utf-8') as f:
+        with open(f"{tmp}/{k}", mode="w", encoding="utf-8") as f:
             f.write(v)
 ```
 
@@ -86,7 +86,7 @@ with tempfile.TemporaryDirectory() as tmp:
 if dataclasses.is_dataclass(obj):
     assert not isinstance(obj, type)
     for field in dataclasses.fields(obj):
-        alias = field.metadata.get('alias', field.name)
+        alias = field.metadata.get("alias", field.name)
         fields[field.name] = alias
     values = dataclasses.asdict(obj)
 ```
@@ -131,7 +131,7 @@ def _calculate_expiry(
 
 **Code:**
 ```python
-last_modified=datetime.datetime.fromtimestamp(info.st_mtime),
+last_modified = (datetime.datetime.fromtimestamp(info.st_mtime),)
 ```
 
 **What could go wrong:** `datetime.fromtimestamp()` without a `tz` argument returns a naive datetime in the local timezone. The resulting `FileInfo.last_modified` may be interpreted differently depending on the system's timezone, leading to inconsistent behavior when comparing file modification times across systems or when pushing files to Pebble containers.
@@ -224,7 +224,7 @@ file_io = open(  # noqa: SIM115
     encoding=encoding,
     newline=newline,
 )
-return typing.cast('_TextOrBinaryIO', file_io)
+return typing.cast("_TextOrBinaryIO", file_io)
 ```
 
 **What could go wrong:** The file is opened and returned to the caller without using a context manager. If the caller does not properly close the returned file object, the file handle will leak. The `# noqa: SIM115` comment acknowledges this is intentional (the caller is expected to manage the lifecycle), but it creates a risk that callers forget to close the handle. The historical fix `a1574f43` ("fix: ensure `ops.Pebble.pull` cleans up temporary files if it errors") shows this pattern has caused real issues before.
@@ -244,7 +244,7 @@ return typing.cast('_TextOrBinaryIO', file_io)
 **Code:**
 ```python
 def __getattr__(self, key: str) -> Any:
-    if key == 'on':
+    if key == "on":
         return self._data.on
 ```
 

@@ -146,10 +146,10 @@ Unhandled empty, missing, nil, or unusual inputs causing crashes or silent failu
 **Before/After**:
 ```python
 # Before (pytest-jubilant):
-resources = meta['resources']  # KeyError if no resources section
+resources = meta["resources"]  # KeyError if no resources section
 
 # After:
-resources = meta.get('resources', {})
+resources = meta.get("resources", {})
 ```
 
 **Recommendation**: High-value pattern for a skill. Detectable by looking for dict access without `.get()`, missing `None` checks before attribute access, and assumptions about external data completeness.
@@ -327,9 +327,11 @@ self._meta = meta
 # FIX: copy on store
 self._meta = dict(meta)
 
+
 # BUG: returns reference
 def get_config(self):
     return self._config
+
 
 # FIX: copy on return
 def get_config(self):

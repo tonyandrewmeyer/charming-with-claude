@@ -106,13 +106,17 @@ def get_github_url(repo_dir_name: str) -> str | None:
     try:
         result = subprocess.run(
             ["git", "-C", str(repo_path), "remote", "get-url", "origin"],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         )
         url = result.stdout.strip().removesuffix(".git")
         # Get the default branch
         result2 = subprocess.run(
             ["git", "-C", str(repo_path), "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         )
         branch = result2.stdout.strip()
         return f"{url}/blob/{branch}"
@@ -163,23 +167,20 @@ def parse_validation_file(filepath: Path) -> dict:
     header_match = re.match(r"## Bug Review:\s*(.+)", text)
     repo_name = header_match.group(1).strip() if header_match else filepath.stem
 
-    # Clean up repo name (remove " src/ directory", " src/", trailing slashes, parentheticals, etc.)
+    # Clean up repo name (remove " src/ directory", " src/", trailing slashes, parentheticals,
+    # etc.)
     repo_name = re.sub(r"\s*(src/?|src/ directory|--.*|\(.*\))", "", repo_name).strip()
     repo_name = repo_name.rstrip("/").strip()
     # Special cases
     repo_name = repo_name.replace("directory", "").strip()
 
     # Extract summary line
-    findings_match = re.search(
-        r"\*\*Findings\*\*:\s*(\d+)\s*\(([^)]+)\)", text
-    )
+    findings_match = re.search(r"\*\*Findings\*\*:\s*(\d+)\s*\(([^)]+)\)", text)
     total = int(findings_match.group(1)) if findings_match else 0
     severity_summary = findings_match.group(2) if findings_match else ""
 
     # Extract areas
-    areas_match = re.search(
-        r"\*\*Code areas reviewed\*\*:\s*(.+)", text
-    )
+    areas_match = re.search(r"\*\*Code areas reviewed\*\*:\s*(.+)", text)
     areas = areas_match.group(1).strip() if areas_match else ""
 
     # Split into findings section and confirmed safe section
@@ -210,14 +211,16 @@ def parse_validation_file(filepath: Path) -> dict:
         category_match = re.match(r"^(.*?)\s*--", title_raw)
         category = category_match.group(1).strip() if category_match else ""
 
-        findings.append({
-            "bug_id": bug_id,
-            "title": title,
-            "category": category,
-            "severity": severity,
-            "body": body,
-            "is_security": is_security,
-        })
+        findings.append(
+            {
+                "bug_id": bug_id,
+                "title": title,
+                "category": category,
+                "severity": severity,
+                "body": body,
+                "is_security": is_security,
+            }
+        )
 
     return {
         "repo_name": repo_name,
@@ -254,7 +257,6 @@ def transform_finding_body(body: str, github_base: str | None) -> str:
     """Transform a finding body from internal format to writeup format."""
     lines = body.split("\n")
     output_lines = []
-    skip_until_next_field = False
 
     i = 0
     while i < len(lines):
@@ -315,10 +317,7 @@ def is_pebble_env_finding(finding: dict) -> bool:
     return (
         ("non-string" in title_lower or "non_string" in title_lower)
         and ("pebble" in title_lower or "environment" in title_lower)
-    ) or (
-        "ap-005" in body_lower
-        and "pebble" in body_lower
-    )
+    ) or ("ap-005" in body_lower and "pebble" in body_lower)
 
 
 def get_pebble_env_caveat(finding: dict) -> str:
@@ -364,10 +363,9 @@ def generate_writeup(data: dict, github_base: str | None) -> str:
             severity_counts[f["severity"]] += 1
 
     total = sum(severity_counts.values())
-    severity_parts = []
-    for s in SEVERITY_ORDER:
-        if severity_counts[s] > 0:
-            severity_parts.append(f"{severity_counts[s]} {s}")
+    severity_parts = [
+        f"{severity_counts[s]} {s}" for s in SEVERITY_ORDER if severity_counts[s] > 0
+    ]
     severity_summary = ", ".join(severity_parts)
 
     output = REPO_INTRO.format(
@@ -378,9 +376,7 @@ def generate_writeup(data: dict, github_base: str | None) -> str:
 
     # Group findings by severity
     for severity in SEVERITY_ORDER:
-        findings_at_level = [
-            f for f in non_security if f["severity"] == severity
-        ]
+        findings_at_level = [f for f in non_security if f["severity"] == severity]
         if not findings_at_level:
             continue
 
@@ -396,7 +392,8 @@ def generate_writeup(data: dict, github_base: str | None) -> str:
                 output += caveat
             output += "\n\n---\n\n"
 
-    return output.rstrip("\n-— \n") + "\n"
+    # rstrip takes a *set* of characters: trim any trailing separator run.
+    return output.rstrip("\n-— ") + "\n"
 
 
 def generate_email(team: str, repo_summaries: list[tuple[str, int]]) -> str:
@@ -412,6 +409,7 @@ def generate_email(team: str, repo_summaries: list[tuple[str, int]]) -> str:
 
 
 def main():
+    """Generate the per-team writeups from the reviewed findings."""
     # Build repo-to-team mapping
     repo_to_team = build_repo_to_team_map()
 
@@ -466,9 +464,11 @@ def main():
         team_repos[team].append((data["repo_name"], len(non_security)))
 
         # Count findings
-        sec_count = len(data["findings"]) - len(non_security)
-        sec_note = f" ({sec_count} security excluded)" if sec_count else ""
-        print(f"  OK: [{team}] {data['repo_name']} -> {output_path.relative_to(OUTPUT_DIR)} ({len(non_security)} findings{sec_note})")
+        len(data["findings"]) - len(non_security)
+        print(
+            f"OK: [{team}] {data['repo_name']} -> {output_path.relative_to(OUTPUT_DIR)} "
+            "({len(non_security)} findings{sec_note})"
+        )
 
     # Generate draft emails per team
     for team, repos in sorted(team_repos.items()):
@@ -478,7 +478,11 @@ def main():
         total_findings = sum(count for _, count in repos)
         print(f"  EMAIL: {team} ({len(repos)} repos, {total_findings} findings)")
 
-    print(f"\nDone: {generated} writeups generated, {len(team_repos)} team emails, {skipped_no_findings} skipped (no findings), {skipped_all_security} skipped (all security)")
+    print(
+        f"\nDone: {generated} writeups generated, {len(team_repos)} team emails, "
+        f"{skipped_no_findings} skipped (no findings), "
+        f"{skipped_all_security} skipped (all security)"
+    )
 
 
 if __name__ == "__main__":

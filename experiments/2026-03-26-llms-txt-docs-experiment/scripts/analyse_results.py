@@ -10,7 +10,6 @@ import argparse
 import json
 import re
 import statistics
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -21,7 +20,7 @@ REVIEW_DIR = EXPERIMENT_DIR / "results" / "reviewed"
 
 # nginx combined log pattern
 NGINX_LOG_RE = re.compile(
-    r'(?P<ip>\S+) \S+ \S+ \[(?P<time>[^\]]+)\] '
+    r"(?P<ip>\S+) \S+ \S+ \[(?P<time>[^\]]+)\] "
     r'"(?P<method>\S+) (?P<path>\S+) \S+" (?P<status>\d+) (?P<bytes>\d+) '
     r'"[^"]*" "(?P<ua>[^"]*)"'
 )
@@ -161,7 +160,11 @@ def load_all_results() -> list[dict]:
                 review = json.load(f)
             record["human_review"] = review
             # Override scorecard scores with human scores
-            if record["scorecard"] and record["scorecard"].get("scores") and review.get("human_scores"):
+            if (
+                record["scorecard"]
+                and record["scorecard"].get("scores")
+                and review.get("human_scores")
+            ):
                 record["scorecard"]["scores"].update(review["human_scores"])
         else:
             record["human_review"] = None
@@ -193,12 +196,14 @@ def analyse_by_condition(results: list[dict]) -> dict:
         if r.get("scorecard") and r["scorecard"].get("scores"):
             is_synth = r["question_id"].startswith("S")
             score = weighted_score(r["scorecard"]["scores"], is_synth)
-            by_condition[r["condition"]].append({
-                "score": score,
-                "metrics": r["metrics"],
-                "question_id": r["question_id"],
-                "model": r["model"],
-            })
+            by_condition[r["condition"]].append(
+                {
+                    "score": score,
+                    "metrics": r["metrics"],
+                    "question_id": r["question_id"],
+                    "model": r["model"],
+                }
+            )
     return dict(by_condition)
 
 
@@ -210,10 +215,12 @@ def analyse_by_condition_model(results: list[dict]) -> dict:
             is_synth = r["question_id"].startswith("S")
             score = weighted_score(r["scorecard"]["scores"], is_synth)
             key = (r["condition"], r["model"])
-            by_cm[key].append({
-                "score": score,
-                "metrics": r["metrics"],
-            })
+            by_cm[key].append(
+                {
+                    "score": score,
+                    "metrics": r["metrics"],
+                }
+            )
     return dict(by_cm)
 
 
@@ -229,7 +236,11 @@ def format_summary(results: list[dict]) -> str:
     reviewed = [r for r in results if r.get("human_review")]
     lines.append(f"**Total sessions:** {len(results)}")
     lines.append(f"**Scored sessions:** {len(scored)}")
-    lines.append(f"**Human-reviewed:** {len(reviewed)} ({len(reviewed)/len(scored)*100:.0f}% of scored)" if scored else "")
+    lines.append(
+        f"**Human-reviewed:** {len(reviewed)} ({len(reviewed) / len(scored) * 100:.0f}% of scored)"
+        if scored
+        else ""
+    )
     lines.append("")
 
     # Main results table: by condition
@@ -299,9 +310,7 @@ def format_summary(results: list[dict]) -> str:
 
     # Token efficiency comparison
     lines.append("## Token Efficiency\n")
-    lines.append(
-        "Token usage is a key metric — markdown docs should be smaller than HTML.\n"
-    )
+    lines.append("Token usage is a key metric — markdown docs should be smaller than HTML.\n")
     lines.append("| Condition | Mean Input Tokens | Mean Output Tokens | Mean Total |")
     lines.append("|---|---|---|---|")
     for cond in ["A", "B", "C", "D", "E"]:
@@ -324,9 +333,31 @@ def format_summary(results: list[dict]) -> str:
 
     lines.append("| Question | Cond A | Cond B | Cond C | Cond D |")
     lines.append("|---|---|---|---|---|")
-    for qid in ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10",
-                 "Q11", "Q12", "Q13", "Q14", "Q15", "Q16", "Q17", "Q18", "Q19", "Q20",
-                 "S1", "S2", "S3"]:
+    for qid in [
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q7",
+        "Q8",
+        "Q9",
+        "Q10",
+        "Q11",
+        "Q12",
+        "Q13",
+        "Q14",
+        "Q15",
+        "Q16",
+        "Q17",
+        "Q18",
+        "Q19",
+        "Q20",
+        "S1",
+        "S2",
+        "S3",
+    ]:
         row = [qid]
         for cond in ["A", "B", "C", "D", "E"]:
             scores = by_q_cond[qid][cond]
@@ -377,10 +408,7 @@ def format_summary(results: list[dict]) -> str:
             nginx_by_cond[r["condition"]].append(r.get("nginx", {}))
 
         lines.append("### Fetch Summary\n")
-        lines.append(
-            "| Condition | Mean Fetches | Mean Bytes | Mean Unique Pages "
-            "| Mean 404s |"
-        )
+        lines.append("| Condition | Mean Fetches | Mean Bytes | Mean Unique Pages | Mean 404s |")
         lines.append("|---|---|---|---|---|")
         for cond in ["A", "B", "C", "D", "E"]:
             items = nginx_by_cond[cond]
@@ -401,12 +429,8 @@ def format_summary(results: list[dict]) -> str:
 
         # HTML vs Markdown preference
         lines.append("### Format Preference (conditions C/D only)\n")
-        lines.append(
-            "Does the agent prefer llms.txt, llms-full.txt, per-page .md, or HTML?\n"
-        )
-        lines.append(
-            "| Condition | llms.txt | llms-full.txt | Per-page .md | HTML | Total |"
-        )
+        lines.append("Does the agent prefer llms.txt, llms-full.txt, per-page .md, or HTML?\n")
+        lines.append("| Condition | llms.txt | llms-full.txt | Per-page .md | HTML | Total |")
         lines.append("|---|---|---|---|---|---|")
         for cond in ["C", "D", "E"]:
             items = nginx_by_cond[cond]
@@ -417,10 +441,10 @@ def format_summary(results: list[dict]) -> str:
             total = llms + full + md + html
             if total:
                 lines.append(
-                    f"| {cond} | {llms} ({llms/total*100:.0f}%) "
-                    f"| {full} ({full/total*100:.0f}%) "
-                    f"| {md} ({md/total*100:.0f}%) "
-                    f"| {html} ({html/total*100:.0f}%) "
+                    f"| {cond} | {llms} ({llms / total * 100:.0f}%) "
+                    f"| {full} ({full / total * 100:.0f}%) "
+                    f"| {md} ({md / total * 100:.0f}%) "
+                    f"| {html} ({html / total * 100:.0f}%) "
                     f"| {total} |"
                 )
             else:
@@ -449,9 +473,7 @@ def format_summary(results: list[dict]) -> str:
 
         # Repos consulted per question category
         lines.append("### Repos Consulted by Question Category\n")
-        lines.append(
-            "Does llms.txt help the agent go to the right repo?\n"
-        )
+        lines.append("Does llms.txt help the agent go to the right repo?\n")
         repo_by_cat = defaultdict(lambda: defaultdict(list))
         for r in sessions_with_nginx:
             repos = r["nginx"].get("repos_consulted", [])
@@ -485,7 +507,9 @@ def format_summary(results: list[dict]) -> str:
             items_nginx = nginx_by_cond[cond]
             items_cond = by_condition.get(cond, [])
             bytes_list = [i.get("total_bytes", 0) for i in items_nginx if i.get("total_bytes")]
-            tokens_list = [i["metrics"]["input_tokens"] for i in items_cond if i["metrics"]["input_tokens"]]
+            tokens_list = [
+                i["metrics"]["input_tokens"] for i in items_cond if i["metrics"]["input_tokens"]
+            ]
             if bytes_list and tokens_list:
                 mean_bytes = statistics.mean(bytes_list)
                 mean_tokens = statistics.mean(tokens_list)
@@ -513,11 +537,13 @@ def format_checkpoint(results: list[dict]) -> str:
     for r in scored:
         is_synth = r["question_id"].startswith("S")
         score = weighted_score(r["scorecard"]["scores"], is_synth)
-        by_model[r["model"]].append({
-            "score": score,
-            "question_id": r["question_id"],
-            "condition": r["condition"],
-        })
+        by_model[r["model"]].append(
+            {
+                "score": score,
+                "question_id": r["question_id"],
+                "condition": r["condition"],
+            }
+        )
 
     lines.append(f"**Scored run 1 sessions:** {len(scored)}\n")
 
@@ -549,15 +575,19 @@ def format_checkpoint(results: list[dict]) -> str:
             diff = o_mean - s_mean
             lines.append(f"| {cond} | {s_mean:.1f}% | {o_mean:.1f}% | {diff:+.1f} |")
         else:
-            lines.append(f"| {cond} | {f'{s_mean:.1f}%' if s_mean else '-'} | {f'{o_mean:.1f}%' if o_mean else '-'} | - |")
+            lines.append(
+                f"| {cond} | {f'{s_mean:.1f}%' if s_mean else '-'} | "
+                f"{f'{o_mean:.1f}%' if o_mean else '-'} | - |"
+            )
     lines.append("")
 
     # Per-question comparison
     lines.append("## Per Question\n")
     lines.append("| Question | Sonnet (mean across conds) | Opus (mean across conds) | Diff |")
     lines.append("|---|---|---|---|")
-    all_qids = sorted(set(r["question_id"] for r in scored),
-                      key=lambda x: (0 if x.startswith("Q") else 1, x))
+    all_qids = sorted(
+        set(r["question_id"] for r in scored), key=lambda x: (0 if x.startswith("Q") else 1, x)
+    )
     for qid in all_qids:
         s_scores = [i["score"] for i in by_model.get("sonnet", []) if i["question_id"] == qid]
         o_scores = [i["score"] for i in by_model.get("opus", []) if i["question_id"] == qid]
@@ -567,7 +597,10 @@ def format_checkpoint(results: list[dict]) -> str:
             diff = o_mean - s_mean
             lines.append(f"| {qid} | {s_mean:.1f}% | {o_mean:.1f}% | {diff:+.1f} |")
         else:
-            lines.append(f"| {qid} | {f'{s_mean:.1f}%' if s_mean else '-'} | {f'{o_mean:.1f}%' if o_mean else '-'} | - |")
+            lines.append(
+                f"| {qid} | {f'{s_mean:.1f}%' if s_mean else '-'} | "
+                f"{f'{o_mean:.1f}%' if o_mean else '-'} | - |"
+            )
     lines.append("")
 
     # Recommendation
@@ -597,6 +630,7 @@ def format_checkpoint(results: list[dict]) -> str:
 
 
 def main():
+    """Analyse the scored experiment responses and emit the report."""
     parser = argparse.ArgumentParser(description="Analyse experiment results")
     parser.add_argument(
         "--output",
@@ -612,10 +646,7 @@ def main():
 
     results = load_all_results()
 
-    if args.checkpoint:
-        summary = format_checkpoint(results)
-    else:
-        summary = format_summary(results)
+    summary = format_checkpoint(results) if args.checkpoint else format_summary(results)
 
     if args.output:
         output_path = EXPERIMENT_DIR / args.output

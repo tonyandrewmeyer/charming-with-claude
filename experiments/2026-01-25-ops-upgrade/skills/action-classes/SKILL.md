@@ -66,6 +66,7 @@ def _on_backup_action(self, event: ops.ActionEvent):
         return
     # ...
 
+
 # After:
 def _on_backup_action(self, event: ops.ActionEvent):
     params = event.load_params(BackupParams, errors="fail")

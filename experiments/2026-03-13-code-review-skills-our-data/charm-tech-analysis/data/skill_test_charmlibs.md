@@ -34,11 +34,11 @@
 - **Recommended fix**:
   ```python
   if channel:
-      args.append(f'--channel={channel}')
+      args.append(f"--channel={channel}")
   if revision:
-      args.append(f'--revision={revision}')
+      args.append(f"--revision={revision}")
   if cohort:
-      args.append(f'--cohort={cohort}')
+      args.append(f"--cohort={cohort}")
   ```
 - **Historical precedent**: Known current bug documented in `references/bug-patterns.md` under "Snap CLI: Spurious embedded quotes". Exists in both operator-libs-linux and charmlibs.
 
@@ -59,7 +59,7 @@
 
   # Line 124: --uid flag omitted for uid=0
   if uid:
-      cmd.extend(['--uid', str(uid)])
+      cmd.extend(["--uid", str(uid)])
   ```
 - **Recommended fix**:
   ```python
@@ -68,7 +68,7 @@
       ...
 
   if uid is not None:
-      cmd.extend(['--uid', str(uid)])
+      cmd.extend(["--uid", str(uid)])
   ```
 - **Historical precedent**: Documented in `references/bug-patterns.md` under "UID/GID 0 (root user/group)". Exists in both operator-libs-linux and charmlibs.
 
@@ -88,7 +88,7 @@
 
   # Line 175: --gid flag omitted for gid=0
   if gid:
-      cmd.extend(['--gid', str(gid)])
+      cmd.extend(["--gid", str(gid)])
   ```
 - **Recommended fix**:
   ```python
@@ -97,7 +97,7 @@
       ...
 
   if gid is not None:
-      cmd.extend(['--gid', str(gid)])
+      cmd.extend(["--gid", str(gid)])
   ```
 - **Historical precedent**: Documented in `references/bug-patterns.md` under "UID/GID 0 (root user/group)". Exists in both operator-libs-linux and charmlibs.
 
@@ -131,11 +131,11 @@
 - **Impact**: Calling `snap.logs(num_lines=0)` returns the default number of log lines instead of none. The test on line 356 of `test_snap.py` confirms this behavior with the comment "falsey num_lines is ignored", meaning the bug is codified in tests rather than fixed.
 - **Evidence**:
   ```python
-  args = ['logs', f'-n={num_lines}'] if num_lines else ['logs']
+  args = ["logs", f"-n={num_lines}"] if num_lines else ["logs"]
   ```
 - **Recommended fix**:
   ```python
-  args = ['logs', f'-n={num_lines}'] if num_lines is not None else ['logs']
+  args = ["logs", f"-n={num_lines}"] if num_lines is not None else ["logs"]
   ```
 - **Historical precedent**: Documented in `references/bug-patterns.md` under "Numeric parameters". Known current bug in operator-libs-linux and charmlibs.
 
@@ -174,7 +174,7 @@
 - **Evidence**:
   ```python
   if password:
-      cmd.extend(['--password', password])
+      cmd.extend(["--password", password])
   ```
 - **Recommended fix**: Use `chpasswd` via stdin to set the password after user creation, which does not expose the password on the command line:
   ```python
@@ -183,8 +183,8 @@
   # Set password via stdin
   if password:
       proc = subprocess.run(
-          ['chpasswd'],
-          input=f'{username}:{password}',
+          ["chpasswd"],
+          input=f"{username}:{password}",
           text=True,
           check=True,
           capture_output=True,

@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
 import sys
-from typing import Iterable, Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
 
 HARNESS_PATTERNS = [
     r"\btesting\.Harness\b",
@@ -19,6 +22,7 @@ HARNESS_PATTERNS = [
 
 
 def iter_python_files(paths: Sequence[str], extensions: Sequence[str]) -> Iterable[Path]:
+    """Yield every file under paths with one of the given extensions."""
     for raw in paths:
         base = Path(raw)
         if not base.exists():
@@ -33,6 +37,7 @@ def iter_python_files(paths: Sequence[str], extensions: Sequence[str]) -> Iterab
 
 
 def scan_file(path: Path, regexes: Sequence[re.Pattern[str]]) -> list[tuple[int, str]]:
+    """Return the lines of path matching any of the given regexes."""
     matches: list[tuple[int, str]] = []
     try:
         with path.open("r", encoding="utf-8", errors="ignore") as handle:
@@ -45,7 +50,10 @@ def scan_file(path: Path, regexes: Sequence[re.Pattern[str]]) -> list[tuple[int,
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Report files that still rely on ops.testing.Harness")
+    """Report the test files that still use Harness."""
+    parser = argparse.ArgumentParser(
+        description="Report files that still rely on ops.testing.Harness"
+    )
     parser.add_argument(
         "paths",
         nargs="*",

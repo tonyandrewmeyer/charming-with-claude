@@ -2,8 +2,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["pyyaml"]
 # ///
-"""
-Quick validation script for Agent Skills.
+"""Quick validation script for Agent Skills.
 
 Validates SKILL.md frontmatter, naming conventions, directory structure, and
 optional strict depth gates for integration/documentation skills.
@@ -85,11 +84,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 def infer_skill_class(description: str, content: str) -> str:
     text = f"{description}\n{content}".lower()
 
-    if has_any_term(text, ("create a skill", "write a skill", "skill-writer", "maintain skill docs")):
-        return "skill-authoring"
-    if has_any_term(text, ("integrate", "sdk", "library", "api surface", "public api", "api contract")) and has_any_term(
-        text, ("use when", "downstream", "consumer", "abstraction")
+    if has_any_term(
+        text, ("create a skill", "write a skill", "skill-writer", "maintain skill docs")
     ):
+        return "skill-authoring"
+    if has_any_term(
+        text, ("integrate", "sdk", "library", "api surface", "public api", "api contract")
+    ) and has_any_term(text, ("use when", "downstream", "consumer", "abstraction")):
         return "integration-documentation"
     if has_any_term(text, ("vulnerability", "owasp", "injection", "xss", "idor")) or (
         has_any_term(text, ("security",)) and has_any_term(text, ("review", "audit", "scan"))
@@ -221,7 +222,8 @@ def validate_integration_depth(
 
     if not sources_md.exists():
         severity.append(
-            "Integration/documentation skill should include SOURCES.md with a coverage matrix and open gaps section"
+            "Integration/documentation skill should include SOURCES.md with a coverage matrix and "
+            "open gaps section"
         )
         return
 
@@ -236,10 +238,15 @@ def validate_integration_depth(
                 missing_dimensions.append(label)
         if missing_dimensions:
             severity.append(
-                "Coverage matrix is missing required integration dimensions: " + ", ".join(missing_dimensions)
+                "Coverage matrix is missing required integration dimensions: "
+                + ", ".join(missing_dimensions)
             )
 
-        partial_rows = [dim for dim, status in coverage_rows if any(tok in status for tok in PARTIAL_STATUS_TOKENS)]
+        partial_rows = [
+            dim
+            for dim, status in coverage_rows
+            if any(tok in status for tok in PARTIAL_STATUS_TOKENS)
+        ]
         if partial_rows:
             open_gap_lines = parse_open_gap_lines(sources_content)
             actionable = [
@@ -250,19 +257,23 @@ def validate_integration_depth(
             ]
             if not actionable:
                 severity.append(
-                    "Coverage matrix has partial/missing dimensions but `## Open gaps` lacks actionable next retrieval steps"
+                    "Coverage matrix has partial/missing dimensions but `## Open gaps` lacks "
+                    "actionable next retrieval steps"
                 )
 
     for rel_path, min_items in INTEGRATION_REQUIRED_REFERENCES.items():
         ref_path = skill_path / rel_path
         if not ref_path.exists():
-            severity.append(f"Missing required reference for integration/documentation skill: {rel_path}")
+            severity.append(
+                f"Missing required reference for integration/documentation skill: {rel_path}"
+            )
             continue
         if min_items is not None:
             item_count = count_list_items(ref_path.read_text())
             if item_count < min_items:
                 severity.append(
-                    f"{rel_path} has {item_count} list items; expected at least {min_items} for sufficient depth"
+                    f"{rel_path} has {item_count} list items; expected at least {min_items} for "
+                    f"sufficient depth"
                 )
 
 
@@ -341,7 +352,9 @@ def validate_skill(
             elif len(name) > MAX_NAME_LENGTH:
                 errors.append(f"name is too long ({len(name)} chars, max {MAX_NAME_LENGTH})")
             elif not re.match(r"^[a-z0-9-]+$", name):
-                errors.append(f"name '{name}' must contain only lowercase letters, digits, and hyphens")
+                errors.append(
+                    f"name '{name}' must contain only lowercase letters, digits, and hyphens"
+                )
             elif name.startswith("-") or name.endswith("-"):
                 errors.append(f"name '{name}' must not start or end with a hyphen")
             elif "--" in name:
@@ -363,19 +376,25 @@ def validate_skill(
             if not description:
                 errors.append("description must not be empty")
             elif len(description) > MAX_DESCRIPTION_LENGTH:
-                errors.append(f"description is too long ({len(description)} chars, max {MAX_DESCRIPTION_LENGTH})")
+                errors.append(
+                    f"description is too long ({len(description)} chars, max "
+                    f"{MAX_DESCRIPTION_LENGTH})"
+                )
             if "<" in description or ">" in description:
                 errors.append("description must not contain angle brackets (< or >)")
 
             lower_desc = description.lower()
-            if not any(kw in lower_desc for kw in ["use when", "use for", "use to", "trigger", "invoke"]):
+            if not any(
+                kw in lower_desc for kw in ["use when", "use for", "use to", "trigger", "invoke"]
+            ):
                 warnings.append(
                     "description should include trigger phrases "
-                    '(e.g., \'Use when asked to "review code"\')'
+                    "(e.g., 'Use when asked to \"review code\"')"
                 )
             if lower_desc.startswith(("i ", "i can", "you ")):
                 warnings.append(
-                    'description should be in third person ("Processes files..." not "I can process files...")'
+                    'description should be in third person ("Processes files..." not "I can '
+                    'process files...")'
                 )
 
     # Check line count.
@@ -404,10 +423,13 @@ def validate_skill(
         else:
             sources_content = sources_md.read_text()
             required_headers = ("Trust tier", "Confidence", "Usage constraints")
-            missing_headers = [header for header in required_headers if header not in sources_content]
+            missing_headers = [
+                header for header in required_headers if header not in sources_content
+            ]
             if missing_headers:
                 warnings.append(
-                    "SOURCES.md is missing expected provenance columns: " + ", ".join(missing_headers)
+                    "SOURCES.md is missing expected provenance columns: "
+                    + ", ".join(missing_headers)
                 )
 
     # Check for hardcoded repo paths.

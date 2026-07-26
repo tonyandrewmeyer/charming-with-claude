@@ -45,6 +45,7 @@ logger.warning("log-level config not set, using default 'info'")
 
 # ✅ Deprecation (prefer warnings.warn for this)
 import warnings
+
 warnings.warn("'legacy-mode' config is deprecated, use 'mode' instead", DeprecationWarning)
 ```
 
@@ -58,10 +59,7 @@ logger.error("failed to update alert rules: %s", err)
 logger.error("invalid TLS certificate: subject mismatch for %s", hostname)
 
 # ✅ State mismatch
-logger.error(
-    "config-changed: relation databag validation failed for %s: %s",
-    relation.name, err
-)
+logger.error("config-changed: relation databag validation failed for %s: %s", relation.name, err)
 
 # ✅ With exception info
 try:
@@ -165,9 +163,9 @@ logger.debug("updated dynamic configuration file: juju_ingress_ingress_10_alertm
 ```python
 # ✅ Explains what happened AND why
 logger.error(
-    "failed processing ingress relation %s: provider is not ready, "
-    "ingress for %s wiped",
-    relation, related_app
+    "failed processing ingress relation %s: provider is not ready, ingress for %s wiped",
+    relation,
+    related_app,
 )
 
 # ⚠️ Avoid: effect without cause
@@ -196,10 +194,7 @@ logger.debug("updating ingress for relation 'ingress-per-unit:7'")
 # Only shows relation id — not obvious which charm is on the other side
 
 # ✅ Include enough to identify both sides
-logger.debug(
-    "updating ingress for relation 'ingress-per-unit:7' with %s",
-    remote_app_name
-)
+logger.debug("updating ingress for relation 'ingress-per-unit:7' with %s", remote_app_name)
 ```
 
 ---

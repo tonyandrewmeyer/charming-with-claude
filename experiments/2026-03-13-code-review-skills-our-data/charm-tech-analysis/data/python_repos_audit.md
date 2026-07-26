@@ -43,9 +43,9 @@ Same code was copied into charmlibs as a "bug-for-bug compatible migration" per 
 **Suggested fix**:
 ```python
 # Remove the embedded double quotes:
-args.append(f'--channel={channel}')
-args.append(f'--revision={revision}')
-args.append(f'--cohort={cohort}')
+args.append(f"--channel={channel}")
+args.append(f"--revision={revision}")
+args.append(f"--cohort={cohort}")
 ```
 
 ---
@@ -405,7 +405,7 @@ if "already exists on this k8s cluster" in (e.stderr or "") and self._check_mode
 **Evidence**:
 ```python
 juju = Juju()
-model = 'jubilant-' + secrets.token_hex(4)
+model = "jubilant-" + secrets.token_hex(4)
 juju.add_model(model, cloud=cloud, controller=controller, config=config, credential=credential)
 try:
     yield juju
@@ -430,16 +430,16 @@ This is minor because `add_model` is atomic at the Juju CLI level.
 
 **Evidence**:
 ```python
-def logs(self, services: list[str] | None = None, num_lines: int | Literal['all'] = 10) -> str:
+def logs(self, services: list[str] | None = None, num_lines: int | Literal["all"] = 10) -> str:
     ...
-    args = ['logs', f'-n={num_lines}'] if num_lines else ['logs']
+    args = ["logs", f"-n={num_lines}"] if num_lines else ["logs"]
 ```
 
 **Why it is a bug**: The type signature was updated to accept `'all'` (fixing the type-confusion bug from commit `d1262302`), but the falsy check `if num_lines` was not updated. If `num_lines=0` is passed, it will be treated as falsy and fall through to `['logs']`. While `0` is uncommon, the pattern is incorrect. The `'all'` value works correctly since non-empty strings are truthy.
 
 **Suggested fix**:
 ```python
-args = ['logs', f'-n={num_lines}'] if num_lines is not None else ['logs']
+args = ["logs", f"-n={num_lines}"] if num_lines is not None else ["logs"]
 ```
 
 ---

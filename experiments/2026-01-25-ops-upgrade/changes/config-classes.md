@@ -13,6 +13,7 @@ Charm config options can now be defined as Python dataclasses or Pydantic models
 ```python
 import ops
 
+
 class MyCharm(ops.CharmBase):
     def _on_config_changed(self, event: ops.ConfigChangedEvent):
         # Raw dictionary access — no type safety, manual validation

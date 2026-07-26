@@ -1594,7 +1594,9 @@ Used indirectly through `OpsTest` and directly on units:
 
 **Action Pattern:**
 ```python
-action = await unit.run_action(action_name="sync-s3-credentials", access_key="key", secret_key="secret")
+action = await unit.run_action(
+    action_name="sync-s3-credentials", access_key="key", secret_key="secret"
+)
 result = await action.wait()
 return result.results  # Dict with action output
 ```
@@ -1627,10 +1629,7 @@ return result.results  # Dict with action output
 #### **Async/Await Patterns:**
 ```python
 # Parallel operations
-await asyncio.gather(
-    ops_test.model.deploy(...),
-    ops_test.model.deploy(...)
-)
+await asyncio.gather(ops_test.model.deploy(...), ops_test.model.deploy(...))
 
 # Status acceleration
 async with ops_test.fast_forward():
@@ -1644,10 +1643,7 @@ assert unit.workload_status == "blocked"
 
 # Wait for status with timeout
 await ops_test.model.wait_for_idle(
-    apps=[app_name],
-    status="active",
-    timeout=1000,
-    raise_on_blocked=True
+    apps=[app_name], status="active", timeout=1000, raise_on_blocked=True
 )
 
 # Poll until condition

@@ -53,9 +53,7 @@ def _configure_file_logging() -> None:
     stderr_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     root.addHandler(stderr_handler)
 
-    logging.info(
-        "review-tool starting — Python %s on %s", sys.version, platform.system()
-    )
+    logging.info("review-tool starting — Python %s on %s", sys.version, platform.system())
 
 
 def _install_crash_handler() -> None:

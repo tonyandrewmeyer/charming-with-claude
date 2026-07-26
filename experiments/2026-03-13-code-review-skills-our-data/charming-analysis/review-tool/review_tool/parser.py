@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def parse_validation_file(
     filepath: Path,
     round_num: int,
-    repo_override: Optional[str] = None,
+    repo_override: str | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Parse a skill validation markdown file.
 
@@ -69,7 +71,7 @@ def _parse_single_finding(
     charm_name: str,
     round_num: int,
     source_file: str,
-) -> Optional[dict]:
+) -> dict | None:
     """Parse a single finding block."""
     # Header: #### [BUG-001] Category -- Title (Severity)
     header_match = re.match(
@@ -140,9 +142,8 @@ def _extract_code_section(block: str, field_name: str) -> str:
 
     # Also check for next section
     section_match = re.search(r"\n###\s", rest)
-    if section_match:
-        if not end_match or section_match.start() < len(rest):
-            rest = rest[: section_match.start()]
+    if section_match and (not end_match or section_match.start() < len(rest)):
+        rest = rest[: section_match.start()]
 
     return rest.strip()
 

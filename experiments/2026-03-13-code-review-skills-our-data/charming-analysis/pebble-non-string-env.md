@@ -20,7 +20,7 @@ Python `ops/pebble` client.
 dict with no type checking:
 
 ```python
-self.environment = dict(dct.get('environment', {}))
+self.environment = dict(dct.get("environment", {}))
 ```
 
 The `ServiceDict` TypedDict declares `'environment': dict[str, str]`, but
@@ -88,18 +88,20 @@ Running a live Pebble instance and sending a layer with mixed non-string
 environment values:
 
 ```python
-layer = Layer({
-    'services': {
-        'myapp': {
-            'command': '/bin/echo hello',
-            'override': 'replace',
-            'environment': {'PORT': 8000, 'DEBUG': True, 'COUNT': 0, 'RATIO': 3.14},
+layer = Layer(
+    {
+        "services": {
+            "myapp": {
+                "command": "/bin/echo hello",
+                "override": "replace",
+                "environment": {"PORT": 8000, "DEBUG": True, "COUNT": 0, "RATIO": 3.14},
+            }
         }
     }
-})
-client.add_layer('test', layer)
+)
+client.add_layer("test", layer)
 plan = client.get_plan()
-for k, v in plan.services['myapp'].environment.items():
+for k, v in plan.services["myapp"].environment.items():
     print(f"  {k}: {v!r} (type={type(v).__name__})")
 ```
 

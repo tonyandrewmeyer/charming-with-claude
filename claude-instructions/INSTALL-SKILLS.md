@@ -115,13 +115,10 @@ message = client.messages.create(
     max_tokens=1024,
     container={
         "type": "code_execution",
-        "skill_ids": ["charmcraft"]  # Your skill ID
+        "skill_ids": ["charmcraft"],  # Your skill ID
     },
     tools=[{"type": "code_execution_2025-08-25"}],
-    messages=[{
-        "role": "user",
-        "content": "Help me create a new Kubernetes charm"
-    }]
+    messages=[{"role": "user", "content": "Help me create a new Kubernetes charm"}],
 )
 ```
 

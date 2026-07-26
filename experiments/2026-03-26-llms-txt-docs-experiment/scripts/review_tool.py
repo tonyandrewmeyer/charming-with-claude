@@ -18,6 +18,7 @@ import json
 import random
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 from textual import on
 from textual.app import App, ComposeResult
@@ -55,6 +56,7 @@ DIM_LABELS = {
 
 
 def load_gold_standard(question_id: str) -> str:
+    """Return the gold-standard answer for a question."""
     content = GOLD_STANDARDS_FILE.read_text()
     marker = f"## {question_id}:"
     start = content.find(marker)
@@ -74,6 +76,7 @@ def load_review_items(
     seed: int = 42,
     descending: bool = False,
 ) -> list[dict]:
+    """Load the scored items awaiting review."""
     items = []
     if not SCORED_DIR.exists():
         return items
@@ -101,18 +104,20 @@ def load_review_items(
             continue
         raw = json.loads(raw_result_file.read_text())
 
-        items.append({
-            "session_id": session_dir.name,
-            "question_id": scorecard["question_id"],
-            "condition": scorecard["condition"],
-            "model": scorecard["model"],
-            "run_number": scorecard["run_number"],
-            "is_synthesis": scorecard.get("is_synthesis", False),
-            "question": raw["question"],
-            "response": raw.get("claude_output", {}).get("result", ""),
-            "judge_scores": scorecard["scores"],
-            "gold_standard": load_gold_standard(scorecard["question_id"]),
-        })
+        items.append(
+            {
+                "session_id": session_dir.name,
+                "question_id": scorecard["question_id"],
+                "condition": scorecard["condition"],
+                "model": scorecard["model"],
+                "run_number": scorecard["run_number"],
+                "is_synthesis": scorecard.get("is_synthesis", False),
+                "question": raw["question"],
+                "response": raw.get("claude_output", {}).get("result", ""),
+                "judge_scores": scorecard["scores"],
+                "gold_standard": load_gold_standard(scorecard["question_id"]),
+            }
+        )
 
     # Sample
     if sample_rate < 1.0:
@@ -140,12 +145,15 @@ class ScoreDisplay(Static):
         super().__init__()
 
     def render(self) -> str:
+        """Render this widget's content."""
         label = DIM_LABELS.get(self.dim, self.dim)
         marker = "✓" if self.human_value == self.judge_value else "✎"
         return f"{marker} {label}: judge={self.judge_value}  human=[bold]{self.human_value}[/bold]"
 
 
 class ReviewApp(App):
+    """The response review TUI application."""
+
     CSS = """
     #main {
         height: 1fr;
@@ -189,7 +197,7 @@ class ReviewApp(App):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list] = [
         Binding("q", "quit", "Quit"),
         Binding("n", "next_item", "Next"),
         Binding("p", "prev_item", "Previous"),
@@ -213,6 +221,7 @@ class ReviewApp(App):
         self.saved_count = 0
 
     def compose(self) -> ComposeResult:
+        """Build the application's child widgets."""
         yield Header()
         with Vertical(id="main"):
             with Horizontal():
@@ -227,11 +236,16 @@ class ReviewApp(App):
             with Vertical(id="scores-panel"):
                 yield Static("", id="scores-display")
                 yield Static("", id="notes-display")
-                yield Input(placeholder="Press [c] to add a note explaining score overrides...", id="human-note", disabled=True)
+                yield Input(
+                    placeholder="Press [c] to add a note explaining score overrides...",
+                    id="human-note",
+                    disabled=True,
+                )
         yield Static("", id="status-bar")
         yield Footer()
 
     def on_mount(self) -> None:
+        """Load the first review item once mounted."""
         self.title = "Experiment Review Tool"
         # Prevent the Input widget from capturing all keypresses on start
         self.set_focus(None)
@@ -249,9 +263,7 @@ class ReviewApp(App):
         if sid not in self.human_scores:
             # Initialise from judge scores
             dims = self._get_dims()
-            self.human_scores[sid] = {
-                d: item["judge_scores"].get(d, 0) for d in dims
-            }
+            self.human_scores[sid] = {d: item["judge_scores"].get(d, 0) for d in dims}
         return self.human_scores[sid]
 
     def _load_item(self) -> None:
@@ -287,8 +299,7 @@ class ReviewApp(App):
             marker = "✓" if human_val == judge_val else "✎"
             label = DIM_LABELS.get(d, d)
             lines.append(
-                f"[{i+1}] {marker} {label}: "
-                f"judge={judge_val}  human=[bold]{human_val}[/bold]"
+                f"[{i + 1}] {marker} {label}: judge={judge_val}  human=[bold]{human_val}[/bold]"
             )
         self.query_one("#scores-display", Static).update("\n".join(lines))
 
@@ -308,8 +319,7 @@ class ReviewApp(App):
 
         # Status
         reviewed = sum(
-            1 for it in self.items
-            if (REVIEW_DIR / it["session_id"] / "review.json").exists()
+            1 for it in self.items if (REVIEW_DIR / it["session_id"] / "review.json").exists()
         )
         self.query_one("#status-bar", Static).update(
             f"  [{self.current_index + 1}/{len(self.items)}]  "
@@ -350,15 +360,19 @@ class ReviewApp(App):
         self._load_item()
 
     def action_cycle_dim_1(self) -> None:
+        """Cycle the score for review dimension 1."""
         self._cycle_dim(0)
 
     def action_cycle_dim_2(self) -> None:
+        """Cycle the score for review dimension 2."""
         self._cycle_dim(1)
 
     def action_cycle_dim_3(self) -> None:
+        """Cycle the score for review dimension 3."""
         self._cycle_dim(2)
 
     def action_cycle_dim_4(self) -> None:
+        """Cycle the score for review dimension 4."""
         self._cycle_dim(3)
 
     def action_focus_note(self) -> None:
@@ -391,9 +405,7 @@ class ReviewApp(App):
         """Accept all judge scores as-is and save."""
         item = self.items[self.current_index]
         dims = self._get_dims()
-        self.human_scores[item["session_id"]] = {
-            d: item["judge_scores"].get(d, 0) for d in dims
-        }
+        self.human_scores[item["session_id"]] = {d: item["judge_scores"].get(d, 0) for d in dims}
         self._save_current()
         self.action_next_item()
 
@@ -402,6 +414,7 @@ class ReviewApp(App):
             scroller.scroll_home(animate=False)
 
     def action_next_item(self) -> None:
+        """Move to the next review item."""
         self._auto_save_if_changed()
         if self.current_index < len(self.items) - 1:
             self.current_index += 1
@@ -409,6 +422,7 @@ class ReviewApp(App):
             self._scroll_to_top()
 
     def action_prev_item(self) -> None:
+        """Move to the previous review item."""
         self._auto_save_if_changed()
         if self.current_index > 0:
             self.current_index -= 1
@@ -416,6 +430,7 @@ class ReviewApp(App):
             self._scroll_to_top()
 
     def action_save_review(self) -> None:
+        """Save the current item's review."""
         self._save_current()
         self._load_item()
 
@@ -458,10 +473,7 @@ def count_scored_items() -> int:
     """Count total number of scored items."""
     if not SCORED_DIR.exists():
         return 0
-    return sum(
-        1 for d in SCORED_DIR.iterdir()
-        if (d / "scorecard.json").exists()
-    )
+    return sum(1 for d in SCORED_DIR.iterdir() if (d / "scorecard.json").exists())
 
 
 def print_agreement_summary():
@@ -491,19 +503,25 @@ def print_agreement_summary():
         print(f"\nReview progress: 0/{total_scored} scored items reviewed")
         return
 
-    print(f"\nReview progress: {total}/{total_scored} scored items reviewed ({total/total_scored*100:.0f}%)")
+    print(
+        f"\nReview progress: {total}/{total_scored} scored items reviewed "
+        f"({total / total_scored * 100:.0f}%)"
+    )
     print(f"\nAgreement Summary ({total} reviews)")
-    print(f"  Overall agreement: {agreed}/{total} ({agreed/total*100:.0f}%)")
-    print(f"\n  Per dimension:")
+    print(f"  Overall agreement: {agreed}/{total} ({agreed / total * 100:.0f}%)")
+    print("\n  Per dimension:")
     for dim, vals in sorted(dim_agreement.items()):
         agree_count = sum(vals)
-        print(f"    {dim}: {agree_count}/{len(vals)} ({agree_count/len(vals)*100:.0f}%)")
+        print(f"    {dim}: {agree_count}/{len(vals)} ({agree_count / len(vals) * 100:.0f}%)")
 
 
 def main():
+    """Run the response review TUI."""
     parser = argparse.ArgumentParser(description="Review scored responses")
     parser.add_argument(
-        "--sample", type=float, default=0.33,
+        "--sample",
+        type=float,
+        default=0.33,
         help="Fraction of sessions to review (default: 0.33)",
     )
     parser.add_argument("--condition", help="Filter by condition (A/B/C/D)")
@@ -511,11 +529,13 @@ def main():
     parser.add_argument("--resume", action="store_true", help="Skip already reviewed")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
     parser.add_argument(
-        "--desc", action="store_true",
+        "--desc",
+        action="store_true",
         help="Sort by score descending (default: ascending)",
     )
     parser.add_argument(
-        "--summary", action="store_true",
+        "--summary",
+        action="store_true",
         help="Print agreement summary and exit",
     )
     args = parser.parse_args()

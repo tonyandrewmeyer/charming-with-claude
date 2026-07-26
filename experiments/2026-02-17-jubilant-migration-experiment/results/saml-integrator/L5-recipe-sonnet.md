@@ -248,18 +248,22 @@ At these points, ask the user: "Do you want to continue, or pause and save progr
 # BEFORE (ops)
 from pytest_operator.plugin import OpsTest
 
+
 @pytest.fixture(scope="module")
 async def charm(ops_test: OpsTest):
     return await ops_test.build_charm(".")
 
+
 # AFTER (jubilant + pytest-jubilant)
 from pytest_jubilant import pack, get_resources
+
 
 @pytest.fixture(scope="session")
 def charm():
     if charm_file := os.environ.get("CHARM_PATH"):
         return Path(charm_file)
     return pack()
+
 
 @pytest.fixture(scope="session")
 def resources():
@@ -285,8 +289,10 @@ async def test_deploy(ops_test: OpsTest, charm):
     await ops_test.model.deploy(charm, ...)
     await ops_test.model.wait_for_idle([APP_NAME], status="active")
 
+
 # AFTER
 from jubilant import Juju, all_active
+
 
 @pytest.mark.setup
 @pytest.mark.abort_on_fail

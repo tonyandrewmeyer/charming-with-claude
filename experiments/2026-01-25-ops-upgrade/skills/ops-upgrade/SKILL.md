@@ -36,6 +36,7 @@ port = int(self.config["port"])
 # After:
 import dataclasses
 
+
 @dataclasses.dataclass(frozen=True)
 class MyConfig:
     log_level: str = "info"
@@ -44,6 +45,7 @@ class MyConfig:
     def __post_init__(self):
         if self.log_level not in {"info", "debug", "warning", "error", "critical"}:
             raise ValueError(f"Invalid log level: {self.log_level}")
+
 
 # In the charm:
 config = self.load_config(MyConfig, errors="blocked")
@@ -67,11 +69,13 @@ config = self.load_config(MyConfig, errors="blocked")
 # Before:
 target = event.params.get("target", "/data")
 
+
 # After:
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class BackupParams:
     target: str = "/data"
     compress: bool = True
+
 
 # In the handler:
 params = event.load_params(BackupParams, errors="fail")
@@ -94,11 +98,13 @@ event.relation.data[self.app]["endpoint"] = json.dumps({"host": "db.local", "por
 raw = event.relation.data[event.app].get("endpoint")
 data = json.loads(raw) if raw else {}
 
+
 # After:
 @dataclasses.dataclass
 class DatabaseEndpoint:
     host: str = ""
     port: int = 5432
+
 
 event.relation.save(DatabaseEndpoint(host="db.local", port=5432), self.app)
 data = event.relation.load(DatabaseEndpoint, event.app)

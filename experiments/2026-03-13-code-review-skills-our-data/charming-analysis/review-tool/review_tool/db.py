@@ -1,12 +1,16 @@
 """SQLite database initialization and queries."""
 
 from __future__ import annotations
-import aiosqlite
+
 import sqlite3
-from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
+
+import aiosqlite
 
 from review_tool.config import DB_PATH
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS findings (
@@ -140,11 +144,11 @@ def insert_safe_sync(conn: sqlite3.Connection, data: dict) -> int:
 
 def get_findings_sync(
     conn: sqlite3.Connection,
-    severity: Optional[str] = None,
-    status: Optional[str] = None,
-    repo: Optional[str] = None,
-    round_num: Optional[int] = None,
-    pattern: Optional[str] = None,
+    severity: str | None = None,
+    status: str | None = None,
+    repo: str | None = None,
+    round_num: int | None = None,
+    pattern: str | None = None,
 ) -> list[dict]:
     """Query findings with optional filters (sync)."""
     query = "SELECT * FROM findings WHERE 1=1"
@@ -169,20 +173,18 @@ def get_findings_sync(
     return [dict(row) for row in cursor.fetchall()]
 
 
-def get_finding_sync(conn: sqlite3.Connection, finding_id: int) -> Optional[dict]:
+def get_finding_sync(conn: sqlite3.Connection, finding_id: int) -> dict | None:
     """Get a single finding by id (sync)."""
     cursor = conn.execute("SELECT * FROM findings WHERE id = ?", [finding_id])
     row = cursor.fetchone()
     return dict(row) if row else None
 
 
-def update_finding_sync(
-    conn: sqlite3.Connection, finding_id: int, data: dict
-) -> Optional[dict]:
+def update_finding_sync(conn: sqlite3.Connection, finding_id: int, data: dict) -> dict | None:
     """Update a finding's review_status and/or reviewer_notes (sync)."""
     sets: list[str] = []
     params: list = []
-    if "review_status" in data and data["review_status"]:
+    if data.get("review_status"):
         sets.append("review_status = ?")
         params.append(data["review_status"])
         if data["review_status"] in ("reviewed", "false_positive"):
@@ -227,14 +229,10 @@ def get_stats_sync(conn: sqlite3.Connection) -> dict:
     )
     stats["by_severity"] = {row[0]: row[1] for row in cursor.fetchall()}
 
-    cursor = conn.execute(
-        "SELECT repo, COUNT(*) FROM findings GROUP BY repo ORDER BY repo"
-    )
+    cursor = conn.execute("SELECT repo, COUNT(*) FROM findings GROUP BY repo ORDER BY repo")
     stats["by_repo"] = {row[0]: row[1] for row in cursor.fetchall()}
 
-    cursor = conn.execute(
-        "SELECT round, COUNT(*) FROM findings GROUP BY round ORDER BY round"
-    )
+    cursor = conn.execute("SELECT round, COUNT(*) FROM findings GROUP BY round ORDER BY round")
     stats["by_round"] = {row[0]: row[1] for row in cursor.fetchall()}
 
     return stats
@@ -242,11 +240,11 @@ def get_stats_sync(conn: sqlite3.Connection) -> dict:
 
 async def get_findings(
     db: aiosqlite.Connection,
-    severity: Optional[str] = None,
-    status: Optional[str] = None,
-    repo: Optional[str] = None,
-    round_num: Optional[int] = None,
-    pattern: Optional[str] = None,
+    severity: str | None = None,
+    status: str | None = None,
+    repo: str | None = None,
+    round_num: int | None = None,
+    pattern: str | None = None,
 ) -> list[dict]:
     """Query findings with optional filters."""
     query = "SELECT * FROM findings WHERE 1=1"
@@ -272,20 +270,18 @@ async def get_findings(
     return [dict(row) for row in rows]
 
 
-async def get_finding(db: aiosqlite.Connection, finding_id: int) -> Optional[dict]:
+async def get_finding(db: aiosqlite.Connection, finding_id: int) -> dict | None:
     """Get a single finding by id."""
     cursor = await db.execute("SELECT * FROM findings WHERE id = ?", [finding_id])
     row = await cursor.fetchone()
     return dict(row) if row else None
 
 
-async def update_finding(
-    db: aiosqlite.Connection, finding_id: int, data: dict
-) -> Optional[dict]:
+async def update_finding(db: aiosqlite.Connection, finding_id: int, data: dict) -> dict | None:
     """Update a finding's review_status and/or reviewer_notes."""
     sets = []
     params = []
-    if "review_status" in data and data["review_status"]:
+    if data.get("review_status"):
         sets.append("review_status = ?")
         params.append(data["review_status"])
         if data["review_status"] in ("reviewed", "false_positive"):
@@ -347,9 +343,7 @@ async def get_stats(db: aiosqlite.Connection) -> dict:
     return stats
 
 
-async def get_next_unreviewed(
-    db: aiosqlite.Connection, current_id: int
-) -> Optional[int]:
+async def get_next_unreviewed(db: aiosqlite.Connection, current_id: int) -> int | None:
     """Get the next unreviewed finding id after current_id."""
     cursor = await db.execute(
         "SELECT id FROM findings WHERE review_status = 'pending' AND id > ? ORDER BY id LIMIT 1",
@@ -377,6 +371,7 @@ async def log_import(
         )
     except aiosqlite.IntegrityError:
         await db.execute(
-            "UPDATE import_log SET imported_at = datetime('now'), findings_count = ?, safe_count = ? WHERE source_file = ?",
+            "UPDATE import_log SET imported_at = datetime('now'), findings_count = ?, safe_count "
+            "= ? WHERE source_file = ?",
             [findings_count, safe_count, source_file],
         )

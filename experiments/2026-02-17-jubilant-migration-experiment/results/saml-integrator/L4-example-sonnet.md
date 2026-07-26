@@ -1021,7 +1021,10 @@ async def any_charm(ops_test: OpsTest):
         "any-charm",
         application_name="any",
         channel="beta",
-        config={"python-packages": "pydantic\>=2.12.5", "src-overwrite": json.dumps(src_overwrite)},
+        config={
+            "python-packages": "pydantic\>=2.12.5",
+            "src-overwrite": json.dumps(src_overwrite),
+        },
     )
     yield application
 ```

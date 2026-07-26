@@ -3,26 +3,29 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Query
 
 from review_tool import db
 from review_tool.config import DB_PATH
-from review_tool.models import FindingUpdate
 from review_tool.parser import parse_validation_file
+
+if TYPE_CHECKING:
+    from review_tool.models import FindingUpdate
 
 router = APIRouter(prefix="/api", tags=["api"])
 
 
 @router.get("/findings")
 async def list_findings(
-    severity: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    repo: Optional[str] = Query(None),
-    round: Optional[int] = Query(None),
-    pattern: Optional[str] = Query(None),
+    severity: str | None = Query(None),
+    status: str | None = Query(None),
+    repo: str | None = Query(None),
+    round: int | None = Query(None),
+    pattern: str | None = Query(None),
 ) -> list[dict]:
+    """Return the findings matching the given filters."""
     conn = await db.get_db(DB_PATH)
     try:
         return await db.get_findings(conn, severity, status, repo, round, pattern)
@@ -32,6 +35,7 @@ async def list_findings(
 
 @router.get("/findings/{finding_id}")
 async def get_finding(finding_id: int) -> dict:
+    """Return one finding by id."""
     conn = await db.get_db(DB_PATH)
     try:
         finding = await db.get_finding(conn, finding_id)
@@ -44,6 +48,7 @@ async def get_finding(finding_id: int) -> dict:
 
 @router.patch("/findings/{finding_id}")
 async def update_finding(finding_id: int, data: FindingUpdate) -> dict:
+    """Update a finding's review state."""
     conn = await db.get_db(DB_PATH)
     try:
         existing = await db.get_finding(conn, finding_id)
@@ -70,8 +75,9 @@ async def update_finding(finding_id: int, data: FindingUpdate) -> dict:
 async def import_file(
     file_path: str,
     round: int,
-    repo: Optional[str] = None,
+    repo: str | None = None,
 ) -> dict:
+    """Import findings from an uploaded file."""
     path = Path(file_path)
     if not path.exists():
         raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
@@ -108,6 +114,7 @@ async def import_file(
 
 @router.get("/stats")
 async def get_stats() -> dict:
+    """Return aggregate review progress counts."""
     conn = await db.get_db(DB_PATH)
     try:
         return await db.get_stats(conn)
@@ -117,6 +124,7 @@ async def get_stats() -> dict:
 
 @router.get("/export")
 async def export_all() -> dict:
+    """Export every finding as JSON."""
     conn = await db.get_db(DB_PATH)
     try:
         findings = await db.get_findings(conn)

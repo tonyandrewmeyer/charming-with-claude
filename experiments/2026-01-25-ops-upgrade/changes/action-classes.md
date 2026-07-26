@@ -13,6 +13,7 @@ Action parameters can now be loaded into Python dataclasses or Pydantic models v
 ```python
 import ops
 
+
 class MyCharm(ops.CharmBase):
     def _on_backup_action(self, event: ops.ActionEvent):
         # Raw dictionary access — no type safety

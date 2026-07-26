@@ -76,7 +76,7 @@ self._config = dict(config)
 **Correct pattern (for persistent or shared directories):**
 ```python
 fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode=0o600)
-with os.fdopen(fd, 'w', encoding='utf-8') as f:
+with os.fdopen(fd, "w", encoding="utf-8") as f:
     f.write(secret_value)
 ```
 
@@ -172,15 +172,28 @@ This anti-pattern was incorrect: `secret-set` does accept `--owner` per the [Juj
 ```python
 # Either override ALL mutation methods:
 class ImmutableDict(dict):
-    def __setitem__(self, key, value): raise TypeError(...)
-    def __delitem__(self, key): raise TypeError(...)
-    def update(self, *args, **kwargs): raise TypeError(...)
-    def pop(self, *args): raise TypeError(...)
-    def clear(self): raise TypeError(...)
-    def setdefault(self, *args): raise TypeError(...)
+    def __setitem__(self, key, value):
+        raise TypeError(...)
+
+    def __delitem__(self, key):
+        raise TypeError(...)
+
+    def update(self, *args, **kwargs):
+        raise TypeError(...)
+
+    def pop(self, *args):
+        raise TypeError(...)
+
+    def clear(self):
+        raise TypeError(...)
+
+    def setdefault(self, *args):
+        raise TypeError(...)
+
 
 # Or use MappingProxyType:
 from types import MappingProxyType
+
 config = MappingProxyType(raw_config)
 ```
 

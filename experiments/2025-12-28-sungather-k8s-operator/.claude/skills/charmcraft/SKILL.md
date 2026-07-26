@@ -228,14 +228,12 @@ charm-libs:
 # In src/charm.py
 from charms.data_platform_libs.v0.data_interfaces import DatabaseRequires
 
+
 class MyCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.database = DatabaseRequires(self, "database", "myapp")
-        self.framework.observe(
-            self.database.on.database_created,
-            self._on_database_created
-        )
+        self.framework.observe(self.database.on.database_created, self._on_database_created)
 ```
 
 ## Troubleshooting
