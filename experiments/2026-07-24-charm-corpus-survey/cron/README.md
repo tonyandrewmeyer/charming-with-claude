@@ -26,7 +26,9 @@ There is a comment in the wrapper naming `$HOME/multipass-mounts/hyrum` as a tra
 
 ## The agent prompts
 
-`prompts/rq6-llm-classify.md` and `prompts/rq-digest-weekly.md` are the prompt fields of the two agent jobs, verbatim.
+`prompts/rq6-llm-classify.md` and `prompts/rq-digest-weekly.md` are the prompt fields of the two agent jobs, verbatim as they ran during the experiment.
+
+The digest prompt has since been narrowed to RQ-4 only, because that is the only pass still collecting: the version here still asks for the RQ-6 cross-cutting section and the static-pass one-liners, which would now be read off frozen files. The copy is kept as it ran rather than updated.
 
 Both are mostly guard rails, and both sets of guard rails were added after a failure rather than designed up front. The classify prompt's are about blast radius (write only to your own file, never touch the deterministic output, cap the batch size so each write stays atomic). The digest prompt's are about budget - an early run spent its entire tool budget on analysis nobody asked for and wrote no file, which is why it now says to write a complete-but-thin digest after the first pass and improve it from there.
 
