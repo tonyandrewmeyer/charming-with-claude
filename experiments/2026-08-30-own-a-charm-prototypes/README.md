@@ -35,14 +35,14 @@ All nine are public in my namespace. Every one carries a disclaimer saying it's 
 | [dependencytracker-operators](https://github.com/tonyandrewmeyer/dependencytracker-operators) | 14 Jun | Claude Code | Opus 4.8 | 2 + a rock (k8s) | 902 | 66 |
 | [hedgedoc-operator](https://github.com/tonyandrewmeyer/hedgedoc-operator) | 15 Jun | Claude Code (16 subagents) | Opus 4.8 | 1 (k8s) | 836 | 38 |
 | [zammad-operator](https://github.com/tonyandrewmeyer/zammad-operator) | 18 Jun | oh-my-pi | GLM 5.2 (OpenRouter) | 1 (machine) | 1,157 | 29 |
-| [windmill-operators](https://github.com/tonyandrewmeyer/windmill-operators) | 20 Jun | opencode | GLM | 2 (k8s) | 1,239 | 17 |
-| [tracecat-operator](https://github.com/tonyandrewmeyer/tracecat-operator) | 23 Jun | unrecorded | GLM | 1, 2 containers (k8s) | 972 | 74 |
+| [windmill-operators](https://github.com/tonyandrewmeyer/windmill-operators) | 20 Jun | opencode | GLM 5.2 (OpenRouter) | 2 (k8s) | 1,239 | 17 |
+| [tracecat-operator](https://github.com/tonyandrewmeyer/tracecat-operator) | 23 Jun | oh-my-pi | GLM 5.2 (OpenRouter) | 1, 2 containers (k8s) | 972 | 74 |
 | [flagsmith-operators](https://github.com/tonyandrewmeyer/flagsmith-operators) | 23 Jun | oh-my-pi, then Claude Code | Opus 4.8, then Opus 4.7 | 4 (k8s) | 1,486 | 60 |
 | [odk-central-operators](https://github.com/tonyandrewmeyer/odk-central-operators) | 26 Aug | Claude Code | Opus 5 | 3 + 2 charm libs (k8s) | 2,535 | 180 |
 
-The GLM runs all happened in disposable multipass VMs with a bootstrapped controller and no supervision beyond the initial prompt. The Claude Code runs were a mix: Mastodon, Sentry, DependencyTrack and HedgeDoc were interactive with me steering, and ODK Central and Tracecat were driven by a long self-contained build prompt with a single question round at the start and no checkpoints after it.
+Every one of these ran in a disposable multipass VM with a bootstrapped controller. Mastodon, Sentry, DependencyTrack and HedgeDoc were interactive, with me steering. The four GLM and oh-my-pi runs and ODK Central were unattended: a long self-contained build prompt, one round of questions at the start, and no checkpoints after that. (Windmill's opencode run also used Haiku 4.5 as its small model for one call, and GLM 5.2 for the other 413.)
 
-I could not recover the harness for the Tracecat run (the VM is still on the machine but its multipass daemon has stopped answering, and the repository has no session export). The VM name says GLM and the code agrees with that, so I'm confident about the model and not about the tool.
+Provenance took longer to reconstruct than it should have, because I recorded it in VM names rather than in the repositories. The oh-my-pi session exports turned out to carry the model in a base64 blob, and the rest came out of the VMs themselves: Tracecat's build ran under oh-my-pi at 09:43 on 23 June after an opencode session was started and abandoned twelve minutes earlier, one prompt into the build. Its main session is 563 entries and 49.6M tokens over 1h35m, which lines up exactly with the commit span.
 
 ## How I evaluated them
 
@@ -64,9 +64,9 @@ My honest order, best-built first. I'm ranking construction quality, not how imp
 
 **6. DependencyTrack (Opus 4.8, Claude Code).** Competent and small. Two charms plus a rock for the frontend, sensible decomposition, 66 tests. Nothing wrong with it and nothing especially ambitious in it.
 
-**7. Windmill (GLM via opencode).** The thinnest of the nine: 17 unit tests across two charms, five distinct relations across the pair, no `collect-status`, and one outright bug - `windmill-worker` sets `ops.ErrorStatus` when a Pebble layer update fails, which Juju will not accept from a charm. It was live-validated against a model, which is more than some managed, and the code is otherwise unobjectionable. There just isn't much of it.
+**7. Windmill (GLM 5.2 via opencode).** The thinnest of the nine: 17 unit tests across two charms, five distinct relations across the pair, no `collect-status`, and one outright bug - `windmill-worker` sets `ops.ErrorStatus` when a Pebble layer update fails, which Juju will not accept from a charm. It was live-validated against a model, which is more than some managed, and the code is otherwise unobjectionable. There just isn't much of it.
 
-**8. Tracecat (GLM).** The largest single `charm.py` in the set at 899 lines, nine day-2 actions, six secret labels, and 74 unit tests - all of them written against `Harness`, which is deprecated, while seven of the other eight prototypes used Scenario. It also reached for `tls-certificates` v3, has no `collect-status` handler, and observes no `relation-broken` or `relation-departed` events at all, so removing the PostgreSQL, Redis, Temporal or S3 relation leaves the workload running against credentials it no longer has. Lots of code, dated shape.
+**8. Tracecat (GLM 5.2 via oh-my-pi).** The largest single `charm.py` in the set at 899 lines, nine day-2 actions, six secret labels, and 74 unit tests - all of them written against `Harness`, which is deprecated, while seven of the other eight prototypes used Scenario. It also reached for `tls-certificates` v3, has no `collect-status` handler, and observes no `relation-broken` or `relation-departed` events at all, so removing the PostgreSQL, Redis, Temporal or S3 relation leaves the workload running against credentials it no longer has. Lots of code, dated shape.
 
 **9. Zammad (GLM 5.2 via oh-my-pi).** `StoredState` holding the PostgreSQL password and the Redis URL in plaintext, an `ops` floor of 2.10, `tls-certificates` v3, no `collect-status`, and status assigned imperatively in fourteen places across per-event handlers. This is roughly how you'd have written a charm in 2022, and it's the only prototype in the set with `StoredState` in it at all.
 
@@ -82,7 +82,11 @@ Two of these runs are a proper controlled pair, which I didn't plan and am pleas
 | Test framework | `Harness` | Scenario |
 | `ops` floor | 2.10 | ~3.7 |
 
-Same harness, same week, same operator, opposite ends of every axis I care about. And it lines up with the two unattended GLM runs I couldn't pair (Windmill and Tracecat), both of which landed on the same dated side. My read is that the harness barely matters for the shape of the charm you get, and the model matters enormously - specifically, how recent its sense of "how you write a charm" is. Charm idiom has moved a long way since 2022, and a model that learnt the old shape confidently produces a great deal of clean, well-organised, well-tested code in the wrong pattern.
+Same harness, same week, same operator, opposite ends of every axis I care about.
+
+The set happens to contain the other half of that experiment too. All three GLM runs are the same model (5.2, through OpenRouter) across two different harnesses - Windmill under opencode, Zammad and Tracecat under oh-my-pi - and they land in the same place as each other: no `collect-status` anywhere, imperative status throughout, `tls-certificates` v3 in the two that use it, `Harness` rather than Scenario in the two that have enough tests to tell. Holding the harness fixed and changing the model moves everything; holding the model fixed and changing the harness moves nothing I can see in the code.
+
+My read is that the harness barely matters for the shape of the charm you get, and the model matters enormously - specifically, how recent its sense of "how you write a charm" is. Charm idiom has moved a long way since 2022, and a model that learnt the old shape confidently produces a great deal of clean, well-organised, well-tested code in the wrong pattern.
 
 That is a somewhat uncomfortable conclusion for a team that writes documentation for a living, because it means the thing determining charm quality is largely outside our control. Although it also means llms.txt and good docs are worth more than they look, since that's the lever we do have (and the [llms.txt experiment](../2026-03-26-llms-txt-docs-experiment/) found the gains were biggest exactly where training data is thinnest).
 
@@ -115,11 +119,10 @@ What difficulty did change is how much *live* iteration happened. The heavy k8s 
 * Nine data points, and the variables aren't cleanly crossed. Only the Zammad/Flagsmith pair isolates one thing.
 * Workload, harness, model, supervision level and my own attention are all confounded outside that pair. The Claude Code runs got more of my time, and that will be worth something.
 * I built the ranking myself, after the decision, knowing which model built what. I did the measurements first and the ranking second, but I can't claim I was blind.
-* Tracecat's harness is unrecorded, so "harness barely matters" rests on three runs rather than four.
 * All of this is June to August 2026. Model versions move; the specific ordering will not hold.
 
 ## What I'd do differently
 
-Record the harness and model in the repository at build time, in a file, not in a VM name. I lost an afternoon reconstructing provenance from commit trailers, session exports, and multipass instance names, and I still can't fully answer it for one of the nine.
+Record the harness and model in the repository at build time, in a file, not in a VM name. I got all nine in the end, but only by decoding session exports and booting VMs months later, and that is not a thing I should have had to do to answer "what built this?".
 
 And make the build prompt end with a deploy, an integration test that writes something, and a `juju refresh` that checks the something is still there. Every prototype here has a test suite. Only the ones that were made to deploy have any evidence that the charm works.
