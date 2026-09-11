@@ -1,6 +1,6 @@
 # Charm reviews
 
-_(Copied verbatim from the rig. The `reviews/` links do not resolve here: the 147 review files are not in this repository. See [THEMES.md](THEMES.md) and [ERRATA.md](ERRATA.md).)_
+_(Copied verbatim from the rig. See [THEMES.md](THEMES.md) and [ERRATA.md](ERRATA.md).)_
 
 One charm per run, six runs a day. **147 of 147 reviewed**, next up is #148.
 
