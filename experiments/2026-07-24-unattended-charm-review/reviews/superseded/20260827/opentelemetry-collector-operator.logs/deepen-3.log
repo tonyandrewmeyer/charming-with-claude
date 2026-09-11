@@ -1,0 +1,23 @@
+The review is complete. Here's a summary of the deepening work done:
+
+**Key corrections:**
+- **Finding #1 downgraded from critical to high**: The server CA cert IS written to disk at `/usr/local/share/ca-certificates/juju_receive-ca-cert/cos-ca.crt` (defined in `src/constants.py:12` as `SERVER_CA_CERT_PATH`). The original claim that `otelcol-server-ca.crt` was missing was based on looking for a file that was never part of the design. TLS data reaches disk correctly — the GC issue's real impact is that certificate renewal events are never received.
+
+**New findings added:**
+- **#4 (high)**: Scale-up snap-start failure loop — new subordinate units joining a machine that already has the snap installed hit repeated `snap start` failures, entering permanent error state. Observed live in rv-otel-d2.
+- **#7 (medium)**: `queue_size`, `tracing_sampling_rate_*`, `max_elapsed_time_min` accept invalid values (negative/out-of-range) without validation. Confirmed with `queue_size=-10` and `tracing_sampling_rate_workload=200`.
+
+**Updated findings:**
+- **#2**: Stop hook crash confirmed Juju-version specific — clean on 3.6, traceback on 4.x. Demonstrated during `remove-unit ubuntu/2` scaling test.
+
+**New deployment observations:**
+- 3-unit scale deployment (rv-otel-d2) with scale-down (clean) and scale-up (snap-start failure)
+- 7 additional config options tested
+- Process kill/recovery confirmed
+- Relation removal and re-addition tested (certs cleaned and restored correctly)
+- Deep code review of TLS library (`ProviderCertificate.ca` population, `_Certificate` pydantic model), event dispatch mechanism, and upgrade path
+
+**Test analysis:**
+- Ran full test suite (171 passed, 1 skipped) with correct `PYTHONPATH=.:lib:src`
+- Static analysis: pyright clean, ruff clean
+- Identified specific untested code paths: stop hook, remove hook, TLS end-to-end, GC lifecycle, status precedence, scale-up snap-start

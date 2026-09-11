@@ -1,0 +1,292 @@
+# cos-proxy
+
+A mature machine charm that bridges legacy LMA observability interfaces to Kubernetes-based COS. It aggregates Prometheus scrape targets, alert rules, Grafana dashboards, and NRPE checks from machine-model charms and forwards them downstream via `downstream-prometheus-scrape`, `downstream-grafana-dashboard`, `downstream-logging`, or the `cos-agent` interface. The charm ships its own `nrpe_exporter` and `vector` binaries and uses stored state heavily to amortise `relation-get` costs at scale. The codebase is well-structured with a clean reconciler pattern in `MetricsEndpointAggregator`, good status precedence, and genuinely useful integration tests. However, it has several concrete defects: a typo in `_on_stop` that prevents cleanup of the nrpe-exporter systemd service file, vector is never stopped on charm removal, the enrichment file CSV builder is vulnerable to `StopIteration` on malformed input, constant alert rules are added twice per reconciliation due to an in-place-mutation-then-extend bug, and `event.certificates` iterates a set unsorted producing non-deterministic on-disk CA cert files.
+
+| | |
+|---|---|
+| Repo | canonical/cos-proxy-operator @ 64e6b81 (2026-07-13) |
+| Charms | cos-proxy, monitors-provider, scrape-consumer |
+| Substrate | machine |
+| Deployed | yes — concierge-lxd-4 (Juju 4.0.12), 3.0/edge rev 170 |
+| Reviewed | 2026-08-12 |
+
+## What it does
+
+cos-proxy sits in a machine model and collects observability telemetry from legacy (LMA) charms via several `requires` relations: `prometheus-target` (http scrape targets), `prometheus-rules` (alert rules), `monitors` (NRPE checks), `general-info`, `dashboards` (Grafana dashboards), `prometheus` (prometheus-manual), and `filebeat` (elastic-beats logs). It also provides downstream relations to COS: `downstream-prometheus-scrape` (to Prometheus), `downstream-grafana-dashboard` (to Grafana), `downstream-logging` (to Loki via `loki_push_api`), `cos-agent` (to Grafana Agent / OpenTelemetry Collector), and `filebeat`. It bundles the `nrpe_exporter` binary (to convert NRPE checks to Prometheus metrics on port 9275) and `vector` (for log forwarding and host-metric export on port 9090). Configuration includes `forward_alert_rules` (boolean, default true) and `nrpe_alert_on_warning` (boolean, default false).
+
+## Deployment log
+
+All deployed on `concierge-lxd-4` (Juju 4.0.12, LXD):
+
+```
+juju add-model rv-cosproxy -c concierge-lxd-4
+juju deploy cos-proxy --channel 3.0/edge   # revision 170, ubuntu@24.04
+# → blocked: "Add at least one incoming relation" (expected, no relations)
+
+# Built test charms from tests/manual/charms/:
+charmcraft pack -p monitors-provider  # ubuntu@22.04
+charmcraft pack -p scrape-consumer    # ubuntu@22.04
+
+juju deploy ./monitors-provider_ubuntu@22.04-amd64.charm monitors-provider
+juju deploy ./scrape-consumer_ubuntu@22.04-amd64.charm scrape-consumer
+
+juju relate cos-proxy:monitors monitors-provider:monitors
+juju relate cos-proxy:downstream-prometheus-scrape scrape-consumer:downstream-prometheus-scrape
+# → active, scrape_jobs=4 alert_rules=6
+
+juju config cos-proxy forward_alert_rules=false
+# → active, scrape_jobs=4 alert_rules=0 (config toggle works)
+
+juju config cos-proxy forward_alert_rules=true
+# → active, scrape_jobs=4 alert_rules=6 (back to normal)
+
+# Removed monitors relation; charm blocks correctly:
+# → blocked: "Add at least one incoming relation"
+
+# Re-added monitors; charm recovers:
+# → active, scrape_jobs=4 alert_rules=6
+
+# Removed downstream-prometheus-scrape; charm blocks with MandatoryRelationPairs:
+# → blocked: "Missing ['cos-agent']|['downstream-prometheus-scrape'] for monitors"
+
+# Re-added downstream-prometheus-scrape; charm recovers.
+
+# Kill vector: systemd Restart=always recovers in ~5s.
+
+# Bad config value: juju rejects before sending to charm ("expected boolean, got ...")
+```
+
+## Observed behaviour
+
+* **Deploy to active**: ~2m40s for cos-proxy (rev 170, 3.0/edge, ubuntu@24.04).
+* **Charm size on disk**: nrpe_exporter 17MB, vector 125MB, total charm ~142MB. This is large because of the embedded vector binary.
+* **Memory**: jujud ~117MB RSS, vector ~67MB RSS, nrpe-exporter ~11MB RSS. At idle with 3 NRPE checks and no log forwarding, total ~200MB.
+* **Binaries not installed until relations join**: `_setup_nrpe_exporter()` is only called on `monitors_relation_joined` or `general_info_relation_joined`. `_start_vector()` is called on those plus `filebeat_relation_joined`. Until then, no binaries exist in `/usr/local/bin/` and no systemd services run. This means the charm alone (blocked, no relations) has no workload — a sensible design for a proxy charm.
+* **Config change hook count**: a single `config-changed` hook fires one `update_alerts` call. The `_set_status` runs on `collect_unit_status` not `config_changed`, so hooks are minimal.
+* **Vector started but never stopped**: once vector is started, it runs forever, even after all relations that triggered it are removed. The code has a comment: "NOTE: We never stop vector once started" (`src/charm.py:718`). This is acknowledged but still a design wart.
+* **nrpe_lookup.csv correctly populated**: 3 entries for 3 test checks, with composite_key, juju_application, juju_unit, command, and ipaddr fields.
+* **Status messages**: informative — "Add at least one incoming relation" tells the operator what's wrong; the MandatoryRelationPairs output like "Missing ['cos-agent']|['downstream-prometheus-scrape'] for monitors" is actionable.
+* **Recovery from process kill**: vector restarted within 5s via systemd `Restart=always`. nrpe-exporter has the same unit configuration.
+* **Relation removal**: removing the only incoming relation correctly sets blocked status. Removing the only outgoing relation sets a different blocked. Re-adding relations restores active.
+
+## Findings
+
+### Typo in `_on_stop`: nrpe-exporter service file path has double "systemd"
+
+- **Severity**: medium
+- **Kind**: bug
+- **Where**: `src/charm.py:429`
+- **Evidence**:
+  ```python
+  files = ["/usr/local/bin/nrpe-exporter", "/etc/systemd/systemd/nrpe-exporter.service"]
+  ```
+  The correct path (as written during install at line 483) is `/etc/systemd/system/nrpe-exporter.service`. The stop handler writes to `systemd/systemd/`, leaving the real service file behind on charm removal.
+- **Why it matters**: On `juju remove-application`, the nrpe-exporter systemd unit file is not cleaned up. The binary at `/usr/local/bin/nrpe-exporter` is removed, and the service is stopped, but the stale unit file persists. A later redeploy would overwrite it, but if the charm is removed without cleaning, the host accumulates cruft.
+- **Fix**: Change line 429 to `"/etc/systemd/system/nrpe-exporter.service"`.
+- **Linter rule**: Mechanically checkable — a linter could detect path mismatch between install and cleanup when both are hard-coded string literals (e.g. flag when a path in an install block does not match the corresponding path in a stop/uninstall block). Low false-positive tolerance though, so low priority for automation.
+
+### Vector is never stopped or cleaned up on charm removal
+
+- **Severity**: medium
+- **Kind**: bug
+- **Where**: `src/charm.py:424-433`
+- **Evidence**: The `_on_stop` method only handles nrpe-exporter cleanup:
+  ```python
+  def _on_stop(self, _):
+      if service_running("nrpe-exporter"):
+          service_stop("nrpe-exporter")
+      files = ["/usr/local/bin/nrpe-exporter", "/etc/systemd/systemd/nrpe-exporter.service"]
+      for f in files:
+          if Path(f).exists():
+              Path(f).unlink()
+  ```
+  Vector is entirely absent: no `service_stop("vector.service")`, no removal of `/usr/local/bin/vector`, `/etc/systemd/system/vector.service`, `/etc/vector/`, or `/var/lib/vector/`.
+- **Why it matters**: On charm removal, the vector process keeps running indefinitely, consuming ~67MB RSS and writing to journald. In production environments with many cos-proxy units (it's designed as a fan-in proxy), this is a resource leak and a cleanliness concern. The 125MB binary also remains on disk.
+- **Fix**: Add vector cleanup to `_on_stop`: stop the service, remove the binary, service file, and data/config directories.
+- **Linter rule**: A linter could check that every "install a systemd service" call has a corresponding "stop and remove" call in `_on_stop` (or an `on.remove` handler). This is checkable if the pattern is consistent.
+
+### `_modify_enrichment_file` vulnerable to `StopIteration` on malformed endpoint data
+
+- **Severity**: medium
+- **Kind**: bug
+- **Where**: `src/charm.py:566-578`
+- **Evidence**:
+  ```python
+  target = (
+      f"{endpoint['target'][next(iter(endpoint['target']))]['hostname']}_"
+      + f"{endpoint['additional_fields']['updates']['params']['command'][0]}"
+  )
+  ```
+  And at line 578:
+  ```python
+  unit_name = next(
+      filter(
+          lambda d: "target_label" in d and d["target_label"] == "juju_unit",
+          endpoint["additional_fields"]["relabel_configs"],
+      )
+  )["replacement"]
+  ```
+  Both `next(iter(...))` calls will raise `StopIteration` (converted to `RuntimeError` in some Python versions) if the data structures are empty. The NRPE exporter always generates well-formed data, but if a badly-formed monitor relation appears, the charm will traceback in `_on_nrpe_targets_changed` → `_modify_enrichment_file`.
+- **Why it matters**: In production with many heterogeneous charms providing `monitors` relations, a single malformed relation data bag from a third-party charm could crash the reconciler, preventing all NRPE processing until the bad relation is removed.
+- **Fix**: Guard with `try/except StopIteration` or use `next(..., default=None)` with explicit None checks, and log a warning for the malformed entry instead of crashing.
+- **Linter rule**: "`next()` called without a default on a generator or iterator that may be empty" — partially mechanically checkable, though the empty case depends on data flow from relation data.
+
+### Constant alert rules added twice per reconciliation
+
+- **Severity**: low
+- **Kind**: bug
+- **Where**: `src/metrics_endpoint_aggregator.py:211-216` (caller), `src/metrics_endpoint_aggregator.py:181-193` (callee)
+- **Evidence**:
+  ```python
+  groups = [] + _type_convert_stored(self._stored.alert_rules)
+  groups.extend(self._add_constant_alerts(groups))  # line 216
+  ```
+  Inside `_add_constant_alerts`:
+  ```python
+  def _add_constant_alerts(self, groups):
+      # ... builds alert_rules ...
+      groups.extend(alert_rules.as_dict()["groups"])  # mutates in-place
+      return groups  # returns same object
+  ```
+  The function both mutates `groups` in-place AND returns it, and the caller then `extend`s the return value into the same `groups`. This means constant alert rules (own rules + generic rules) are appended twice. The `_dedupe_list` call at line 220 catches the duplicates, so there is no user-visible bug, but it doubles work and risks producing duplicates if the dedup ever fails (e.g. if rule dicts differ by a non-semantic key).
+- **Why it matters**: Inefficient, and a latent correctness risk if `_dedupe_list` is removed or refactored.
+- **Fix**: Either remove the `groups.extend(...)` in `_add_constant_alerts` (keeping only the return), or don't extend the return value at the call site. The cleanest fix is to make `_add_constant_alerts` not modify its argument and not return it:
+  ```python
+  new_groups = alert_rules.as_dict()["groups"]
+  return groups + new_groups  # or: groups.extend(new_groups); return groups but don't extend return
+  ```
+- **Linter rule**: "Function both mutates a list argument and returns it" — mechanically checkable as a lint rule.
+
+### Unsorted iteration over `event.certificates` (set) produces non-deterministic on-disk content
+
+- **Severity**: low
+- **Kind**: bug
+- **Where**: `src/charm.py:345`
+- **Evidence**:
+  ```python
+  certs = "\n\n".join(event.certificates)
+  CA_CERT_PATH.write_text(certs + "\n")
+  ```
+  `event.certificates` is a `Set[str]` (see `lib/charms/certificate_transfer_interface/v1/certificate_transfer.py:508`). Iterating a set is non-deterministic. The same set of certificates could produce a different on-disk file each time `_on_cert_transfer_available` fires, even if the actual certificates haven't changed. This matches the open issue #245.
+- **Why it matters**: Causes unnecessary file churn on the unit's filesystem, which can trigger unnecessary watch-based re-reads. If `ops_tracing.set_destination` re-reads the CA cert on every file change, it could cause spurious tracing configuration reloads.
+- **Fix**: `certs = "\n\n".join(sorted(event.certificates))`.
+- **Linter rule**: "Unsorted iteration over a set used to build a file or serialized output" — mechanically checkable (flaplint already catches this).
+
+### `_write_vector_config` collects `loki_endpoints` but never uses them
+
+- **Severity**: low
+- **Kind**: bug
+- **Where**: `src/charm.py:637-641`
+- **Evidence**:
+  ```python
+  loki_endpoints = []
+  for relation in self.model.relations["downstream-logging"]:
+      if not relation.units:
+          continue
+      for unit in relation.units:
+          if endpoint := relation.data[unit].get("endpoint", ""):
+              loki_endpoints.append(json.loads(endpoint)["url"])
+  config = self.vector.config
+  ```
+  The `loki_endpoints` list is populated but never passed to anything. The actual Loki sink configuration is generated by `VectorProvider.config` (in `src/vector.py`) which independently iterates `self._charm.model.relations` for the downstream-logging relation. So `_write_vector_config` does redundant work collecting endpoints it never uses.
+- **Why it matters**: Dead code, and the iteration over relation data is wasted work on every vector config write. Minor.
+- **Fix**: Remove the dead code block, or if it was intended to be used, pass the endpoints into the VectorProvider. Since `VectorProvider.config` already handles this internally, the dead code should simply be removed.
+- **Linter rule**: "Assigned variable never used" — ruff already catches this at the local level, but here `loki_endpoints` is defined at function scope and never referenced after the loop, which some linters might miss.
+
+### `StoredState` used as source of truth for relation existence rather than actual Juju state
+
+- **Severity**: medium
+- **Kind**: bug
+- **Where**: `src/charm.py:738-755`
+- **Evidence**: The `_set_status` method builds `active_relations` from `self._stored.have_*` booleans rather than checking `self.model.relations`. The code comment at line 735 acknowledges this is done for performance (avoiding `relation-list` and `relation-get` calls). However, stored state can become stale if a unit is not leader and misses relation-joined/departed events, or if stored state is corrupted.
+- **Why it matters**: If a stored state flag gets out of sync (e.g. `have_nrpe` is `True` but the monitors relation was actually removed while the unit was down), the status message will be wrong. The status would show active when in fact the relation is gone, or show blocked incorrectly. This was an intentional tradeoff documented in the code, but it's a correctness risk. Open issue #56 and #203 discuss the performance problems that led to this design.
+- **Fix**: Periodically reconcile stored state against actual relations (e.g. on `upgrade_charm` or `config_changed`), or use a hybrid approach that checks relation existence cheaply (Juju 3.6+ may have cheaper relation introspection). Not easily fixable without a broader rearchitecture.
+- **Linter rule**: Not mechanically checkable.
+
+### Charm ships very large vector binary (125MB) in the charm package
+
+- **Severity**: low
+- **Kind**: performance
+- **Where**: `charmcraft.yaml:49-58`
+- **Evidence**: The vector binary is downloaded at build time and embedded directly:
+  ```yaml
+  vector:
+    plugin: dump
+    override-pull: |
+      VERSION=0.44.0
+      curl ... https://packages.timber.io/vector/${VERSION}/vector-${VERSION}-${ARCH}.tar.gz | tar xzf -
+  ```
+  This results in a ~125MB binary in the charm (142MB total charm size). For a charm deployed on many machines, this increases deployment latency and storage costs.
+- **Why it matters**: Deployment time and bandwidth. On slow networks or with many units, this is noticeable. Open issue #222 suggests bumping the version and refactoring the download approach.
+- **Fix**: Consider downloading vector at runtime (like `_setup_nrpe_exporter` does for nrpe_exporter) from a resource or a known URL, or using a snap. The nrpe_exporter binary is 17MB, which is more reasonable.
+- **Linter rule**: "Charm package exceeds N MB" — mechanically checkable with a threshold.
+
+### Integration tests use real charms deployed in CI (telegraf + opentelemetry-collector)
+
+- **Severity**: n/a — this is a positive finding
+- **Kind**: test-gap (acknowledged strength)
+- **Where**: `tests/integration/test_alert_rules.py`, `tests/integration/test_charm_tracing.py`
+- **Evidence**: The integration tests deploy `cos-proxy` → `opentelemetry-collector` via `cos-agent`, and `ubuntu` + `telegraf` → `cos-proxy` via `prometheus-rules`. They assert that alert rules propagate end-to-end and are toggled by `forward_alert_rules`, and that charm traces reach the collector. Tests use retries for eventual consistency and clean up relations to verify removal. This is genuinely useful and goes beyond "wait for active/idle".
+- **Why it matters**: These integration tests exercise the exact topology the charm is designed for. However, there is no integration test for the NRPE/monitors path (the most common use case), no test for the downstream-prometheus-scrape relation with a real Prometheus, and no test for filebeat/downstream-logging. The monitors path is only tested via unit tests with scenario/harness mocks.
+- **Linter rule**: Not mechanically checkable.
+
+### Unit tests use deprecated `ops.testing.Harness`
+
+- **Severity**: low
+- **Kind**: lint
+- **Where**: `tests/unit/test_charm.py:195`, `tests/unit/test_endpoint_aggregator.py:135`, etc.
+- **Evidence**: All unit tests import and use `ops.testing.Harness`, which is deprecated in ops 2.x in favor of the Scenario-based `State`/`Context` testing API. The tests emit `PendingDeprecationWarning`. The newer `test_alerts.py` already uses Scenario.
+- **Why it matters**: The Harness API will eventually be removed. Tests using it will break and need to be rewritten.
+- **Fix**: Migrate remaining Harness-based tests to Scenario.
+- **Linter rule**: "Use of deprecated `Harness`" — ruff can catch this with the right rules.
+
+## Worth copying
+
+1. **Clean reconciler with `ScrapeJobContext` and `AlertRuleContext`** (`src/metrics_endpoint_aggregator.py:590-680`): The `set_target_job_and_alert_rule_data_batch` method uses data class-based contexts to apply batched updates (additions and removals) to existing relation data. This avoids O(n²) rebuilds when multiple NRPE targets change. The pattern of describing desired state changes as data-class contexts is elegant and could be adopted by other aggregation charms.
+
+2. **`MandatoryRelationPairs` for status messages** (`deps/cosl/mandatory_relation_pairs.py`): The charm declares a mapping of incoming→outgoing relation requirements and uses `cosl.MandatoryRelationPairs.get_missing_as_str()` to produce human-readable status messages like "Missing ['cos-agent']|['downstream-prometheus-scrape'] for monitors". This is far more useful than a generic "missing relations" message and the pattern is reusable across charms that have paired relation requirements.
+
+3. **Well-structured integration tests with retries** (`tests/integration/`): Tests use `tenacity` retry decorators for eventual consistency checks on alert rule propagation, with specific rule-marker-based assertions (`grep -r 'ThreeDayPredictedDiskOutage'`). The BDD-style tracing test (`test_charm_tracing.py`) manually triggers `update-status` hooks and asserts traces appear in collector logs. This is a good pattern for testing observable side effects in event-driven systems.
+
+4. **`charm_tracing_config` reconciliation** (`src/charm.py:318-327`): The `_reconcile_charm_tracing` method is called from multiple hooks (cos-agent join/change, cert transfer events) and is idempotent — if no endpoint is available it returns early. This pattern of a single reconcile function called from multiple observation points is clean and avoids scattered tracing setup logic.
+
+5. **`collect_unit_status` for performance** (`src/charm.py:735`): The charm uses `self.on.collect_unit_status` (with a comment explaining why) to avoid expensive `relation-list` and `relation-get` calls in the status hook. The status evaluation builds from stored state instead. While this has the correctness risk noted above, the performance motivation is well-documented and the tradeoff is explicit.
+
+## Common-practice notes
+
+* **Library versioning**: All libraries under `lib/charms/` follow the standard `v<N>/` versioning convention. The embedded `nrpe_exporter.py` and `vector.py` in `src/` are not proper charm libraries (they have `LIBID = "0xdeadbeef"` and are not on charmhub). This is fine for internal modules but means they aren't independently versioned or shareable.
+
+* **`charmcraft.yaml` layout**: Uses the `uv` plugin with `build-snaps: [astral-uv]` — modern practice. Multiple `parts` (charm, nrpe-exporter, vector) with custom `override-pull` for binary downloads. The `platforms` section lists `ubuntu@20.04:amd64`, `ubuntu@22.04:amd64`, `ubuntu@24.04:amd64` — wide base coverage, though 20.04 is EOL for standard support.
+
+* **`src/` layout**: Core charm logic in `charm.py`, supporting modules in same directory (`metrics_endpoint_aggregator.py`, `nrpe_exporter.py`, `scrape_config.py`, `vector.py`). The `metrics_endpoint_aggregator.py` is nearly 700 lines — it's a forked and significantly modified version of a charm library. The code comment at the top says it was moved from `charms.prometheus_k8s.v0.prometheus_scrape` and lives in `src/` because the fork deviated too much from the upstream library.
+
+* **`justfile` integration**: The project uses `just` with an imported `charms.just` file for standard recipes. The `justfile` is minimal (just imports), which is a good practice for standardised tooling.
+
+* **`pyproject.toml` caution**: The `requires-python = "~=3.8"` specifier is ambiguous (should be `~=3.8.0` or `>=3.8`). The pin on `markupsafe==2.0.1` and `jinja2<3` is very old — these are transitive dependencies from older charm libraries and may cause conflicts with newer packages.
+
+* **Drift from convention**: The charm mixes two architectural patterns: it has both direct downstream relations (`downstream-prometheus-scrape`) and the `cos-agent` interface (which forwards to a Grafana Agent/OpenTelemetry Collector). This dual-path design is acknowledged as transitional — the README and INTEGRATING.md both say to prefer `cos-agent` when possible. The unresolved tension is that the charm needs to support both paths, which adds significant complexity to the `MetricsEndpointAggregator` (the `_should_update_cos_agent()` method and its coupling between the aggregator and `cos_agent` attribute).
+
+## Tests
+
+* **Unit tests**: 57 tests passing. Mix of `ops.testing.Harness` (deprecated) and `scenario` tests. Coverage: `charm.py` 65%, `metrics_endpoint_aggregator.py` 90%, `nrpe_exporter.py` 76%, `scrape_config.py` 100%, `vector.py` 51%, overall 77%.
+* **Coverage gaps**: `vector.py` at 51% is notably thin — the `VectorProvider.config` property and the `DEFAULT_VECTOR_CONFIG` template are not exercised. The `_modify_enrichment_file` method has zero branch coverage. The `_write_vector_config` method and the `_on_cert_transfer_*` handlers are untested. The `_on_stop` method is completely uncovered.
+* **Integration tests**: Two integration test files (alert rules, charm tracing) using `jubilant` + `pytest-bdd` + `tenacity`. These deploy real COS charms (opentelemetry-collector) and assert end-to-end propagation. They test relation lifecycle (add, toggle config, remove) and verify alert rule content in the target charm's filesystem. The tests are well-written and go beyond status checks, but they only cover the `cos-agent` path — the `downstream-prometheus-scrape` and `monitors` paths are not integration-tested.
+* **Manual test charms**: `monitors-provider` and `scrape-consumer` in `tests/manual/charms/` are simple, focused test doubles. `monitors-provider` emits configurable NRPE monitor data; `scrape-consumer` displays received scrape jobs and alert rules. These are useful for manual and benchmark testing but are not wired into the CI integration test suite.
+* **Benchmark**: `tests/manual/juju_monitors_benchmark.py` benchmarks the monitors fan-in pattern at scale.
+
+## Docs
+
+* **README.md**: Comprehensive deployment guide with concrete `juju` commands, cross-model relation examples, and a complete status output example. Covers Prometheus and Grafana integration. The NRPE Exporting section is brief but actionable. A new operator could follow this guide and succeed.
+* **INTEGRATING.md**: Contains Mermaid diagrams for two topologies (direct to COS Lite, and via cos-agent with Grafana Agent/OpenTelemetry Collector). Clearly states cos-proxy is transitional and that `grafana-agent` is preferred. References `tests/manual/topologies/README.md` for exportable bundles.
+* **Charmhub description** (`charmcraft.yaml`): Good summary and feature list. Links to the documentation site.
+* **Docs/reality match**: The README's status output example shows `cos-proxy` at active with filebeat, nrpe, telegraf, and ubuntu units. My deployment matched this pattern (active with monitors relation + downstream-prometheus-scrape).
+
+## Open questions
+
+1. **Why is vector v0.44.0 pinned?** The `charmcraft.yaml` hard-codes `VERSION=0.44.0` (released Jan 2025). Newer versions exist. Open issue #222 asks for a version bump and refactoring of the dump plugin approach. The version pin is a maintenance burden.
+
+2. **Does the `_modify_enrichment_file` dedup logic actually handle the composite_key duplication reported in #60?** The current code filters existing entries by matching `(composite_key, juju_unit)` tuples against `current` targets, but it doesn't deduplicate entries already in the CSV file that share the same composite key. This means if the file already has duplicates (e.g. from a previous bug), they persist indefinitely. The open issue #60 remains unresolved.
+
+3. **Why is `vector.py` excluded from pyright?** (`pyproject.toml:101`: `exclude = ["src/vector.py", ...]`). The comment in the code references `$` interpolation in the YAML template, which may confuse the type checker. But excluding the entire file from static analysis means type errors in the VectorProvider class go undetected.
+
+4. **Does the `cos-agent` integration path respect `forward_alert_rules`?** Open issue #220 claims the `cos-agent` library does not respect the `forward_alert_rules` config option. Looking at the code, `COSAgentProvider` receives `extra_alert_groups=self._get_stored_alert_groups` which handles the config at the callable level, but the `COSAgentProvider` itself may still send its own alert rules unconditionally. This would require reading the full `cos_agent.py` library to settle.
