@@ -15,6 +15,7 @@
 * [Writing an AI Agent](https://tillenius.me/blog/2026/05/10/writing-an-ai-agent)
 * [Agents in LXD](https://github.com/mwhudson/agent-in-a-box)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
+* [Have AI write custom linters for your project](https://discourse.canonical.com/t/custom-linters-for-your-projects/8199) (internal only)
 
 ## Read everything from
 
