@@ -15,7 +15,8 @@
 * [Writing an AI Agent](https://tillenius.me/blog/2026/05/10/writing-an-ai-agent)
 * [Agents in LXD](https://github.com/mwhudson/agent-in-a-box)
 * [Charming Recipes](https://github.com/canonical/chArmIng-recipes/) (internal only)
-* [Have AI write custom linters for your project](https://discourse.canonical.com/t/custom-linters-for-your-projects/8199) (internal only)
+* [Have AI write custom linters for your project](https://discourse.canonical.com/t/custom-linters-for-your-projects/8199u=tony-meyer) (internal only)
+* [Your 10x doesn't compound into a better company](https://discourse.canonical.com/t/your-10x-doesnt-compound-into-a-better-company/8181?u=tony-meyer) (internal only)
 
 ## Read everything from
 
