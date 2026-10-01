@@ -26,14 +26,15 @@ FALLBACK_EMAIL = "noreply@github.com"
 def get_git_info(path: str) -> tuple[str, str, str] | None:
     """Get the git commit info (author name, email, date) for a path.
 
-    Returns the info for the most recent commit that touched this path.
+    Returns the info for the first commit that touched this path, so that
+    later edits (such as tree-wide reformatting) do not re-date the item.
     """
     try:
         result = subprocess.run(
             [
                 "git",
                 "log",
-                "-1",
+                "--reverse",
                 "--format=%an|%ae|%ad",
                 "--date=iso-strict",
                 "--",
@@ -46,7 +47,8 @@ def get_git_info(path: str) -> tuple[str, str, str] | None:
         output = result.stdout.strip()
         if not output:
             return None
-        parts = output.split("|")
+        # --reverse is applied after -n, so take the first line rather than using -1.
+        parts = output.splitlines()[0].split("|")
         if len(parts) != 3:
             return None
         author, email, date = parts
@@ -284,7 +286,7 @@ def generate_rss(experiments: list[dict], readthem_updates: list[dict]) -> str:
         "  <channel>",
         "    <title>Charming with Claude - Updates</title>",
         f"    <link>{REPO_URL}</link>",
-        "<description>Updates from the Charming with Claude repository: new experiments and "
+        "    <description>Updates from the Charming with Claude repository: new experiments and "
         "reading list additions</description>",
         f'    <atom:link href="{FEED_URL}" rel="self" type="application/rss+xml"/>',
     ]
