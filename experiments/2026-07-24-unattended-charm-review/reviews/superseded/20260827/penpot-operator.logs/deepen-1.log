@@ -1,0 +1,19 @@
+The review is now comprehensive. Here's a summary of what was added and corrected:
+
+**Corrections from earlier review:**
+- The "exporter missing `PENPOT_SECRET_KEY`" finding was **wrong** — the exporter DOES have `**self._get_penpot_secret_key()` at `src/charm.py:231`. The unit test also deletes it from the exporter plan, confirming it exists. This finding is explicitly retracted in the verdict.
+
+**New findings from deployment and code review:**
+1. **Critical**: `postgresql-k8s` at default channel `latest/stable` (rev 20) provides `pgsql` interface, not `postgresql_client`. The penpot charm requires `postgresql_client`. Only `postgresql-k8s --channel 14/stable --revision 774` works. This is not documented anywhere.
+2. **High**: Unit tests require `PYTHONPATH=.:lib` — not `src:lib` as I initially thought. The dispatch script uses absolute paths.
+3. **Medium**: README uses `nginx-ingress-integrator` but the integration tests use `traefik-k8s` — interface mismatch.
+4. **Medium**: Integration test conftest pins 9 specific charm revisions not mentioned in the README.
+5. **Low**: No `update_status` handler — status not refreshed between hook invocations.
+6. **Low/Medium**: `_get_penpot_exporter_unit` crashes if peer relation doesn't exist (theoretical race, not observed in practice).
+7. **Environment finding**: concierge-k8s-4 RBAC blocks all charms from using Juju secrets. concierge-k8s-3 lacks LoadBalancer support, breaking traefik-k8s.
+
+**New observed behaviour:**
+- Hook sequence confirmed: peer relation created BEFORE leadership elected
+- Status precedence works correctly: blocked message lists all unfulfilled requirements
+- Relation removal detected and reflected in status at next `update-status` hook
+- traefik-k8s fails with LoadBalancer not found; s3-integrator needs MinIO

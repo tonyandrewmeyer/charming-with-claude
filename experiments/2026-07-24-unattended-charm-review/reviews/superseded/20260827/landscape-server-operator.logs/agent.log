@@ -1,0 +1,17 @@
+The review is complete. Here's a summary of what was done and found:
+
+## Review Summary
+
+**Deployment**: Successfully deployed `landscape-server` on `concierge-lxd` (Juju 3.6) from charmhub `26.04/edge` rev 472. Related PostgreSQL 16/stable and RabbitMQ latest/edge. All 10 Landscape services active. Install took ~3 min 16 sec.
+
+**3 Critical/High findings**:
+
+1. **CRITICAL — Secret tokens in error logs** (`src/charm.py:285`): When invalid config is submitted, `logger.error(f"Invalid configuration: {e.errors()}")` dumps the full Pydantic input dict including `secret_token` and `cookie_encryption_key` values to the Juju debug log, which is accessible to anyone with model access. Confirmed live.
+
+2. **HIGH — Services restarted on every config change** (`src/charm.py:466`): `_on_config_changed` unconditionally calls `_update_ready_status(restart_services=True)`, which calls `lsctl restart`. Confirmed live: even changing `site_name=test-name` (which requires no service restart) restarts all 10 services.
+
+3. **HIGH — Unit tests crash pytest** (`tests/unit/test_settings_files.py:79,87`): The `redirect_systemd_paths` fixture calls `path.replace("/etc/systemd/system", str(tmp_path))` where `path` is a `pathlib.Path` — `Path.replace()` takes 1 arg but 2 were given. The mock intercepts pytest's own teardown code, causing a `TypeError` crash. All tests pass but pytest crashes at session teardown.
+
+**3 Medium findings**: `_update_wsl_distributions` treats missing script as success; non-leader DB path skips WSL update while leader does not; SMTP line-parsing uses unbounded `split("=")`.
+
+**Good patterns**: Pydantic config validation, port-conflict detection, atomic cert writes, umask-based file permissions, Juju secret lifecycle management, clean `get_modified_env_vars()` for Python path isolation.

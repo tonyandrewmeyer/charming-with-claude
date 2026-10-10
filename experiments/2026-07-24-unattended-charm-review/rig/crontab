@@ -1,0 +1,16 @@
+# Charm review harness: one charm per run, every 4 hours (6/day).
+# Slower than the original 8/day, deliberately: every run was stopping on the harness's
+# own depth ceiling rather than because the agent had run out of work, so each run now
+# gets a 3h agent budget instead of 2h and up to 4 depth passes instead of 3.
+# SLOT_HOURS in bin/lib.sh MUST stay in sync with the */4 below — the per-slot budget
+# maths counts remaining slots in the UTC day from it.
+SHELL=/bin/bash
+PATH=/home/ubuntu/.local/share/pi-node/node-v22.23.1-linux-x64/bin:/snap/bin:/usr/local/bin:/usr/bin:/bin:/home/ubuntu/.local/bin
+0 */4 * * * /home/ubuntu/charm-review/bin/run-review.sh >> /home/ubuntu/charm-review/state/cron.log 2>&1
+# Weekly cross-charm synthesis over the reviews written so far.
+30 2 * * 1 /home/ubuntu/charm-review/bin/themes.sh >> /home/ubuntu/charm-review/state/cron.log 2>&1
+# Cap runaway container logging every minute. A charm that scrapes /var/log while also
+# logging to it (opentelemetry-collector, #62) fills this disk in ~30min — far faster than
+# the 4h review cycle — and a full disk wedges juju so cleanup can no longer fix it.
+# Silent unless it actually finds something. See bin/logcap.sh.
+* * * * * /home/ubuntu/charm-review/bin/logcap.sh >> /home/ubuntu/charm-review/state/cron.log 2>&1

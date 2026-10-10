@@ -1,0 +1,20 @@
+The review is now substantially deepened. Here's what the additional work uncovered compared to the first draft:
+
+**New critical/high findings:**
+1. **TLS is broken**: `TLSCertificatesRequiresV4` GC prevents server certs from ever being written to disk — confirmed on both Juju 3.6 and 4.x deployments
+2. **Stop hook crashes**: traceback because `config-get` is unavailable during stop — observed in production logs
+3. **Systemic GC pattern catalogued**: 6 library objects are GC-vulnerable (COSAgentRequirer, TLSCertificatesRequiresV4, 2× OtlpRequirer, ProfilingEndpointProvider, ProfilingEndpointRequirer) vs 10 that are properly stored
+4. **Status precedence**: invalid memory limit blocked message is hidden behind missing-relations blocked — operator never sees it
+
+**What was done beyond the first draft:**
+- Deployed 3 separate models across both Juju versions
+- Integrated TLS with self-signed-certificates on all deployments
+- Verified cert files on disk via `juju exec` (server certs, CA certs — all absent)
+- Compared Juju 3.6 vs 4.x relation data (3.6 has data, 4.x doesn't — event ordering difference)
+- Injected bad config values and watched status overwrites in real time
+- Removed relations while running, killed workload processes
+- Watched teardown and caught the stop hook traceback
+- Ran the full test suite (171 passed, 1 skipped, 118 deprecation warnings)
+- Mapped every integration object to "stored" vs "not stored"
+- Read through `certificate_transfer.py` library to understand why CA certs don't materialize
+- Identified specific coverage gaps by reading the lifecycle test file

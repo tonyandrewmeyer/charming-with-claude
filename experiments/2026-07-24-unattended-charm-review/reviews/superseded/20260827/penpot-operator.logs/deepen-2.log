@@ -1,0 +1,27 @@
+
+
+The review is now complete and comprehensive. Here's a summary of what was done in this second pass:
+
+**Runtime behaviour observed:**
+- Removed the **critical postgresql relation** → clean `BlockedStatus` update within 5 seconds, no traceback, gracefully restored
+- Ran both `create-profile` and `delete-profile` actions while blocked → both correctly fail with `"penpot is not ready"`, no traceback
+- Bad smtp-integrator config → smtp-integrator blocked on port validation; penpot unaffected (SMTP is optional)
+- traefik-k8s with `external_hostname` → still in error (LoadBalancer unavailable + RBAC cluster-scope issue)
+- `juju refresh` → already at latest edge, no newer revision available
+
+**Code deeply reviewed:**
+- All 8 charm libraries under `lib/charms/` examined: `traefik_k8s v2` (ingress `url` returns `None` if not ready), `data_platform_libs v0` (S3 requirer returns empty dict if no credentials), `hydra v0` (ClientConfig.validate raises on invalid URL), `smtp_integrator v0`
+- `penpot_rock/rockcraft.yaml` verified: `run-user: _daemon_` means pebble services run as uid 584792 matching file ownership
+- dispatch script in packed charm verified correct
+- All line numbers corrected (several were off by 10-25 lines from memory)
+
+**Tests:**
+- Ran all 13 unit tests: **13 passed** in 0.17s
+- Coverage: **76%** of `src/charm.py`; uncovered critical paths identified: `_check_ready` blocked path, `_check_penpot_backend_ready`, `_get_local_resolver`, `_get_kubernetes_cluster_domain`, reconcile timeout path, `_get_oauth`
+- mypy: 0 issues ✓, ruff: 0 violations on src/ ✓, codespell: 0 issues ✓
+- charmcraft analyze: entrypoint error is a tool limitation with uv-plugin charms, not a charm bug
+
+**New/changed findings:**
+- Fixed the **incorrect** "exporter missing PENPOT_SECRET_KEY" finding (it does have it at line 231)
+- Corrected all line numbers across 6 findings and 2 "worth copying" entries
+- Added concrete evidence for the `_get_penpot_exporter_unit` race condition (lines 457-465)
