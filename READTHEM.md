@@ -55,6 +55,8 @@ Using LLMs at Oxide](https://rfd.shared.oxide.computer/rfd/0576) - a great set o
 * [rsync and outrage](https://medium.com/@tridge60/rsync-and-outrage-d9849599e5a0), balanced take on handling critiscm on AI use
 * [AI enthusiasts are in a race against time, AI skeptics are in a race against entropy](https://charity.wtf/2026/06/02/ai-enthusiasts-are-in-a-race-against-time-ai-skeptics-are-in-a-race-against-entropy-xpost/), finding the middle ground
 * [AI demands more engineering discipline, not less](https://charity.wtf/2026/06/15/ai-demands-more-engineering-discipline-not-less-xpost/), a great follow-up to the previous post
+* [Judgement > Output](https://cate.blog/2026/10/20/judgement-output/), thoughts on how making things easier means we need more judgement.
+
 
 ### Agent instruction files:
 * [Stop using CLAUDE.md](https://www.xda-developers.com/claude-md-helping-your-projects-is-myth/)
