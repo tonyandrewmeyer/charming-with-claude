@@ -21,7 +21,7 @@
 
 ## Read everything from
 
-* [Ed Zitron's Where's Your Ed At](https://www.wheresyoured.at/). Primarily focused on the economic aspects. Very long articles. Generally negative.
+* [Ed Zitron's Where's Your Ed At](https://www.wheresyoured.at/). Primarily focused on the economic aspects. Very long articles. Generally negative. But also read [this critique of Zitron's accuracy](https://danluu.com/zitron/).
 * [Simon Willison's blog](https://simonwillison.net). Quite practical. Author of the [Python llm tool](https://llm.datasette.io/en/stable/) (also Django, datasette). Generally positive.
 * [Armin Ronacher's Thoughts and Writings (on AI)](https://lucumr.pocoo.org/tags/ai/). Mostly positive. Technical and practical.
 * [Wil McGugan's Essays](https://willmcgugan.github.io/categories/#toad). Developing a new terminal coding agent, [Toad](https://github.com/batrachianai/toad). The future may be Python, not JavaScript!
