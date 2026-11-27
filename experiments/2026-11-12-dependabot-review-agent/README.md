@@ -4,9 +4,15 @@
 **Agent:** Claude Code built it; the reviews themselves were written by Llama 3.3 70B through OpenRouter
 **Result:** dropped after five months, with the runtime half carrying on as its own project
 
-This one didn't work out, but I think some of the reasons are worth writing down. Partly because a lot of people (inside Canonical and out) are building review agents at the moment, and partly so that I remember them next time.
+This one didn't work out, but I think some of the reasons are worth writing down. Partly because a lot of people (inside Canonical and out) are building review agents at the moment, but mostly so that I remember them next time.
 
-I started with two fairly separate goals. The first was "given a PR for a charm, work out what the charm actually *does*, whether that's different from before, and report it in the PR". The second was about Dependabot. We get a lot of Dependabot PRs, and we mostly accept them based on the compatibility score and a skim of the release notes. It would be better to know how a change affects *our* use of the dependency (mostly runtime dependencies, but maybe test ones and tooling too). I ended up joining the two goals together, and I think that was the first mistake.
+I started with two goals. The trigger for the first was all the noise about supply chain risk at the time (cooldown periods, the danger of blindly accepting dependency bumps, and so on). We'd had a team discussion and agreed to be careful: to hold off until the risk had dropped, to review changelogs and release notes, and to dig into what had actually changed. The biggest part of that is working out how a change affects *our* use of the dependency, and whether there's something malicious buried in there, and that seemed like something an agent would be much better at finding than me.
+
+In reality, we're not yet as careful as we could be. We do wait, and some repos (particularly my personal ones) update first. I've always read the release notes, and will keep doing so, but I rarely dig into the actual code. It's a lot of work for a low risk.
+
+The second goal came from thinking a lot about charm security at the time. When a charm updates, I want to know that it isn't carrying some injected bad code, so the goal was "given a PR for a charm, work out what the charm actually *does*, whether that's different from before, and report it in the PR". The two are similar in theory, maybe, but really they're very different goals with different audiences, and they should have had different approaches. I ended up joining them together, and I think that was the first mistake.
+
+There was also some energy coming back from the May Canonical sprint about building wild ideas, to try to do things that we couldn't do before. I certainly couldn't analyse all the code in all of my dependencies without agentic help, and I couldn't run every charm on every update to check whether it did anything bad. So these were "moonshot" experiments (or, more realistically, low-Earth-orbit-shots), and neither of these two made it to orbit.
 
 ## What got built
 
@@ -16,9 +22,9 @@ The plan (May 2026) had three layers:
 * Layer B looked at how the consuming repo uses the dependency: imports, call sites, and whether those intersect with what changed.
 * Layer C handed both reports to an LLM, which wrote a PR comment with a label (`no-impact`, `possible-impact`, or `clear-impact`) and a recommendation.
 
-The first goal turned into a separate runtime-monitoring project, which deploys the charm with the new version of the dependency and watches what it does. I wired its output into the Dependabot comment as a runtime section.
+The charm security goal started out as a separate runtime-monitoring project, which deploys a charm before and after a change and watches what it does. Later I tied the two together, so the monitor ran against the Dependabot bumps and its output went into the Dependabot comment as a runtime section.
 
-From mid-June it ran every two hours from cron on my laptop, against four personal repos ([shimmer](https://github.com/tonyandrewmeyer/shimmer), [cascade](https://github.com/tonyandrewmeyer/cascade), [cantrip](https://tonyandrewmeyer.github.io/cantrip), and [borescope](https://github.com/tonyandrewmeyer/borescope)) plus my `*-operator` charm repos, posting a comment on every Dependabot PR. I deliberately used a cheap model, because a bot that comments on every dependency bump in every repo needs to be cheap to run.
+From mid-June it ran every two hours from cron on my laptop, against four personal repos ([shimmer](https://github.com/tonyandrewmeyer/shimmer), [cascade](https://github.com/tonyandrewmeyer/cascade), [cantrip](https://tonyandrewmeyer.github.io/cantrip), and [borescope](https://github.com/tonyandrewmeyer/borescope)) plus my `*-operator` charm repos, posting a comment on every Dependabot PR. I deliberately used a cheap model, because a bot that comments on every dependency bump in every repo needs to be cheap to run. In retrospect, I probably went too far towards cheap, and a more capable model could still have been just as affordable. I also never changed the model. Llama 3.3 70B wrote every comment from the first pilot run in June to the last one in November, and given how quickly things change, that was probably a mistake.
 
 ## What happened
 
@@ -41,6 +47,10 @@ Every evaluation I ran scored whether the comments were right. None of them aske
 ### Look at which PRs you actually get before you build
 
 Most of the PRs the pilot reviewed were ruff, ty, tox, `setup-uv`, and `codeql-action` bumps. "How does this change affect our use of it?" barely applies to a linter or a GitHub Action, and the runtime dependency bumps I actually cared about were a small part of the total. The idea still makes sense for those, but commenting on every bump meant that most of what the bot posted was noise.
+
+There's some irony here, too. We've put a lot of work into minimising our dependencies, and removed more of them over these five months, which makes a tool like this less useful. The dependencies we're most willing to have are things like GitHub Actions and tooling, and for those, "how does the change intersect with our use of it?" was entirely the wrong question. The risk with those is in running them. This is also where the charm security idea got muddled in. Running ruff against our code could absolutely be checked to see whether it did anything bad, as could whether the `setup-uv` action installed something it shouldn't, but the project was never properly focused that way.
+
+I never really gave the project the attention it needed, and instead let myself get distracted by the correctness work above.
 
 ### Keep the speculative idea separate from the narrow one
 
