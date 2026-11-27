@@ -1,32 +1,32 @@
-# Nine charms, one decision, and what the agents actually built
+# Nine prototype charms for the own-a-charm decision
 
-For the last few months I've been trying to get my team to commit to owning a charm: building it, maintaining it, and carrying the pager for it on our production cloud. Everyone agreed with the principle and nobody agreed on *which* workload, so I was asked to prototype a few and come back with a concrete recommendation.
+For the last few months I've been trying to get my team to commit to owning a charm: building it, maintaining it, and carrying the pager for it on our production cloud. Everyone agreed with the principle but nobody agreed on *which* workload, so I was asked to prototype a few and come back with a recommendation.
 
-That's the framing, and the framing is the least interesting part of this. To make the candidates comparable I had agents build a real charm for each one, and because I was building nine of them anyway I varied the agent harness, the model, and how much supervision each run got. The selection exercise wanted a feel for each workload's shape; what I actually ended up with was a natural experiment in how far different tooling gets at charm authoring, with the workload as the variable I couldn't control.
+To make the candidates comparable, I had agents build a real charm for each one. Since I was building nine of them anyway, I also varied the agent harness, the model, and how much supervision each run got. The selection exercise only needed a feel for each workload's shape, but what I ended up with is also a (loosely controlled) experiment in how far different tooling gets with charm authoring. That's what most of this write-up is about.
 
-The decision, for completeness: the team picked HedgeDoc, and the build is now cycle work rather than something in this repository. Charm quality was explicitly **not** a scoring input - the rubric said so in writing, precisely because I knew the prototypes were built to wildly different standards and I didn't want that leaking into a decision about workloads. So the ranking below had no influence on the pick, which is the only reason I'm comfortable publishing it.
+The team picked HedgeDoc, and the build is now cycle work rather than something in this repository. Charm quality was explicitly not a scoring input (the rubric said so in writing), because I knew the prototypes were built to very different standards and I didn't want that leaking into a decision about workloads. The ranking below had no influence on the pick, which is the main reason I'm comfortable publishing it.
 
 ## Goals
 
 * Give each candidate workload a real charm, so the team could poke at something rather than read a paragraph about Pebble layers.
-* Vary harness and model deliberately, and see whether the differences show up in the code.
-* Find out what an unattended agent in a VM with a live Juju controller can actually finish.
-* Work out which parts of "is this a good charm?" survive automated checking and which don't.
+* Deliberately vary the harness and model, and see whether the differences show up in the code.
+* Find out what an unattended agent in a VM with a live Juju controller can finish.
+* Work out which parts of "is this a good charm?" can be checked automatically and which can't.
 
 ## The process
 
-1. **Category recon.** Fifteen candidates across seven categories, each checked for an existing Canonical or community charm. Anything already owned and healthy was dropped.
-2. **Filter pass.** Five filters: complex enough to be worth doing (so no 12-factor drop-ins), not so complex it eats the team, plausible production users, no existing owner, and an upstream that won't fight us. Eight survived.
-3. **Desk recon per survivor.** A page each on the upstream stack, the state of any existing charm, and an honest weekly-maintenance estimate.
-4. **A prototype per survivor.** This is the part this write-up is about.
-5. **A score-free brief to the team, plus two independent scoring passes.** Seven axes, ten points each.
-6. **A meeting, and a decision.**
+1. I started with fifteen candidates across seven categories, and checked each one for an existing Canonical or community charm. Anything already owned and healthy was dropped.
+2. Five filters cut that down to eight: complex enough to be worth doing (so no 12-factor drop-ins), not so complex that it eats the team, plausible production users, no existing owner, and an upstream that won't fight us.
+3. For each of the eight, I wrote up a page on the upstream stack, the state of any existing charm, and a realistic estimate of the weekly maintenance.
+4. Each survivor got a prototype charm, which is what the rest of this is about. (The ninth, ODK Central, came later. After the shortlisting was done, someone on the team suggested a forms solution, and ODK Central was the one chosen from that category.)
+5. The team got a brief with no scores in it, and there were two independent scoring passes (seven axes, ten points each).
+6. We had a meeting, and made a decision.
 
-Worth recording, because it's the sort of thing these write-ups usually leave out: the scores didn't drive the outcome. The meeting largely set both totals aside and argued the pick on dogfooding, which is one axis of seven. It happened to land on the same answer both sheets did, so nobody minded, but an axis the room overrides is an axis the rubric isn't capturing.
+The scores didn't drive the outcome, though. The meeting mostly set both totals aside and argued the pick on dogfooding, which is only one of the seven axes. It landed on the same answer that both score sheets had, so nobody minded, but if the room ends up ignoring the totals and arguing on a single axis, I think the rubric isn't weighting things the way the team does.
 
 ## The prototypes
 
-All nine are public in my namespace. Every one carries a disclaimer saying it's AI-generated, unreviewed, and not for production, and I mean it.
+All nine are public in my namespace. Every one has a disclaimer saying that it's AI-generated, unreviewed, and not for production use (and that's true).
 
 | Charm | Built | Harness | Model | Charms | `src` LOC | Unit tests |
 |---|---|---|---|---|---|---|
@@ -40,39 +40,64 @@ All nine are public in my namespace. Every one carries a disclaimer saying it's 
 | [flagsmith-operators](https://github.com/tonyandrewmeyer/flagsmith-operators) | 23 Jun | oh-my-pi, then Claude Code | Opus 4.8, then Opus 4.7 | 4 (k8s) | 1,486 | 60 |
 | [odk-central-operators](https://github.com/tonyandrewmeyer/odk-central-operators) | 26 Aug | Claude Code | Opus 5 | 3 + 2 charm libs (k8s) | 2,535 | 180 |
 
-Every one of these ran in a disposable multipass VM with a bootstrapped controller. Mastodon, Sentry, DependencyTrack and HedgeDoc were interactive, with me steering. The four GLM and oh-my-pi runs and ODK Central were unattended: a long self-contained build prompt, one round of questions at the start, and no checkpoints after that. (Windmill's opencode run also used Haiku 4.5 as its small model for one call, and GLM 5.2 for the other 413.)
+All of these ran in a disposable Multipass VM with a bootstrapped controller. Mastodon, Sentry, DependencyTrack, and HedgeDoc were interactive, with me steering. The four GLM and oh-my-pi runs and ODK Central were unattended: a long self-contained build prompt, one round of questions at the start, and no checkpoints after that. (Windmill's opencode run also used Haiku 4.5 as its small model for one call, and GLM 5.2 for the other 413.)
 
-Provenance took longer to reconstruct than it should have, because I recorded it in VM names rather than in the repositories. The oh-my-pi session exports turned out to carry the model in a base64 blob, and the rest came out of the VMs themselves: Tracecat's build ran under oh-my-pi at 09:43 on 23 June after an opencode session was started and abandoned twelve minutes earlier, one prompt into the build. Its main session is 563 entries and 49.6M tokens over 1h35m, which lines up exactly with the commit span.
+Working out the provenance took longer than it should have, because I recorded it in VM names rather than in the repositories. The oh-my-pi session exports have the model in a base64 blob, and the rest came out of the VMs themselves. For example, Tracecat's build ran under oh-my-pi at 09:43 on 23 June, twelve minutes after an opencode session was started and then abandoned one prompt into the build. Its main session is 563 entries and 49.6M tokens over 1h35m, which lines up with the commit span.
 
 ## How I evaluated them
 
-I cloned all nine, ran every unit suite myself, and read the charm code. All nine suites pass, which turns out to be the least informative thing in this write-up (see below). Beyond that I looked at the things I'd look at in a review: whether there's a reconciler or a pile of per-event handlers, whether status is computed in `collect-status` or assigned imperatively, whether relation removal is handled at all, whether `StoredState` and `defer()` show up, which versions of the charm libraries were reached for, and whether the tests test the charm or a stub of it.
+I cloned all nine, ran every unit test suite myself, and read the charm code. All nine suites pass, which turns out to tell you very little (more on that below). Beyond that, I looked at the things I'd look at in a review: whether there's a reconciler or a pile of per-event handlers, whether status is computed in `collect-status` or set imperatively, whether relation removal is handled at all, whether `StoredState` and `defer()` show up, which versions of the charm libraries were used, and whether the tests test the charm or a stub of it.
 
 ## The ranking
 
-My honest order, best-built first. I'm ranking construction quality, not how impressive the workload is.
+This is my order, best-built first. I'm ranking how well each charm is built, not how impressive the workload is.
 
-**1. ODK Central (Opus 5, Claude Code).** Three charms plus two charm libraries the agent wrote itself to bind them together, because Juju has no shared volume between applications and upstream's one-shot secrets container has no charm equivalent. Backup and restore to S3, secret rotation made visible across a relation, migration gating, and 180 unit tests behind a 95% coverage gate. It's the only prototype where the agent hit a genuine architectural mismatch with upstream and designed around it rather than through it. The one thing I'd push back on is status: 21 imperative `self.unit.status = ...` assignments across the group and no `collect-status` handler anywhere, which is the current recommended shape and is what most of the other prototypes did.
+### 1. ODK Central (Opus 5, Claude Code)
 
-**2. Sentry (Opus 4.8, Claude Code).** The hardest workload by a distance - Kafka, ClickHouse, Snuba, Relay, a taskbroker, and five stateful backends - and it got the furthest, because it had a live model and kept deploying into it. Five charms, `collect_unit_status` in all of them, zero imperative status assignments, a hand-written `sentry_dsn` charm library, and a demo application charm built specifically to prove that library works end to end. It processed a real Sentry event on a live stack. That's a much higher bar than "the tests pass".
+Three charms, plus two charm libraries that the agent wrote itself to tie them together, because Juju has no shared volume between applications and upstream's one-shot secrets container has no charm equivalent. There's backup and restore to S3, secret rotation that's visible across a relation, migration gating, and 180 unit tests behind a 95% coverage gate. It's the only prototype where the agent hit a real architectural mismatch with upstream and designed around it rather than forcing its way through. The one thing I'd push back on is status: there are 21 imperative `self.unit.status = ...` assignments across the charms and no `collect-status` handler anywhere, even though that's the currently recommended approach and most of the other prototypes used it.
 
-**3. Mastodon (Fable 5, Claude Code).** The best single charm in the set, and the most current: `tls-certificates` v4, `charmlibs` packages rather than the deprecated Charmhub `operator_libs_linux`, an `ops` floor of 3.8.1, no `defer()`, no `StoredState`, and a reconciler funnelling every event. A machine charm that builds Ruby via rbenv and manages five long-lived secrets as Juju secrets is not a small ask, and it read as though someone who knew the framework wrote it.
+### 2. Sentry (Opus 4.8, Claude Code)
 
-**4. Flagsmith (Opus 4.8 via oh-my-pi, finished with Claude Code on Opus 4.7).** Four charms, one workload each, `collect_unit_status` throughout, `tls-certificates` v4. It's here rather than higher because of what happened when it was deployed, which is the most useful thing in this whole experiment and gets its own section.
+By far the hardest workload (Kafka, ClickHouse, Snuba, Relay, a taskbroker, and five stateful backends), and it got the furthest, I think because it had a live model and kept deploying into it. Five charms, `collect_unit_status` in all of them, no imperative status assignments, a hand-written `sentry_dsn` charm library, and a demo application charm built specifically to show that the library works end to end. It processed a real Sentry event on a live stack, which is a much higher bar than passing tests.
 
-**5. HedgeDoc (Opus 4.8, Claude Code, 16 subagents).** Right shape, wrong body. The reconciler pattern, the pure-logic split, the `collect-status` handler and a 240-line config surface mapping every option to its upstream variable are all correct and all expensive to redo. But removing the database relation silently drops the charm back to an empty SQLite file and reports `active`, the user-management actions exec without `service_context` so they talk to a different database than the service does, the single-unit guard blocks in status while every unit still starts, and about a third of the charm tests monkeypatch the method they're named for. It's the one I reviewed hardest, because it's the one the team picked.
+### 3. Mastodon (Fable 5, Claude Code)
 
-**6. DependencyTrack (Opus 4.8, Claude Code).** Competent and small. Two charms plus a rock for the frontend, sensible decomposition, 66 tests. Nothing wrong with it and nothing especially ambitious in it.
+The best single charm in the set, and the most up to date: `tls-certificates` v4, `charmlibs` packages rather than the deprecated Charmhub `operator_libs_linux`, an `ops` floor of 3.8.1, no `defer()`, no `StoredState`, and a reconciler that every event goes through. A machine charm that builds Ruby with rbenv and manages five long-lived secrets as Juju secrets is not a small ask, and it reads as though it was written by someone who knows the framework.
 
-**7. Windmill (GLM 5.2 via opencode).** The thinnest of the nine: 17 unit tests across two charms, five distinct relations across the pair, no `collect-status`, and one outright bug - `windmill-worker` sets `ops.ErrorStatus` when a Pebble layer update fails, which Juju will not accept from a charm. It was live-validated against a model, which is more than some managed, and the code is otherwise unobjectionable. There just isn't much of it.
+### 4. Flagsmith (Opus 4.8 via oh-my-pi, finished with Claude Code on Opus 4.7)
 
-**8. Tracecat (GLM 5.2 via oh-my-pi).** The largest single `charm.py` in the set at 899 lines, nine day-2 actions, six secret labels, and 74 unit tests - all of them written against `Harness`, which is deprecated, while seven of the other eight prototypes used Scenario. It also reached for `tls-certificates` v3, has no `collect-status` handler, and observes no `relation-broken` or `relation-departed` events at all, so removing the PostgreSQL, Redis, Temporal or S3 relation leaves the workload running against credentials it no longer has. Lots of code, dated shape.
+Four charms, one workload each, `collect_unit_status` throughout, and `tls-certificates` v4. It's here rather than higher because of what happened when it was deployed, which was the most useful part of the whole exercise and has its own section below.
 
-**9. Zammad (GLM 5.2 via oh-my-pi).** `StoredState` holding the PostgreSQL password and the Redis URL in plaintext, an `ops` floor of 2.10, `tls-certificates` v3, no `collect-status`, and status assigned imperatively in fourteen places across per-event handlers. This is roughly how you'd have written a charm in 2022, and it's the only prototype in the set with `StoredState` in it at all.
+### 5. HedgeDoc (Opus 4.8, Claude Code, 16 subagents)
 
-## The comparison that actually isolates the model
+The overall shape is right, but a lot of the detail is wrong. The reconciler pattern, the split into pure logic, the `collect-status` handler, and a 240-line config surface that maps every option to its upstream variable are all correct, and would all be expensive to redo. However:
 
-Two of these runs are a proper controlled pair, which I didn't plan and am pleased about. Zammad and Flagsmith were both built by oh-my-pi, in the same shape of disposable VM, through OpenRouter, five days apart. The only meaningful difference is the model: `z-ai/glm-5.2` for Zammad, `anthropic/claude-opus-4.8` for Flagsmith.
+* Removing the database relation silently drops the charm back to an empty SQLite file and reports `active`.
+* The user-management actions exec without `service_context`, so they talk to a different database than the service does.
+* The single-unit guard sets blocked status, but every unit still starts.
+* About a third of the charm tests monkeypatch the method they're named for.
+
+I reviewed this one the most carefully, because it's the one the team picked.
+
+### 6. DependencyTrack (Opus 4.8, Claude Code)
+
+Small and competent. Two charms plus a rock for the frontend, a sensible split, and 66 tests. There's nothing wrong with it, although there's nothing especially ambitious in it either.
+
+### 7. Windmill (GLM 5.2 via opencode)
+
+The thinnest of the nine: 17 unit tests across two charms, five distinct relations across the pair, no `collect-status`, and one outright bug (`windmill-worker` sets `ops.ErrorStatus` when a Pebble layer update fails, which Juju won't accept from a charm). It was validated against a live model, which is more than some of the others managed, and the rest of the code is fine. There's just not much of it.
+
+### 8. Tracecat (GLM 5.2 via oh-my-pi)
+
+The largest single `charm.py` in the set at 899 lines, with nine day-2 actions, six secret labels, and 74 unit tests. All of those tests use `Harness`, which is deprecated, while seven of the other eight prototypes used Scenario. It also uses `tls-certificates` v3, has no `collect-status` handler, and doesn't observe any `relation-broken` or `relation-departed` events, so removing the PostgreSQL, Redis, Temporal, or S3 relation leaves the workload running with credentials it no longer has. It's a lot of code, but in an old style.
+
+### 9. Zammad (GLM 5.2 via oh-my-pi)
+
+`StoredState` holding the PostgreSQL password and the Redis URL in plain text, an `ops` floor of 2.10, `tls-certificates` v3, no `collect-status`, and status set imperatively in fourteen places across per-event handlers. This is roughly how you'd have written a charm in 2022, and it's the only prototype with `StoredState` in it at all.
+
+## Harness or model?
+
+I didn't plan it, but two of these runs make a reasonable controlled pair. Zammad and Flagsmith were both built with oh-my-pi, in the same kind of disposable VM, through OpenRouter, five days apart. The only meaningful difference is the model: `z-ai/glm-5.2` for Zammad and `anthropic/claude-opus-4.8` for Flagsmith.
 
 | | Zammad (GLM 5.2) | Flagsmith (Opus 4.8) |
 |---|---|---|
@@ -82,47 +107,45 @@ Two of these runs are a proper controlled pair, which I didn't plan and am pleas
 | Test framework | `Harness` | Scenario |
 | `ops` floor | 2.10 | ~3.7 |
 
-Same harness, same week, same operator, opposite ends of every axis I care about.
+The same harness, in the same week, run by the same person, and they're at opposite ends of everything I was looking at.
 
-The set happens to contain the other half of that experiment too. All three GLM runs are the same model (5.2, through OpenRouter) across two different harnesses - Windmill under opencode, Zammad and Tracecat under oh-my-pi - and they land in the same place as each other: no `collect-status` anywhere, imperative status throughout, `tls-certificates` v3 in the two that use it, `Harness` rather than Scenario in the two that have enough tests to tell. Holding the harness fixed and changing the model moves everything; holding the model fixed and changing the harness moves nothing I can see in the code.
+The set also happens to have the reverse comparison. All three GLM runs are the same model (5.2, through OpenRouter) across two different harnesses: Windmill under opencode, and Zammad and Tracecat under oh-my-pi. They all end up in the same place: no `collect-status` anywhere, imperative status throughout, `tls-certificates` v3 in the two that use it, and `Harness` rather than Scenario in the two that have enough tests to tell. So with the harness fixed, changing the model changed everything, and with the model fixed, changing the harness didn't make any difference that I can see in the code.
 
-My read is that the harness barely matters for the shape of the charm you get, and the model matters enormously - specifically, how recent its sense of "how you write a charm" is. Charm idiom has moved a long way since 2022, and a model that learnt the old shape confidently produces a great deal of clean, well-organised, well-tested code in the wrong pattern.
+I think the harness barely matters for the shape of the charm you get, and the model matters a lot - specifically, how recent its idea of "how you write a charm" is. Charm idioms have changed a lot since 2022, and a model that learnt the old way will confidently produce plenty of clean, well-organised, well-tested code that uses the wrong patterns.
 
-That is a somewhat uncomfortable conclusion for a team that writes documentation for a living, because it means the thing determining charm quality is largely outside our control. Although it also means llms.txt and good docs are worth more than they look, since that's the lever we do have (and the [llms.txt experiment](../2026-03-26-llms-txt-docs-experiment/) found the gains were biggest exactly where training data is thinnest).
+That's a somewhat uncomfortable conclusion for a team that writes documentation for a living, since it means the thing that most determines charm quality is largely out of our control. On the other hand, it also means llms.txt and good docs are probably worth more than they look, since that's the lever we do have (and the [llms.txt experiment](../2026-03-26-llms-txt-docs-experiment/) found the gains were biggest where training data is thinnest).
 
-## Green tests tell you almost nothing
+## Passing unit tests don't mean much
 
-All nine unit suites pass. I ran them.
+All nine unit test suites pass (I ran them).
 
-Flagsmith's four suites were green when the agent ran out of budget, and three of its four workloads were broken on a live deploy:
+Flagsmith's four suites were passing when the agent ran out of budget, but three of its four workloads were broken when deployed:
 
 * `flagsmith-frontend` used a hard-coded `working-dir: /app` when the upstream image's WORKDIR is `/srv/bt`, so Pebble failed with `fork/exec /usr/bin/node: no such file or directory`.
 * `flagsmith-task-processor` crash-looped because the Pebble HTTP probes hit `localhost` and Django returned 400 `DisallowedHost`, with no `DJANGO_ALLOWED_HOSTS` set.
-* `flagsmith-edge-proxy` blocked because `ALLOW_ORIGINS=*` isn't valid for a setting upstream parses as a JSON list.
+* `flagsmith-edge-proxy` blocked because `ALLOW_ORIGINS=*` isn't valid for a setting that upstream parses as a JSON list.
 
-None of the three is catchable by a unit test, in principle rather than by omission. All three are facts about someone else's container image. The oh-my-pi run spent roughly $200 and several hours of live debugging without finding any of them, because it stayed in the charm-side error (`relation-changed` failing) and never sampled the workload container's logs, where all three errors were sitting in plain text. Finishing it off from Claude Code took a single turn: read the last messages, pull the unit's logs once, three distinct error lines, three fixes, repack, refresh, all units active.
+None of these could be caught by a unit test, even in principle, since they're all facts about someone else's container image. The oh-my-pi run spent roughly US$200 and several hours of live debugging without finding any of them. It stayed focused on the charm-side error (`relation-changed` failing) and never looked at the workload container's logs, where all three errors were in plain text. Finishing it off with Claude Code took a single turn: read the last few messages, pull the unit's logs once, find three distinct error lines, make three fixes, repack, refresh, and all the units were active.
 
-The lesson isn't "Claude is faster". oh-my-pi did the bulk of the work and was on the right track. It's that the last 5% of a charm lives in the workload container, the charm-side error message looks nothing like the cause, and an agent that plateaus will plateau there. If I were writing the build prompt again, the one instruction I'd add is: when a unit errors, read the workload container's log before you read the charm's.
+I don't think the takeaway is that Claude is faster. oh-my-pi did most of the work and was on the right track. The problem is that the last 5% of a charm is in the workload container, the charm-side error looks nothing like the cause, and an agent that gets stuck is likely to get stuck there. If I were writing the build prompt again, the one instruction I'd add is: when a unit errors, read the workload container's log before you read the charm's.
 
-The same point in a different shape: HedgeDoc's most substantial bespoke artefact is a 154-line Node Prometheus exporter, pushed into the container at reconcile time, run as a second Pebble service with its own health check, with a Grafana dashboard and two alert rules built on top of it. Its premise - "HedgeDoc 1.x does not expose Prometheus metrics natively" - is wrong. Upstream has exposed `hedgedoc_notes`, `hedgedoc_online_users` and friends on the main port for years, behind the same flag the charm already forces on. The exporter is careful, well-written code that degrades properly when the endpoint is unavailable, and it should never have existed. The integration test asserts the exporter's own metric names, so it confirms the workaround works rather than asking whether it's needed.
-
-Agents will write you an excellent solution to a problem you don't have, and nothing in a test suite is going to tell you.
+HedgeDoc has a similar story. Its biggest bespoke piece is a 154-line Node Prometheus exporter that gets pushed into the container at reconcile time and run as a second Pebble service with its own health check, with a Grafana dashboard and two alert rules built on top of it. The premise ("HedgeDoc 1.x does not expose Prometheus metrics natively") is wrong. Upstream has exposed `hedgedoc_notes`, `hedgedoc_online_users`, and others on the main port for years, behind the same flag that the charm already forces on. The exporter is careful, well-written code that degrades properly when the endpoint is unavailable, but it shouldn't exist. The integration test checks the exporter's own metric names, so it confirms that the workaround works rather than whether it's needed, and nothing in a test suite was ever going to flag that.
 
 ## Does workload difficulty explain any of it?
 
-Less than I expected. My prior was that the hard workloads would produce the worse charms, and it went the other way: Sentry is the most complicated thing here and is second on the list, while Windmill (two stateless services and a Postgres queue, which is about as easy as this set gets) is second to last. Zammad and Mastodon are near-identical in shape - a Rails app, background workers, Postgres, Redis, Elasticsearch, on a machine - and sit at opposite ends of the ranking.
+Less than I expected. I assumed the hard workloads would produce worse charms, but it went the other way: Sentry is the most complicated workload here and is second on the list, while Windmill (two stateless services and a Postgres queue, which is about as easy as this set gets) is second to last. Zammad and Mastodon are very similar in shape (a Rails app, background workers, Postgres, Redis, and Elasticsearch, on a machine) and are at opposite ends of the ranking.
 
-What difficulty did change is how much *live* iteration happened. The heavy k8s workloads forced the agent to keep deploying, because nothing about a Kafka-plus-ClickHouse stack comes up first try, and every deploy cycle bought a class of bug that unit tests structurally cannot reach. The easy workloads came up quickly, looked fine, and stopped. Difficulty didn't make the agent better; it made it iterate, and iteration made it better.
+What difficulty did change is how much live iteration happened. The heavy k8s workloads forced the agent to keep deploying, because nothing about a Kafka-plus-ClickHouse stack comes up first time, and each deploy cycle turned up a class of bug that unit tests can't reach. The easy workloads came up quickly, looked fine, and the agent stopped there. I don't think difficulty made the agents better directly, but it made them iterate, and the iteration helped.
 
 ## Caveats
 
-* Nine data points, and the variables aren't cleanly crossed. Only the Zammad/Flagsmith pair isolates one thing.
-* Workload, harness, model, supervision level and my own attention are all confounded outside that pair. The Claude Code runs got more of my time, and that will be worth something.
-* I built the ranking myself, after the decision, knowing which model built what. I did the measurements first and the ranking second, but I can't claim I was blind.
-* All of this is June to August 2026. Model versions move; the specific ordering will not hold.
+* Nine data points, and the variables aren't cleanly crossed. Only the Zammad/Flagsmith pair (for the model) and the three GLM runs (for the harness) isolate one thing each.
+* Outside those, the workload, harness, model, level of supervision, and my own attention are all confounded. The Claude Code runs got more of my time, and that probably counts for something.
+* I did the ranking myself, after the decision, knowing which model built what. I did the measurements first and the ranking second, but it wasn't blind.
+* All of this is from June to August 2026. Models change, and the specific ordering won't hold.
 
 ## What I'd do differently
 
-Record the harness and model in the repository at build time, in a file, not in a VM name. I got all nine in the end, but only by decoding session exports and booting VMs months later, and that is not a thing I should have had to do to answer "what built this?".
+I'd record the harness and model in the repository at build time, in a file, rather than in a VM name. I did get all nine in the end, but only by decoding session exports and booting VMs months later, and I shouldn't have had to do that to answer "what built this?".
 
-And make the build prompt end with a deploy, an integration test that writes something, and a `juju refresh` that checks the something is still there. Every prototype here has a test suite. Only the ones that were made to deploy have any evidence that the charm works.
+I'd also make the build prompt end with a deploy, an integration test that writes some data, and a `juju refresh` that checks the data is still there. Every prototype here has a test suite, but only the ones that were pushed to deploy have any evidence that the charm works.
