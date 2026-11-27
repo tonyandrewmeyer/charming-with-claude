@@ -44,13 +44,11 @@ Nearly every bad comment came from treating "found nothing" as evidence. If the 
 
 Every evaluation I ran scored whether the comments were right. None of them asked whether a comment had changed what I did with the PR, and looking back, I can't point to one that did. That's the question I should have asked in June. (The claims audit is a decent piece of work, but it grew into a big chunk of the system just to keep a cheap model honest, and that doesn't help if the honest output isn't worth reading.)
 
-### Look at which PRs you actually get before you build
+### Look at which PRs you actually get, and what the risk in them is
 
 Most of the PRs the pilot reviewed were ruff, ty, tox, `setup-uv`, and `codeql-action` bumps. "How does this change affect our use of it?" barely applies to a linter or a GitHub Action, and the runtime dependency bumps I actually cared about were a small part of the total. The idea still makes sense for those, but commenting on every bump meant that most of what the bot posted was noise.
 
 There's some irony here, too. We've put a lot of work into minimising our dependencies, and removed more of them over these five months, which makes a tool like this less useful. The dependencies we're most willing to have are things like GitHub Actions and tooling, and for those, "how does the change intersect with our use of it?" was entirely the wrong question. The risk with those is in running them. This is also where the charm security idea got muddled in. Running ruff against our code could absolutely be checked to see whether it did anything bad, as could whether the `setup-uv` action installed something it shouldn't, but the project was never properly focused that way.
-
-I never really gave the project the attention it needed, and instead let myself get distracted by the correctness work above.
 
 ### Keep the speculative idea separate from the narrow one
 
@@ -58,6 +56,6 @@ Because I made the runtime monitor part of the Dependabot comment, it only ever 
 
 ## What's next
 
-I've dropped the Dependabot agent. There are plenty of general-purpose review agents now, and I suspect most of them would review a Dependabot PR at least as well as this did. Once one of them is clearly established, the charm-specific part ("check how this repo actually uses the package; don't bother for tooling bumps") is probably a few lines of instructions or a small skill, rather than a pipeline that I have to keep running.
+I never really gave the project the attention it needed, and instead let myself get distracted by making the comments correct. I've dropped the Dependabot agent. There are plenty of general-purpose review agents now, and I suspect most of them would review a Dependabot PR at least as well as this did. Once one of them is clearly established, the charm-specific part ("check how this repo actually uses the package; don't bother for tooling bumps") is probably a few lines of instructions or a small skill, rather than a pipeline that I have to keep running.
 
 The runtime monitor carries on as its own project, without the Dependabot framing. I haven't seen anyone else deploy a charm under Juju, drive its hooks, and compare what it does before and after a change, so that's the part I think is still worth exploring.
